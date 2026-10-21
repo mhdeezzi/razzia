@@ -102,6 +102,7 @@ export interface TeamFeat {
   liveTov: number;
   tovForced: number;
   timeouts: number;
+  sched: Array<{ opp: number; w: number; date: string; venue: number }>; // calendrier (adversaires, salles)
   homeMarginSum: number;
 }
 
@@ -124,6 +125,7 @@ export interface LeagueFeat {
   presenceTemplate: number[][]; // [rang de minutes 0..12][minute 0..47] probabilité d'être sur le terrain
   stintMean: number;
   and1PerMake: ZoneArr;
+  distFg: number[]; // adresse de la ligue par distance (pied par pied, 0 à 40), lissée
 }
 
 export interface FeatureSet {
@@ -175,7 +177,7 @@ function emptyTeam(id: number): TeamFeat {
   return {
     id, w: 0, games: 0, poss: 0, sec: 0, pts: 0, ptsAllowed: 0, starts: emptyStarts(), trans: emptyStarts(), oppStarts: emptyStarts(),
     oppTrans: emptyStarts(), durSum: 0, durN: 0, oppDurSum: 0, oppDurN: 0, oppFga: zArr(), oppFgm: zArr(), oppExpFgm: zArr(),
-    nonShootFouls: 0, defPoss: 0, shootFoulsDrawnNoMake: 0, liveTov: 0, tovForced: 0, timeouts: 0, homeMarginSum: 0,
+    nonShootFouls: 0, defPoss: 0, shootFoulsDrawnNoMake: 0, liveTov: 0, tovForced: 0, timeouts: 0, homeMarginSum: 0, sched: [],
   };
 }
 
@@ -240,6 +242,7 @@ export function buildFeatures(asOf: string, groupOf: (pid: number) => string): F
     orebN: zArr(), orebOff: zArr(), ftN: 0, ftOff: 0, starts: emptyStarts(), trans: emptyStarts(), durSum: 0, durN: 0, poss: 0,
     nonShoot: 0, defPoss: 0, fta: 0, ftm: 0, homeMargin: 0, games: 0, pts: 0, stintSum: 0, stintN: 0, and1: zArr(),
     presence: Array.from({ length: 13 }, () => new Array(48).fill(0)), presenceN: new Array(13).fill(0),
+    distFga: new Array(41).fill(0), distFgm: new Array(41).fill(0),
   };
   for (const g of ['G', 'W', 'B']) {
     L.groupZoneFga[g] = zArr();
@@ -335,6 +338,9 @@ export function buildFeatures(asOf: string, groupOf: (pid: number) => string): F
       const z = zi(s.zone);
       LX.zoneFga[z]++;
       LX.zoneFgm[z] += s.made;
+      const db = Math.min(40, Math.floor(Math.hypot(s.x, s.y) / 10));
+      LX.distFga[db]++;
+      LX.distFgm[db] += s.made;
       if (s.made && s.ast) LX.zoneAstd[z]++;
       if (s.and1) LX.and1[z]++;
       const grp = groupOf(s.pid);
@@ -380,6 +386,7 @@ export function buildFeatures(asOf: string, groupOf: (pid: number) => string): F
       const w = weightOf(teamGameIdx.get(tg.tm), g.gameId);
       T.w += w;
       T.games++;
+      T.sched.push({ opp, w, date: g.date, venue: g.home.id });
       T.poss += w * tg.poss;
       T.sec += w * gameSec;
       T.pts += w * tg.pts;
@@ -448,6 +455,7 @@ export function buildFeatures(asOf: string, groupOf: (pid: number) => string): F
     presenceTemplate: L.presence.map((row, r) => row.map((v) => (L.presenceN[r] ? v / L.presenceN[r] : 0))),
     stintMean: L.stintN ? L.stintSum / L.stintN : 360,
     and1PerMake: L.and1.map((n, i) => (L.zoneFgm[i] ? n / L.zoneFgm[i] : 0)) as ZoneArr,
+    distFg: smoothDist(L.distFga, L.distFgm),
   };
 
   return {
@@ -460,4 +468,17 @@ export function topLabels(m: Map<string, number>, k = 6): Array<[string, number]
   const arr = [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, k);
   const tot = arr.reduce((s, [, v]) => s + v, 0) || 1;
   return arr.map(([l, v]) => [l, v / tot]);
+}
+
+/** Adresse par distance : fenêtre de ±1 pied, rétrécie vers la moyenne générale quand les tentatives sont rares. */
+function smoothDist(fga: number[], fgm: number[]): number[] {
+  const all = fgm.reduce((a, v) => a + v, 0) / Math.max(1, fga.reduce((a, v) => a + v, 0));
+  return fga.map((_, d) => {
+    let n = 0, m = 0;
+    for (let k = Math.max(0, d - 1); k <= Math.min(40, d + 1); k++) {
+      n += fga[k];
+      m += fgm[k];
+    }
+    return (m + 30 * all) / (n + 30);
+  });
 }

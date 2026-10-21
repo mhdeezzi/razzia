@@ -50,7 +50,7 @@ export async function simulateMatchup(o: SimRunOpts): Promise<{ dir: string; mod
   const dir = join(ROOT, 'out', `${o.date}_${o.away}@${o.home}`);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'model.json'), JSON.stringify(model));
-  writeFileSync(join(dir, 'summary.json'), JSON.stringify({ ...summary, insights: model.insights, meta: { dataThrough: model.meta.dataThrough, gamesUsed: model.meta.gamesUsed, date: model.meta.date } }));
+  writeFileSync(join(dir, 'summary.json'), JSON.stringify({ ...summary, insights: model.insights, meta: { dataThrough: model.meta.dataThrough, gamesUsed: model.meta.gamesUsed, date: model.meta.date, builtAt: model.meta.builtAt, lineupsConfirmed: model.home.players.some((p) => p.notes.includes('titulaire annoncé ce soir')) } }));
   updateIndex({ dir: `${o.date}_${o.away}@${o.home}`, date: o.date, away: o.away, home: o.home, n: o.n, pHome: summary.pHome, builtAt: model.meta.builtAt });
   writeFileSync(
     join(dir, 'typical.json'),

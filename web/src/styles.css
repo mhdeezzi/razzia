@@ -367,6 +367,50 @@ a.row:hover .mark { transform: scale(1.06); }
 .oc-bar span { display: block; height: 6px; border-radius: 4px; background: linear-gradient(90deg, var(--blue), var(--cyan)); transform-origin: left; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms + 0.1s); }
 .oc-odds { text-align: right; color: var(--text-2); }
 
+/* Mise en page des résultats : colonne « En feu » à droite */
+.res-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.hot { position: sticky; top: 88px; border-radius: var(--r-card); padding: 20px; display: grid; gap: 16px;
+  background: radial-gradient(420px 260px at 50% -10%, rgba(255, 70, 50, 0.22), transparent 70%), linear-gradient(180deg, #160a0a, #0b0708);
+  border: 1px solid rgba(255, 82, 64, 0.35); box-shadow: 0 0 0 1px rgba(255, 82, 64, 0.06), 0 24px 60px rgba(255, 50, 30, 0.08); animation: rise 0.6s var(--ease) both; }
+.hot-head { display: flex; gap: 12px; align-items: center; }
+.hot-flame { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: #fff; flex: none;
+  background: linear-gradient(160deg, #ff8a3d, #ff3b30 55%, #b3121f); box-shadow: 0 8px 24px rgba(255, 59, 48, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+.hot-flame svg { animation: flicker 1.8s ease-in-out infinite; transform-origin: 50% 90%; }
+.hot-title { font-size: 20px; font-weight: 750; letter-spacing: -0.03em; color: #ff5a4a; }
+.hot-sub { font-size: 12.5px; color: #c9a4a0; }
+.hot-empty { color: var(--text-2); font-size: 14px; }
+.hot-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.hot-card { border-radius: 14px; padding: 14px; background: rgba(255, 70, 50, 0.06); border: 1px solid rgba(255, 82, 64, 0.18); display: grid; gap: 10px;
+  transition: transform 0.25s var(--ease), border-color 0.25s, background 0.25s; animation: rise 0.5s var(--ease) both; animation-delay: calc(0.15s + var(--i, 0) * 80ms); }
+.hot-card:hover { transform: translateY(-2px); border-color: rgba(255, 82, 64, 0.45); background: rgba(255, 70, 50, 0.1); }
+.hot-top { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+.hot-face { position: relative; }
+.face { width: 56px; height: 56px; border-radius: 999px; overflow: hidden; display: grid; place-items: center; background: radial-gradient(circle at 50% 30%, #3a1d1b, #120a0a);
+  box-shadow: 0 0 0 2px #ff4a3a, 0 0 18px rgba(255, 74, 58, 0.45); }
+.face img { width: 140%; height: auto; margin-top: 18%; }
+.face-init { font: 700 16px var(--mono); color: #ffb3aa; }
+.hot-team { position: absolute; right: -6px; bottom: -4px; }
+.hot-team .mark-sm { width: 24px; height: 24px; }
+.hot-name { font-weight: 700; font-size: 15px; line-height: 1.2; }
+.hot-flames { display: flex; gap: 2px; margin-top: 4px; color: rgba(255, 90, 74, 0.25); }
+.hot-flames .on { color: #ff4a3a; filter: drop-shadow(0 0 4px rgba(255, 74, 58, 0.7)); }
+.hot-p { display: grid; justify-items: end; line-height: 1; }
+.hot-p .mono { font-size: 26px; font-weight: 700; color: #ff5a4a; letter-spacing: -0.04em; }
+.hot-p small { font-size: 10.5px; color: #c9a4a0; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+.hot-line { font-size: 13px; color: var(--text-2); }
+.hot-line b { color: var(--text); }
+.hot-why { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.hot-why li { font-size: 12.5px; color: #e9c9c4; padding-left: 16px; position: relative; }
+.hot-why li::before { content: ''; position: absolute; left: 2px; top: 0.55em; width: 6px; height: 6px; border-radius: 2px; background: #ff4a3a; transform: rotate(45deg); }
+
+/* Compositions non officielles (bleu) */
+.notice { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-radius: var(--r-card); background: linear-gradient(90deg, rgba(61, 139, 255, 0.16), rgba(61, 139, 255, 0.06));
+  border: 1px solid rgba(61, 139, 255, 0.45); color: #9cc4ff; animation: rise 0.5s var(--ease) both; }
+.notice > div { flex: 1; }
+.notice-title { color: #cfe1ff; font-weight: 700; margin-bottom: 2px; }
+.notice p:last-child { font-size: 13.5px; color: #a9c6ee; }
+.notice .btn { flex: none; }
+
 /* Match typique */
 .typ { display: grid; gap: 22px; }
 .typ-score { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; }
@@ -490,6 +534,7 @@ a.row:hover .mark { transform: scale(1.06); }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 @keyframes reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes flicker { 0%, 100% { transform: scale(1) rotate(-2deg); } 30% { transform: scale(1.08, 1.12) rotate(2deg); } 60% { transform: scale(0.97, 1.04) rotate(-1deg); } }
 @keyframes rot { to { transform: rotate(360deg); } }
 @keyframes vs { from { opacity: 0; transform: skewX(-12deg) scale(0.7) translateY(8px); } to { opacity: 1; transform: skewX(-12deg); } }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 61, 61, 0.55); } 70% { box-shadow: 0 0 0 7px rgba(255, 61, 61, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 61, 61, 0); } }
@@ -503,6 +548,8 @@ a.row:hover .mark { transform: scale(1.06); }
 }
 
 @media (max-width: 1100px) {
+  .res-layout { grid-template-columns: 1fr; }
+  .hot { position: static; order: -1; }
   .thead, .row { grid-template-columns: 74px minmax(0, 1fr) 120px 130px 20px; }
   .thead .c-total, .row .cell-total { display: none; }
   .match-grid { grid-template-columns: 1fr; }
@@ -546,6 +593,7 @@ a.row:hover .mark { transform: scale(1.06); }
   .pick { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 26px 18px; gap: 18px; }
   .pick-tags, .pick-stats { justify-content: center; }
   .tiles, .ladders { grid-template-columns: 1fr; }
+  .notice { flex-wrap: wrap; }
   .outcomes li { grid-template-columns: minmax(0, 1fr) 54px; gap: 6px 12px; }
   .oc-freq { grid-column: 1 / -1; grid-row: 2; }
   .outcomes li > span:last-child { grid-column: 2; grid-row: 1; justify-self: end; }
