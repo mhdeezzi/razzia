@@ -1,12 +1,45 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { resolve } from 'node:path';
 
-// Les résultats de simulation sont servis tels quels : /<match>/typical.json, /<match>/summary.json, /index.json.
-// En local : out/ (sorties brutes de `npm run sim`). Pour le site déployé : site-data/ (rempli par `npm run publish-site`).
-// Config à la racine : un `vite build` lancé sans options (préréglage Vite de Vercel) produit le même site.
-export default defineConfig(({ command }) => ({
-  root: resolve(import.meta.dirname, 'viewer'),
-  publicDir: resolve(import.meta.dirname, command === 'build' ? 'site-data' : 'out'),
-  server: { port: 5178, open: true },
-  build: { outDir: resolve(import.meta.dirname, 'dist'), emptyOutDir: true },
-}));
+// Web app (web/) : programme, fiches de match, simulations à la demande. Les fonctions serveur sont dans api/
+// (déployées par Vercel) ; en local, ce plugin les sert aussi sous /api.
+const root = import.meta.dirname;
+
+function localApi(): Plugin {
+  return {
+    name: 'local-api',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const m = req.url?.match(/^\/api\/([a-z]+)/);
+        if (!m) return next();
+        try {
+          const mod = await server.ssrLoadModule(resolve(root, 'api', `${m[1]}.ts`));
+          const handler = mod[req.method ?? 'GET'];
+          if (!handler) return next();
+          const chunks: Buffer[] = [];
+          for await (const c of req) chunks.push(c as Buffer);
+          const request = new Request(`http://localhost${req.url}`, {
+            method: req.method,
+            headers: req.headers as Record<string, string>,
+            body: req.method === 'GET' || req.method === 'HEAD' ? undefined : Buffer.concat(chunks),
+          });
+          const r: Response = await handler(request);
+          res.statusCode = r.status;
+          r.headers.forEach((v, k) => res.setHeader(k, v));
+          res.end(Buffer.from(await r.arrayBuffer()));
+        } catch (e) {
+          next(e);
+        }
+      });
+    },
+  };
+}
+
+export default defineConfig({
+  root: resolve(root, 'web'),
+  publicDir: false,
+  plugins: [localApi()],
+  esbuild: { jsx: 'automatic' },
+  server: { port: 5180 },
+  build: { outDir: resolve(root, 'dist'), emptyOutDir: true },
+});
