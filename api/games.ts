@@ -38,6 +38,7 @@ export async function GET(request: Request): Promise<Response> {
           city: t.team?.location ?? '',
           name: t.team?.name ?? t.team?.shortDisplayName ?? '',
           color: t.team?.color ? `#${t.team.color}` : undefined,
+          logo: t.team?.logo,
           record: t.records?.find((r: any) => r.type === 'total')?.summary ?? t.records?.[0]?.summary,
           homeAwayRecord: t.records?.find((r: any) => r.type === (ha === 'home' ? 'home' : 'road'))?.summary,
           score: num(t.score),

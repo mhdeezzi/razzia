@@ -7,6 +7,7 @@ export interface Team {
   city: string;
   name: string;
   color?: string;
+  logo?: string;
   record?: string;
   homeAwayRecord?: string;
   score?: number;
@@ -173,6 +174,10 @@ export const pending = {
     }
   },
 };
+
+// Logos servis par ESPN, qui utilise ses propres codes pour quelques franchises.
+const ESPN_CODE: Record<string, string> = { GSW: 'gs', NYK: 'ny', SAS: 'sa', NOP: 'no', UTA: 'utah', WAS: 'wsh' };
+export const teamLogo = (tri: string) => `https://a.espncdn.com/i/teamlogos/nba/500/${ESPN_CODE[tri] ?? tri.toLowerCase()}.png`;
 
 export const teamColor = (t: { tri: string; color?: string }) => TEAMS.find((x) => x.tri === t.tri)?.color ?? t.color ?? '#3a3d44';
 

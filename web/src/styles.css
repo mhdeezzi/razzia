@@ -168,6 +168,8 @@ a.row:hover .mark { transform: scale(1.06); }
   background: radial-gradient(circle at 32% 26%, color-mix(in srgb, var(--tc) 70%, #000) 0%, color-mix(in srgb, var(--tc) 28%, #07080a) 62%, #07080a 100%);
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tc) 85%, #fff 15%), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 4px 14px rgba(0, 0, 0, 0.4);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); transition: transform 0.3s var(--spring); }
+.mark img { width: 68%; height: 68%; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35)); }
+.mark.has-logo { background: radial-gradient(circle at 32% 26%, #1c1f26 0%, #0c0d10 70%); }
 .mark-sm { width: 28px; height: 28px; font-size: 8.5px; }
 .mark-md { width: 44px; height: 44px; font-size: 11px; }
 .mark-lg { width: 64px; height: 64px; font-size: 15px; }

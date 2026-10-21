@@ -1,6 +1,6 @@
 // Briques partagées : navigation, pastille d'équipe, onglets à curseur glissant, anneau de probabilité, compteur animé.
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
-import { teamColor, type Team } from './data.ts';
+import { teamColor, teamLogo, type Team } from './data.ts';
 
 export function navigate(to: string): void {
   history.pushState(null, '', to);
@@ -37,11 +37,14 @@ export function Link({ href, className, children, replace, style }: { href: stri
 
 const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Pastille d'équipe : tricode dans un disque cerclé de la couleur du club (pas de logos officiels). */
-export function TeamMark({ team, size = 'md' }: { team: Pick<Team, 'tri' | 'color'>; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+/** Pastille d'équipe : logo du club dans un disque cerclé de sa couleur ; tricode si le logo manque. */
+export function TeamMark({ team, size = 'md' }: { team: Pick<Team, 'tri' | 'color' | 'logo'>; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+  const [failed, setFailed] = useState(false);
+  const src = team.logo ?? teamLogo(team.tri);
+  const logo = !failed;
   return (
-    <span className={`mark mark-${size}`} style={{ '--tc': teamColor(team) } as CSSProperties} aria-hidden="true">
-      {team.tri}
+    <span className={`mark mark-${size}${logo ? ' has-logo' : ''}`} style={{ '--tc': teamColor(team) } as CSSProperties} aria-hidden="true">
+      {logo ? <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} /> : team.tri}
     </span>
   );
 }
