@@ -4,7 +4,7 @@
     {
       "name": "viewer",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--config", "viewer/vite.config.ts", "--port", "5178", "--strictPort"],
+      "runtimeArgs": ["vite", "--port", "5178", "--strictPort"],
       "port": 5178
     }
   ]

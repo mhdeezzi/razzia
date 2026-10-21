@@ -75,6 +75,10 @@ export class HttpError extends Error {
   }
 }
 
+// Hôtes injoignables depuis la machine courante (ex. SIMLAB_OFFLINE_HOSTS=stats.nba.com sur GitHub Actions) :
+// aucune requête, on sert le cache même périmé (instantané envoyé depuis une machine qui y a accès).
+const OFFLINE_HOSTS = new Set((process.env.SIMLAB_OFFLINE_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean));
+
 export async function fetchJson<T = any>(url: string, opts: FetchOpts = {}): Promise<T> {
   const ns = opts.namespace ?? new URL(url).host;
   const key = opts.cacheKey ?? createHash('sha1').update(url).digest('hex');
@@ -82,6 +86,23 @@ export async function fetchJson<T = any>(url: string, opts: FetchOpts = {}): Pro
   const cached = readCache<T>(ns, key, ttl);
   if (cached !== undefined) return cached;
 
+  const host = new URL(url).host;
+  if (OFFLINE_HOSTS.has(host)) {
+    const stale = readCache<T>(ns, key);
+    if (stale !== undefined) return stale;
+    throw new HttpError(404, url);
+  }
+  try {
+    return await fetchFresh<T>(url, ns, key, opts);
+  } catch (e) {
+    // Source en panne ou bloquée : mieux vaut des données de la veille que pas de données.
+    const stale = readCache<T>(ns, key);
+    if (stale !== undefined) return stale;
+    throw e;
+  }
+}
+
+async function fetchFresh<T>(url: string, ns: string, key: string, opts: FetchOpts): Promise<T> {
   const host = new URL(url).host;
   const retries = opts.retries ?? 4;
   let lastErr: unknown;

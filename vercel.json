@@ -3,5 +3,5 @@
   "framework": null,
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
-  "outputDirectory": "viewer/dist"
+  "outputDirectory": "dist"
 }
