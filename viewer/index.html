@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SimLab — match typique</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand"><span class="logo">◉</span> SimLab <span class="muted">NBA</span></div>
+      <select id="gamePick" aria-label="Simulation"></select>
+      <nav class="tabs">
+        <button data-tab="replay" class="active">Match typique 2D</button>
+        <button data-tab="dash">Analyse des sims</button>
+      </nav>
+    </header>
+    <main>
+      <section id="replay" class="tab active">
+        <div class="stage-wrap"><canvas id="stage" width="1920" height="1080"></canvas></div>
+        <div class="controls">
+          <button id="play" title="Lecture / pause (espace)">▶</button>
+          <div class="speeds">
+            <button data-speed="1">1×</button><button data-speed="2" class="on">2×</button><button data-speed="4">4×</button><button data-speed="8">8×</button>
+          </div>
+          <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Position" />
+          <div class="jump">
+            <button data-q="1">Q1</button><button data-q="2">Q2</button><button data-q="3">Q3</button><button data-q="4">Q4</button><button data-q="end">Fin</button>
+          </div>
+          <span id="time" class="muted">0:00</span>
+          <button id="rec" title="Exporter la vidéo (WebM)">● Export vidéo</button>
+        </div>
+      </section>
+      <section id="dash" class="tab"></section>
+    </main>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

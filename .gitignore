@@ -1,0 +1,9 @@
+node_modules/
+viewer/dist/
+.DS_Store
+*.log
+
+# Données téléchargées et résultats (régénérés par `npm run ingest` / `npm run sim`)
+data/cache/
+data/logs/
+out/
