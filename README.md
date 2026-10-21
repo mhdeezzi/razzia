@@ -99,6 +99,21 @@ Le workflow « Contrôle de justesse » (`.github/workflows/backtest.yml`) relan
 chaque modification du moteur : part de bons vainqueurs, Brier, et **calibration par tranche de confiance**
 (quand le moteur annonce 70-80 %, le favori gagne-t-il vraiment 70-80 % du temps ?), modèle et marché côte à côte.
 
+Dernier contrôle (120 matchs de janvier à avril 2026, 600 simulations chacun), avant / après les améliorations du
+moteur (distance, duels, fatigue, calendrier, absences) :
+
+| Mesure | Avant | Après | Marché (clôture) |
+|---|---|---|---|
+| Bon vainqueur annoncé | 65,8 % | 65,8 % | 70,0 % |
+| Brier vainqueur | 0,2160 | 0,2154 | 0,1938 |
+| Mélange 50/50 avec le marché | 0,2020 | 0,2007 | n/a |
+| Erreur absolue total / biais | 15,60 / -3,37 | 15,33 / -2,14 | 14,85 |
+| Écart modèle/ligne ≥ 3 pts gagnant au spread | 54,1 % (61) | 55,9 % (59) | n/a |
+
+Gains réels mais modestes, dans la marge d'erreur d'un échantillon de 120 matchs ; la calibration par tranche reste
+trop bruitée pour justifier une recalibration (`calA`/`calB` laissés à l'identité). Prochaines mesures : échantillon
+plus large et mélange avec le marché pour la probabilité affichée.
+
 `npm run backtest` rejoue des matchs passés et mesure (dernier run : voir `out/backtests/`) :
 
 - statistiques d'équipe simulées vs réelles (FGA, FG%, 3PA, 3P%, FTA, pertes, rebonds, passes…) ;
