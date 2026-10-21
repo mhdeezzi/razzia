@@ -144,6 +144,20 @@ npm run sim -- --game AWAY@HOME --date AAAA-MM-JJ --out "Nom Joueur" --in "Autre
 `--out` / `--in` forcent un statut (annonce tardive). Statuts ESPN : Out = absent, Questionable = 50 %,
 Doubtful = 15 %, Day-To-Day = 65 % (tirage par simulation).
 
+### Mise en ligne (Vercel)
+
+Le site déployé est statique : Vercel construit le viewer (`npm run build`, voir `vercel.json`) et sert les
+résultats versionnés dans `site-data/`. Les sources (stats.nba.com, cdn.nba.com) bloquent souvent les IP de
+serveurs, donc les simulations tournent sur une machine qui y a accès, puis :
+
+```
+npm run publish-site -- --since AAAA-MM-JJ   # copie index + summary/typical de out/ vers site-data/
+git add site-data && git commit -m "Simulations du AAAA-MM-JJ" && git push   # Vercel redéploie seul
+```
+
+`node src/dev/probe.ts` teste l'accès à chaque source depuis la machine courante (le workflow
+« Accès aux sources » fait le même test depuis GitHub Actions).
+
 ## 7. Autres sports
 
 `src/core/` (aléa reproductible), le runner Monte Carlo, la sélection du match typique, l'agrégation, la

@@ -14,7 +14,9 @@
     "backtest": "node src/cli/backtest.ts",
     "viewer": "vite --config viewer/vite.config.ts",
     "typecheck": "tsc --noEmit",
-    "props-backtest": "node src/cli/propsbacktest.ts"
+    "props-backtest": "node src/cli/propsbacktest.ts",
+    "build": "vite build --config viewer/vite.config.ts",
+    "publish-site": "node src/cli/publish.ts"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
