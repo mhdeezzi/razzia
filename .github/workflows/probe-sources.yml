@@ -14,3 +14,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
       - run: node src/dev/probe.ts
+        env:
+          # Requêtes supplémentaires dont on affiche le début de la réponse (diagnostic de la web app).
+          PROBE_EXTRA: >-
+            https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261021-20261027&limit=300
+            https://simbet.vercel.app/api/games?days=7
+            https://simbet-mhdeezzi.vercel.app/api/games?days=7
