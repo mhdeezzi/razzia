@@ -7,9 +7,15 @@ const REPO = process.env.GH_REPO ?? 'mhdeezzi/simbet';
 const WORKFLOW = 'simulate.yml';
 const BRANCH = 'resultats';
 
+// Noms acceptés pour la clé, espaces et retours à la ligne collés par erreur retirés.
+const TOKEN = (process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN ?? process.env.GH_PAT ?? '').trim();
+
 function gh(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = process.env.GH_TOKEN;
-  if (!token) throw new Error('GH_TOKEN manquant dans les variables Vercel');
+  const token = TOKEN;
+  if (!token)
+    throw new Error(
+      `Clé GitHub absente de ce déploiement (environnement ${process.env.VERCEL_ENV ?? 'inconnu'}). Dans Vercel : Settings, Environment Variables, ajouter GH_TOKEN en cochant Production et Preview, puis redéployer.`,
+    );
   return fetch(`https://api.github.com/repos/${REPO}${path}`, {
     ...init,
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(init.headers ?? {}) },
@@ -80,6 +86,9 @@ export async function POST(request: Request): Promise<Response> {
       method: 'POST',
       body: JSON.stringify({ ref: 'main', inputs: { date: k.date, away: k.away, home: k.home, request_id: req } }),
     });
+    if (r.status === 401) return bad('Clé GitHub refusée (401) : elle est invalide ou expirée. Générer une nouvelle clé et la remplacer dans Vercel.', 502);
+    if (r.status === 403 || r.status === 404)
+      return bad(`Clé GitHub sans les droits nécessaires (${r.status}) : elle doit donner accès au dépôt ${REPO} avec la permission Actions en lecture et écriture.`, 502);
     if (!r.ok) return bad(`GitHub a refusé le lancement (${r.status}) : ${(await r.text()).slice(0, 200)}`, 502);
     return Response.json({ status: 'queued', req }, { headers: noStore });
   } catch (e) {

@@ -19,11 +19,15 @@ export async function GET(request: Request): Promise<Response> {
   const days = Math.min(10, Math.max(1, Number(new URL(request.url).searchParams.get('days') ?? 7) || 7));
   const start = new Date();
   const dates = Array.from({ length: days }, (_, i) => etDate(new Date(start.getTime() + i * 864e5)));
-  const range = `${dates[0].replaceAll('-', '')}-${dates[dates.length - 1].replaceAll('-', '')}`;
   try {
-    const [board, inj] = await Promise.all([json(`${SITE}/scoreboard?dates=${range}&limit=300`), json(`${SITE}/injuries`).catch(() => ({ injuries: [] }))]);
+    // Une requête par jour : ESPN refuse les plages de dates (400).
+    const [days, inj] = await Promise.all([
+      Promise.all(dates.map((d) => json(`${SITE}/scoreboard?dates=${d.replaceAll('-', '')}`))),
+      json(`${SITE}/injuries`).catch(() => ({ injuries: [] })),
+    ]);
+    const events = days.flatMap((b) => b.events ?? []).filter((e: any, i: number, all: any[]) => all.findIndex((x) => x.id === e.id) === i);
     const nameToTri = new Map<string, string>();
-    const games = (board.events ?? []).map((e: any) => {
+    const games = events.map((e: any) => {
       const c = e.competitions?.[0] ?? {};
       const side = (ha: 'home' | 'away') => {
         const t = c.competitors?.find((x: any) => x.homeAway === ha) ?? {};
@@ -34,6 +38,7 @@ export async function GET(request: Request): Promise<Response> {
           city: t.team?.location ?? '',
           name: t.team?.name ?? t.team?.shortDisplayName ?? '',
           color: t.team?.color ? `#${t.team.color}` : undefined,
+          logo: t.team?.logo,
           record: t.records?.find((r: any) => r.type === 'total')?.summary ?? t.records?.[0]?.summary,
           homeAwayRecord: t.records?.find((r: any) => r.type === (ha === 'home' ? 'home' : 'road'))?.summary,
           score: num(t.score),

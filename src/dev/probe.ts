@@ -14,6 +14,7 @@ const URLS = [
   'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
   'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries',
   'https://sportsbook-nash.draftkings.com/api/sportscontent/dkusnj/v1/leagues/42648',
+  ...(process.env.PROBE_EXTRA ?? '').split(/\s+/).filter(Boolean),
 ];
 let failed = 0;
 for (const url of URLS) {
@@ -22,6 +23,7 @@ for (const url of URLS) {
     const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(25_000) });
     const body = await res.text();
     console.log(`${res.ok ? 'OK ' : 'NON'} ${res.status} ${Date.now() - t} ms ${body.length} o  ${new URL(url).host}${new URL(url).pathname}`);
+    if (process.env.PROBE_EXTRA?.includes(url)) console.log(`   ${body.slice(0, 600).replace(/\s+/g, ' ')}`);
     if (!res.ok) failed++;
   } catch (e) {
     failed++;
