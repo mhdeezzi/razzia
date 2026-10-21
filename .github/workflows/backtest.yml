@@ -1,0 +1,40 @@
+# Contrôle de justesse : rejoue des matchs passés avec les seules données disponibles avant chaque match et compare
+# au résultat réel et au marché (Brier, bon vainqueur, calibration par tranche de confiance, portées 80 %).
+# À lancer avant et après chaque modification du moteur.
+name: Contrôle de justesse
+on:
+  workflow_dispatch:
+    inputs:
+      from: { description: 'Premier jour (AAAA-MM-JJ)', default: '2026-01-10' }
+      to: { description: 'Dernier jour (AAAA-MM-JJ)', default: '2026-04-12' }
+      games: { description: 'Nombre de matchs', default: '120' }
+      n: { description: 'Simulations par match', default: '600' }
+  push:
+    paths: ['.github/workflows/backtest.yml', 'src/nba/**', 'src/cli/backtest.ts']
+concurrency: { group: "backtest-${{ github.ref }}", cancel-in-progress: true }
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SIMLAB_OFFLINE_HOSTS: stats.nba.com
+      FROM: ${{ inputs.from || '2026-01-10' }}
+      TO: ${{ inputs.to || '2026-04-12' }}
+      GAMES: ${{ inputs.games || '120' }}
+      N: ${{ inputs.n || '600' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci --no-audit --no-fund
+      - uses: actions/cache@v4
+        with:
+          path: data/cache
+          key: nba-cache-${{ github.run_id }}
+          restore-keys: nba-cache-
+      - run: npm run snapshot -- --pull
+      - run: npm run ingest -- --games
+      - run: npm run backtest -- --from "$FROM" --to "$TO" --games "$GAMES" --n "$N" | tee backtest.txt
+      - name: Résumé
+        run: |
+          { echo '```'; sed -n '/^Matchs :/,$p' backtest.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

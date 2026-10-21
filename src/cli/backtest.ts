@@ -29,6 +29,10 @@ export interface BacktestResult {
   brier: number;
   logloss: number;
   coverage: Record<string, { inside: number; above: number; below: number; n: number }>;
+  /** Calibration par tranche de confiance du favori : prédit vs gagné (modèle et marché). */
+  calib: Record<string, { n: number; pred: number; won: number; nMkt: number; predMkt: number; wonMkt: number }>;
+  accuracy: number;
+  accuracyMkt?: number;
   rows: Array<Record<string, unknown>>;
 }
 
@@ -50,6 +54,10 @@ export async function backtest(opts: { from: string; to: string; games: number; 
   const cov: BacktestResult['coverage'] = {};
   const rows: BacktestResult['rows'] = [];
   let mae = 0, tmae = 0, mb = 0, tb = 0, brier = 0, ll = 0, msd = 0, tsd = 0;
+  const calib: BacktestResult['calib'] = {};
+  const bucket = (p: number) => { const c = Math.max(p, 1 - p); return c >= 0.9 ? '90-100' : c >= 0.8 ? '80-90' : c >= 0.7 ? '70-80' : c >= 0.6 ? '60-70' : '50-60'; };
+  const cb = (k: string) => (calib[k] ??= { n: 0, pred: 0, won: 0, nMkt: 0, predMkt: 0, wonMkt: 0 });
+  let hits = 0, hitsMkt = 0, nMkt = 0;
   const mkt = { n: 0, brierModel: 0, brierMarket: 0, brierBlend: 0, spreadN: 0, spreadErrModel: 0, spreadErrMarket: 0, totN: 0, totErrModel: 0, totErrMarket: 0, ats: 0, atsWin: 0 };
   for (const [gi, g] of sample.entries()) {
     const t0 = Date.now();
@@ -78,6 +86,12 @@ export async function backtest(opts: { from: string; to: string; games: number; 
       if (mk?.mlHome != null && mk.mlAway != null) {
         const pm = noVig(mk.mlHome, mk.mlAway)[0];
         const yy = realMargin > 0 ? 1 : 0;
+        const bm = cb(bucket(pm));
+        bm.nMkt++;
+        bm.predMkt += Math.max(pm, 1 - pm);
+        bm.wonMkt += (pm >= 0.5) === (yy === 1) ? 1 : 0;
+        nMkt++;
+        hitsMkt += (pm >= 0.5) === (yy === 1) ? 1 : 0;
         mkt.n++;
         mkt.brierModel += (s.pHome - yy) ** 2;
         mkt.brierMarket += (pm - yy) ** 2;
@@ -103,6 +117,11 @@ export async function backtest(opts: { from: string; to: string; games: number; 
     const y = realMargin > 0 ? 1 : 0;
     const p = Math.min(0.99, Math.max(0.01, s.pHome));
     brier += (p - y) ** 2 / sample.length;
+    const bk = cb(bucket(s.pHome));
+    bk.n++;
+    bk.pred += Math.max(s.pHome, 1 - s.pHome);
+    bk.won += (s.pHome >= 0.5) === (y === 1) ? 1 : 0;
+    hits += (s.pHome >= 0.5) === (y === 1) ? 1 : 0;
     ll += -(y * Math.log(p) + (1 - y) * Math.log(1 - p)) / sample.length;
     // Couverture des portées 80 %.
     for (const t of [g.home, g.away]) {
@@ -137,7 +156,7 @@ export async function backtest(opts: { from: string; to: string; games: number; 
     rows.push({ game: `${g.away.tri}@${g.home.tri}`, date: g.date, real: `${g.away.score}-${g.home.score}`, sim: `${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)}`, pHome: +s.pHome.toFixed(3) });
     if (!opts.quiet) console.log(`[${gi + 1}/${sample.length}] ${g.date} ${g.away.tri}@${g.home.tri} réel ${g.away.score}-${g.home.score} | sim ${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)} pDom ${(s.pHome * 100).toFixed(0)}% (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   }
-  return { market: mkt, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, rows };
+  return { market: mkt, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, calib, accuracy: hits / sample.length, accuracyMkt: nMkt ? hitsMkt / nMkt : undefined, rows };
 }
 
 export function printBacktest(r: BacktestResult): string {
@@ -154,6 +173,15 @@ export function printBacktest(r: BacktestResult): string {
     L.push(`Marché (clôture DraftKings, ${k.n} matchs) : Brier modèle ${(k.brierModel / k.n).toFixed(4)} | marché ${(k.brierMarket / k.n).toFixed(4)} | mélange 50/50 ${(k.brierBlend / k.n).toFixed(4)}`);
     if (k.spreadN) L.push(`  Erreur absolue sur la marge : modèle ${(k.spreadErrModel / k.spreadN).toFixed(2)} vs ligne ${(k.spreadErrMarket / k.spreadN).toFixed(2)} ; total : modèle ${(k.totErrModel / Math.max(1, k.totN)).toFixed(2)} vs ligne ${(k.totErrMarket / Math.max(1, k.totN)).toFixed(2)}`);
     if (k.ats) L.push(`  Écart modèle/ligne ≥ 3 pts : ${k.atsWin}/${k.ats} gagnants contre le spread (${(k.atsWin / k.ats * 100).toFixed(1)} %)`);
+  }
+  L.push(`Bon vainqueur annoncé : modèle ${(r.accuracy * 100).toFixed(1)} %${r.accuracyMkt != null ? ` | marché ${(r.accuracyMkt * 100).toFixed(1)} %` : ''}`);
+  L.push('Calibration (confiance annoncée du favori -> part réellement gagnée)');
+  for (const k of ['50-60', '60-70', '70-80', '80-90', '90-100']) {
+    const c = r.calib[k];
+    if (!c) continue;
+    const mod = c.n ? `modèle ${(c.pred / c.n * 100).toFixed(1)} % annoncé -> ${(c.won / c.n * 100).toFixed(1)} % gagné (n=${c.n})` : 'modèle -';
+    const mk = c.nMkt ? `marché ${(c.predMkt / c.nMkt * 100).toFixed(1)} % -> ${(c.wonMkt / c.nMkt * 100).toFixed(1)} % (n=${c.nMkt})` : 'marché -';
+    L.push(`  ${k.padEnd(7)} ${mod} | ${mk}`);
   }
   L.push('Couverture des portées 80 % (cible : 80 % dedans, 10 % au-dessus, 10 % en dessous)');
   for (const [k, c] of Object.entries(r.coverage).filter(([k]) => k.startsWith('bias_'))) L.push(`  écart moyen de minutes (sim − réel) ${k.slice(5)} : ${(c.inside / c.n).toFixed(1)} (n=${c.n})`);
