@@ -12,9 +12,12 @@
     "sim": "node src/cli/sim.ts",
     "slate": "node src/cli/slate.ts",
     "backtest": "node src/cli/backtest.ts",
-    "viewer": "vite --config viewer/vite.config.ts",
+    "viewer": "vite",
     "typecheck": "tsc --noEmit",
-    "props-backtest": "node src/cli/propsbacktest.ts"
+    "props-backtest": "node src/cli/propsbacktest.ts",
+    "build": "vite build",
+    "publish-site": "node src/cli/publish.ts",
+    "snapshot": "node src/cli/snapshot.ts"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

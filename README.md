@@ -144,6 +144,29 @@ npm run sim -- --game AWAY@HOME --date AAAA-MM-JJ --out "Nom Joueur" --in "Autre
 `--out` / `--in` forcent un statut (annonce tardive). Statuts ESPN : Out = absent, Questionable = 50 %,
 Doubtful = 15 %, Day-To-Day = 65 % (tirage par simulation).
 
+### Mise en ligne (Vercel)
+
+Le site déployé est statique : Vercel construit le viewer (`npm run build`, voir `vercel.json`) depuis `main`
+et sert les résultats versionnés dans `site-data/`.
+
+Le workflow « Simulations du jour » (`.github/workflows/daily.yml`, 17 h et 23 h heure de Paris, ou à la main
+depuis l'onglet Actions) récupère les nouveaux matchs, blessures et cotes, simule la soirée, publie dans
+`site-data/` et pousse sur `main` : Vercel redéploie seul. Testé depuis GitHub Actions : cdn.nba.com, ESPN et
+DraftKings répondent ; **stats.nba.com ne répond pas aux serveurs**. Ses tableaux (Synergy, tracking,
+matchups, passes) viennent donc d'un instantané envoyé depuis le Mac, à refaire une fois par semaine environ :
+
+```
+npm run ingest -- --stats        # met à jour data/cache/stats/ (IP résidentielle)
+npm run snapshot -- --push       # pousse l'archive seule sur la branche donnees-stats (écrasée à chaque fois)
+```
+
+Sur une machine qui ne joint pas un hôte, `SIMLAB_OFFLINE_HOSTS=stats.nba.com` sert le cache sans requête ;
+toute source en panne retombe aussi sur sa dernière réponse en cache. `node src/dev/probe.ts` teste l'accès à
+chaque source depuis la machine courante (workflow « Accès aux sources » pour GitHub Actions).
+
+Publication à la main depuis le Mac : `npm run publish-site` (ajoute out/ à site-data/, garde 30 jours), puis
+commit et push de `site-data/`.
+
 ## 7. Autres sports
 
 `src/core/` (aléa reproductible), le runner Monte Carlo, la sélection du match typique, l'agrégation, la

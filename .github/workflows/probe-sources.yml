@@ -1,0 +1,16 @@
+# Vérifie si les serveurs GitHub Actions atteignent les sources de données (stats.nba.com et cdn.nba.com filtrent
+# beaucoup d'IP de serveurs). Si tout passe, l'ingestion et les simulations quotidiennes peuvent tourner ici.
+name: Accès aux sources
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/probe-sources.yml', 'src/dev/probe.ts']
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: node src/dev/probe.ts
