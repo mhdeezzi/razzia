@@ -33,7 +33,34 @@ export interface BacktestResult {
   calib: Record<string, { n: number; pred: number; won: number; nMkt: number; predMkt: number; wonMkt: number }>;
   accuracy: number;
   accuracyMkt?: number;
+  autopsy: Autopsy;
   rows: Array<Record<string, unknown>>;
+}
+
+/** Autopsie : ce qui, dans le vrai match, a écarté le résultat de la simulation. */
+export interface Autopsy {
+  n: number;
+  sq: { err: number; a3: number; a2: number; aft: number; vol: number }; // somme des carrés (erreur de marge et ses composantes)
+  misses: Array<{ game: string; date: string; real: string; sim: string; pFav: number; driver: string; detail: string; players: string[] }>;
+  drivers: Record<string, number>; // cause principale parmi les matchs où le favori a perdu
+  minutes: Record<string, { n: number; abs: number; bias: number; over8: number }>;
+  explosions: number;
+  playersSeen: number;
+}
+
+type Box = { pts: number; fga: number; fgm: number; fg3a: number; fg3m: number; fta: number; ftm: number; tov: number; oreb: number };
+/** Écart de points réel - simulé, découpé en adresse (à volume réel) et en volume (tentatives), pour 3 pts, 2 pts et lancers. */
+function decompose(r: Box, s: Box) {
+  const p = (m: number, a: number) => (a > 0 ? m / a : 0);
+  const r2a = r.fga - r.fg3a, s2a = s.fga - s.fg3a;
+  const p3r = p(r.fg3m, r.fg3a), p3s = p(s.fg3m, s.fg3a);
+  const p2r = p(r.fgm - r.fg3m, r2a), p2s = p(s.fgm - s.fg3m, s2a);
+  const pfr = p(r.ftm, r.fta), pfs = p(s.ftm, s.fta);
+  return {
+    a3: 3 * r.fg3a * (p3r - p3s), a2: 2 * r2a * (p2r - p2s), aft: r.fta * (pfr - pfs),
+    vol: 3 * (r.fg3a - s.fg3a) * p3s + 2 * (r2a - s2a) * p2s + (r.fta - s.fta) * pfs,
+    p3r, p3s,
+  };
 }
 
 export async function backtest(opts: { from: string; to: string; games: number; n: number; params?: Partial<SimParams>; quiet?: boolean; market?: boolean; noStrength?: boolean }): Promise<BacktestResult> {
@@ -58,6 +85,7 @@ export async function backtest(opts: { from: string; to: string; games: number; 
   const bucket = (p: number) => { const c = Math.max(p, 1 - p); return c >= 0.9 ? '90-100' : c >= 0.8 ? '80-90' : c >= 0.7 ? '70-80' : c >= 0.6 ? '60-70' : '50-60'; };
   const cb = (k: string) => (calib[k] ??= { n: 0, pred: 0, won: 0, nMkt: 0, predMkt: 0, wonMkt: 0 });
   let hits = 0, hitsMkt = 0, nMkt = 0;
+  const auto: Autopsy = { n: 0, sq: { err: 0, a3: 0, a2: 0, aft: 0, vol: 0 }, misses: [], drivers: {}, minutes: {}, explosions: 0, playersSeen: 0 };
   const mkt = { n: 0, brierModel: 0, brierMarket: 0, brierBlend: 0, spreadN: 0, spreadErrModel: 0, spreadErrMarket: 0, totN: 0, totErrModel: 0, totErrMarket: 0, ats: 0, atsWin: 0 };
   for (const [gi, g] of sample.entries()) {
     const t0 = Date.now();
@@ -153,10 +181,61 @@ export async function backtest(opts: { from: string; to: string; games: number; 
         }
       }
     }
+    // Autopsie du match.
+    {
+      const tot = (t: GameRecord['home'], k: string) => t.players.reduce((a, p) => a + (p.stats[k] ?? 0), 0);
+      const real = (t: GameRecord['home']): Box => ({
+        pts: t.score, fga: tot(t, 'fieldGoalsAttempted'), fgm: tot(t, 'fieldGoalsMade'), fg3a: tot(t, 'threePointersAttempted'), fg3m: tot(t, 'threePointersMade'),
+        fta: tot(t, 'freeThrowsAttempted'), ftm: tot(t, 'freeThrowsMade'), tov: tot(t, 'turnovers'), oreb: tot(t, 'reboundsOffensive'),
+      });
+      const sim = (x: Record<string, number>): Box => ({ pts: x.pts, fga: x.fga, fgm: x.fgm, fg3a: x.fg3a, fg3m: x.fg3m, fta: x.fta, ftm: x.pts - 2 * x.fgm - x.fg3m, tov: x.tov, oreb: x.oreb });
+      const dh = decompose(real(g.home), sim(s.teamStats.home));
+      const da = decompose(real(g.away), sim(s.teamStats.away));
+      const err = realMargin - s.margin.mean;
+      const c = { a3: dh.a3 - da.a3, a2: dh.a2 - da.a2, aft: dh.aft - da.aft, vol: dh.vol - da.vol };
+      auto.n++;
+      auto.sq.err += err ** 2;
+      for (const k of ['a3', 'a2', 'aft', 'vol'] as const) auto.sq[k] += c[k] ** 2;
+      // Joueurs : explosions (au-dessus de P90 de 5 pts ou plus) et minutes imprévues (10 min d'écart ou plus).
+      const notes: string[] = [];
+      for (const t of [g.home, g.away]) {
+        for (const bp of t.players) {
+          const ps = s.players.find((x) => x.id === bp.id);
+          if (!ps || ps.playRate < 0.3) continue;
+          const min = bp.sec / 60;
+          auto.playersSeen++;
+          const exp = ps.stats.min.mean;
+          const b = `${bp.starter ? 'titulaire' : 'remplaçant'} ${exp >= 30 ? '30+' : exp >= 20 ? '20-30' : '<20'}`;
+          const mb = (auto.minutes[b] ??= { n: 0, abs: 0, bias: 0, over8: 0 });
+          mb.n++;
+          mb.abs += Math.abs(min - exp);
+          mb.bias += exp - min;
+          if (Math.abs(min - exp) >= 8) mb.over8++;
+          if (bp.sec > 0 && bp.stats.points - ps.stats.pts.p90 >= 5) {
+            auto.explosions++;
+            notes.push(`${bp.name} ${bp.stats.points} pts (simulé ${ps.stats.pts.mean.toFixed(1)}, P90 ${ps.stats.pts.p90.toFixed(0)})`);
+          }
+          if (Math.abs(min - exp) >= 10) notes.push(`${bp.name} ${min.toFixed(0)} min (simulé ${exp.toFixed(0)})`);
+        }
+      }
+      const favHome = s.pHome >= 0.5;
+      if (favHome !== realMargin > 0) {
+        const lab: Record<string, string> = { a3: 'adresse à 3 pts', a2: 'adresse à 2 pts', aft: 'lancers francs', vol: 'volume (tirs, pertes, rebonds)' };
+        const k = (Object.keys(c) as Array<keyof typeof c>).sort((x, y) => Math.sign(err) * c[y] - Math.sign(err) * c[x])[0];
+        auto.drivers[lab[k]] = (auto.drivers[lab[k]] ?? 0) + 1;
+        const pc = (v: number) => `${(v * 100).toFixed(0)} %`;
+        auto.misses.push({
+          game: `${g.away.tri}@${g.home.tri}`, date: g.date, real: `${g.away.score}-${g.home.score}`, sim: `${s.awayPts.mean.toFixed(0)}-${s.homePts.mean.toFixed(0)}`,
+          pFav: Math.max(s.pHome, 1 - s.pHome), driver: lab[k],
+          detail: `écart ${err > 0 ? '+' : ''}${err.toFixed(1)} : 3 pts ${c.a3 >= 0 ? '+' : ''}${c.a3.toFixed(1)} (${g.home.tri} ${pc(dh.p3r)} vs ${pc(dh.p3s)}, ${g.away.tri} ${pc(da.p3r)} vs ${pc(da.p3s)}), 2 pts ${c.a2 >= 0 ? '+' : ''}${c.a2.toFixed(1)}, LF ${c.aft >= 0 ? '+' : ''}${c.aft.toFixed(1)}, volume ${c.vol >= 0 ? '+' : ''}${c.vol.toFixed(1)}`,
+          players: notes.slice(0, 4),
+        });
+      }
+    }
     rows.push({ game: `${g.away.tri}@${g.home.tri}`, date: g.date, real: `${g.away.score}-${g.home.score}`, sim: `${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)}`, pHome: +s.pHome.toFixed(3) });
     if (!opts.quiet) console.log(`[${gi + 1}/${sample.length}] ${g.date} ${g.away.tri}@${g.home.tri} réel ${g.away.score}-${g.home.score} | sim ${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)} pDom ${(s.pHome * 100).toFixed(0)}% (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   }
-  return { market: mkt, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, calib, accuracy: hits / sample.length, accuracyMkt: nMkt ? hitsMkt / nMkt : undefined, rows };
+  return { market: mkt, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, calib, accuracy: hits / sample.length, accuracyMkt: nMkt ? hitsMkt / nMkt : undefined, autopsy: auto, rows };
 }
 
 export function printBacktest(r: BacktestResult): string {
@@ -187,6 +266,21 @@ export function printBacktest(r: BacktestResult): string {
   for (const [k, c] of Object.entries(r.coverage).filter(([k]) => k.startsWith('bias_'))) L.push(`  écart moyen de minutes (sim − réel) ${k.slice(5)} : ${(c.inside / c.n).toFixed(1)} (n=${c.n})`);
   for (const [k, c] of Object.entries(r.coverage).filter(([k]) => k.startsWith('ptsbias_'))) L.push(`  écart moyen de points (sim − réel) ${k.slice(8)} : ${(c.inside / c.n).toFixed(2)} (n=${c.n})`);
   for (const [k, c] of Object.entries(r.coverage).filter(([k]) => !k.startsWith('bias_') && !k.startsWith('ptsbias_'))) L.push(`  ${k.padEnd(5)} dedans ${(c.inside / c.n * 100).toFixed(1)}%  au-dessus ${(c.above / c.n * 100).toFixed(1)}%  en dessous ${(c.below / c.n * 100).toFixed(1)}%  (n=${c.n})`);
+  const A = r.autopsy;
+  if (A && A.n) {
+    const sh = (v: number) => `${((v / A.sq.err) * 100).toFixed(0)} %`;
+    L.push('');
+    L.push(`Autopsie (${A.n} matchs) : part de l'erreur de marge (variance) liée à chaque écart réel - simulé`);
+    L.push(`  adresse à 3 pts ${sh(A.sq.a3)} | adresse à 2 pts ${sh(A.sq.a2)} | lancers francs ${sh(A.sq.aft)} | volume (tirs, pertes, rebonds) ${sh(A.sq.vol)}`);
+    L.push(`  joueurs au-dessus de leur P90 de 5 pts ou plus : ${A.explosions} sur ${A.playersSeen} lignes (${((A.explosions / A.playersSeen) * 100).toFixed(1)} %)`);
+    L.push('  Minutes (simulé - réel), par rôle réel et minutes attendues : erreur absolue moyenne, biais, part à 8 min ou plus');
+    for (const [k, m] of Object.entries(A.minutes).sort()) L.push(`    ${k.padEnd(18)} ${(m.abs / m.n).toFixed(1)} min, biais ${(m.bias / m.n >= 0 ? '+' : '')}${(m.bias / m.n).toFixed(1)}, ${((m.over8 / m.n) * 100).toFixed(0)} % (n=${m.n})`);
+    L.push(`  Favori battu (${A.misses.length} matchs), cause principale : ${Object.entries(A.drivers).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', ')}`);
+    for (const m of A.misses) {
+      L.push(`  - ${m.date} ${m.game} réel ${m.real}, simulé ${m.sim} (favori à ${(m.pFav * 100).toFixed(0)} %) : ${m.driver} | ${m.detail}`);
+      for (const p of m.players) L.push(`      ${p}`);
+    }
+  }
   return L.join('\n');
 }
 
