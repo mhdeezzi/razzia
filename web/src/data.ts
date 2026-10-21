@@ -87,7 +87,11 @@ export interface Typical {
   moments: Array<{ when: string; side?: 0 | 1; text: string; score: string }>;
 }
 
-export type Result = Summary & { insights?: string[]; meta?: { dataThrough: string; gamesUsed: number; date: string }; typical?: Typical };
+export type Result = Summary & {
+  insights?: string[];
+  meta?: { dataThrough: string; gamesUsed: number; date: string; builtAt?: string; lineupsConfirmed?: boolean };
+  typical?: Typical;
+};
 
 export type SimState =
   | { status: 'loading' }

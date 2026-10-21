@@ -988,6 +988,7 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
         p.h2h = {
           games: vs.length, pts: sum(vs.map((g) => g.pts)) / vs.length, reb: sum(vs.map((g) => g.reb)) / vs.length,
           ast: sum(vs.map((g) => g.ast)) / vs.length, ptsAll: lines.length ? sum(lines.map((g) => g.pts)) / lines.length : 0,
+          last: { date: vs[vs.length - 1].date, pts: vs[vs.length - 1].pts }, best: Math.max(...vs.map((g) => g.pts)),
         };
       }
     }

@@ -71,7 +71,7 @@ export interface PlayerModel {
   typicalDefQ: number; // qualité moyenne (dOverall) des défenseurs qu'il affronte habituellement
   tovLiveShare: number;
   guardProfile: { height: number; usg: number };
-  h2h?: { games: number; pts: number; reb: number; ast: number; ptsAll: number };
+  h2h?: { games: number; pts: number; reb: number; ast: number; ptsAll: number; last?: { date: string; pts: number }; best?: number };
   form: { gp: number; gpCur: number; ptsL10: number; minL10: number; ptsSeason: number; minSeason: number; rebL10: number; astL10: number; fg3mL10: number };
   notes: string[];
 }

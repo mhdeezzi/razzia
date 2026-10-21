@@ -132,6 +132,18 @@ export interface PlayerSummary {
   form: PlayerModel['form'];
   h2h?: PlayerModel['h2h'];
   notes: string[];
+  heat?: Heat;
+}
+
+/** Potentiel de « gros match » d'un joueur sur l'ensemble des simulations. */
+export interface Heat {
+  base: number; // points habituels (moyenne de la saison, ou des 10 derniers matchs en début de saison)
+  threshold: number; // seuil du gros match
+  pBig: number; // part des simulations où il atteint ce seuil
+  mean: number; // points moyens simulés quand il joue
+  p90: number; // plafond : 1 simulation sur 10 au-dessus
+  index: number; // classement : probabilité de gros match pondérée par son volume de points
+  reasons: string[];
 }
 
 export interface PropEval {
@@ -179,6 +191,33 @@ export interface Summary {
   players: PlayerSummary[];
   props: PropEval[];
   teamStats: Record<'home' | 'away', Record<string, number>>;
+}
+
+/**
+ * Gros match = au moins 30 % au-dessus de ses points habituels et 6 points de plus (15 minimum).
+ * Les raisons viennent des données qui poussent la simulation vers le haut : forme, face-à-face, minutes, défense.
+ */
+function heatOf(m: GameModel, pm: PlayerModel, side: 0 | 1, playRate: number, pts: number[], d: Dist, n: number): Heat | undefined {
+  if (playRate < 0.5 || !pts.length) return undefined;
+  const f = pm.form;
+  const base = f.gpCur >= 5 ? f.ptsSeason : f.gp > 0 ? Math.max(f.ptsSeason, f.ptsL10) : d.mean;
+  if (base < 6) return undefined;
+  const threshold = Math.max(15, Math.ceil(Math.max(base * 1.3, base + 6)));
+  const pBig = pts.filter((v) => v >= threshold).length / n;
+  const opp = side === 0 ? m.away : m.home;
+  const team = side === 0 ? m.home : m.away;
+  const r1 = (v: number) => v.toFixed(1).replace('.', ',');
+  const reasons: string[] = [];
+  if (f.gp >= 5 && f.ptsL10 >= base * 1.12 && f.ptsL10 - base >= 2) reasons.push(`En forme : ${r1(f.ptsL10)} pts sur ses 10 derniers matchs (${r1(base)} habituellement)`);
+  const h = pm.h2h;
+  if (h && h.games >= 1 && h.pts >= h.ptsAll * 1.12 && h.pts - h.ptsAll >= 2)
+    reasons.push(`Réussit contre ${opp.name} : ${r1(h.pts)} pts de moyenne en ${h.games} match${h.games > 1 ? 's' : ''}${h.best != null ? `, record ${h.best}` : ''}`);
+  else if (h?.last && h.last.pts >= threshold) reasons.push(`${h.last.pts} pts lors du dernier face-à-face`);
+  if (f.minSeason > 0 && pm.expMin >= f.minSeason + 3) reasons.push(`Plus de temps de jeu ce soir : ${Math.round(pm.expMin)} min attendues (${Math.round(f.minSeason)} habituellement)`);
+  if (d.mean >= base * 1.08 && d.mean - base >= 1.5) reasons.push(`Défense favorable : ${r1(d.mean)} pts simulés contre ${r1(base)} habituels`);
+  if (opp.b2b && !team.b2b) reasons.push(`${opp.name} joue son 2e match en deux soirs`);
+  if (side === 0) reasons.push('Joue à domicile');
+  return { base, threshold, pBig, mean: d.mean, p90: d.p90, index: pBig * Math.sqrt(base), reasons };
 }
 
 export function summarize(m: GameModel, b: Batch): Summary {
@@ -251,6 +290,7 @@ export function summarize(m: GameModel, b: Batch): Summary {
       id: pm.id, name: pm.name, short: pm.short, jersey: pm.jersey, team: side === 0 ? m.home.tri : m.away.tri, side, status: pm.status,
       playRate: played.length / n, starter: pm.starter, stats, dd: played.length ? dd / n : 0, td: played.length ? td / n : 0,
       firstBasket: (fb.get(pm.id) ?? 0) / n, form: pm.form, h2h: pm.h2h, notes: pm.notes,
+      heat: heatOf(m, pm, side, played.length / n, played.map((i) => stat(b, i, k, 'pts')), stats.pts, n),
     });
   });
 

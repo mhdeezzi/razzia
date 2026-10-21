@@ -2,9 +2,10 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise } from '@phosphor-icons/react';
 import { line, n1, odds, pct, pct0, signed, type Game, type Result } from './data.ts';
-import { buildCategories, type Category, type Outcome } from './picks.ts';
+import { buildCategories, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
-import { CountUp, Pips, Ring, Segmented, TeamMark } from './ui.tsx';
+import { CountUp, Ring, Segmented, TeamMark } from './ui.tsx';
+import { HotPlayers, LineupNotice } from './hot.tsx';
 
 type Dist = Result['margin'];
 const range = (d: Dist) => `${Math.round(d.p10)}-${Math.round(d.p90)}`;
@@ -12,6 +13,7 @@ const pctInt = (v: number) => `${Math.round(v * 100)} %`;
 
 export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRelaunch: () => void; busy: boolean }) {
   return (
+    <div className="res-layout">
     <div className="results">
       <div className="res-head">
         <span className="slash">{r.n.toLocaleString('fr-FR')} matchs simulés</span>
@@ -19,6 +21,7 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
           {busy ? <span className="spin" /> : <ArrowClockwise size={16} />} Relancer
         </button>
       </div>
+      <LineupNotice r={r} g={g} onRelaunch={onRelaunch} busy={busy} />
       <Verdict r={r} g={g} />
       {r.typical && (
         <Section i={0} title="Le match typique" tag="déroulé le plus probable">
@@ -50,6 +53,8 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
         {r.meta ? `Données jusqu'au ${new Date(r.meta.dataThrough).toLocaleDateString('fr-FR')}, ${r.meta.gamesUsed.toLocaleString('fr-FR')} matchs analysés. ` : ''}
         Les probabilités décrivent le modèle, pas une certitude : à confronter aux annonces de dernière minute. Jouer comporte des risques.
       </p>
+    </div>
+    <HotPlayers r={r} g={g} />
     </div>
   );
 }
@@ -131,7 +136,6 @@ function Delta({ v }: { v: number }) {
 function Categories({ r, g }: { r: Result; g: Game }) {
   const cats = useMemo(() => buildCategories(r, g), [r, g]);
   const [id, setId] = useState(cats[0]?.id);
-  const [all, setAll] = useState(false);
   const cat = cats.find((c) => c.id === id) ?? cats[0];
   if (!cat) return null;
   return (
@@ -140,26 +144,16 @@ function Categories({ r, g }: { r: Result; g: Game }) {
         <Segmented<string>
           ariaLabel="Catégorie de pari"
           value={cat.id}
-          onChange={(v) => {
-            setId(v);
-            setAll(false);
-          }}
+          onChange={setId}
           options={cats.map((c) => ({ value: c.id, label: c.label }))}
         />
       </div>
       <p className="note">Pour chaque pari, l'issue qui se produit le plus souvent sur les {r.n.toLocaleString('fr-FR')} matchs simulés. La cote est affichée pour comparaison.</p>
       <div key={cat.id} className="cat-body">
-        {cat.kind === 'match' ? (
-          cat.items.map((o) => <OutcomeCard key={o.id} o={o} />)
-        ) : (
-          <PlayerOutcomes cat={cat} all={all} />
-        )}
+        {cat.items.map((o) => (
+          <OutcomeCard key={o.id} o={o} />
+        ))}
       </div>
-      {cat.kind === 'player' && cat.items.length > 8 && (
-        <button className="btn btn-ghost more" onClick={() => setAll(!all)}>
-          {all ? 'Réduire' : `Voir les ${cat.items.length} joueurs`}
-        </button>
-      )}
     </>
   );
 }
@@ -192,34 +186,6 @@ function OutcomeCard({ o }: { o: Outcome }) {
         </div>
       </div>
     </article>
-  );
-}
-
-const CONF = { haute: 3, moyenne: 2, faible: 1 } as const;
-
-function PlayerOutcomes({ cat, all }: { cat: Category; all: boolean }) {
-  const items = all ? cat.items : cat.items.slice(0, 8);
-  return (
-    <ol className="outcomes">
-      {items.map((o, i) => (
-        <li key={o.id} style={{ '--i': i } as CSSProperties}>
-          <div className="oc-who">
-            <span className="oc-player">{o.player}</span>
-            <span className="oc-title">{o.title}</span>
-          </div>
-          <div className="oc-freq">
-            <span className="oc-bar">
-              <span style={{ width: `${o.p * 100}%` }} />
-            </span>
-            <span className="mono strong">{pct(o.p)}</span>
-          </div>
-          <span className="oc-odds mono">{o.odds != null ? dec(o.odds) : '-'}</span>
-          <span title={o.confidenceWhy ? `Confiance ${o.confidence} : ${o.confidenceWhy}` : `Confiance ${o.confidence}`}>
-            {o.confidence && <Pips n={CONF[o.confidence]} of={3} tone={o.confidence === 'haute' ? 'blue' : 'mute'} />}
-          </span>
-        </li>
-      ))}
-    </ol>
   );
 }
 
