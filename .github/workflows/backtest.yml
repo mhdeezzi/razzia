@@ -11,7 +11,7 @@ on:
       n: { description: 'Simulations par match', default: '600' }
   push:
     paths: ['.github/workflows/backtest.yml', 'src/nba/**', 'src/cli/backtest.ts']
-concurrency: { group: "backtest-${{ github.ref }}", cancel-in-progress: true }
+concurrency: { group: "backtest-${{ github.ref }}", cancel-in-progress: false }
 jobs:
   backtest:
     runs-on: ubuntu-latest

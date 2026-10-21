@@ -53,10 +53,21 @@ export function calibratePace(m: GameModel, sims = 300): { target: number; got: 
 export function calibrateStrength(m: GameModel, sims = 300, maxWeight = 0.6): { target: [number, number]; before: [number, number]; after: [number, number] } {
   const lg = m.league.ppg / m.league.pace;
   const hca = m.league.homeMargin / 2 / m.league.pace; // avantage du terrain en points par possession, par équipe
-  const target: [number, number] = [m.home.ortg + m.away.drtg - lg + hca, m.away.ortg + m.home.drtg - lg - hca];
+  // Notes corrigées du calendrier : une attaque qui a affronté des défenses faibles est revue à la baisse, etc.
+  const sw = m.params.sosWeight ?? 0;
+  const o = (t: GameModel['home']) => t.ortg - sw * (t.sos?.[0] ?? 0);
+  const d = (t: GameModel['home']) => t.drtg - sw * (t.sos?.[1] ?? 0);
+  const target: [number, number] = [o(m.home) + d(m.away) - lg + hca, o(m.away) + d(m.home) - lg - hca];
+  // Les notes d'équipe ignorent les absences du soir : leur poids baisse avec la part des minutes habituelles disponibles.
+  const avail = (t: GameModel['home']) => {
+    const usual = t.players.reduce((a, p) => a + (p.form.gp > 0 ? p.form.minL10 : 0), 0);
+    const here = t.players.reduce((a, p) => a + (p.form.gp > 0 ? p.form.minL10 * p.avail : 0), 0);
+    return usual > 0 ? Math.min(1, here / usual) : 1;
+  };
+  const share = Math.sqrt(avail(m.home) * avail(m.away));
   const w: [number, number] = [
-    maxWeight * Math.sqrt(m.home.continuity * m.away.continuity),
-    maxWeight * Math.sqrt(m.away.continuity * m.home.continuity),
+    maxWeight * Math.sqrt(m.home.continuity * m.away.continuity) * share,
+    maxWeight * Math.sqrt(m.away.continuity * m.home.continuity) * share,
   ];
   const measure = (seed: number): [number, number] => {
     let hp = 0, ap = 0, hpo = 0, apo = 0;
@@ -167,7 +178,8 @@ export interface Summary {
   n: number;
   home: { tri: string; name: string; city: string; color: string };
   away: { tri: string; name: string; city: string; color: string };
-  pHome: number;
+  pHome: number; // probabilité affichée (fréquence des simulations, recalibrée par backtest)
+  pHomeRaw?: number; // fréquence brute des victoires à domicile dans les simulations
   pAway: number;
   pOT: number;
   homePts: Dist;
@@ -218,6 +230,15 @@ function heatOf(m: GameModel, pm: PlayerModel, side: 0 | 1, playRate: number, pt
   if (opp.b2b && !team.b2b) reasons.push(`${opp.name} joue son 2e match en deux soirs`);
   if (side === 0) reasons.push('Joue à domicile');
   return { base, threshold, pBig, mean: d.mean, p90: d.p90, index: pBig * Math.sqrt(base), reasons };
+}
+
+/** Recalibration (Platt) mesurée par le contrôle de justesse : p = σ(a + b · logit(fréquence simulée)). */
+function calibrated(m: GameModel, p: number): number {
+  const a = m.params.calA ?? 0;
+  const b = m.params.calB ?? 1;
+  if (a === 0 && b === 1) return p;
+  const q = Math.min(0.999, Math.max(0.001, p));
+  return 1 / (1 + Math.exp(-(a + b * Math.log(q / (1 - q)))));
 }
 
 export function summarize(m: GameModel, b: Batch): Summary {
@@ -335,7 +356,7 @@ export function summarize(m: GameModel, b: Batch): Summary {
     n,
     home: { tri: m.home.tri, name: m.home.name, city: m.home.city, color: m.home.color },
     away: { tri: m.away.tri, name: m.away.name, city: m.away.city, color: m.away.color },
-    pHome: homeWins / n, pAway: 1 - homeWins / n, pOT: ot / n,
+    pHome: calibrated(m, homeWins / n), pAway: 1 - calibrated(m, homeWins / n), pHomeRaw: homeWins / n, pOT: ot / n,
     homePts: dist(Array.from(b.home)), awayPts: dist(Array.from(b.away)), margin: dist(margin), total: dist(total), poss: dist(possA),
     quarters: { home: qH, away: qA }, firstHalf: { home: qH[0] + qH[1], away: qA[0] + qA[1], pHome: h1Home / n },
     spreadLadder, totalLadder, market, players, props, teamStats,

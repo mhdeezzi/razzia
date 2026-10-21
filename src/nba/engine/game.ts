@@ -745,6 +745,13 @@ export class GameSim {
       const spot = this.shotSpot(shooter, z);
       const three = THREE[z];
       let lp = logit(shooter.m.fg[z]) + eff.adj + P.fgBias + (P.teamBias?.[off] ?? 0);
+      // Distance dans la zone : pente de la ligue, centrée sur les tirs habituels du joueur (moyenne nulle pour lui).
+      if (shooter.m.spots[z]?.length && this.m.league.distFg?.length) {
+        const dft = Math.min(40, Math.floor(Math.hypot(spot[0], spot[1]) / 10));
+        lp += (P.distWeight ?? 0) * (logit(this.m.league.distFg[dft]) - (shooter.m.spotLogit?.[z] ?? 0));
+      }
+      // Duel : historique du tireur face au défenseur qui conteste.
+      lp += (P.duelWeight ?? 0) * (this.m.duel?.[shooter.m.id]?.[contest.m.id] ?? 0);
       const dd = z === 0 ? contest.m.dRim : z === 1 ? (contest.m.dRim + contest.m.dMid) / 2 : z === 2 ? contest.m.dMid : contest.m.d3;
       lp += P.defWeight * dd;
       if (off === 0) lp += P.homeFgLogit;
@@ -752,7 +759,8 @@ export class GameSim {
       lp += O.night + (three ? O.night3 + (P.fg3Bias ?? 0) : 0) + shooter.night + this.gameNight;
       // Effet élastique : l'équipe qui mène se relâche, celle qui est menée élève son niveau.
       lp -= P.rubber * clamp(this.margin(off) / 10, -2.5, 2.5);
-      if (O.t.b2b) lp -= 0.03;
+      lp -= (P.fatigueOff ?? 0.03) * (O.t.fatigue ?? (O.t.b2b ? 1 : 0));
+      lp += (P.fatigueDef ?? 0) * (D.t.fatigue ?? 0);
       const stint = this.t - shooter.stintStart;
       if (stint > 540) lp -= 0.01 * ((stint - 540) / 60);
       if (mismatch && mismatch[1] === shooter.m.id) lp += 0.06;

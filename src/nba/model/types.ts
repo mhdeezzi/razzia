@@ -46,6 +46,7 @@ export interface PlayerModel {
   astd: Z6; // P(assisté | réussi, zone) du joueur (forme récente, rétrécie vers la ligue)
   astNorm: Z6; // prior moyen « type de jeu » de ses paniers par zone (pour moduler astd par type de jeu)
   spots: Array<Array<[number, number]>>;
+  spotLogit: Z6; // logit moyen de l'adresse de la ligue à la distance de ses tirs habituels, par zone
   labels: Array<Array<[string, number]>>;
   astTo: Record<string, number>; // passeur -> poids vers coéquipier (id)
   passTo: Record<string, number>; // passes (tracking) vers coéquipier
@@ -97,6 +98,9 @@ export interface TeamModel {
   switchRate: number;
   restDays: number;
   b2b: boolean;
+  fatigue: number; // 1 = back-to-back ; + voyage de 2 fuseaux ou plus vers l'est sans repos ; + altitude (visiteur)
+  fatigueWhy: string[];
+  sos: [number, number]; // force moyenne des adversaires affrontés : [défense - ligue, attaque - ligue] (points par possession)
   ortg: number; // points par possession en attaque (forme récente)
   drtg: number; // points par possession concédés
   continuity: number; // part des minutes attendues jouées par des joueurs déjà dans l'équipe
@@ -118,6 +122,7 @@ export interface LeagueModel {
   homeMargin: number;
   ppg: number;
   rankMinutes: number[]; // minutes moyennes par rang dans la rotation (0 = joueur le plus utilisé)
+  distFg: number[]; // adresse de la ligue par distance au panier (pied par pied, 0 à 40)
 }
 
 export interface SimParams {
@@ -148,6 +153,13 @@ export interface SimParams {
   sdWhistle: number; // arbitrage du soir (multiplicateur log des fautes, commun aux deux équipes)
   foulMult: number; // calage global des fautes hors tir
   sfMult: number; // calage global des fautes de tir (lancers)
+  distWeight: number; // poids de la distance du tir dans la zone (pente de la ligue, autour des tirs habituels du joueur)
+  duelWeight: number; // poids de l'historique du duel tireur / défenseur qui conteste
+  fatigueOff: number; // logit d'adresse retiré par unité de fatigue (back-to-back, voyage vers l'est, altitude)
+  fatigueDef: number; // logit d'adresse concédé en plus par unité de fatigue de la défense
+  sosWeight: number; // correction des notes d'équipe par la force des adversaires affrontés
+  calA?: number; // recalibration finale de la probabilité de victoire (Platt), mesurée par backtest
+  calB?: number;
 }
 
 export interface GameModel {
@@ -161,6 +173,7 @@ export interface GameModel {
     sources: string[];
   };
   league: LeagueModel;
+  duel?: Record<number, Record<number, number>>; // tireur -> défenseur -> écart d'adresse du duel (logit, rétréci)
   home: TeamModel;
   away: TeamModel;
   market?: {

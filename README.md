@@ -65,7 +65,11 @@ précédente lissée (l'intersaison casse la notion de forme) et playoffs légè
    les 2 dernières minutes), fautes techniques.
 6. **Tir** : zone = carte de tir réelle du joueur × inclinaison du type de jeu ; position = un de ses vrais tirs
    dans cette zone. Adresse (logit) = adresse du joueur dans la zone (forme, rétrécissement bayésien) + effet
-   du type de jeu (Synergy) + défenseur qui conteste (tracking, centré) + domicile + effets du soir + effet élastique.
+   du type de jeu (Synergy) + défenseur qui conteste (tracking, centré) + **distance exacte du tir dans la zone**
+   (pente de la ligue pied par pied, centrée sur les tirs habituels du joueur) + **duel** (adresse réelle du tireur
+   face à ce défenseur, rétrécie vers son adresse habituelle) + domicile + **fatigue** (back-to-back, voyage de
+   2 fuseaux ou plus vers l'est sans repos, altitude à Denver et Utah, pour l'attaque et la défense) + effets du
+   soir + effet élastique.
 7. **Contre / passe décisive** (probabilité réelle d'être assisté du tireur par zone, effet meneur, passeur
    ∝ taux de passes^2 × affinité du duo) / **rebond** (log5 des cinq sur le terrain, zone du tir, partage ∝ taux^1,25),
    putback.
@@ -79,7 +83,21 @@ Effets aléatoires par simulation (pour des distributions honnêtes, l'erreur av
 soir de chaque joueur et de chaque équipe, adresse à 3 pts du soir, usage, minutes, rythme, arbitrage,
 environnement de tir commun.
 
+**Force collective** : la simulation joueur par joueur est ancrée (jusqu'à 60 %) sur les notes offensive et
+défensive récentes des équipes, **corrigées du calendrier** (force moyenne des adversaires affrontés). Le poids
+de ces notes baisse avec la part des minutes habituelles disponibles ce soir : sans sa star, une équipe est jugée
+sur l'effectif présent. Une recalibration finale (Platt, `calA`/`calB`) aligne la probabilité affichée sur les
+fréquences réellement observées en backtest.
+
+**Joueurs en feu** : pour chaque joueur, part des simulations où il dépasse de 30 % (et d'au moins 6 points) ses
+points habituels, plafond (1 simulation sur 10) et raisons tirées des données (forme sur 10 matchs, face-à-face
+et dernier face-à-face, minutes en hausse, défense favorable, adversaire fatigué, domicile).
+
 ## 4. Calibration (backtest sur 2025-26, données antérieures à chaque match)
+
+Le workflow « Contrôle de justesse » (`.github/workflows/backtest.yml`) relance le backtest sur GitHub Actions à
+chaque modification du moteur : part de bons vainqueurs, Brier, et **calibration par tranche de confiance**
+(quand le moteur annonce 70-80 %, le favori gagne-t-il vraiment 70-80 % du temps ?), modèle et marché côte à côte.
 
 `npm run backtest` rejoue des matchs passés et mesure (dernier run : voir `out/backtests/`) :
 

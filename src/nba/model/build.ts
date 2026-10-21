@@ -4,7 +4,7 @@ import { loadTablesCached, heightToIn, groupOfPos, type Tables, type SynAgg } fr
 import { PT_LIST, HALF_COURT_PT, type GameModel, type PlayerModel, type TeamModel, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
 import { START_TYPES, type StartType } from './pbp.ts';
 import { ZONES, isThree } from './zones.ts';
-import { teamByTri, type TeamInfo } from '../teams.ts';
+import { teamById, teamByTri, type TeamInfo } from '../teams.ts';
 import { seasonOfDate, seasonsInScope } from '../seasons.ts';
 import { getInjuries, getMarket, getProps, noVig, type InjuryItem } from '../../data/espn.ts';
 import { playerPasses, SEASON_TYPES, dailyLineups } from '../../data/nbaStats.ts';
@@ -28,6 +28,15 @@ export interface BuildOpts {
   passes?: boolean;
   log?: (...a: unknown[]) => void;
 }
+
+// Fuseaux horaires (heure standard) et altitude des salles, pour la fatigue de voyage.
+const TZ: Record<string, number> = {
+  ATL: -5, BOS: -5, BKN: -5, CHA: -5, CLE: -5, DET: -5, IND: -5, MIA: -5, NYK: -5, ORL: -5, PHI: -5, TOR: -5, WAS: -5,
+  CHI: -6, DAL: -6, HOU: -6, MEM: -6, MIL: -6, MIN: -6, NOP: -6, OKC: -6, SAS: -6,
+  DEN: -7, UTA: -7, PHX: -7,
+  GSW: -8, LAC: -8, LAL: -8, POR: -8, SAC: -8,
+};
+const ALTITUDE: Record<string, number> = { DEN: 0.5, UTA: 0.3 };
 
 export const DEFAULT_PARAMS: SimParams = {
   homeFgLogit: 0.04,
@@ -57,6 +66,11 @@ export const DEFAULT_PARAMS: SimParams = {
   rubber: 0.06,
   sdGameNight: 0.03,
   sdWhistle: 0.08,
+  distWeight: 1,
+  duelWeight: 0.5,
+  fatigueOff: 0.03,
+  fatigueDef: 0.015,
+  sosWeight: 1,
 };
 
 const logit = (p: number): number => Math.log(Math.max(1e-6, p) / Math.max(1e-6, 1 - p));
@@ -129,6 +143,7 @@ function leagueModel(f: FeatureSet, t: Tables): LeagueModel {
     homeMargin: L.homeMargin,
     ppg: L.pts,
     rankMinutes: L.presenceTemplate.map((row) => sum(row)),
+    distFg: L.distFg,
   };
 }
 
@@ -526,6 +541,7 @@ function buildPlayer(ctx: Ctx, pid: number, info: { name: string; jersey: string
     stintMean: pf && pf.stintN > 2 ? pf.stintSum / pf.stintN : ctx.feats.league.stintMean,
     usg, pt, eff, zone, fg, ft, astd, astNorm,
     spots: pf?.spots ?? ZONES.map(() => []),
+    spotLogit: (pf?.spots ?? ZONES.map(() => [])).map((sp) => (sp.length ? sum(sp.map(([x, y]) => logit(ctx.feats.league.distFg[Math.min(40, Math.floor(Math.hypot(x, y) / 10))]))) / sp.length : 0)) as Z6,
     labels: pf ? pf.labels.map((m) => topLabels(m)) : ZONES.map(() => []),
     astTo: {}, passTo: {}, astRate, putback, orb, drb,
     dRim, dMid, d3, dOverall, rimRate, midRate, threeRate, stl, blk, pfShoot, pfOther, pfOff, drawOther, drawBonus, typicalDefQ, tovLiveShare, guardProfile,
@@ -693,7 +709,7 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
   });
 }
 
-function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: string): TeamModel {
+function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: string, venue: TeamInfo): TeamModel {
   const { feats: f, tables: t, league } = ctx;
   const T: TeamFeat | undefined = f.teams.get(info.id);
   const adv = t.teamAdv.get(info.id);
@@ -772,6 +788,38 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
   }
   const continuity = contDen ? contNum / contDen : 0;
 
+  // Fatigue : back-to-back, voyage de 2 fuseaux ou plus vers l'est sans jour de repos, altitude pour le visiteur.
+  const prevGame = T?.sched.filter((s) => s.date < date).at(-1);
+  const shiftEast = prevGame ? TZ[venue.tri] - TZ[teamById(prevGame.venue)?.tri ?? venue.tri] : 0;
+  const fatigueWhy: string[] = [];
+  let fatigue = 0;
+  if (restDays === 0) {
+    fatigue += 1;
+    fatigueWhy.push('2e match en deux soirs');
+  }
+  if (shiftEast >= 2 && restDays <= 1) {
+    fatigue += 0.5;
+    fatigueWhy.push(`voyage de ${shiftEast} fuseaux horaires vers l'est`);
+  }
+  if (venue.id !== info.id && ALTITUDE[venue.tri]) {
+    fatigue += ALTITUDE[venue.tri];
+    fatigueWhy.push(`altitude (${venue.city})`);
+  }
+
+  // Force des adversaires affrontés (pondérée comme les notes) : corrige un calendrier facile ou difficile.
+  const rawO = (x?: TeamFeat) => (x && x.poss > 0 ? x.pts / x.poss : league.ppg / league.pace);
+  const rawD = (x?: TeamFeat) => (x && x.defPoss > 0 ? x.ptsAllowed / x.defPoss : league.ppg / league.pace);
+  let sw = 0, oppD = 0, oppO = 0;
+  for (const s of T?.sched ?? []) {
+    if (s.date >= date) continue;
+    const o = f.teams.get(s.opp);
+    sw += s.w;
+    oppD += s.w * rawD(o);
+    oppO += s.w * rawO(o);
+  }
+  const lgPP = league.ppg / league.pace;
+  const sos: [number, number] = sw > 0 ? [oppD / sw - lgPP, oppO / sw - lgPP] : [0, 0];
+
   return {
     ortg: T && T.poss > 0 ? T.pts / T.poss : league.ppg / league.pace,
     drtg: T && T.defPoss > 0 ? T.ptsAllowed / T.defPoss : league.ppg / league.pace,
@@ -781,7 +829,7 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
     hcDurOff: T && T.durN > 50 ? T.durSum / T.durN : league.hcDur,
     hcDurDef: T && T.oppDurN > 50 ? T.oppDurSum / T.oppDurN / league.hcDur : 1,
     transOff, transDefMult, ptDefMult, tovForceMult, zoneDefMult, zoneDefFg, foulRate, switchRate,
-    restDays, b2b: restDays === 0,
+    restDays, b2b: restDays === 0, fatigue, fatigueWhy, sos,
     ratings: {
       offRtg: adv?.offRtg ?? 0, defRtg: adv?.defRtg ?? 0, netRtg: adv?.netRtg ?? 0, pace: adv?.pace ?? 0,
       tovPct: four?.tovPct ?? 0, oppTovPct: four?.oppTovPct ?? 0, orebPct: four?.orebPct ?? 0,
@@ -965,8 +1013,8 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
     await attachPasses(tables, awayPlayers, log);
   }
 
-  const home = teamModel(ctx, homeInfo, homePlayers, opts.date);
-  const away = teamModel(ctx, awayInfo, awayPlayers, opts.date);
+  const home = teamModel(ctx, homeInfo, homePlayers, opts.date, homeInfo);
+  const away = teamModel(ctx, awayInfo, awayPlayers, opts.date, homeInfo);
 
   // H2H : minutes de duel entre attaquants d'une équipe et défenseurs de l'autre.
   const h2h: Record<string, Record<string, number>> = {};
@@ -994,13 +1042,36 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
     }
   }
 
+  // Duels tireur / défenseur : adresse réelle du tireur face à ce défenseur, rétrécie vers son adresse habituelle.
+  const duel: Record<number, Record<number, number>> = {};
+  const acc = new Map<string, { fga: number; fgm: number }>();
+  for (const r of tables.matchups) {
+    const o = r.OFF_PLAYER_ID;
+    const d = r.DEF_PLAYER_ID;
+    if (!((hIds.has(o) && aIds.has(d)) || (aIds.has(o) && hIds.has(d)))) continue;
+    const k = `${o}:${d}`;
+    const a = acc.get(k) ?? { fga: 0, fgm: 0 };
+    a.fga += (r.MATCHUP_FGA ?? 0) * r._w;
+    a.fgm += (r.MATCHUP_FGM ?? 0) * r._w;
+    acc.set(k, a);
+  }
+  for (const [k, a] of acc) {
+    const [o, d] = k.split(':').map(Number);
+    const pf = feats.players.get(o);
+    const fga = pf ? sum(pf.fga) : 0;
+    const p0 = fga > 20 ? sum(pf!.fgm) / fga : 0.46;
+    if (a.fga < 3) continue;
+    const adj = logit((a.fgm + 50 * p0) / (a.fga + 50)) - logit(p0);
+    (duel[o] ??= {})[d] = clamp(adj, -0.3, 0.3);
+  }
+
   const model: GameModel = {
     meta: {
       gameId: opts.gameId ?? '', date: opts.date, season: cur, builtAt: new Date().toISOString(), dataThrough: feats.lastGameDate,
       gamesUsed: feats.gamesUsed,
       sources: ['cdn.nba.com play-by-play', 'stats.nba.com Synergy', 'stats.nba.com tracking défensif', 'stats.nba.com matchups', 'stats.nba.com passes', 'ESPN blessures', 'ESPN/DraftKings cotes'],
     },
-    league: ctx.league, home, away, h2hMatchups: h2h, params: { ...DEFAULT_PARAMS }, insights: [],
+    league: ctx.league, duel, home, away, h2hMatchups: h2h, params: { ...DEFAULT_PARAMS }, insights: [],
   };
   model.insights = insightsFor(ctx, home, away);
 
