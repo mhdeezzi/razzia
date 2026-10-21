@@ -12,16 +12,25 @@
     "sim": "node src/cli/sim.ts",
     "slate": "node src/cli/slate.ts",
     "backtest": "node src/cli/backtest.ts",
-    "viewer": "vite",
-    "typecheck": "tsc --noEmit",
+    "viewer": "vite --config viewer/vite.config.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p web",
     "props-backtest": "node src/cli/propsbacktest.ts",
     "build": "vite build",
-    "publish-site": "node src/cli/publish.ts",
-    "snapshot": "node src/cli/snapshot.ts"
+    "snapshot": "node src/cli/snapshot.ts",
+    "dev": "vite"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
     "typescript": "^5.8.3",
     "vite": "^7.1.5"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@phosphor-icons/react": "^2.1.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   }
 }

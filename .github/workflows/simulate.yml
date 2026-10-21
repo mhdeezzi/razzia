@@ -1,0 +1,57 @@
+# Simulation d'un match à la demande, déclenchée par le bouton « Simuler » de la web app (api/sim.ts).
+# Le résultat (summary.json, et typical.json : le match typique allégé) est poussé sur la branche resultats, que l'app lit directement : pas de redéploiement.
+# stats.nba.com bloque les serveurs GitHub : ses tableaux viennent de l'instantané poussé depuis le Mac.
+name: Simulation à la demande
+run-name: "Sim ${{ inputs.away }}@${{ inputs.home }} ${{ inputs.date }} · ${{ inputs.request_id }}"
+on:
+  workflow_dispatch:
+    inputs:
+      date: { description: 'Date du match (AAAA-MM-JJ, heure US)', required: true }
+      away: { description: 'Équipe extérieure (tricode)', required: true }
+      home: { description: 'Équipe à domicile (tricode)', required: true }
+      request_id: { description: "Identifiant de la demande (suivi depuis l'app)", required: false, default: manuel }
+concurrency: { group: "sim-${{ inputs.date }}-${{ inputs.away }}-${{ inputs.home }}", cancel-in-progress: false }
+permissions: { contents: write }
+jobs:
+  sim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SIMLAB_OFFLINE_HOSTS: stats.nba.com
+      AWAY: ${{ inputs.away }}
+      HOME_TEAM: ${{ inputs.home }}
+      DATE: ${{ inputs.date }}
+      DIR: "${{ inputs.date }}_${{ inputs.away }}@${{ inputs.home }}"
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci --no-audit --no-fund
+      # Play-by-play déjà téléchargé (~2 600 matchs) : gardé d'une simulation à l'autre.
+      - uses: actions/cache@v4
+        with:
+          path: data/cache
+          key: nba-cache-${{ github.run_id }}
+          restore-keys: nba-cache-
+      - run: npm run snapshot -- --pull
+      - run: npm run ingest -- --games
+      - run: npm run sim -- --game "$AWAY@$HOME_TEAM" --date "$DATE"
+      - name: Publication sur la branche resultats
+        run: |
+          git config user.name "simbet-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch origin resultats; then git worktree add -B resultats ../res FETCH_HEAD; else git worktree add --orphan -b resultats ../res; fi
+          for i in 1 2 3 4 5; do
+            mkdir -p "../res/sims/$DIR"
+            cp "out/$DIR/summary.json" "../res/sims/$DIR/summary.json"
+            node src/cli/typicalcompact.ts "out/$DIR/typical.json" "../res/sims/$DIR/typical.json"
+            node src/cli/resultindex.ts ../res/sims "$DIR"
+            git -C ../res add sims
+            git -C ../res commit -qm "Simulation $DIR"
+            git -C ../res push origin HEAD:resultats && exit 0
+            # Une autre simulation a publié entre-temps : on repart de sa version et on recalcule l'index.
+            sleep $((i * 2))
+            git -C ../res fetch origin resultats && git -C ../res reset -q --hard FETCH_HEAD
+          done
+          exit 1
