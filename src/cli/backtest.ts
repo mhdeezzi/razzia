@@ -19,6 +19,7 @@ function arg(name: string, def?: string): string | undefined {
 }
 
 export interface BacktestResult {
+  fullTables?: boolean;
   market?: { n: number; brierModel: number; brierMarket: number; brierBlend: number; spreadN: number; spreadErrModel: number; spreadErrMarket: number; totN: number; totErrModel: number; totErrMarket: number; ats: number; atsWin: number };
   games: number;
   team: Record<string, { sim: number; real: number }>;
@@ -68,7 +69,7 @@ function decompose(r: Box, s: Box) {
   };
 }
 
-export async function backtest(opts: { from: string; to: string; games: number; n: number; params?: Partial<SimParams>; quiet?: boolean; market?: boolean; noStrength?: boolean }): Promise<BacktestResult> {
+export async function backtest(opts: { from: string; to: string; games: number; n: number; params?: Partial<SimParams>; quiet?: boolean; market?: boolean; noStrength?: boolean; fullTables?: boolean }): Promise<BacktestResult> {
   const ids = readdirSync(join(CACHE_DIR, 'games')).map((f) => f.replace('.json.gz', '')).filter((id) => id.startsWith('002')).sort();
   const pool: GameRecord[] = [];
   for (const id of ids) {
@@ -94,7 +95,7 @@ export async function backtest(opts: { from: string; to: string; games: number; 
   const mkt = { n: 0, brierModel: 0, brierMarket: 0, brierBlend: 0, spreadN: 0, spreadErrModel: 0, spreadErrMarket: 0, totN: 0, totErrModel: 0, totErrMarket: 0, ats: 0, atsWin: 0 };
   for (const [gi, g] of sample.entries()) {
     const t0 = Date.now();
-    const m = await buildGameModel({ date: g.date, homeTri: g.home.tri, awayTri: g.away.tri, gameId: g.gameId, actual: g, injuries: false, market: false, passes: false });
+    const m = await buildGameModel({ date: g.date, homeTri: g.home.tri, awayTri: g.away.tri, gameId: g.gameId, actual: g, injuries: false, market: false, passes: false, pastTablesOnly: !opts.fullTables });
     Object.assign(m.params, opts.params ?? {});
     calibratePace(m, 150);
     if (!opts.noStrength) calibrateStrength(m, 200);
@@ -297,7 +298,7 @@ export async function backtest(opts: { from: string; to: string; games: number; 
     rows.push({ game: `${g.away.tri}@${g.home.tri}`, date: g.date, real: `${g.away.score}-${g.home.score}`, sim: `${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)}`, pHome: +s.pHome.toFixed(3) });
     if (!opts.quiet) console.log(`[${gi + 1}/${sample.length}] ${g.date} ${g.away.tri}@${g.home.tri} réel ${g.away.score}-${g.home.score} | sim ${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)} pDom ${(s.pHome * 100).toFixed(0)}% (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   }
-  return { market: mkt, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, calib, accuracy: hits / sample.length, accuracyMkt: nMkt ? hitsMkt / nMkt : undefined, autopsy: auto, rows };
+  return { fullTables: !!opts.fullTables, market: mkt, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, calib, accuracy: hits / sample.length, accuracyMkt: nMkt ? hitsMkt / nMkt : undefined, autopsy: auto, rows };
 }
 
 export function printBacktest(r: BacktestResult): string {
@@ -351,12 +352,16 @@ export function printBacktest(r: BacktestResult): string {
 }
 
 if (import.meta.main) {
+  // « _fullTables » dans les paramètres d'une variante : avec les tables de fin de saison (pour mesurer la fuite).
+  const { _fullTables, ...params } = arg('params') ? JSON.parse(arg('params')!) : {};
   const r = await backtest({
     from: arg('from', '2026-01-10')!, to: arg('to', '2026-04-12')!, games: Number(arg('games', '30')), n: Number(arg('n', '400')),
-    params: arg('params') ? JSON.parse(arg('params')!) : undefined,
+    params,
     market: !process.argv.includes('--no-market'),
     noStrength: process.argv.includes('--no-strength'),
+    fullTables: process.argv.includes('--full-tables') || !!_fullTables,
   });
+  console.log(r.fullTables ? 'Tables stats.nba.com : saison du match incluse (totaux de fin de saison, fuite possible)' : 'Tables stats.nba.com : saisons précédentes uniquement (aucune donnée postérieure au match)');
   const txt = printBacktest(r);
   console.log('\n' + txt);
   mkdirSync(join(ROOT, 'out', 'backtests'), { recursive: true });

@@ -26,6 +26,8 @@ export interface BuildOpts {
   market?: boolean;
   actual?: GameRecord; // match réel (backtest) : statuts INACTIVE utilisés
   passes?: boolean;
+  // Contrôle de justesse : sans les tables stats.nba.com de la saison du match (totaux de fin de saison = futur).
+  pastTablesOnly?: boolean;
   log?: (...a: unknown[]) => void;
 }
 
@@ -1140,7 +1142,7 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
   const awayInfo = teamByTri(opts.awayTri);
 
   log('chargement des tableaux stats.nba.com…');
-  const tables = await loadTablesCached(cur, prev, prev2);
+  const tables = await loadTablesCached(cur, prev, prev2, opts.pastTablesOnly);
   const heights = new Map<number, number>();
   const posOf = new Map<number, string>();
   for (const [id, r] of tables.index) {

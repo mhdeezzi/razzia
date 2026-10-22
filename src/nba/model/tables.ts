@@ -64,21 +64,22 @@ const DEF_KEYS: Record<string, [string, string, string]> = {
 const tablesMemo = new Map<string, Promise<Tables>>();
 
 /** Version mémoïsée (utile pour les backtests qui construisent beaucoup de modèles). */
-export function loadTablesCached(cur: string, prev: string, prev2?: string): Promise<Tables> {
-  const k = `${cur}|${prev}|${prev2 ?? ''}`;
+export function loadTablesCached(cur: string, prev: string, prev2?: string, pastOnly = false): Promise<Tables> {
+  const k = `${cur}|${prev}|${prev2 ?? ''}|${pastOnly}`;
   let t = tablesMemo.get(k);
-  if (!t) tablesMemo.set(k, (t = loadTables(cur, prev, prev2)));
+  if (!t) tablesMemo.set(k, (t = loadTables(cur, prev, prev2, pastOnly)));
   return t;
 }
 
-export async function loadTables(cur: string, prev: string, prev2?: string): Promise<Tables> {
+/** pastOnly : sans la saison `cur` (pour rejouer un match passé sans voir les totaux de fin de saison). */
+export async function loadTables(cur: string, prev: string, prev2?: string, pastOnly = false): Promise<Tables> {
   // Saison réellement en cours : rafraîchie toutes les 6 h ; saisons terminées : cache permanent.
   const ttlCur = cur === seasonOfDate(new Date().toISOString().slice(0, 10)) ? 6 : Infinity;
   const ttlPrev = Infinity;
   const scopes: Array<{ season: string; st: string; w: number; ttl: number }> = [
     { season: prev, st: S.SEASON_TYPES.regular, w: SEASON_W.prev, ttl: ttlPrev },
     { season: prev, st: S.SEASON_TYPES.playoffs, w: SEASON_W.prev * SEASON_W.playoffs, ttl: ttlPrev },
-    { season: cur, st: S.SEASON_TYPES.regular, w: SEASON_W.cur, ttl: ttlCur },
+    ...(pastOnly ? [] : [{ season: cur, st: S.SEASON_TYPES.regular, w: SEASON_W.cur, ttl: ttlCur }]),
   ];
   // Saison N-2 (poids réduit) : indispensable pour les joueurs revenant d'une saison blanche.
   if (prev2) {
