@@ -91,7 +91,8 @@ export function calibrateStrength(m: GameModel, sims = 300, maxWeight = 0.6): { 
   // Momentum : part de l'écart « 15 derniers matchs - saisons précédentes » ajoutée à l'écart attendu, au prorata de la
   // continuité de l'effectif (le momentum d'une équipe tient à ses joueurs). Moitié en attaque, moitié en défense.
   // Confrontations récentes (chat noir) : part de l'écart réel - attendu des deux dernières années.
-  const mw = m.params.momentumWeight ?? 0;
+  const early = Math.max(0, 1 - Math.min(m.home.gpCur ?? 99, m.away.gpCur ?? 99) / 25);
+  const mw = (m.params.momentumWeight ?? 0) + (m.params.momentumEarly ?? 0) * early;
   let shift = 0;
   if (mw && m.home.momentum && m.away.momentum) shift += mw * (m.home.continuity * m.home.momentum.delta - m.away.continuity * m.away.momentum.delta);
   if (m.params.h2hWeight && m.h2h) shift += m.params.h2hWeight * m.h2h.residualHome;

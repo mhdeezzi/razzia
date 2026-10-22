@@ -187,6 +187,7 @@ export interface SimParams {
   teamBias: [number, number]; // ancrage de force collective (logit d'adresse) domicile, extérieur
   uncWeight: number; // poids de l'incertitude de force collective (strengthSd) tirée à chaque simulation
   momentumWeight: number; // part du momentum d'équipe (écart récent - saisons précédentes) ajoutée à la force visée
+  momentumEarly: number; // part supplémentaire en début de saison (moins de 25 matchs), où le momentum compte le plus
   noStakesPenalty: number; // points d'écart retirés à une équipe en fin de saison sans enjeu
   coachDef: number; // le coach met son meilleur défenseur sur la plus grosse menace et cache son plus faible
   h2hWeight: number; // part de l'écart réel - attendu des confrontations récentes (chat noir) ajoutée à l'écart visé
