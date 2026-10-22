@@ -1,5 +1,6 @@
 // cdn.nba.com : calendrier, play-by-play (avec coordonnées de tir, passeur, contreur, intercepteur, faute provoquée)
 // et box scores. Le PBP est compacté avant mise en cache pour limiter le disque.
+import { createHash } from 'node:crypto';
 import { fetchJson, readCache, writeCache, HttpError } from './http.ts';
 
 const CDN = 'https://cdn.nba.com/static/json';
@@ -58,6 +59,36 @@ export interface GameRecord {
   home: BoxTeam;
   away: BoxTeam;
   actions: Act[];
+  officials?: Official[];
+}
+
+export interface Official {
+  id: number;
+  name: string;
+}
+const officialsOfBox = (g: any): Official[] => (g?.officials ?? []).map((o: any) => ({ id: o.personId, name: o.name }));
+
+/**
+ * Arbitres d'un match terminé : enregistrés avec le match, ou retrouvés dans la feuille de match brute gardée en cache
+ * (matchs téléchargés avant que les arbitres ne soient conservés).
+ */
+export function officialsOf(g: GameRecord): Official[] | undefined {
+  if (g.officials?.length) return g.officials;
+  const url = `${CDN}/liveData/boxscore/boxscore_${g.gameId}.json`;
+  const raw = readCache<any>('tmp', createHash('sha1').update(url).digest('hex'));
+  const o = officialsOfBox(raw?.game);
+  return o.length ? o : undefined;
+}
+
+/** Arbitres désignés pour un match à venir, s'ils figurent déjà sur la feuille de match en direct (cdn.nba.com). */
+export async function upcomingOfficials(gameId: string): Promise<Official[] | undefined> {
+  try {
+    const box = await fetchJson<any>(`${CDN}/liveData/boxscore/boxscore_${gameId}.json`, { ttlHours: 0.5, namespace: 'pregame', retries: 1 });
+    const o = officialsOfBox(box?.game);
+    return o.length ? o : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function clockToSec(clock: string): number {
@@ -119,6 +150,7 @@ export async function getGame(gameId: string, opts: { force?: boolean; ns?: stri
       home: boxTeam(g.homeTeam),
       away: boxTeam(g.awayTeam),
       actions: pbp.game.actions.map(compact),
+      officials: officialsOfBox(g),
     };
     writeCache(ns, gameId, rec);
     return rec;

@@ -3,7 +3,7 @@
 // -> qui défend (assignation + switch sur écran) -> issue (perte, faute, tir) -> zone et position du tir
 // -> adresse (forme par zone, type de jeu, défenseur qui conteste, schéma, domicile, effets du soir)
 // -> contre / passe décisive / rebond (lineups) -> horloge, fautes d'équipe, rotations.
-import type { GameModel, PlayerModel, TeamModel, PT, Z6 } from '../model/types.ts';
+import type { Edge, GameModel, LeagueModel, PlayerModel, TeamModel, PT, Z6 } from '../model/types.ts';
 import { HALF_COURT_PT } from '../model/types.ts';
 import { Rng, logistic, logit } from '../../core/rng.ts';
 
@@ -13,6 +13,57 @@ export const PT_AST_PRIOR: Record<PT, number> = {
 };
 const THREE = [false, false, false, true, true, true];
 const RIM_ZONES = [true, true, false, false, false, false];
+
+/** Leviers concrets d'une équipe en attaque, déduits de ses écarts d'occasions (points / 100 possessions, voir Edge). */
+interface Lever {
+  tov: number; // multiplicateur des pertes
+  orb: number; // multiplicateur de la cote du rebond offensif
+  trans: number; // multiplicateur des contre-attaques
+  fta: number; // multiplicateur des fautes de tir provoquées
+  zone: number[]; // multiplicateurs de choix de zone (meilleurs emplacements)
+  tilt: number; // inclinaison du niveau de contestation (positif : plus ouvert)
+  make: number; // logit d'adresse : part de la réussite que l'inclinaison ne couvre pas
+  tiltLogit: number; // équivalent logit de l'inclinaison, pour un tireur sans profil de contestation
+}
+const NEUTRAL: Lever = { tov: 1, orb: 1, trans: 1, fta: 1, zone: [1, 1, 1, 1, 1, 1], tilt: 0, make: 0, tiltLogit: 0 };
+
+function leverOf(e: Edge | undefined, L: LeagueModel): Lever {
+  if (!e) return NEUTRAL;
+  const c = (x: number, lim: number) => Math.max(-lim, Math.min(lim, x));
+  // Qualité d'emplacement : inclinaison des zones vers celles qui rapportent le plus par tir (ligue).
+  const val = L.zoneFg.map((p, z) => (THREE[z] ? 3 : 2) * p);
+  const mu = val.reduce((a, v, z) => a + v * L.zoneFreq[z], 0);
+  const v = val.map((x) => x - mu);
+  const varv = v.reduce((a, x, z) => a + x * x * L.zoneFreq[z], 0) || 0.02;
+  const t = c(e.shotQ, 8) / 88 / varv;
+  // Contestation : l'inclinaison déplace les tirs entre niveaux (adresse de la ligue par niveau) ; le reste en logit.
+  const C = L.contest;
+  let tilt = 0;
+  let make = 0;
+  let tiltLogit = 0;
+  const target = c(e.contest, 8) / 88; // points par tir
+  if (C?.f2 && C.f3) {
+    const grad = (s: number[], f: number[], val: number) => {
+      const m = s.reduce((a, x) => a + x, 0) || 1;
+      const ef = s.reduce((a, x, i) => a + x * f[i], 0) / m;
+      return (val * s.reduce((a, x, i) => a + x * (i - 1.5) * (f[i] - ef), 0)) / m;
+    };
+    const g = 0.6 * grad(C.s2, C.f2, 2) + 0.4 * grad(C.s3, C.f3, 3); // points par tir par unité d'inclinaison
+    if (Math.abs(g) > 0.01) tilt = c(target / g, 1.2);
+    make = (target - tilt * g) / 0.56;
+    tiltLogit = (tilt * g) / 0.56;
+  } else make = target / 0.56; // ≈ 0,56 point par tir et par unité de logit (valeur × p(1-p))
+  return {
+    tov: Math.exp(-c(e.tov, 8) / 14.6),
+    orb: Math.exp(c(e.orb, 8) / 10.8),
+    trans: Math.exp(c(e.trans, 3) / 2.25),
+    fta: Math.exp(c(e.fta, 6) / 15.5),
+    zone: v.map((x) => Math.exp(t * x)),
+    tilt,
+    make: c(make, 0.25),
+    tiltLogit,
+  };
+}
 
 export interface Line {
   id: number;
@@ -162,6 +213,7 @@ export class GameSim {
   assign: [Map<number, number>, Map<number, number>] = [new Map(), new Map()];
   openingTipWinner: 0 | 1 = 0;
   shotClock = 24;
+  lever: [Lever, Lever] = [NEUTRAL, NEUTRAL]; // leviers d'occasions de chaque attaque (ascendant, chat noir)
 
   constructor(m: GameModel, seed: number, opt: SimOptions = {}) {
     this.m = m;
@@ -172,6 +224,7 @@ export class GameSim {
     this.paceMult = Math.exp(this.r.normal(0, P.sdPace));
     this.gameNight = this.r.normal(0, P.sdGameNight);
     this.whistle = Math.exp(this.r.normal(0, P.sdWhistle));
+    this.lever = [leverOf(P.edge?.[0], m.league), leverOf(P.edge?.[1], m.league)];
     this.S = [this.makeSide(m.home, 0), this.makeSide(m.away, 1)];
   }
 
@@ -611,7 +664,7 @@ export class GameSim {
 
     // Transition ?
     const ps = start === 'oreb' ? 0 : O.t.transOff[start === 'ft' ? 'made' : start] ?? 0.05;
-    const pTrans = clamp(ps * D.t.transDefMult, 0, 0.85);
+    const pTrans = clamp(ps * D.t.transDefMult * this.lever[off].trans, 0, 0.85);
     let isTrans = (start === 'dreb' || start === 'steal') && this.r.chance(pTrans);
     if (start === 'made' && this.r.chance(pTrans * 0.6)) isTrans = true;
     let kind = isTrans ? 'transition' : start === 'oreb' ? 'second chance' : 'half court';
@@ -746,8 +799,9 @@ export class GameSim {
       const eff = shooter.m.eff[pt];
       const dOn = this.onCourt(def);
       const lineupStl = dOn.reduce((a, p) => a + p.m.stl, 0) / 0.065;
-      const tovP = clamp(eff.tov * D.t.tovForceMult * Math.sqrt(clamp(lineupStl, 0.6, 1.6)) * (lateClock ? 1.1 : 1), 0, 0.5);
-      const sfP = clamp(P.sfMult * this.whistle * eff.sfMiss * (off === 0 ? P.homeFoulMult : 1 / P.homeFoulMult), 0, 0.35);
+      const Lv = this.lever[off];
+      const tovP = clamp(eff.tov * D.t.tovForceMult * Math.sqrt(clamp(lineupStl, 0.6, 1.6)) * (lateClock ? 1.1 : 1) * Lv.tov, 0, 0.5);
+      const sfP = clamp(P.sfMult * this.whistle * eff.sfMiss * (off === 0 ? P.homeFoulMult : 1 / P.homeFoulMult) * Lv.fta, 0, 0.35);
       const u = this.r.next();
       if (u < tovP) return this.turnover(shooter, off, def, primaryDef, pt, lateClock);
       if (u < tovP + sfP) {
@@ -783,7 +837,8 @@ export class GameSim {
         const fg = three ? C.f3 : C.f2;
         const dw = three ? Dc.s3 : Dc.s2;
         const lw = three ? Lc.s3 : Lc.s2;
-        const w = sh.map((v, c) => v * (dw[c] / Math.max(1e-6, lw[c])));
+        const tilt = this.lever[off].tilt;
+        const w = sh.map((v, c) => v * (dw[c] / Math.max(1e-6, lw[c])) * Math.exp(tilt * (c - 1.5)));
         const tot = w.reduce((a, v) => a + v, 0) || 1;
         contestLevel = this.r.pick(w.map((v) => v / tot));
         const avg = sh.reduce((a, v, c) => a + v * fg[c], 0);
@@ -791,6 +846,7 @@ export class GameSim {
       }
       // Duel : historique du tireur face au défenseur qui conteste.
       lp += (P.duelWeight ?? 0) * (this.m.duel?.[shooter.m.id]?.[contest.m.id] ?? 0);
+      lp += this.lever[off].make + (contestLevel != null ? 0 : this.lever[off].tiltLogit);
       const dd = z === 0 ? contest.m.dRim : z === 1 ? (contest.m.dRim + contest.m.dMid) / 2 : z === 2 ? contest.m.dMid : contest.m.d3;
       lp += P.defWeight * dd;
       if (off === 0) lp += P.homeFgLogit;
@@ -916,7 +972,8 @@ export class GameSim {
     const dm = this.S[def].t.zoneDefMult;
     const lateTrail = this.p >= 4 && this.clock <= 120 && this.margin(off) < 0 && this.margin(off) >= -12;
     const tm = this.m.params.threeMult;
-    const w = base.map((q, z) => q * Math.pow(dm[z], 0.7) * (THREE[z] ? tm * (lateTrail ? 1.5 : 1) : 1));
+    const lz = this.lever[off].zone;
+    const w = base.map((q, z) => q * Math.pow(dm[z], 0.7) * (THREE[z] ? tm * (lateTrail ? 1.5 : 1) : 1) * lz[z]);
     return this.r.pick(w);
   }
 
@@ -1086,6 +1143,7 @@ export class GameSim {
     let o = (this.m.params.orebMult * odds(So) * odds(1 - Sd)) / odds(lgO);
     o *= odds(L.orebByZone[z]) / odds(lgO);
     if (blocked) o *= 1.15;
+    o *= this.lever[off].orb;
     const pO = o / (1 + o);
     const isOff = this.r.chance(pO);
     const side: 0 | 1 = isOff ? off : def;

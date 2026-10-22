@@ -1,7 +1,9 @@
 // Construction du modèle de match : fusion PBP (forme récente) + Synergy + tracking + matchups + blessures + marché.
-import { buildFeaturesCached, topLabels, zi, type FeatureSet, type GameLine, type PlayerFeat, type TeamFeat, type ZoneArr } from './features.ts';
+import { buildFeaturesCached, loadGames, topLabels, zi, type FeatureSet, type GameLine, type PlayerFeat, type TeamFeat, type ZoneArr } from './features.ts';
 import { loadTablesCached, heightToIn, groupOfPos, type Tables, type SynAgg, type ContestAgg } from './tables.ts';
-import { PT_LIST, HALF_COURT_PT, type Contest, type GameModel, type PlayerModel, type TeamModel, type TeamMomentum, type TeamH2H, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
+import { occLogs, occProfile, type OccGame, type OccProfile } from './xpts.ts';
+import { rapmAsOf } from './rapm.ts';
+import { PT_LIST, HALF_COURT_PT, type Contest, type Edge, type OccSummary, type GameModel, type PlayerModel, type TeamModel, type TeamMomentum, type TeamH2H, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
 import { START_TYPES, type StartType } from './pbp.ts';
 import { ZONES, isThree } from './zones.ts';
 import { teamById, teamByTri, type TeamInfo } from '../teams.ts';
@@ -191,7 +193,12 @@ function leagueModel(f: FeatureSet, t: Tables): LeagueModel {
     ppg: L.pts,
     rankMinutes: L.presenceTemplate.map((row) => sum(row)),
     distFg: L.distFg,
-    contest: shares(t.contestL),
+    contest: (() => {
+      const sh = shares(t.contestL);
+      if (!sh || !t.contestL) return sh;
+      const fg = (m: number[], n: number[]) => n.map((a, c) => (a > 0 ? m[c] / a : 0.45));
+      return { ...sh, f2: fg(t.contestL.fg2m, t.contestL.fg2a), f3: fg(t.contestL.fg3m, t.contestL.fg3a) };
+    })(),
   };
 }
 
@@ -990,7 +997,60 @@ function teamMomentum(f: FeatureSet, teamId: number, date: string, homeMargin: n
   }
   const r = avg(recent);
   const b = avg(base);
-  return { recent: r, base: b, delta: r - b, n: recent.length, nBase: base.length, streak };
+  const out: TeamMomentum = { recent: r, base: b, delta: r - b, n: recent.length, nBase: base.length, streak };
+  // Occasions (points attendus créés - concédés) sur les mêmes périodes : l'ascendant dans le jeu, hors réussite du soir.
+  const occ = (occLogsBefore(date).get(teamId) ?? []).filter((g) => g.date < date);
+  if (occ.length >= 25) {
+    const oRecent = occ.slice(-15);
+    const oBase = occ.slice(0, -15).filter((g) => seasonOfDate(g.date).slice(0, 4) >= from);
+    const pr = occProfile(oRecent);
+    const pb = occProfile(oBase);
+    if (pr && pb && oBase.length >= 20) {
+      const xAdj = (l: OccGame[]) => sum(l.map((g) => g.xMargin - (g.home ? homeMargin : -homeMargin))) / l.length;
+      out.xRecent = xAdj(oRecent);
+      out.xBase = xAdj(oBase);
+      // Écarts relatifs à la ligue sur les mêmes périodes : un changement d'arbitrage ou de rythme touche tout le monde.
+      const lg = (l: OccGame[]) => occProfile(leagueBetween(l[0].date, l[l.length - 1].date));
+      const lr = lg(oRecent);
+      const lb = lg(oBase);
+      const rel = (t: OccProfile, l?: OccProfile): OccSummary => {
+        const o = occSummary(t);
+        if (!l) return o;
+        const L = occSummary(l);
+        return Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v - L[k as keyof OccSummary]])) as unknown as OccSummary;
+      };
+      out.occ = { recent: rel(pr, lr), base: rel(pb, lb) };
+    }
+  }
+  return out;
+}
+
+// Journal des occasions (calculé une fois pour tous les matchs du cache ; chaque usage filtre les matchs antérieurs).
+let occCache: Map<number, OccGame[]> | undefined;
+function occLogsBefore(_date: string): Map<number, OccGame[]> {
+  return (occCache ??= occLogs(loadGames()));
+}
+/** Tous les matchs de la ligue entre deux dates (incluses), pour les moyennes de référence. */
+function leagueBetween(from: string, to: string): OccGame[] {
+  const out: OccGame[] = [];
+  for (const l of (occCache ??= occLogs(loadGames())).values()) for (const g of l) if (g.date >= from && g.date <= to) out.push(g);
+  return out;
+}
+const occSummary = (p: OccProfile): OccSummary => ({
+  tov: p.tov, tovForced: p.tovForced, orb: p.orb, orbAllowed: p.orbAllowed, trans: p.trans, transAllowed: p.transAllowed,
+  fta: p.fta, ftaAllowed: p.ftaAllowed, xFg: p.xFg, xFgAllowed: p.xFgAllowed, make: p.make, makeAllowed: p.makeAllowed,
+});
+
+/** Écarts d'occasions d'une équipe en attaque, en points / 100 possessions (valeurs moyennes d'une possession, d'un tir...). */
+export function occEdge(d: { tov: number; orb: number; trans: number; fta: number; xFg: number; make: number }): Edge {
+  return {
+    tov: -d.tov * 100 * 1.12, // une perte évitée vaut une possession menée à son terme
+    orb: d.orb * 55 * 1.05, // ≈ 0,55 tir manqué par possession, un rebond offensif vaut ≈ 1,05 pt
+    trans: d.trans * 100 * 0.15, // une contre-attaque rapporte ≈ 0,15 pt de plus qu'une attaque placée
+    fta: d.fta * 78,
+    shotQ: d.xFg * 88, // ≈ 0,88 tir par possession
+    contest: d.make * 88,
+  };
 }
 
 /**
@@ -1019,6 +1079,7 @@ function teamH2H(f: FeatureSet, home: TeamModel, away: TeamModel, date: string, 
   const out: TeamH2H = {
     meetings: meetings.map(({ exp: _e, real: _r, ...m }) => m),
     residualHome: (res * meetings.length) / (meetings.length + 4),
+    shots: h2hShots(home.id, away.id, date, since),
   };
   for (const victim of ['home', 'away'] as const) {
     // Écart attendu et réel du point de vue de la victime potentielle (exp et real sont vus de l'équipe à domicile ce soir).
@@ -1037,6 +1098,44 @@ function teamH2H(f: FeatureSet, home: TeamModel, away: TeamModel, date: string, 
     }
   }
   return out;
+}
+
+/**
+ * Qualité des occasions dans les confrontations : pour chaque match entre les deux équipes, ce que chacune a obtenu en
+ * attaque (pertes, rebonds offensifs, contre-attaques, lancers, emplacements de tir, réussite compte tenu des tireurs)
+ * comparé à l'attendu : son habitude sur ses 30 matchs précédents + ce que l'adversaire concède d'habitude - la ligue.
+ * Reste ce qui tient au duel lui-même (chat noir : tirs plus loin, plus contestés, plus ratés). Rétréci (n / (n + 4)).
+ */
+function h2hShots(homeId: number, awayId: number, date: string, since: string): TeamH2H['shots'] {
+  const logs = occLogsBefore(date);
+  const H = (logs.get(homeId) ?? []).filter((g) => g.opp === awayId && g.date < date && g.date >= since);
+  if (!H.length) return undefined;
+  const all = [...logs.values()].flat();
+  const keys = ['tov', 'orb', 'trans', 'fta', 'xFg', 'make'] as const;
+  type D = Record<(typeof keys)[number], number>;
+  const offOf = (p: OccProfile): D => ({ tov: p.tov, orb: p.orb, trans: p.trans, fta: p.fta, xFg: p.xFg, make: p.make });
+  const allowedOf = (p: OccProfile): D => ({ tov: p.tovForced, orb: p.orbAllowed, trans: p.transAllowed, fta: p.ftaAllowed, xFg: p.xFgAllowed, make: p.makeAllowed });
+  const dev = (tm: number, opp: number, g: OccGame): D | undefined => {
+    const before = (id: number) => (logs.get(id) ?? []).filter((x) => x.date < g.date).slice(-30);
+    const own = occProfile(before(tm));
+    const vs = occProfile(before(opp));
+    const from = new Date(Date.parse(g.date) - 60 * 86_400_000).toISOString().slice(0, 10);
+    const lg = occProfile(all.filter((x) => x.date < g.date && x.date >= from));
+    const now = occProfile([g]);
+    if (!own || !vs || !lg || !now || own.n < 10 || vs.n < 10) return undefined;
+    const o = offOf(own), a = allowedOf(vs), l = offOf(lg), x = offOf(now);
+    return Object.fromEntries(keys.map((k) => [k, x[k] - (o[k] + a[k] - l[k])])) as D;
+  };
+  const side = (tm: number, opp: number, games: OccGame[]): { e: Edge; n: number } => {
+    const ds = games.map((g) => dev(tm, opp, g)).filter((d): d is D => !!d);
+    const shrink = ds.length / (ds.length + 4);
+    const mean = Object.fromEntries(keys.map((k) => [k, ds.length ? (sum(ds.map((d) => d[k])) / ds.length) * shrink : 0])) as D;
+    return { e: occEdge(mean), n: ds.length };
+  };
+  const awayGames = (logs.get(awayId) ?? []).filter((g) => g.opp === homeId && g.date < date && g.date >= since);
+  const h = side(homeId, awayId, H);
+  const a = side(awayId, homeId, awayGames);
+  return { home: h.e, away: a.e, n: Math.min(h.n, a.n) };
 }
 
 function shortNames(all: PlayerModel[]): void {
@@ -1244,6 +1343,13 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
 
   const home = teamModel(ctx, homeInfo, homePlayers, opts.date, homeInfo);
   const away = teamModel(ctx, awayInfo, awayPlayers, opts.date, homeInfo);
+  // Notes d'impact (matchs antérieurs à la semaine) : un joueur sans historique vaut un remplaçant (-1,5 au total).
+  const rapm = rapmAsOf(opts.date);
+  for (const p of [...homePlayers, ...awayPlayers]) {
+    const r = rapm.get(p.id);
+    const k = r ? r.poss / (r.poss + 800) : 0; // peu de possessions : on tire vers le niveau d'un remplaçant
+    p.rapm = { o: (r?.o ?? 0) * k + -0.8 * (1 - k), d: (r?.d ?? 0) * k + -0.7 * (1 - k), poss: Math.round(r?.poss ?? 0) };
+  }
   home.momentum = teamMomentum(feats, home.id, opts.date, ctx.league.homeMargin);
   away.momentum = teamMomentum(feats, away.id, opts.date, ctx.league.homeMargin);
   for (const t of [home, away]) {

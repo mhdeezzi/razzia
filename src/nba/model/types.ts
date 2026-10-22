@@ -36,6 +36,7 @@ export interface PlayerModel {
   starter: boolean;
   presence: number[]; // 48 : probabilité d'être sur le terrain par minute
   expMin: number;
+  rapm?: { o: number; d: number; poss: number }; // note d'impact (points / 100 poss. en attaque, retirés en défense)
   quality: number; // niveau du joueur : Game Score ramené à 36 minutes (forme récente, rétréci) — hiérarchie du coach
   momentum?: { recent: number; base: number; delta: number }; // Game Score/36 : 15 derniers matchs contre saisons précédentes
   stintMean: number;
@@ -131,7 +132,7 @@ export interface LeagueModel {
   homeMargin: number;
   ppg: number;
   rankMinutes: number[]; // minutes moyennes par rang dans la rotation (0 = joueur le plus utilisé)
-  contest?: { s2: number[]; s3: number[] }; // part des tirs par niveau de contestation (ligue)
+  contest?: { s2: number[]; s3: number[]; f2?: number[]; f3?: number[] }; // parts et adresse par niveau de contestation (ligue)
   distFg: number[]; // adresse de la ligue par distance au panier (pied par pied, 0 à 40)
 }
 
@@ -146,6 +147,35 @@ export interface TeamMomentum {
   n: number; // matchs récents comptés
   nBase: number;
   streak: number; // série en cours (+ victoires, - défaites)
+  xRecent?: number; // occasions (points attendus créés - concédés sur 100 possessions), 15 derniers matchs
+  xBase?: number;
+  occ?: { recent: OccSummary; base: OccSummary }; // détail des occasions : pertes, rebonds, qualité des tirs, lancers
+}
+
+/** Occasions d'une équipe sur une période (voir xpts.ts) : ce qu'elle se crée et ce qu'elle concède. */
+export interface OccSummary {
+  tov: number;
+  tovForced: number;
+  orb: number;
+  orbAllowed: number;
+  trans: number;
+  transAllowed: number;
+  fta: number;
+  ftaAllowed: number;
+  xFg: number; // points attendus par tir (emplacement et type de tir)
+  xFgAllowed: number;
+  make: number; // points réels - attendus par tir (tireurs compris)
+  makeAllowed: number;
+}
+
+/** Leviers du moteur pour une équipe en attaque (0 = neutre) : ascendant, chat noir, etc. Exprimés en points / 100 poss. */
+export interface Edge {
+  tov: number; // pertes évitées
+  orb: number; // rebonds offensifs en plus
+  trans: number; // contre-attaques en plus
+  fta: number; // fautes de tir provoquées en plus
+  shotQ: number; // meilleurs emplacements de tir (plus de cercle et de corners, moins de mi-distance)
+  contest: number; // tirs moins contestés (négatif : plus contestés)
 }
 
 /** Confrontations des deux dernières années, avec l'écart attendu avant chaque match (forme des 30 matchs précédents). */
@@ -153,6 +183,9 @@ export interface TeamH2H {
   meetings: Array<{ date: string; homeTri: string; hs: number; as: number; expHome: number }>; // expHome : écart attendu pour l'équipe à domicile de ce match
   residualHome: number; // écart réel - attendu, moyenne du point de vue de l'équipe à domicile ce soir (rétréci)
   blackCat?: { victim: 'home' | 'away'; favored: number; lost: number; residual: number; text: string };
+  // Ce qui change dans ces confrontations par rapport à l'habitude de chaque équipe (rétréci), en points / 100 poss. :
+  // emplacements de tir, tirs contestés ou ratés, pertes, rebonds offensifs.
+  shots?: { home: Edge; away: Edge; n: number };
 }
 
 /** Contestation : 0 = très serré (0-2 pieds), 1 = serré, 2 = ouvert, 3 = grand ouvert (6+ pieds). */
@@ -191,6 +224,10 @@ export interface SimParams {
   noStakesPenalty: number; // points d'écart retirés à une équipe en fin de saison sans enjeu
   coachDef: number; // le coach met son meilleur défenseur sur la plus grosse menace et cache son plus faible
   h2hWeight: number; // part de l'écart réel - attendu des confrontations récentes (chat noir) ajoutée à l'écart visé
+  h2hShotWeight?: number; // part des écarts de qualité de tir dans les confrontations (emplacements, contestation, pertes, rebonds)
+  rapmWeight?: number; // part des notes d'impact joueurs (selon qui joue ce soir) dans la force visée, contre les notes d'équipe
+  momentumOcc?: number; // part des occasions (plutôt que du score) dans la mesure du momentum : 0 = score seul, 1 = occasions seules
+  edge?: [Edge, Edge]; // leviers appliqués (domicile, extérieur), calculés avant les simulations
   qualityCut: number; // échelle (Game Score/36) : un coach coupe d'abord les minutes des joueurs les plus faibles
   usageGamma: number; // partage de l'usage dans un cinq : part ∝ usage^γ (γ > 1 : la star garde sa part)
   rubber: number; // effet élastique : logit d'adresse retiré par tranche de 10 pts d'avance
