@@ -17,7 +17,15 @@ jobs:
       - name: Résultats par variante
         run: |
           for r in $RUNS; do
-            gh api "repos/$REPO/actions/runs/$r/jobs?per_page=50" --jq '.jobs[] | select(.name | startswith("backtest")) | "\(.id)\t\(.name)"' |
+            # Contrôle en morceaux : la synthèse suffit (une ligne de référence par variante).
+            syn=$(gh api "repos/$REPO/actions/runs/$r/jobs?per_page=100" --jq '.jobs[] | select(.name == "synthese") | .id')
+            if [ -n "$syn" ]; then
+              echo "===== exécution $r : synthèse"
+              gh api --allow-escape-sequences "repos/$REPO/actions/jobs/$syn/logs" | sed -E "s/\x1b\[[0-9;]*m//g" | sed -E 's/^[0-9]{4}-[0-9-]+T[0-9:.]+Z //' |
+                grep -E '^(### |Bon vainqueur :|Brier marché|Valeur de clôture|Favoris|\*\*Référence)'
+              continue
+            fi
+            gh api "repos/$REPO/actions/runs/$r/jobs?per_page=100" --jq '.jobs[] | select(.name | startswith("backtest")) | "\(.id)\t\(.name)"' |
             while IFS=$'\t' read -r id name; do
               echo "===== exécution $r : $name"
               gh api --allow-escape-sequences "repos/$REPO/actions/jobs/$id/logs" | sed -E "s/\x1b\[[0-9;]*m//g" | sed -E 's/^[0-9]{4}-[0-9-]+T[0-9:.]+Z //' |

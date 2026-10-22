@@ -1428,12 +1428,11 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
 
   const home = teamModel(ctx, homeInfo, homePlayers, opts.date, homeInfo);
   const away = teamModel(ctx, awayInfo, awayPlayers, opts.date, homeInfo);
-  // Notes d'impact (matchs antérieurs à la semaine) : un joueur sans historique vaut un remplaçant (-1,5 au total).
+  // Notes d'impact (matchs antérieurs à la semaine, a priori tiré de ses stats) ; sans aucun match NBA : un remplaçant.
   const rapm = rapmAsOf(opts.date);
   for (const p of [...homePlayers, ...awayPlayers]) {
     const r = rapm.get(p.id);
-    const k = r ? r.poss / (r.poss + 800) : 0; // peu de possessions : on tire vers le niveau d'un remplaçant
-    p.rapm = { o: (r?.o ?? 0) * k + -0.8 * (1 - k), d: (r?.d ?? 0) * k + -0.7 * (1 - k), poss: Math.round(r?.poss ?? 0) };
+    p.rapm = r ? { o: r.o, d: r.d, poss: Math.round(r.poss) } : { o: -0.8, d: -0.7, poss: 0 };
   }
   home.momentum = teamMomentum(feats, home.id, opts.date, ctx.league.homeMargin);
   away.momentum = teamMomentum(feats, away.id, opts.date, ctx.league.homeMargin);

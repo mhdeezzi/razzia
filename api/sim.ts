@@ -4,7 +4,7 @@
 //   GET  /api/sim?list=1                       -> simulations disponibles [{dir, pHome, pAway, at}]
 //   GET  /api/sim?bilan=1                      -> bilan des simulations (valeur de clôture, résultats)
 // Variables Vercel : GH_TOKEN (jeton GitHub avec Actions: write et Contents: read sur le dépôt), GH_REPO (optionnel).
-const REPO = process.env.GH_REPO ?? 'mhdeezzi/simbet';
+const REPO = process.env.GH_REPO ?? 'mhdeezzi/razzia';
 const WORKFLOW = 'simulate.yml';
 const BRANCH = 'resultats';
 

@@ -73,7 +73,7 @@ function decompose(r: Box, s: Box) {
   };
 }
 
-export async function backtest(opts: { from: string; to: string; games: number; n: number; params?: Partial<SimParams>; quiet?: boolean; market?: boolean; noStrength?: boolean; fullTables?: boolean }): Promise<BacktestResult> {
+export async function backtest(opts: { from: string; to: string; games: number; n: number; params?: Partial<SimParams>; quiet?: boolean; market?: boolean; noStrength?: boolean; fullTables?: boolean; shard?: number; shards?: number }): Promise<BacktestResult> {
   const ids = readdirSync(join(CACHE_DIR, 'games')).map((f) => f.replace('.json.gz', '')).filter((id) => id.startsWith('002')).sort();
   const pool: GameRecord[] = [];
   for (const id of ids) {
@@ -81,7 +81,9 @@ export async function backtest(opts: { from: string; to: string; games: number; 
     if (g.date >= opts.from && g.date <= opts.to) pool.push(g);
   }
   const step = Math.max(1, Math.floor(pool.length / opts.games));
-  const sample = pool.filter((_, i) => i % step === 0).slice(0, opts.games);
+  // Morceaux parallèles : chaque machine prend un match sur k du même échantillon (regroupés ensuite par btmerge.ts).
+  const k = Math.max(1, opts.shards ?? 1);
+  const sample = pool.filter((_, i) => i % step === 0).slice(0, opts.games).filter((_, i) => i % k === (opts.shard ?? 0));
   const keys = ['pts', 'fga', 'fgm', 'fg3a', 'fg3m', 'fta', 'tov', 'oreb', 'reb', 'ast', 'stl', 'blk', 'pf'];
   const realKey: Record<string, string> = {
     pts: 'points', fga: 'fieldGoalsAttempted', fgm: 'fieldGoalsMade', fg3a: 'threePointersAttempted', fg3m: 'threePointersMade', fta: 'freeThrowsAttempted',
@@ -126,8 +128,18 @@ export async function backtest(opts: { from: string; to: string; games: number; 
     msd += s.margin.sd / sample.length;
     tsd += s.total.sd / sample.length;
     // Marché (clôture DraftKings) : comparaison modèle / marché / mélange.
+    const rowMk: Record<string, number | undefined> = {};
     if (opts.market) {
       const mk = await getMarket(g.date, g.home.tri, g.away.tri).catch(() => undefined);
+      if (mk?.mlHome != null && mk.mlAway != null) {
+        rowMk.pMkt = +noVig(mk.mlHome, mk.mlAway)[0].toFixed(4);
+        rowMk.spread = mk.spreadHome;
+        if (mk.mlHomeOpen != null && mk.mlAwayOpen != null) {
+          rowMk.pOpen = +noVig(mk.mlHomeOpen, mk.mlAwayOpen)[0].toFixed(4);
+          rowMk.mlHomeOpen = mk.mlHomeOpen;
+          rowMk.mlAwayOpen = mk.mlAwayOpen;
+        }
+      }
       if (mk?.mlHome != null && mk.mlAway != null) {
         const pm = noVig(mk.mlHome, mk.mlAway)[0];
         const yy = realMargin > 0 ? 1 : 0;
@@ -334,7 +346,13 @@ export async function backtest(opts: { from: string; to: string; games: number; 
         });
       }
     }
-    rows.push({ game: `${g.away.tri}@${g.home.tri}`, date: g.date, real: `${g.away.score}-${g.home.score}`, sim: `${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)}`, pHome: +s.pHome.toFixed(3) });
+    const pace = (m.home.pace + m.away.pace) / 2;
+    rows.push({
+      game: `${g.away.tri}@${g.home.tri}`, date: g.date, real: `${g.away.score}-${g.home.score}`, sim: `${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)}`,
+      pHome: +s.pHome.toFixed(4), y: realMargin > 0 ? 1 : 0, simMargin: +s.margin.mean.toFixed(2),
+      target: st ? +((st.target[0] - st.target[1]) * pace).toFixed(2) : undefined, players: st ? +((st.before[0] - st.before[1]) * pace).toFixed(2) : undefined,
+      ...rowMk,
+    });
     if (!opts.quiet) console.log(`[${gi + 1}/${sample.length}] ${g.date} ${g.away.tri}@${g.home.tri} réel ${g.away.score}-${g.home.score} | sim ${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)} pDom ${(s.pHome * 100).toFixed(0)}% (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   }
   for (const b of blend) b.brier /= Math.max(1, mkt.n);
@@ -382,6 +400,11 @@ export function printBacktest(r: BacktestResult): string {
     const absm = (k: 'mkt' | 'sim' | 'target' | 'players') => F.reduce((a, f) => a + Math.abs(f[k]), 0) / F.length;
     L.push(`Favoris (écart attendu, ${F.length} matchs) : |écart| moyen marché ${absm('mkt').toFixed(2)}, simulé ${absm('sim').toFixed(2)}, notes d'équipe ${absm('target').toFixed(2)}, joueurs seuls ${absm('players').toFixed(2)} ; pente contre la ligne : simulé ${slope('sim').toFixed(2)}, notes d'équipe ${slope('target').toFixed(2)}, joueurs seuls ${slope('players').toFixed(2)}`);
   }
+  {
+    const M = r.rows.filter((x) => x.pMkt != null) as Array<{ pHome: number; pMkt: number; y: number }>;
+    const ok = (p: number, y: number) => (p >= 0.5) === (y === 1);
+    if (M.length) L.push(`Référence : Razzia ${((M.filter((x) => ok(x.pHome, x.y)).length / M.length) * 100).toFixed(1)} % — marché ${((M.filter((x) => ok(x.pMkt, x.y)).length / M.length) * 100).toFixed(1)} % (mêmes ${M.length} matchs)`);
+  }
   L.push(`Bon vainqueur annoncé : modèle ${(r.accuracy * 100).toFixed(1)} %${r.accuracyMkt != null ? ` | marché ${(r.accuracyMkt * 100).toFixed(1)} %` : ''}`);
   L.push('Calibration (confiance annoncée du favori -> part réellement gagnée)');
   for (const k of ['50-60', '60-70', '70-80', '80-90', '90-100']) {
@@ -426,6 +449,7 @@ if (import.meta.main) {
     market: !process.argv.includes('--no-market'),
     noStrength: process.argv.includes('--no-strength'),
     fullTables: process.argv.includes('--full-tables') || !!_fullTables,
+    shard: Number(arg('shard', '0')), shards: Number(arg('shards', '1')),
   });
   console.log(r.fullTables ? 'Tables stats.nba.com : saison du match incluse (totaux de fin de saison, fuite possible)' : 'Tables stats.nba.com : saisons précédentes uniquement (aucune donnée postérieure au match)');
   const txt = printBacktest(r);
@@ -433,5 +457,6 @@ if (import.meta.main) {
   mkdirSync(join(ROOT, 'out', 'backtests'), { recursive: true });
   const f = join(ROOT, 'out', 'backtests', `bt_${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   writeFileSync(f, JSON.stringify({ args: process.argv.slice(2), ...r }, null, 1));
+  if (arg('json')) writeFileSync(arg('json')!, JSON.stringify({ variant: process.env.VARIANT ?? '', rows: r.rows }));
   console.log(`\nDétails : ${f}`);
 }

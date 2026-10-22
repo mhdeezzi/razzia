@@ -13,7 +13,8 @@ export interface Rapm {
 }
 
 const HALF_LIFE_DAYS = 365; // une saison de décroissance : la saison passée compte moitié moins que la récente
-const LAMBDA = 1500; // rétrécissement (en possessions pondérées)
+const LAMBDA = 1500; // rétrécissement vers 0 (premier passage), en possessions pondérées
+const LAMBDA_PRIOR = 3000; // rétrécissement vers l'a priori des stats (passage final)
 const HOME_KEY = -1;
 
 interface Row {
@@ -56,7 +57,7 @@ function rowsOf(games: Array<{ g: GameRecord; pg: ParsedGame }>, asOf: string): 
  * Résout (X'WX + λI) β = X'Wy par gradient conjugué. Inconnues : attaque et défense de chaque joueur, terrain.
  * Avec un a priori β0 : on résout pour β - β0 (ridge vers l'a priori).
  */
-function solve(rows: Row[], prior?: Map<number, Rapm>): Map<number, Rapm> {
+function solve(rows: Row[], prior?: Map<number, Rapm>, lambda = LAMBDA): Map<number, Rapm> {
   const idx = new Map<number, number>();
   for (const r of rows) for (const id of [...r.off, ...r.def]) if (!idx.has(id)) idx.set(id, idx.size);
   const P = idx.size;
@@ -89,7 +90,7 @@ function solve(rows: Row[], prior?: Map<number, Rapm>): Map<number, Rapm> {
       for (const k of e.o) out[k] += s;
       for (const k of e.d) out[k] += s;
     }
-    for (let k = 0; k < H; k++) out[k] += LAMBDA * x[k];
+    for (let k = 0; k < H; k++) out[k] += lambda * x[k];
     out[H] += 1e-6 * x[H];
     return out;
   };
@@ -134,14 +135,88 @@ export function weekStart(date: string): string {
   return new Date(d.getTime() - back * 86_400_000).toISOString().slice(0, 10);
 }
 
-export function rapmAsOf(date: string, prior?: Map<number, Rapm>): Map<number, Rapm> {
+/**
+ * Notes d'impact « à la pro » (comme RPM, EPM, DARKO) : un premier RAPM sert à apprendre ce que valent les stats de
+ * feuille de match (points, passes, rebonds, interceptions, contres, pertes, tirs tentés…) en points d'impact ; cette
+ * estimation devient l'a priori de chaque joueur, vers lequel le RAPM final est rétréci au lieu de 0. Un remplaçant peu
+ * utilisé ou un joueur qui vient d'arriver est ainsi noté d'après ce qu'il produit, pas comme un joueur moyen.
+ */
+export function rapmAsOf(date: string): Map<number, Rapm> {
   const key = weekStart(date);
   const hit = memo.get(key);
-  if (hit && !prior) return hit;
+  if (hit) return hit;
   const from = new Date(Date.parse(key) - 3 * 365 * 86_400_000).toISOString().slice(0, 10);
   const games = loadGames().filter((x) => x.g.date < key && x.g.date >= from);
   const { rows } = rowsOf(games, key);
-  const out = solve(rows, prior);
-  if (!prior) memo.set(key, out);
+  const first = solve(rows);
+  const prior = boxPrior(games, key, first);
+  const out = solve(rows, prior, LAMBDA_PRIOR);
+  memo.set(key, out);
   return out;
+}
+
+// Stats de feuille de match par 36 minutes (pondérées comme le RAPM), pour l'a priori.
+const BOX = ['points', 'fieldGoalsAttempted', 'freeThrowsAttempted', 'threePointersMade', 'assists', 'turnovers', 'reboundsOffensive', 'reboundsDefensive', 'steals', 'blocks', 'foulsPersonal'] as const;
+
+function boxPrior(games: Array<{ g: GameRecord; pg: ParsedGame }>, asOf: string, rapm: Map<number, Rapm>): Map<number, Rapm> {
+  const t0 = Date.parse(asOf);
+  const acc = new Map<number, { sec: number; s: number[] }>();
+  for (const { g } of games) {
+    const w = Math.pow(0.5, (t0 - Date.parse(g.date)) / 86_400_000 / HALF_LIFE_DAYS);
+    for (const t of [g.home, g.away]) {
+      for (const p of t.players) {
+        if (p.sec <= 0) continue;
+        const e = acc.get(p.id) ?? { sec: 0, s: BOX.map(() => 0) };
+        e.sec += w * p.sec;
+        BOX.forEach((k, i) => (e.s[i] += w * (p.stats[k] ?? 0)));
+        acc.set(p.id, e);
+      }
+    }
+  }
+  const feat = (e: { sec: number; s: number[] }) => [1, ...e.s.map((v) => (v / Math.max(1, e.sec)) * 2160)];
+  // Moindres carrés pondérés (possessions jouées), légèrement rétrécis : stats -> impact en attaque et en défense.
+  const fit = (target: (r: Rapm) => number): number[] => {
+    const K = BOX.length + 1;
+    const A = Array.from({ length: K }, () => new Array(K).fill(0));
+    const b = new Array(K).fill(0);
+    for (const [id, e] of acc) {
+      const r = rapm.get(id);
+      if (!r || r.poss < 500 || e.sec < 600 * 60 * 0.3) continue;
+      const x = feat(e);
+      const w = Math.min(r.poss, 4000);
+      for (let i = 0; i < K; i++) {
+        b[i] += w * x[i] * target(r);
+        for (let j = 0; j < K; j++) A[i][j] += w * x[i] * x[j];
+      }
+    }
+    for (let i = 1; i < K; i++) A[i][i] += 1e3;
+    return gauss(A, b);
+  };
+  const bo = fit((r) => r.o);
+  const bd = fit((r) => r.d);
+  const out = new Map<number, Rapm>();
+  for (const [id, e] of acc) {
+    const x = feat(e);
+    const dot = (c: number[]) => c.reduce((a, v, i) => a + v * x[i], 0);
+    out.set(id, { o: dot(bo), d: dot(bd), poss: 0 });
+  }
+  return out;
+}
+
+/** Élimination de Gauss (petits systèmes). */
+function gauss(A: number[][], b: number[]): number[] {
+  const n = b.length;
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    if (Math.abs(M[c][c]) < 1e-12) continue;
+    for (let r = 0; r < n; r++) {
+      if (r === c) continue;
+      const f = M[r][c] / M[c][c];
+      for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k];
+    }
+  }
+  return M.map((row, i) => (Math.abs(row[i]) < 1e-12 ? 0 : row[n] / row[i]));
 }
