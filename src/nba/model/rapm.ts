@@ -172,6 +172,11 @@ export function rapmAsOf(date: string): Map<number, Rapm> {
   return out;
 }
 
+// A priori d'un joueur peu utilisé : 200 minutes (pondérées) d'un remplaçant type. Testé sur 2025-26 (écart prédit
+// avec les minutes réelles) : sans 14,515 ; vers -1,0/-0,5 14,470 ; vers -2,0/-1,0 14,425, bon vainqueur 70,4 -> 70,6 %.
+const PRIOR_SEC = 200 * 60;
+const REPLACEMENT = { o: -2.0, d: -1.0 };
+
 // Stats de feuille de match par 36 minutes (pondérées comme le RAPM), pour l'a priori.
 const BOX = ['points', 'fieldGoalsAttempted', 'freeThrowsAttempted', 'threePointersMade', 'assists', 'turnovers', 'reboundsOffensive', 'reboundsDefensive', 'steals', 'blocks', 'foulsPersonal'] as const;
 
@@ -215,7 +220,9 @@ function boxPrior(games: Array<{ g: GameRecord; pg: ParsedGame }>, asOf: string,
   for (const [id, e] of acc) {
     const x = feat(e);
     const dot = (c: number[]) => c.reduce((a, v, i) => a + v * x[i], 0);
-    out.set(id, { o: dot(bo), d: dot(bd), poss: 0 });
+    // Des stats par 36 min tirées de peu de minutes sont bruitées : rétrécies vers un remplaçant type.
+    const k = e.sec / (e.sec + PRIOR_SEC);
+    out.set(id, { o: k * dot(bo) + (1 - k) * REPLACEMENT.o, d: k * dot(bd) + (1 - k) * REPLACEMENT.d, poss: 0 });
   }
   return out;
 }

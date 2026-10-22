@@ -100,15 +100,25 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
   };
   m.params.teamBias = [0, 0];
   const before = measure(700_000);
-  const desired: [number, number] = [before[0] + w[0] * (target[0] - before[0]), before[1] + w[1] * (target[1] - before[1])];
+  // Ajustements de contexte en points par match (ci-dessous), visés dans la même boucle que la force : appliqués après
+  // coup avec une pente supposée, ils n'en passaient qu'environ 60 %.
+  const shift = contextShift(m);
+  const half = shift / 2 / m.league.pace;
+  const desired: [number, number] = [before[0] + w[0] * (target[0] - before[0]) + half, before[1] + w[1] * (target[1] - before[1]) - half];
   let cur = before;
   for (let it = 0; it < 3; it++) {
     for (const k of [0, 1] as const) {
       // Pente empirique ≈ 0,45 point/possession par unité de logit d'adresse.
-      m.params.teamBias[k] = Math.max(-0.25, Math.min(0.25, m.params.teamBias[k] + (desired[k] - cur[k]) / 0.45));
+      m.params.teamBias[k] = Math.max(-0.3, Math.min(0.3, m.params.teamBias[k] + (desired[k] - cur[k]) / 0.45));
     }
     cur = measure(710_000 + it * 10_000);
   }
+  m.params.edge = composeEdges(m);
+  return { target, before, after: cur };
+}
+
+/** Écart de contexte attendu pour l'équipe à domicile, en points par match. */
+function contextShift(m: GameModel): number {
   // Confrontations récentes (chat noir) : part de l'écart réel - attendu des deux dernières années.
   let shift = 0;
   if (m.params.h2hWeight && m.h2h) shift += m.params.h2hWeight * m.h2h.residualHome;
@@ -128,12 +138,7 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
   // Fin de saison sans enjeu (équipe hors course) : moins d'intensité.
   const ns = m.params.noStakesPenalty ?? 0;
   if (ns) shift += ns * ((m.away.noStakes ? 1 : 0) - (m.home.noStakes ? 1 : 0));
-  if (shift) {
-    const dl = shift / 2 / m.league.pace / 0.45;
-    m.params.teamBias = [Math.max(-0.3, Math.min(0.3, m.params.teamBias[0] + dl)), Math.max(-0.3, Math.min(0.3, m.params.teamBias[1] - dl))];
-  }
-  m.params.edge = composeEdges(m);
-  return { target, before, after: cur };
+  return shift;
 }
 
 const EDGE_KEYS = ['tov', 'orb', 'trans', 'fta', 'shotQ', 'contest'] as const;

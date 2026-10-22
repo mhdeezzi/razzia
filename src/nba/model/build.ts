@@ -145,7 +145,7 @@ interface Ctx {
   feats: FeatureSet;
   tables: Tables;
   league: LeagueModel;
-  rapm?: Map<number, { o: number; d: number; poss: number }>; // notes d'impact (hiérarchie du coach en début de saison)
+  rapm?: Map<number, { o: number; d: number; poss: number }>; // notes d'impact des joueurs
   Q: Record<PT, Z6>; // distribution de zone de ligue par type de jeu (estimée)
   groupPtRate: Record<string, Record<PT, number>>;
   groupZone: Record<string, Z6>;
@@ -808,17 +808,18 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
   }
 
   // Début de saison (moins de 5 matchs de l'équipe cette saison) : la hiérarchie du banc se refait. Un coach ordonne
-  // ses remplaçants selon leur niveau et leur impact dans ce nouvel effectif, pas selon les minutes qu'ils avaient
-  // ailleurs (un remplaçant d'une équipe qui faisait jouer ses jeunes n'en garde pas le temps de jeu). Minutes
-  // attendues : moitié son historique, moitié le gabarit de la ligue pour son rang de valeur (titulaires d'abord).
+  // ses remplaçants selon leur niveau et le rôle qu'ils tenaient. Minutes attendues : moitié son historique, moitié
+  // le gabarit de la ligue pour son rang de valeur (titulaires d'abord).
   const teamCur = (teamLogOf(f).get(team.id) ?? []).filter((g) => seasonOfDate(g.date) === curSeason).length;
   if (teamCur < 5 && !playoffs) {
     const pool = players.filter((p) => p.avail > 0.5 && p.expMin > 0);
     const qAvg = pool.length ? sum(pool.map((p) => p.quality)) / pool.length : QUALITY_FLOOR;
-    const value = (p: PlayerModel) => {
-      const r = ctx.rapm?.get(p.id);
-      return (r ? r.o + r.d : -1.5) + 0.4 * (p.quality - qAvg);
-    };
+    // Niveau (Game Score) et minutes habituelles, sans les notes d'impact : sur un remplaçant peu utilisé elles
+    // reposent sur trop peu de possessions, et les coachs ne les suivent pas (débuts de saison 2024-25 et 2025-26 :
+    // erreur de minutes 5,77 -> 5,19 et 6,13 -> 5,43 min par joueur ; impact du banc surestimé de 0,7 pt -> 0).
+    // Les minutes d'un nouvel arrivant viennent d'une autre équipe (souvent une équipe qui faisait jouer ses jeunes) :
+    // elles ne disent rien de sa place ici.
+    const value = (p: PlayerModel) => 0.4 * (p.quality - qAvg) + (p.notes.some((n) => n.startsWith('nouveau dans')) ? 0 : 0.3 * (p.expMin - 15));
     const order = [...pool].sort((a, b) => (b.starter ? 1 : 0) - (a.starter ? 1 : 0) || value(b) - value(a));
     order.forEach((p, rank) => {
       const tpl = ctx.league.rankMinutes[Math.min(rank, ctx.league.rankMinutes.length - 1)] ?? p.expMin;
