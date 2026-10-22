@@ -7,6 +7,7 @@ export const STAT_KEYS = ['pts', 'reb', 'ast', 'fg3m', 'stl', 'blk', 'tov', 'min
 export type StatKey = (typeof STAT_KEYS)[number];
 export const NK = STAT_KEYS.length;
 export const MAXQ = 8; // 4 quarts-temps + 4 prolongations max
+export const ZK = 19; // profil de tir par équipe : 6 zones tentées, 6 réussies, passes décisives, contre-attaques tentées / réussies, 4 niveaux de contestation
 
 export interface Batch {
   n: number;
@@ -21,6 +22,7 @@ export interface Batch {
   leadChanges: Int16Array;
   players: number[]; // ordre des joueurs (domicile puis extérieur)
   stats: Float32Array; // n × players × NK
+  shots: Float32Array; // n × 2 × ZK
 }
 
 export function playerOrder(m: GameModel): number[] {
@@ -31,7 +33,7 @@ export function emptyBatch(n: number, players: number[]): Batch {
   return {
     n, seeds: new Int32Array(n), home: new Int16Array(n), away: new Int16Array(n), periods: new Uint8Array(n),
     qHome: new Int16Array(n * MAXQ), qAway: new Int16Array(n * MAXQ), poss: new Int16Array(n * 2), firstScorer: new Int32Array(n),
-    leadChanges: new Int16Array(n), players, stats: new Float32Array(n * players.length * NK),
+    leadChanges: new Int16Array(n), players, stats: new Float32Array(n * players.length * NK), shots: new Float32Array(n * 2 * ZK),
   };
 }
 
@@ -48,6 +50,17 @@ export function store(b: Batch, i: number, r: GameResult): void {
   b.poss[i * 2 + 1] = r.away.poss;
   b.firstScorer[i] = r.firstScorer;
   b.leadChanges[i] = r.leadChanges;
+  [r.home, r.away].forEach((t, side) => {
+    const o = (i * 2 + side) * ZK;
+    for (let z = 0; z < 6; z++) {
+      b.shots[o + z] = t.zFga?.[z] ?? 0;
+      b.shots[o + 6 + z] = t.zFgm?.[z] ?? 0;
+    }
+    b.shots[o + 12] = t.astM ?? 0;
+    b.shots[o + 13] = t.transFga ?? 0;
+    b.shots[o + 14] = t.transFgm ?? 0;
+    for (let c = 0; c < 4; c++) b.shots[o + 15 + c] = t.cont?.[c] ?? 0;
+  });
   const idx = new Map(b.players.map((id, k) => [id, k]));
   const P = b.players.length;
   for (const l of [...r.home.lines, ...r.away.lines]) {
@@ -97,6 +110,7 @@ export function merge(parts: Batch[], players: number[]): Batch {
     b.firstScorer.set(p.firstScorer, o);
     b.leadChanges.set(p.leadChanges, o);
     b.stats.set(p.stats, o * players.length * NK);
+    if (p.shots) b.shots.set(p.shots, o * 2 * ZK);
     o += p.n;
   }
   return b;

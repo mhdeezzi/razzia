@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { pct0, type Game, type Typical } from './data.ts';
 import { Segmented, TeamMark } from './ui.tsx';
+import { ShotChart } from './court.tsx';
 
 const REG = 2880;
 const periodStart = (p: number) => (p <= 4 ? (p - 1) * 720 : REG + (p - 5) * 300);
@@ -94,6 +95,8 @@ export function TypicalGame({ t, g }: { t: Typical; g: Game }) {
           </ol>
         </div>
       )}
+
+      <ShotChart t={t} g={g} />
 
       <BoxScore t={t} g={g} />
     </div>

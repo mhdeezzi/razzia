@@ -85,6 +85,7 @@ export interface Typical {
   players: Array<{ id: number; name: string; side: 0 | 1 }>;
   flow: Array<{ t: number; h: number; a: number; wp?: number }>;
   moments: Array<{ when: string; side?: 0 | 1; text: string; score: string }>;
+  shots?: Array<{ x: number; y: number; m: 0 | 1; s: 0 | 1; p?: number; z?: number; c?: number }>;
 }
 
 export type Result = Summary & {
@@ -124,6 +125,7 @@ export interface SimEntry {
   pHome: number;
   pAway: number;
   at: string;
+  cat?: string; // équipe victime d'un chat noir dans ce match
 }
 let sims: Promise<Map<string, SimEntry>> | undefined;
 export function listSims(fresh = false): Promise<Map<string, SimEntry>> {

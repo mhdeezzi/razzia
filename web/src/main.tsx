@@ -1,8 +1,7 @@
 // Point d'entrée : en-tête, routes (programme, fiche de match, simulations), pied de page.
 import { StrictMode, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/geist';
-import '@fontsource-variable/geist-mono';
+import '@fontsource-variable/host-grotesk';
 import { Basketball, CaretRight, ChartLineUp, ClockCounterClockwise, Info, SoccerBall, TennisBall } from '@phosphor-icons/react';
 import './styles.css';
 import { listSims, loadProgramme, matchPath, type Programme, type SimEntry } from './data.ts';
@@ -23,7 +22,7 @@ function App() {
     <SchedulePage day={search.get('jour')} />
   );
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | simbet` : path === '/simulations' ? 'Simulations | simbet' : 'simbet | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/simulations' ? 'Simulations | Razzia' : 'Razzia | Simulations NBA';
   }, [path]);
   const top = (href: string, label: string, icon: ReactNode, on: boolean) => (
     <Link href={href} className={`icon-link${on ? ' is-on' : ''}`}>
@@ -39,9 +38,7 @@ function App() {
             <span className="brand-tile">
               <ChartLineUp size={18} weight="bold" />
             </span>
-            <span className="word">
-              sim<b>bet</b>
-            </span>
+            <span className="word">Razzia</span>
           </Link>
           <nav className="sports" aria-label="Sports">
             <Link href="/" className="sport is-on">
@@ -63,7 +60,7 @@ function App() {
       <main>{page}</main>
       <footer className="foot">
         <p>
-          <b>simbet</b> analyse les matchs, il ne prend pas de paris.
+          <b>Razzia</b> analyse les matchs, il ne prend pas de paris.
         </p>
         <p>Jouer comporte des risques : endettement, dépendance. Appelez le 09 74 75 13 13 (appel non surtaxé).</p>
       </footer>

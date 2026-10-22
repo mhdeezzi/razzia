@@ -1,6 +1,6 @@
 // Programme : les matchs des 7 prochains jours (heure de New York), en liste ou en grille, filtrés par statut.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { CalendarBlank, CaretRight, ListBullets, SquaresFour, TrendUp } from '@phosphor-icons/react';
+import { CalendarBlank, CaretRight, Cat, ListBullets, SquaresFour, TrendUp } from '@phosphor-icons/react';
 import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { Empty, Link, Segmented, TeamMark } from './ui.tsx';
 
@@ -174,8 +174,15 @@ function SimPill({ g, sim }: { g: Game; sim?: SimEntry }) {
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const home = sim.pHome >= sim.pAway;
   return (
-    <span className="conf-pill sim">
-      <TrendUp size={13} weight="bold" /> {home ? g.home.tri : g.away.tri} {pct0(Math.max(sim.pHome, sim.pAway))}
+    <span className="pill-group">
+      {sim.cat && (
+        <span className="cat-mini" title={`Chat noir pour ${sim.cat}`} aria-label={`Chat noir pour ${sim.cat}`}>
+          <Cat size={13} weight="fill" />
+        </span>
+      )}
+      <span className="conf-pill sim">
+        <TrendUp size={13} weight="bold" /> {home ? g.home.tri : g.away.tri} {pct0(Math.max(sim.pHome, sim.pAway))}
+      </span>
     </span>
   );
 }

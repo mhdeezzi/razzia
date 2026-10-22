@@ -71,6 +71,12 @@ async function ingestSeasonTables(season: string, current: string): Promise<void
     log(`  synergy ${st} OK`);
     for (const cat of S.DEFENSE_CATEGORIES) await S.ptDefend(season, st, cat, ttl).catch(() => []);
     for (const m of ['CatchShoot', 'PullUpShot', 'Drives', 'Passing', 'Rebounding'] as const) await S.ptStats(season, st, m, 'Player', ttl).catch(() => []);
+    if (st === S.SEASON_TYPES.regular) {
+      for (const range of S.CLOSE_DEF) {
+        await S.closeDefShots(season, st, range, 'Player', ttl).catch(() => []);
+        await S.closeDefShots(season, st, range, 'Opp', ttl).catch(() => []);
+      }
+    }
     log(`  tracking ${st} OK`);
   }
   // Matchups défensifs (qui défend sur qui) — par équipe en défense, saison régulière.

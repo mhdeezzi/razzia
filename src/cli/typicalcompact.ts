@@ -61,6 +61,8 @@ writeFileSync(
     leadChanges: tf.result.leadChanges, largestLead: tf.result.largestLead,
     players: tf.players.map((p: any) => ({ id: p.id, name: p.name, side: p.side })),
     flow, moments: moments.slice(-12),
+    // Tous les tirs : position (dixièmes de pied, panier en 0,0), réussi, équipe (0 = domicile), joueur, zone, contestation.
+    shots: ev.filter((e) => e.type === 'shot' && e.x != null && e.y != null && e.label !== 'heave').map((e) => ({ x: e.x, y: e.y, m: e.made ? 1 : 0, s: e.side, p: e.pid, z: e.zone, c: e.ct })),
   }),
 );
 console.log(`match typique : ${flow.length} points de courbe, ${moments.length} temps forts`);

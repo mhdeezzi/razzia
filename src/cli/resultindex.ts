@@ -15,7 +15,9 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   if (!d.isDirectory() || !existsSync(f)) continue;
   const s = JSON.parse(readFileSync(f, 'utf8'));
   const at = d.name === fresh || !before.has(d.name) ? new Date().toISOString() : before.get(d.name)!.at;
-  out.push({ dir: d.name, pHome: s.pHome, pAway: s.pAway, at });
+  // cat : équipe victime d'un chat noir dans ce match (icône sur le programme).
+  const cat = s.h2h?.blackCat ? (s.h2h.blackCat.victim === 'home' ? s.home.tri : s.away.tri) : undefined;
+  out.push({ dir: d.name, pHome: s.pHome, pAway: s.pAway, at, ...(cat ? { cat } : {}) });
 }
 out.sort((a, b) => b.at.localeCompare(a.at));
 writeFileSync(file, JSON.stringify(out));

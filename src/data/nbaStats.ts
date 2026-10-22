@@ -108,6 +108,18 @@ export async function ptStats(season: string, seasonType: string, measure: 'Catc
   return r.LeagueDashPtStats ?? [];
 }
 
+/** Niveaux de contestation (distance du défenseur le plus proche au moment du tir). */
+export const CLOSE_DEF = ['0-2 Feet - Very Tight', '2-4 Feet - Tight', '4-6 Feet - Open', '6+ Feet - Wide Open'] as const;
+
+/** Tirs par distance du défenseur le plus proche : par joueur (attaque) ou concédés par équipe (défense). */
+export async function closeDefShots(season: string, seasonType: string, range: (typeof CLOSE_DEF)[number], who: 'Player' | 'Opp', ttl: number): Promise<Row[]> {
+  const r = await statsCall(who === 'Player' ? 'leaguedashplayerptshot' : 'leaguedashoppptshot', {
+    ...DASH_DEFAULTS, CloseDefDistRange: range, DribbleRange: '', GeneralRange: '', ShotClockRange: '', ShotDistRange: '', TouchTimeRange: '',
+    PerMode: 'Totals', Season: season, SeasonType: seasonType,
+  }, ttl);
+  return Object.values(r)[0] ?? [];
+}
+
 export async function seasonMatchups(season: string, seasonType: string, ttl: number, filt: { offTeam?: number; defTeam?: number; offPlayer?: number; defPlayer?: number }): Promise<Row[]> {
   const r = await statsCall('leagueseasonmatchups', {
     DefPlayerID: filt.defPlayer ?? '', DefTeamID: filt.defTeam ?? '', LeagueID: '00',

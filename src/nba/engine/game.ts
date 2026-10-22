@@ -46,6 +46,12 @@ export interface TeamResult {
   fta: number;
   tov: number;
   oreb: number;
+  zFga?: number[]; // tirs tentés par zone (RA, raquette, mi-distance, coin gauche, coin droit, 3 pts de face)
+  zFgm?: number[];
+  astM?: number; // paniers après une passe décisive
+  transFga?: number; // tirs en contre-attaque
+  transFgm?: number;
+  cont?: number[]; // tirs par niveau de contestation (0 = très serré ... 3 = grand ouvert)
 }
 
 export type EvType = 'start' | 'jump' | 'poss' | 'shot' | 'ft' | 'reb' | 'tov' | 'foul' | 'sub' | 'timeout' | 'period_start' | 'period_end' | 'end';
@@ -82,6 +88,7 @@ export interface SimEvent {
   fouls?: [number, number];
   bonus?: [boolean, boolean];
   wp?: number;
+  ct?: number; // niveau de contestation du tir (0 = très serré ... 3 = grand ouvert)
 }
 
 export interface GameResult {
@@ -182,7 +189,9 @@ export class GameSim {
       const extra = ps.filter((p) => !p.active && p.m.avail > 0).sort((a, b) => b.m.expMin - a.m.expMin);
       for (const p of extra.slice(0, 8 - act)) p.active = true;
     }
-    const s: Side = { t, ps, lineup: [], fouls: 0, foulsLast2: 0, timeouts: 7, night: this.r.normal(0, P.sdTeamNight), night3: this.r.normal(0, P.sdTeam3Night), run: 0, q: [] };
+    // Soir de l'équipe + incertitude sur sa force réelle (effectif remanié, début de saison).
+    const night = this.r.normal(0, P.sdTeamNight) + this.r.normal(0, (P.uncWeight ?? 0) * (t.strengthSd ?? 0));
+    const s: Side = { t, ps, lineup: [], fouls: 0, foulsLast2: 0, timeouts: 7, night, night3: this.r.normal(0, P.sdTeam3Night), run: 0, q: [] };
     this.planRotation(s);
     return s;
   }
@@ -211,18 +220,23 @@ export class GameSim {
     for (const ab of s.ps.filter((p) => !p.active && p.m.expMin > 0)) absentGroups.set(ab.m.group, (absentGroups.get(ab.m.group) ?? 0) + ab.m.expMin);
     const absentTot = [...absentGroups.values()].reduce((a, b) => a + b, 0);
     const cap = (p: PState) => Math.min(42, Math.max(36, p.m.expMin + 8));
+    // Hiérarchie du coach : les minutes en trop (mercato, retours) sont retirées d'abord aux joueurs les plus faibles,
+    // les minutes libérées vont d'abord aux meilleurs.
+    const qRef = act.reduce((a, p) => a + p.m.quality * mins.get(p)!, 0) / Math.max(1, act.reduce((a, p) => a + mins.get(p)!, 0));
+    const qs = P.qualityCut || 0;
+    const lvl = (p: PState, k: number) => (qs > 0 ? Math.exp((k * (p.m.quality - qRef)) / qs) : 1);
     for (let it = 0; it < 10; it++) {
       const tot = [...mins.values()].reduce((a, b) => a + b, 0);
       const diff = 240 - tot;
       if (Math.abs(diff) < 0.05) break;
       if (diff > 0) {
         const room = act.filter((p) => mins.get(p)! < cap(p) - 0.01);
-        const w = (p: PState) => Math.pow(Math.max(1, mins.get(p)!), 1.2) * (1 + (absentTot > 0 ? (2 * (absentGroups.get(p.m.group) ?? 0)) / absentTot : 0));
+        const w = (p: PState) => Math.pow(Math.max(1, mins.get(p)!), 1.2) * (1 + (absentTot > 0 ? (2 * (absentGroups.get(p.m.group) ?? 0)) / absentTot : 0)) * lvl(p, 0.5);
         const ws = room.reduce((a, p) => a + w(p), 0);
         if (!ws) break;
         for (const p of room) mins.set(p, Math.min(cap(p), mins.get(p)! + (diff * w(p)) / ws));
       } else {
-        const w = new Map(act.map((p) => [p, Math.max(0.01, mins.get(p)! * (1 - Math.min(mins.get(p)!, 46) / 48) ** 2)]));
+        const w = new Map(act.map((p) => [p, Math.max(0.01, mins.get(p)! * (1 - Math.min(mins.get(p)!, 46) / 48) ** 2 * lvl(p, -1))]));
         const ws = [...w.values()].reduce((a, b) => a + b, 0);
         for (const p of act) mins.set(p, Math.max(0, mins.get(p)! + (diff * w.get(p)!) / ws));
       }
@@ -419,12 +433,18 @@ export class GameSim {
       const def = off === 0 ? 1 : 0;
       const O = this.onCourt(off);
       const D = this.onCourt(def);
+      // Menace offensive (usage × niveau) : le coach met son meilleur défenseur sur la plus grosse menace et cache
+      // son défenseur le plus faible sur l'attaquant le moins dangereux, dans les limites de la taille.
+      const threat = (o: PState) => Math.max(0.05, o.m.usg) * Math.max(3, o.m.quality);
+      const tAvg = O.reduce((a, o) => a + threat(o), 0) / Math.max(1, O.length);
+      const cd = this.m.params.coachDef ?? 0;
       const aff = O.map((o) =>
         D.map((d) => {
           const gp = d.m.guardProfile;
           let a = -(((o.m.heightIn - gp.height) / 3) ** 2) - ((o.m.usg - gp.usg) / 0.06) ** 2;
           const hh = h2h[o.m.id]?.[d.m.id] ?? 0;
           a += 1.6 * Math.log1p(hh / 15);
+          a += cd * (threat(o) / tAvg - 1) * (-d.m.dOverall / 0.1);
           return a;
         }),
       );
@@ -520,6 +540,7 @@ export class GameSim {
         pts: this.score[side], q: S.q.slice(), lines, poss: this.possCount[side],
         fga: lines.reduce((a, l) => a + l.fga, 0), fg3a: lines.reduce((a, l) => a + l.fg3a, 0), fta: lines.reduce((a, l) => a + l.fta, 0),
         tov: lines.reduce((a, l) => a + l.tov, 0) + this.teamTov[side], oreb: lines.reduce((a, l) => a + l.oreb, 0),
+        ...this.prof[side],
       };
     };
     return {
@@ -530,6 +551,7 @@ export class GameSim {
   }
   possCount: [number, number] = [0, 0];
   teamTov: [number, number] = [0, 0];
+  prof = [0, 1].map(() => ({ zFga: [0, 0, 0, 0, 0, 0], zFgm: [0, 0, 0, 0, 0, 0], astM: 0, transFga: 0, transFgm: 0, cont: [0, 0, 0, 0] }));
 
   private startersOf(side: 0 | 1): number[] {
     const S = this.S[side];
@@ -750,6 +772,23 @@ export class GameSim {
         const dft = Math.min(40, Math.floor(Math.hypot(spot[0], spot[1]) / 10));
         lp += (P.distWeight ?? 0) * (logit(this.m.league.distFg[dft]) - (shooter.m.spotLogit?.[z] ?? 0));
       }
+      // Contestation : niveau tiré selon les habitudes du tireur et la défense adverse (relative à la ligue),
+      // puis adresse du joueur à ce niveau, relative à son adresse moyenne (effet nul contre une défense moyenne).
+      const C = shooter.m.contest;
+      const Dc = D.t.defContest;
+      const Lc = this.m.league.contest;
+      let contestLevel: number | undefined;
+      if (C && Dc && Lc && P.contestWeight) {
+        const sh = three ? C.s3 : C.s2;
+        const fg = three ? C.f3 : C.f2;
+        const dw = three ? Dc.s3 : Dc.s2;
+        const lw = three ? Lc.s3 : Lc.s2;
+        const w = sh.map((v, c) => v * (dw[c] / Math.max(1e-6, lw[c])));
+        const tot = w.reduce((a, v) => a + v, 0) || 1;
+        contestLevel = this.r.pick(w.map((v) => v / tot));
+        const avg = sh.reduce((a, v, c) => a + v * fg[c], 0);
+        lp += P.contestWeight * (logit(fg[contestLevel]) - logit(avg));
+      }
       // Duel : historique du tireur face au défenseur qui conteste.
       lp += (P.duelWeight ?? 0) * (this.m.duel?.[shooter.m.id]?.[contest.m.id] ?? 0);
       const dd = z === 0 ? contest.m.dRim : z === 1 ? (contest.m.dRim + contest.m.dMid) / 2 : z === 2 ? contest.m.dMid : contest.m.d3;
@@ -766,6 +805,14 @@ export class GameSim {
       if (mismatch && mismatch[1] === shooter.m.id) lp += 0.06;
       const pMake = logistic(lp);
       const made = this.r.chance(pMake);
+      const pr = this.prof[off];
+      pr.zFga[z]++;
+      if (made) pr.zFgm[z]++;
+      if (contestLevel != null) pr.cont[contestLevel]++;
+      if (pt === 'Transition') {
+        pr.transFga++;
+        if (made) pr.transFgm++;
+      }
       shooter.line.fga++;
       if (three) shooter.line.fg3a++;
       const label = this.shotLabel(shooter, z, pt);
@@ -782,11 +829,14 @@ export class GameSim {
         const pAst = clamp(P.astScale * shooter.m.astd[z] * (PT_AST_PRIOR[pt] / Math.max(0.05, shooter.m.astNorm?.[z] ?? 0.5)) * Math.pow(clamp(lineupPass, 0.5, 2.2), 0.35), 0, 0.97);
         if (this.r.chance(pAst)) {
           assister = pt === 'PRRollman' && handler ? handler : this.pickAssister(oc, shooter);
-          if (assister) assister.line.ast++;
+          if (assister) {
+            assister.line.ast++;
+            pr.astM++;
+          }
         }
         const and1 = this.r.chance(clamp(this.whistle * eff.and1 * (off === 0 ? P.homeFoulMult : 1 / P.homeFoulMult), 0, 0.3));
         this.emit({
-          type: 'shot', side: off, pid: shooter.m.id, pid2: assister?.m.id, made: true, pts, zone: z, x: spot[0], y: spot[1], pt, label,
+          type: 'shot', side: off, pid: shooter.m.id, pid2: assister?.m.id, made: true, pts, zone: z, x: spot[0], y: spot[1], pt, label, ct: contestLevel,
           def: contest.m.id, mismatch,
           text: `${shooter.m.short} ${this.verb(label, three, true)}${assister ? `, ${assister.m.short} assist` : ''}`,
         });
@@ -808,7 +858,7 @@ export class GameSim {
         blocker.line.blk++;
       }
       this.emit({
-        type: 'shot', side: off, pid: shooter.m.id, pid2: blocker?.m.id, made: false, pts: 0, zone: z, x: spot[0], y: spot[1], pt, label, def: contest.m.id, mismatch,
+        type: 'shot', side: off, pid: shooter.m.id, pid2: blocker?.m.id, made: false, pts: 0, zone: z, x: spot[0], y: spot[1], pt, label, def: contest.m.id, mismatch, ct: contestLevel,
         text: blocker ? `${blocker.m.short} blocks ${shooter.m.short}` : `${shooter.m.short} misses ${this.verb(label, three, false)}`,
       });
       // Temps de vol du ballon / lutte au rebond.

@@ -1,9 +1,9 @@
 // Monte Carlo : calibration du rythme, N simulations en parallèle, agrégation, match typique, probabilité de victoire.
 import { Worker } from 'node:worker_threads';
 import { availableParallelism } from 'node:os';
-import type { GameModel, PlayerModel } from '../model/types.ts';
+import type { GameModel, PlayerModel, TeamModel } from '../model/types.ts';
 import { simulateGame, type GameResult, type SimEvent } from './game.ts';
-import { merge, playerOrder, runRange, stat, MAXQ, NK, STAT_KEYS, type Batch, type StatKey } from './batch.ts';
+import { merge, playerOrder, runRange, stat, MAXQ, NK, ZK, STAT_KEYS, type Batch, type StatKey } from './batch.ts';
 import { noVig, americanToProb } from '../../data/espn.ts';
 import { normName } from '../model/build.ts';
 import { loadPropCal, calibratedOver } from '../model/propcal.ts';
@@ -87,6 +87,20 @@ export function calibrateStrength(m: GameModel, sims = 300, maxWeight = 0.6): { 
       m.params.teamBias[k] = Math.max(-0.25, Math.min(0.25, m.params.teamBias[k] + (desired[k] - cur[k]) / 0.45));
     }
     cur = measure(710_000 + it * 10_000);
+  }
+  // Momentum : part de l'écart « 15 derniers matchs - saisons précédentes » ajoutée à l'écart attendu, au prorata de la
+  // continuité de l'effectif (le momentum d'une équipe tient à ses joueurs). Moitié en attaque, moitié en défense.
+  // Confrontations récentes (chat noir) : part de l'écart réel - attendu des deux dernières années.
+  const mw = m.params.momentumWeight ?? 0;
+  let shift = 0;
+  if (mw && m.home.momentum && m.away.momentum) shift += mw * (m.home.continuity * m.home.momentum.delta - m.away.continuity * m.away.momentum.delta);
+  if (m.params.h2hWeight && m.h2h) shift += m.params.h2hWeight * m.h2h.residualHome;
+  // Fin de saison sans enjeu (équipe hors course) : moins d'intensité.
+  const ns = m.params.noStakesPenalty ?? 0;
+  if (ns) shift += ns * ((m.away.noStakes ? 1 : 0) - (m.home.noStakes ? 1 : 0));
+  if (shift) {
+    const dl = shift / 2 / m.league.pace / 0.45;
+    m.params.teamBias = [Math.max(-0.3, Math.min(0.3, m.params.teamBias[0] + dl)), Math.max(-0.3, Math.min(0.3, m.params.teamBias[1] - dl))];
   }
   return { target, before, after: cur };
 }
@@ -203,6 +217,11 @@ export interface Summary {
   players: PlayerSummary[];
   props: PropEval[];
   teamStats: Record<'home' | 'away', Record<string, number>>;
+  /** Profil de tir moyen par équipe : zones (RA, raquette, mi-distance, coin gauche, coin droit, 3 pts de face). */
+  shotProfile?: Record<'home' | 'away', { fga: number[]; fgm: number[]; astM: number; transFga: number; transFgm: number; cont: number[] }>;
+  h2h?: GameModel['h2h'];
+  momentum?: Record<'home' | 'away', TeamModel['momentum']>;
+  uncertainty?: Record<'home' | 'away', number>;
 }
 
 /**
@@ -239,6 +258,12 @@ function calibrated(m: GameModel, p: number): number {
   if (a === 0 && b === 1) return p;
   const q = Math.min(0.999, Math.max(0.001, p));
   return 1 / (1 + Math.exp(-(a + b * Math.log(q / (1 - q)))));
+}
+
+function profileOf(b: Batch, side: 0 | 1) {
+  const acc = new Array(ZK).fill(0);
+  for (let i = 0; i < b.n; i++) for (let k = 0; k < ZK; k++) acc[k] += b.shots[(i * 2 + side) * ZK + k] / b.n;
+  return { fga: acc.slice(0, 6), fgm: acc.slice(6, 12), astM: acc[12], transFga: acc[13], transFgm: acc[14], cont: acc.slice(15, 19) };
 }
 
 export function summarize(m: GameModel, b: Batch): Summary {
@@ -351,6 +376,7 @@ export function summarize(m: GameModel, b: Batch): Summary {
       teamStats[key][sk] = s / n;
     }
   }
+  const shotProfile = { home: profileOf(b, 0), away: profileOf(b, 1) };
 
   return {
     n,
@@ -359,7 +385,8 @@ export function summarize(m: GameModel, b: Batch): Summary {
     pHome: calibrated(m, homeWins / n), pAway: 1 - calibrated(m, homeWins / n), pHomeRaw: homeWins / n, pOT: ot / n,
     homePts: dist(Array.from(b.home)), awayPts: dist(Array.from(b.away)), margin: dist(margin), total: dist(total), poss: dist(possA),
     quarters: { home: qH, away: qA }, firstHalf: { home: qH[0] + qH[1], away: qA[0] + qA[1], pHome: h1Home / n },
-    spreadLadder, totalLadder, market, players, props, teamStats,
+    spreadLadder, totalLadder, market, players, props, teamStats, shotProfile,
+    h2h: m.h2h, momentum: { home: m.home.momentum, away: m.away.momentum }, uncertainty: { home: m.home.strengthSd, away: m.away.strengthSd },
   };
 }
 
