@@ -167,6 +167,7 @@ export interface SchedGame {
   status: number;
   home: { id: number; tri: string; name: string; city: string };
   away: { id: number; tri: string; name: string; city: string };
+  nationalTv: boolean; // diffusé à la télévision nationale (les stars ne peuvent pas y être mises au repos)
 }
 
 export async function getSchedule(ttlHours = 6): Promise<{ season: string; games: SchedGame[] }> {
@@ -179,6 +180,7 @@ export async function getSchedule(ttlHours = 6): Promise<{ season: string; games
         gameId: g.gameId, date: `${yyyy}-${mm}-${dd}`, timeUTC: g.gameDateTimeUTC, status: g.gameStatus,
         home: { id: g.homeTeam.teamId, tri: g.homeTeam.teamTricode, name: g.homeTeam.teamName, city: g.homeTeam.teamCity },
         away: { id: g.awayTeam.teamId, tri: g.awayTeam.teamTricode, name: g.awayTeam.teamName, city: g.awayTeam.teamCity },
+        nationalTv: (g.broadcasters?.nationalBroadcasters ?? []).some((b: any) => b.broadcasterMedia === 'tv') || (g.broadcasters?.nationalOttBroadcasters ?? []).length > 0,
       });
     }
   }

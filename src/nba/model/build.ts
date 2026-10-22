@@ -11,7 +11,7 @@ import { seasonOfDate, seasonsInScope } from '../seasons.ts';
 import { getInjuries, getMarket, getProps, noVig, type InjuryItem } from '../../data/espn.ts';
 import { playerPasses, SEASON_TYPES, dailyLineups } from '../../data/nbaStats.ts';
 import { pool } from '../../data/http.ts';
-import type { GameRecord } from '../../data/cdn.ts';
+import { getSchedule, type GameRecord } from '../../data/cdn.ts';
 import { readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CACHE_DIR, readCache } from '../../data/http.ts';
@@ -30,6 +30,7 @@ export interface BuildOpts {
   passes?: boolean;
   // Contrôle de justesse : sans les tables stats.nba.com de la saison du match (totaux de fin de saison = futur).
   pastTablesOnly?: boolean;
+  freshInjuries?: boolean; // relance d'avant-match : rapport de blessures relu à l'instant (absents annoncés)
   log?: (...a: unknown[]) => void;
 }
 
@@ -1138,6 +1139,53 @@ function h2hShots(homeId: number, awayId: number, date: string, since: string): 
   return { home: h.e, away: a.e, n: Math.min(h.n, a.n) };
 }
 
+/** L'équipe a-t-elle joué la veille (second soir d'un back-to-back) ? */
+function b2bTonight(teamId: number, date: string): boolean {
+  const y = new Date(Date.parse(`${date}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  return loadGames().some(({ g }) => g.date === y && (g.home.id === teamId || g.away.id === teamId));
+}
+
+/**
+ * Habitude d'un joueur au second soir d'un back-to-back (deux dernières saisons) : part des fois où, après avoir joué
+ * 20 minutes ou plus la veille, il a manqué le match (repos, gêne). Rétrécie vers la moyenne de la ligue (6 occasions),
+ * moyenne retranchée : seul compte l'excès propre au joueur.
+ */
+const skipMemo = new Map<string, { byPlayer: Map<number, [number, number]>; league: number }>();
+export function b2bSkipRate(pid: number, date: string): number {
+  let m = skipMemo.get(date);
+  if (!m) {
+    const from = new Date(Date.parse(date) - 2 * 365 * 86_400_000).toISOString().slice(0, 10);
+    const byPlayer = new Map<number, [number, number]>();
+    const last = new Map<number, { date: string; played: Set<number> }>();
+    let n = 0;
+    let k = 0;
+    for (const { g } of loadGames()) {
+      if (g.date >= date) break;
+      for (const t of [g.home, g.away]) {
+        const prev = last.get(t.id);
+        const played = new Set(t.players.filter((p) => p.sec >= 20 * 60).map((p) => p.id)); // joueurs de rotation
+        if (g.date >= from && prev && (Date.parse(g.date) - Date.parse(prev.date)) / 86_400_000 === 1) {
+          for (const p of t.players) {
+            if (!prev.played.has(p.id)) continue;
+            const skip = p.sec <= 0 && /REST|INJURY|RECONDITIONING/.test(p.reason ?? '') ? 1 : 0;
+            const e = byPlayer.get(p.id) ?? [0, 0];
+            e[0] += skip;
+            e[1]++;
+            byPlayer.set(p.id, e);
+            n++;
+            k += skip;
+          }
+        }
+        last.set(t.id, { date: g.date, played });
+      }
+    }
+    skipMemo.set(date, (m = { byPlayer, league: n ? k / n : 0.03 }));
+  }
+  // Au-delà du risque commun à tous (gêne apparue la veille) : ce qui tient à ce joueur.
+  const e = m.byPlayer.get(pid) ?? [0, 0];
+  return Math.max(0, (e[0] + 6 * m.league) / (e[1] + 6) - m.league);
+}
+
 function shortNames(all: PlayerModel[]): void {
   const lastOf = (n: string) => n.split(' ').slice(1).join(' ') || n;
   const counts = new Map<string, number>();
@@ -1276,9 +1324,12 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
   // Blessures.
   const useInj = opts.injuries ?? !opts.actual;
   let injuries: InjuryItem[] = [];
-  if (useInj) injuries = await getInjuries().catch(() => []);
+  if (useInj) injuries = await getInjuries(opts.freshInjuries ? 0.02 : 1).catch(() => []);
   const outSet = new Set((opts.out ?? []).map(normName));
   const inSet = new Set((opts.in ?? []).map(normName));
+
+  // Diffusion nationale (match à venir) : règle de la ligue contre le repos des stars ces soirs-là.
+  const nationalTv = opts.actual ? false : await getSchedule(6).then((sc) => sc.games.some((g) => g.date === opts.date && g.home.id === homeInfo.id && g.away.id === awayInfo.id && g.nationalTv)).catch(() => false);
 
   // Compositions du jour (match à venir uniquement).
   const lineups = opts.actual ? [] : await dailyLineups(opts.date).catch(() => []);
@@ -1309,6 +1360,14 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
       if (inj) {
         status = inj.status;
         avail = STATUS_AVAIL[inj.status.toLowerCase()] ?? 0.7;
+      }
+      // Second soir d'un back-to-back, avant l'annonce : risque de repos (ou de gestion d'une gêne) selon son habitude.
+      if (!opts.actual && !inj && avail > 0 && b2bTonight(info.id, opts.date)) {
+        const rate = b2bSkipRate(id, opts.date) * (nationalTv ? 0.4 : 1);
+        if (rate >= 0.08) {
+          avail = Math.max(0, 1 - rate);
+          status = `Repos possible (${Math.round(rate * 100)} %)`;
+        }
       }
       if (outSet.has(normName(name))) {
         status = 'Out (manuel)';

@@ -21,6 +21,9 @@ function arg(name: string, def?: string): string | undefined {
 export interface BacktestResult {
   fullTables?: boolean;
   market?: { n: number; brierModel: number; brierMarket: number; brierBlend: number; spreadN: number; spreadErrModel: number; spreadErrMarket: number; totN: number; totErrModel: number; totErrMarket: number; ats: number; atsWin: number };
+  // Mélange modèle / marché (clôture) en logit, par part du modèle ; valeur de clôture contre les cotes d'ouverture.
+  blend?: Array<{ w: number; brier: number }>;
+  clv?: { n: number; bets: number; clvSum: number; clvPos: number; profit: number; won: number; corrNum: number; corrDen1: number; corrDen2: number; sx: number; sy: number };
   games: number;
   team: Record<string, { sim: number; real: number }>;
   marginMAE: number;
@@ -93,6 +96,11 @@ export async function backtest(opts: { from: string; to: string; games: number; 
   let hits = 0, hitsMkt = 0, nMkt = 0;
   const auto: Autopsy = { n: 0, sq: { err: 0, a3: 0, a2: 0, aft: 0, vol: 0 }, zones: {}, style: { trans: 0, transN: 0, ast: 0, astN: 0 }, misses: [], drivers: {}, minutes: {}, explosions: 0, playersSeen: 0, lateOut: 0 };
   const mkt = { n: 0, brierModel: 0, brierMarket: 0, brierBlend: 0, spreadN: 0, spreadErrModel: 0, spreadErrMarket: 0, totN: 0, totErrModel: 0, totErrMarket: 0, ats: 0, atsWin: 0 };
+  const W = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1];
+  const blend = W.map((w) => ({ w, brier: 0 }));
+  const clv = { n: 0, bets: 0, clvSum: 0, clvPos: 0, profit: 0, won: 0, corrNum: 0, corrDen1: 0, corrDen2: 0, sx: 0, sy: 0 };
+  const lg = (p: number) => Math.log(Math.min(0.995, Math.max(0.005, p)) / (1 - Math.min(0.995, Math.max(0.005, p))));
+  const decimal = (a: number) => (a > 0 ? 1 + a / 100 : 1 + 100 / -a);
   for (const [gi, g] of sample.entries()) {
     const t0 = Date.now();
     const m = await buildGameModel({ date: g.date, homeTri: g.home.tri, awayTri: g.away.tri, gameId: g.gameId, actual: g, injuries: false, market: false, passes: false, pastTablesOnly: !opts.fullTables });
@@ -130,6 +138,30 @@ export async function backtest(opts: { from: string; to: string; games: number; 
         mkt.brierModel += (s.pHome - yy) ** 2;
         mkt.brierMarket += (pm - yy) ** 2;
         mkt.brierBlend += (0.5 * s.pHome + 0.5 * pm - yy) ** 2;
+        for (const b of blend) b.brier += (1 / (1 + Math.exp(-(b.w * lg(s.pHome) + (1 - b.w) * lg(pm)))) - yy) ** 2;
+        // Valeur de clôture : le modèle contre la cote d'ouverture ; la ligne a-t-elle bougé dans son sens ?
+        if (mk.mlHomeOpen != null && mk.mlAwayOpen != null) {
+          const po = noVig(mk.mlHomeOpen, mk.mlAwayOpen)[0];
+          const x = s.pHome - po;
+          const d = pm - po;
+          clv.n++;
+          clv.sx += x;
+          clv.sy += d;
+          clv.corrNum += x * d;
+          clv.corrDen1 += x * x;
+          clv.corrDen2 += d * d;
+          if (Math.abs(x) >= 0.04) {
+            const home = x > 0;
+            clv.bets++;
+            const move = home ? d : -d;
+            clv.clvSum += move;
+            if (move > 0) clv.clvPos++;
+            const win = home ? yy === 1 : yy === 0;
+            const odds = decimal(home ? mk.mlHomeOpen : mk.mlAwayOpen);
+            clv.profit += win ? odds - 1 : -1;
+            if (win) clv.won++;
+          }
+        }
         if (mk.spreadHome != null) {
           mkt.spreadN++;
           mkt.spreadErrModel += Math.abs(realMargin - s.margin.mean);
@@ -298,7 +330,8 @@ export async function backtest(opts: { from: string; to: string; games: number; 
     rows.push({ game: `${g.away.tri}@${g.home.tri}`, date: g.date, real: `${g.away.score}-${g.home.score}`, sim: `${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)}`, pHome: +s.pHome.toFixed(3) });
     if (!opts.quiet) console.log(`[${gi + 1}/${sample.length}] ${g.date} ${g.away.tri}@${g.home.tri} réel ${g.away.score}-${g.home.score} | sim ${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)} pDom ${(s.pHome * 100).toFixed(0)}% (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   }
-  return { fullTables: !!opts.fullTables, market: mkt, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, calib, accuracy: hits / sample.length, accuracyMkt: nMkt ? hitsMkt / nMkt : undefined, autopsy: auto, rows };
+  for (const b of blend) b.brier /= Math.max(1, mkt.n);
+  return { fullTables: !!opts.fullTables, market: mkt, blend: mkt.n ? blend : undefined, clv: clv.n ? clv : undefined, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, calib, accuracy: hits / sample.length, accuracyMkt: nMkt ? hitsMkt / nMkt : undefined, autopsy: auto, rows };
 }
 
 export function printBacktest(r: BacktestResult): string {
@@ -315,6 +348,17 @@ export function printBacktest(r: BacktestResult): string {
     L.push(`Marché (clôture DraftKings, ${k.n} matchs) : Brier modèle ${(k.brierModel / k.n).toFixed(4)} | marché ${(k.brierMarket / k.n).toFixed(4)} | mélange 50/50 ${(k.brierBlend / k.n).toFixed(4)}`);
     if (k.spreadN) L.push(`  Erreur absolue sur la marge : modèle ${(k.spreadErrModel / k.spreadN).toFixed(2)} vs ligne ${(k.spreadErrMarket / k.spreadN).toFixed(2)} ; total : modèle ${(k.totErrModel / Math.max(1, k.totN)).toFixed(2)} vs ligne ${(k.totErrMarket / Math.max(1, k.totN)).toFixed(2)}`);
     if (k.ats) L.push(`  Écart modèle/ligne ≥ 3 pts : ${k.atsWin}/${k.ats} gagnants contre le spread (${(k.atsWin / k.ats * 100).toFixed(1)} %)`);
+  }
+  if (r.blend) {
+    const best = [...r.blend].sort((a, b) => a.brier - b.brier)[0];
+    L.push(`Mélange (logit) part du modèle -> Brier : ${r.blend.map((b) => `${Math.round(b.w * 100)} % ${b.brier.toFixed(4)}`).join(' | ')} ; meilleur : ${Math.round(best.w * 100)} %`);
+  }
+  if (r.clv) {
+    const c = r.clv;
+    const n = c.n;
+    const corr = (c.corrNum - (c.sx * c.sy) / n) / Math.sqrt((c.corrDen1 - (c.sx * c.sx) / n) * (c.corrDen2 - (c.sy * c.sy) / n));
+    L.push(`Valeur de clôture (cotes d'ouverture, ${n} matchs) : corrélation (modèle - ouverture) / (clôture - ouverture) ${corr.toFixed(3)}`);
+    if (c.bets) L.push(`  Écart modèle/ouverture ≥ 4 pts de % : ${c.bets} paris, la ligne bouge dans notre sens ${((c.clvPos / c.bets) * 100).toFixed(1)} % du temps (${((c.clvSum / c.bets) * 100).toFixed(2)} pts de % en moyenne), gagnés ${((c.won / c.bets) * 100).toFixed(1)} %, rendement à la cote d'ouverture ${((c.profit / c.bets) * 100).toFixed(1)} %`);
   }
   L.push(`Bon vainqueur annoncé : modèle ${(r.accuracy * 100).toFixed(1)} %${r.accuracyMkt != null ? ` | marché ${(r.accuracyMkt * 100).toFixed(1)} %` : ''}`);
   L.push('Calibration (confiance annoncée du favori -> part réellement gagnée)');
