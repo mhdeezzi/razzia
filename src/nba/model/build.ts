@@ -82,6 +82,9 @@ export const DEFAULT_PARAMS: SimParams = {
   noStakesPenalty: 3,
   cohesionWeight: 12,
   hcaWeight: 0.3,
+  // La simulation joueur par joueur seule est trop plate (pente 0,35 contre la ligne du marché) : on comble 90 % de
+  // l'écart vers la force visée (contrôle 2 x 200 matchs : 60 % -> 67,5 % / 66,5 % ; 80 % -> 69,5 % / 67,5 %).
+  strengthPull: 0.9,
   blendModel: 0.8, // probabilité Razzia : 80 % moteur, 20 % marché (choix : défier le marché)
   qualityCut: 4,
   usageGamma: 1.4,

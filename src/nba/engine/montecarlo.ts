@@ -51,7 +51,7 @@ export function calibratePace(m: GameModel, sims = 300): { target: number; got: 
  * (attaque réelle + défense adverse réelle − ligue), avec un poids ∝ continuité des deux effectifs.
  * Capte ce que la construction joueur par joueur rate (coach, schémas, aide défensive, synergies).
  */
-export function calibrateStrength(m: GameModel, sims = 300, maxWeight = m.params.strengthPull ?? 0.6): { target: [number, number]; before: [number, number]; after: [number, number] } {
+export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params.strengthPull ?? 0.6): { target: [number, number]; before: [number, number]; after: [number, number] } {
   const lg = m.league.ppg / m.league.pace;
   const hca = m.league.homeMargin / 2 / m.league.pace; // avantage du terrain en points par possession, par équipe
   // Notes corrigées du calendrier : une attaque qui a affronté des défenses faibles est revue à la baisse, etc.
@@ -86,8 +86,9 @@ export function calibrateStrength(m: GameModel, sims = 300, maxWeight = m.params
     return usual > 0 ? Math.min(1, here / usual) : 1;
   };
   const share = Math.sqrt(avail(m.home) * avail(m.away));
-  // Les notes d'impact tiennent compte des absences et des effectifs remaniés : leur part ne dépend pas de la continuité.
-  const wt = maxWeight * ((1 - rw) * Math.sqrt(m.home.continuity * m.away.continuity) * share + rw);
+  // La cible tient déjà compte de la continuité (poids des notes d'équipe) ; seules les absences du soir, que les notes
+  // d'équipe ignorent, réduisent encore la part comblée.
+  const wt = maxWeight * ((1 - rwEff) * share + rwEff);
   const w: [number, number] = [wt, wt];
   const measure = (seed: number): [number, number] => {
     let hp = 0, ap = 0, hpo = 0, apo = 0;
@@ -101,7 +102,7 @@ export function calibrateStrength(m: GameModel, sims = 300, maxWeight = m.params
   const before = measure(700_000);
   const desired: [number, number] = [before[0] + w[0] * (target[0] - before[0]), before[1] + w[1] * (target[1] - before[1])];
   let cur = before;
-  for (let it = 0; it < 2; it++) {
+  for (let it = 0; it < 3; it++) {
     for (const k of [0, 1] as const) {
       // Pente empirique ≈ 0,45 point/possession par unité de logit d'adresse.
       m.params.teamBias[k] = Math.max(-0.25, Math.min(0.25, m.params.teamBias[k] + (desired[k] - cur[k]) / 0.45));

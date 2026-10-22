@@ -111,7 +111,7 @@ export async function backtest(opts: { from: string; to: string; games: number; 
     const m = await buildGameModel({ date: g.date, homeTri: g.home.tri, awayTri: g.away.tri, gameId: g.gameId, actual: g, injuries: false, market: false, passes: false, pastTablesOnly: !opts.fullTables });
     Object.assign(m.params, opts.params ?? {});
     calibratePace(m, 150);
-    const st = opts.noStrength ? undefined : calibrateStrength(m, 200);
+    const st = opts.noStrength ? undefined : calibrateStrength(m, 400);
     const b = await runSims(m, opts.n, 11 + gi);
     const s = summarize(m, b);
     for (const k of keys) {
