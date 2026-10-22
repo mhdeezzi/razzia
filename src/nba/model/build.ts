@@ -72,7 +72,14 @@ export const DEFAULT_PARAMS: SimParams = {
   // notes d'impact joueurs à 50 % 0,2203 / 0,2122 ; momentum en occasions 0,2213 / 0,2094 ; fin de saison sans enjeu
   // 0,2233 en fin de saison ; « qui garde qui » du coach utile (0,2270 / 0,2156 sans) ; chat noir nuisible au score
   // (0,2288 / 0,2173) comme en qualité de tir (0,2313 / 0,2248) : désactivé.
-  rapmWeight: 0.5,
+  // Collectif 60 % / talent 40 % à continuité moyenne (choix : le basket est d'abord collectif ; à valider au contrôle).
+  rapmWeight: 0.29,
+  // Le cinq de départ pèse plus que le banc (2025-26, 1 008 matchs, notes × minutes réelles : 1,22 ± 0,10 contre
+  // 1,04 ± 0,22) : même rapport, moyenne 1.
+  talentStarters: 1.05,
+  talentBench: 0.9,
+  // Chat noir de style : l'effet se répète hors échantillon (pente 0,4 à 0,6) ; on en garde la moitié.
+  styleWeight: 0.5,
   momentumWeight: 0.3,
   momentumEarly: 0.5,
   momentumOcc: 0.5,

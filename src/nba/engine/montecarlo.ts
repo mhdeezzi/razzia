@@ -61,13 +61,15 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
   const teamTarget: [number, number] = [o(m.home) + d(m.away) - lg + hca, o(m.away) + d(m.home) - lg - hca];
   // Notes d'impact : qui joue ce soir et combien de minutes (parts normalisées à 5 joueurs sur le terrain).
   const rw = m.params.rapmWeight ?? 0;
+  const ws = m.params.talentStarters ?? 1, wb = m.params.talentBench ?? 1;
   const imp = (t: TeamModel) => {
     const share = t.players.map((p) => p.avail * p.expMin);
     const tot = share.reduce((a, v) => a + v, 0) || 1;
     let off = 0, def = 0;
     t.players.forEach((p, i) => {
-      off += ((5 * share[i]) / tot) * (p.rapm?.o ?? -0.8);
-      def += ((5 * share[i]) / tot) * (p.rapm?.d ?? -0.7);
+      const k = ((5 * share[i]) / tot) * (p.starter ? ws : wb);
+      off += k * (p.rapm?.o ?? -0.8);
+      def += k * (p.rapm?.d ?? -0.7);
     });
     return { off: off / 100, def: def / 100 };
   };

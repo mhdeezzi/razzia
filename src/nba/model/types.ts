@@ -228,11 +228,13 @@ export interface SimParams {
   noStakesPenalty: number; // points d'écart retirés à une équipe en fin de saison sans enjeu
   coachDef: number; // le coach met son meilleur défenseur sur la plus grosse menace et cache son plus faible
   h2hWeight: number; // part de l'écart réel - attendu des confrontations récentes (chat noir) ajoutée à l'écart visé
-  h2hShotWeight?: number;
-  styleWeight?: number;
-  cohesionWeight?: number;
-  hcaWeight?: number; // part de l'avantage du terrain propre à l'équipe qui reçoit (écart à la ligue) retenue // points par écart de continuité d'effectif de 100 %, sur les 10 premiers matchs de la saison
-  strengthPull?: number; // part de l'écart entre la force simulée joueur par joueur et la force visée qui est comblée // part du chat noir de style (effet du type d'adversaire) ajoutée à l'écart visé // part des écarts de qualité de tir dans les confrontations (emplacements, contestation, pertes, rebonds)
+  h2hShotWeight?: number; // part des écarts de qualité de tir dans les confrontations (emplacements, contestation, pertes, rebonds)
+  styleWeight?: number; // part du chat noir de style (effet du type d'adversaire) ajoutée à l'écart visé
+  cohesionWeight?: number; // points par écart de continuité d'effectif de 100 %, sur les 10 premiers matchs de la saison
+  hcaWeight?: number; // part de l'avantage du terrain propre à l'équipe qui reçoit (écart à la ligue) retenue
+  strengthPull?: number; // part de l'écart entre la force simulée joueur par joueur et la force visée qui est comblée
+  talentStarters?: number; // poids des notes d'impact du cinq de départ dans la force visée
+  talentBench?: number; // poids des notes d'impact du banc
   blendModel?: number; // part du moteur dans la probabilité affichée (mélange logit avec la cote sans marge)
   rapmWeight?: number; // part des notes d'impact joueurs (selon qui joue ce soir) dans la force visée, contre les notes d'équipe
   momentumOcc?: number; // part des occasions (plutôt que du score) dans la mesure du momentum : 0 = score seul, 1 = occasions seules
