@@ -258,6 +258,7 @@ export interface SimParams {
   contestWeight: number; // poids de l'adresse du joueur au niveau de contestation tiré (0 = ignoré)
   calA?: number; // recalibration finale de la probabilité de victoire (Platt), mesurée par backtest
   calB?: number;
+  calC?: number; // resserrement des probabilités extrêmes (0 = Platt simple)
 }
 
 export interface GameModel {
@@ -282,6 +283,7 @@ export interface GameModel {
     mlHome?: number;
     mlAway?: number;
     pHomeNoVig?: number;
+    pHomeOpen?: number; // marché sans marge à l'ouverture (mouvement de la cote jusqu'à la simulation)
   };
   props?: Array<{ player: string; market: string; line?: number; over?: number; under?: number; price?: number }>;
   h2hMatchups: Record<string, Record<string, number>>; // attaquant -> défenseur -> minutes de duel (saison(s) précédente(s))

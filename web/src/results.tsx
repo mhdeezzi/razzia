@@ -1,13 +1,14 @@
-// Résultats des 5 000 simulations : verdict, paris mis en avant, duel statistique, lignes, joueurs, props.
+// Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, les lignes, et le détail
+// (joueurs en feu, signaux, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowClockwise } from '@phosphor-icons/react';
+import { ArrowClockwise, Scales, ShieldCheck, TrendUp } from '@phosphor-icons/react';
 import { line, n1, odds, pct, pct0, signed, type Game, type Result } from './data.ts';
 import { buildCategories, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
 import { CountUp, Ring, Segmented, TeamMark } from './ui.tsx';
-import { HotPlayers, LineupNotice } from './hot.tsx';
+import { HotStrip, LineupNotice } from './hot.tsx';
 
 type Dist = Result['margin'];
 const range = (d: Dist) => `${Math.round(d.p10)}-${Math.round(d.p90)}`;
@@ -15,7 +16,6 @@ const pctInt = (v: number) => `${Math.round(v * 100)} %`;
 
 export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRelaunch: () => void; busy: boolean }) {
   return (
-    <div className="res-layout">
     <div className="results">
       <div className="res-head">
         <span className="slash">{r.n.toLocaleString('fr-FR')} matchs simulés</span>
@@ -25,16 +25,20 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
       </div>
       <LineupNotice r={r} g={g} onRelaunch={onRelaunch} busy={busy} />
       <Verdict r={r} g={g} />
+      <Section i={0} title="Pronostics par catégorie" tag="issue la plus fréquente">
+        <Categories r={r} g={g} />
+      </Section>
+      <Section i={1} title="Lignes" tag="probabilités">
+        <Lines r={r} g={g} />
+      </Section>
+      <HotStrip r={r} g={g} />
       <Signals r={r} g={g} />
       {r.typical && (
-        <Section i={0} title="Le match typique" tag="déroulé le plus probable">
+        <Section i={1} title="Le match typique" tag="déroulé le plus probable">
           <TypicalGame t={r.typical} g={g} />
         </Section>
       )}
-      <Section i={1} title="Pronostics par catégorie" tag="issue la plus fréquente">
-        <Categories r={r} g={g} />
-      </Section>
-      <Section i={1} title="Duel statistique" tag="match moyen simulé">
+      <Section i={2} title="Duel statistique" tag="match moyen simulé">
         <Duel r={r} g={g} />
       </Section>
       {r.shotProfile && (
@@ -42,9 +46,6 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
           <ShotProfile r={r} g={g} />
         </Section>
       )}
-      <Section i={2} title="Lignes" tag="probabilités">
-        <Lines r={r} g={g} />
-      </Section>
       <Section i={3} title="Joueurs" tag="projections">
         <Players r={r} g={g} />
       </Section>
@@ -62,9 +63,82 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
         Les probabilités décrivent le modèle, pas une certitude : à confronter aux annonces de dernière minute. Jouer comporte des risques.
       </p>
     </div>
-    <HotPlayers r={r} g={g} />
-    </div>
   );
+}
+
+// Niveaux de confiance, mesurés sur toute la saison 2025-26 (1 230 matchs) : à 77 % ou plus (un match sur quatre), le
+// moteur voit juste 84,6 % du temps ; sous 55 %, 58 % seulement.
+const SURE = 0.77;
+const FLIP = 0.55;
+
+interface Confidence {
+  side: 'home' | 'away';
+  p: number; // probabilité Razzia du favori
+  engine: number; // probabilité du moteur seul
+  book?: number; // marché sans marge
+  tier: 'sure' | 'flip' | 'normal';
+  hedge?: { title: string; p: number }; // handicap qui passe dans au moins 75 % des simulations
+  steam?: { side: 'home' | 'away'; move: number }; // la cote a bougé fort vers cette équipe (match serré)
+}
+
+function confidenceOf(r: Result, g: Game): Confidence {
+  const pHome = r.market?.blendedHome ?? r.pHome;
+  const side = pHome >= 0.5 ? 'home' : 'away';
+  const p = side === 'home' ? pHome : 1 - pHome;
+  const tier = p >= SURE ? 'sure' : p < FLIP ? 'flip' : 'normal';
+  // Match serré : le favori avec des points d'avance (gagne, ou perd de peu), la ligne la plus exigeante à 75 % ou plus.
+  const cover = (x: { line: number; pHomeCover: number }) => (side === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
+  const lineOf = (x: { line: number }) => (side === 'home' ? x.line : -x.line);
+  const h = r.spreadLadder.filter((x) => cover(x) >= 0.75 && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
+  const hedge = h ? { title: `${g[side].name} +${line(lineOf(h))}`, p: cover(h) } : undefined;
+  const book = r.market?.bookHome != null ? (side === 'home' ? r.market.bookHome : 1 - r.market.bookHome) : undefined;
+  return { side, p, engine: side === 'home' ? r.pHome : r.pAway, book, tier, hedge, steam: r.market?.steam };
+}
+
+function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
+  if (c.tier === 'sure')
+    return (
+      <div className="conf-badge sure">
+        <ShieldCheck size={20} weight="fill" />
+        <div>
+          <p className="conf-badge-title">Razzia assuré</p>
+          <p>Quand le moteur est aussi sûr de lui, il a vu juste 85 % du temps sur la saison passée (un match sur quatre).</p>
+        </div>
+      </div>
+    );
+  if (c.steam)
+    return (
+      <div className="conf-badge steam">
+        <TrendUp size={20} weight="bold" />
+        <div>
+          <p className="conf-badge-title">Suivre l'argent</p>
+          <p>
+            Match serré pour le moteur, mais la cote a bougé de <b>{Math.round(c.steam.move * 100)} pts</b> vers {g[c.steam.side].name} depuis
+            l'ouverture (blessure, parieurs pros). Suivre ce mouvement a gagné 61 % du temps sur ces matchs la saison passée.
+          </p>
+        </div>
+      </div>
+    );
+  if (c.tier === 'flip')
+    return (
+      <div className="conf-badge flip">
+        <Scales size={20} weight="bold" />
+        <div>
+          <p className="conf-badge-title">Pile ou face</p>
+          <p>
+            {g[c.side].name} reste favori, mais d'un rien : match imprévisible.
+            {c.hedge ? (
+              <>
+                {' '}Plus sûr : <b>{c.hedge.title}</b> (passe dans {pct(c.hedge.p)} des simulations).
+              </>
+            ) : (
+              ' Mieux vaut passer ce match.'
+            )}
+          </p>
+        </div>
+      </div>
+    );
+  return null;
 }
 
 function Section({ title, tag, i = 0, right, children }: { title: string; tag?: string; i?: number; right?: ReactNode; children: ReactNode }) {
@@ -80,22 +154,23 @@ function Section({ title, tag, i = 0, right, children }: { title: string; tag?: 
 }
 
 function Verdict({ r, g }: { r: Result; g: Game }) {
-  const homeFav = r.pHome >= r.pAway;
-  const fav = homeFav ? g.home : g.away;
-  const pFav = Math.max(r.pHome, r.pAway);
-  const mk = r.market;
-  const bookFav = mk?.bookHome != null ? (homeFav ? mk.bookHome : 1 - mk.bookHome) : undefined;
+  const c = confidenceOf(r, g);
+  const fav = g[c.side];
+  const pFav = c.p;
+  const bookFav = c.book;
   return (
-    <section className="verdict">
+    <section className={`verdict verdict-${c.tier}`}>
       <Ring value={pFav} format={pctInt} label="Victoire" />
       <div>
-        <span className="caps">Vainqueur le plus fréquent</span>
+        <span className="caps">Favori Razzia</span>
         <p className="verdict-team">
           <TeamMark team={fav} size="md" /> {fav.city} {fav.name}
         </p>
         <p className="verdict-sub">
-          Gagne dans <b className="mono">{pct(pFav)}</b> des simulations.
+          Probabilité de victoire <b className="mono">{pct(pFav)}</b>
+          {r.market?.blendedHome != null ? ` (moteur ${pct(c.engine)}, marché compris à 10 %)` : ''}.
         </p>
+        <ConfidenceBadge c={c} g={g} />
         <div className="split" role="img" aria-label={`${g.away.tri} ${pct(r.pAway)}, ${g.home.tri} ${pct(r.pHome)}`}>
           <div className="split-bar">
             <span style={{ flexGrow: r.pAway }} />
@@ -119,14 +194,6 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
             <CountUp value={r.homePts.p50} format={(v) => String(Math.round(v))} /> {g.home.tri}
           </dd>
         </div>
-        {mk?.blendedHome != null && (
-          <div title="Le marché sert de base, le moteur le corrige : c'est l'estimation la plus juste mesurée sur les matchs passés.">
-            <dt>Razzia (moteur + marché)</dt>
-            <dd>
-              {fav.tri} {pct(homeFav ? mk.blendedHome : 1 - mk.blendedHome)}
-            </dd>
-          </div>
-        )}
         {bookFav != null && (
           <div>
             <dt>Marché sans marge</dt>

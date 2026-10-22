@@ -95,6 +95,10 @@ export const DEFAULT_PARAMS: SimParams = {
   // 100 % 0,2039 / 0,2150).
   strengthPull: 1,
   blendModel: 0.9, // probabilité Razzia : 90 % moteur, 10 % marché (choix : défier le marché)
+  // Probabilités moins timides au milieu, moins audacieuses en haut (800 matchs 2025-26 ; apprise sur oct.-déc.,
+  // vérifiée sur janv.-fév. : log-perte 0,6393 -> 0,6343). 55 % -> 57 %, 60 % -> 64 %, 70 % -> 73 %, 90 % -> 87 %.
+  calB: 1.6,
+  calC: 0.4,
   qualityCut: 4,
   usageGamma: 1.4,
   astGamma: 2.0,
@@ -116,7 +120,7 @@ const clamp = (x: number, a: number, b: number): number => Math.max(a, Math.min(
 // Niveau d'un joueur : Game Score (Hollinger) ramené à 36 minutes. LF réussis et paniers estimés depuis la ligne de match.
 const QUALITY_FLOOR = 7; // remplaçant type de fin de banc
 const QUALITY_K = 150; // minutes (pondérées) avant de croire le niveau observé
-const RETURN_MIN = 0.85; // premier match après une absence : minutes limitées
+const RETURN_MIN = 0.6; // premier match après une absence : minutes limitées (2025-26 : à 0,85, +7 min de trop en moyenne)
 function gameScore(x: GameLine): number {
   const ftm = 0.78 * x.fta;
   const fgm = Math.max(0, (x.pts - x.fg3m - ftm) / 2);
@@ -800,7 +804,8 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
 
   // Minutes selon le rôle du soir (autopsie 2025-26 : un remplaçant promu titulaire recevait ~11 min de moins que
   // la réalité, un titulaire habituel qui sort du banc beaucoup trop). Moyenne du joueur dans ce rôle, rétrécie vers
-  // un a priori : minutes de titulaire (~30) pour un promu, trois quarts de ses minutes pour un titulaire relégué.
+  // un a priori : minutes de titulaire (~30) pour un promu, un peu plus de la moitié de ses minutes pour un titulaire
+  // relégué (à trois quarts : +6 min de trop en moyenne sur 2025-26).
   const K = 3;
   for (const p of players) {
     const r = roleMin.get(p.id);
@@ -808,7 +813,7 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
     const usualStarter = r.wS > r.wB;
     // Écart appliqué aux minutes attendues (qui intègrent déjà mercato, pré-saison, début de saison).
     const base = r.wS + r.wB > 0 ? (r.mS + r.mB) / (r.wS + r.wB) : p.expMin;
-    const prior = p.starter ? Math.max(base, 0.35 * base + 0.65 * 30) : usualStarter ? 0.75 * base : base;
+    const prior = p.starter ? Math.max(base, 0.35 * base + 0.65 * 30) : usualStarter ? 0.55 * base : base;
     const [w, m] = p.starter ? [r.wS, r.mS] : [r.wB, r.mB];
     const target = clamp(p.expMin + (m + K * prior) / (w + K) - base, 0, 40);
     if (p.starter && !usualStarter && target > p.expMin + 1) p.notes.push(`titulaire ce soir (${Math.round(p.expMin)} → ${Math.round(target)} min)`);
@@ -839,6 +844,16 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
       p.expMin = next;
     });
   }
+
+  // Rotation resserrée : au-delà du 9e homme, les coachs font très peu jouer (2025-26, 193 matchs serrés : 2,7 joueurs
+  // par équipe et par match prévus ~8 min n'entraient pas). Leurs minutes ×0,4, avec retours de blessure et titulaires
+  // relégués corrigés : erreur d'impact d'équipe 0,943 -> 0,798 pt, erreur de minutes 5,78 -> 5,50 min par joueur.
+  [...players]
+    .filter((p) => p.avail > 0.5 && p.expMin > 0)
+    .sort((a, b) => b.expMin - a.expMin)
+    .forEach((p, rank) => {
+      if (rank >= 9) p.expMin *= 0.4;
+    });
 
   // Courbes manquantes ou rôle modifié : gabarit de ligue selon le rang de minutes.
   const ranked = [...players].sort((a, b) => (b.starter ? 1 : 0) - (a.starter ? 1 : 0) || b.expMin - a.expMin);
@@ -1494,6 +1509,11 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
       players.push(buildPlayer(ctx, id, { name, jersey: r?.JERSEY_NUMBER ?? box?.jersey ?? '', pos, heightIn, teamId: info.id }, { status, avail }, cur));
     }
     assignMinutes(ctx, info, players, cur, opts.actual, lineupFor(info.id), (opts.gameId ?? opts.actual?.gameId ?? '').startsWith('004'));
+    // Cinq « Expected » (probable) tant que NBA.com ne l'a pas confirmé : utilisé, mais pas présenté comme officiel.
+    const lu = lineups.flatMap((g) => [g.home, g.away]).find((sd) => sd.teamId === info.id);
+    if (lu && !lu.starters.every((x) => /confirmed/i.test(x.status))) {
+      for (const p of players) p.notes = p.notes.map((n) => (n === 'titulaire annoncé ce soir' ? 'titulaire probable ce soir (NBA.com)' : n));
+    }
     return players;
   };
 
@@ -1622,6 +1642,7 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
     if (m) {
       model.market = { provider: m.provider, spreadHome: m.spreadHome, total: m.total, mlHome: m.mlHome, mlAway: m.mlAway };
       if (m.mlHome != null && m.mlAway != null) model.market.pHomeNoVig = noVig(m.mlHome, m.mlAway)[0];
+      if (m.mlHomeOpen != null && m.mlAwayOpen != null) model.market.pHomeOpen = noVig(m.mlHomeOpen, m.mlAwayOpen)[0];
       model.props = await getProps(m.eventId).catch(() => []);
     }
   }

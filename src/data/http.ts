@@ -43,6 +43,8 @@ export interface FetchOpts {
   namespace?: string;
   timeoutMs?: number;
   retries?: number;
+  /** Fichier statique joignable même quand l'hôte est marqué injoignable (ex. compositions du jour sur stats.nba.com). */
+  staticFile?: boolean;
 }
 
 function cachePath(ns: string, key: string): string {
@@ -87,7 +89,7 @@ export async function fetchJson<T = any>(url: string, opts: FetchOpts = {}): Pro
   if (cached !== undefined) return cached;
 
   const host = new URL(url).host;
-  if (OFFLINE_HOSTS.has(host)) {
+  if (OFFLINE_HOSTS.has(host) && !opts.staticFile) {
     const stale = readCache<T>(ns, key);
     if (stale !== undefined) return stale;
     throw new HttpError(404, url);

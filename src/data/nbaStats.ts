@@ -156,11 +156,12 @@ export interface DailyLineup {
   away: { teamId: number; starters: Array<{ id: number; status: string; roster: string; pos: string }> };
 }
 
-/** Compositions du jour publiées par NBA.com (« Expected » puis « Confirmed »). */
+/** Compositions du jour publiées par NBA.com (« Expected » puis « Confirmed ») : fichier statique de stats.nba.com,
+ * joignable depuis GitHub contrairement à l'API. */
 export async function dailyLineups(dateYmd: string): Promise<DailyLineup[]> {
   const d = dateYmd.replaceAll('-', '');
   const { fetchJson: fj } = await import('./http.ts');
-  const j = await fj<any>(`https://stats.nba.com/js/data/leaders/00_daily_lineups_${d}.json`, { ttlHours: 0.5, namespace: 'lineups', cacheKey: d }).catch(() => undefined);
+  const j = await fj<any>(`https://stats.nba.com/js/data/leaders/00_daily_lineups_${d}.json`, { ttlHours: 0.5, namespace: 'lineups', cacheKey: d, staticFile: true, retries: 1 }).catch(() => undefined);
   const side = (t: any) => ({
     teamId: t.teamId,
     starters: (t.players ?? []).map((p: any) => ({ id: p.personId, status: p.lineupStatus ?? '', roster: p.rosterStatus ?? '', pos: p.position ?? '' })),

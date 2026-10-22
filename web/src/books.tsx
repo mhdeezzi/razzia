@@ -45,7 +45,7 @@ export function BookOdds({ g }: { g: Game }) {
     void loadCotes().then(setData);
     void listSims().then((m) => setPRazzia(m.get(simKey(g))?.pHome));
   }, [g]);
-  const bg = data?.games.find((x) => x.home.endsWith(g.home.name) && x.away.endsWith(g.away.name));
+  const bg = data?.games?.find((x) => x.home.endsWith(g.home.name) && x.away.endsWith(g.away.name));
   const books = (bg?.books ?? []).filter((b) => b.key !== 'pinnacle' && b.home && b.away);
   const best = (side: 'home' | 'away') => Math.max(...books.map((b) => b[side] ?? 0));
   const ref = bg?.ref;

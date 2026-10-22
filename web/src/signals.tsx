@@ -1,5 +1,6 @@
-// Signaux du match : chat noir (confrontations récentes), momentum des équipes, match trop serré pour être conseillé.
-import { Cat, Scales, TrendDown, TrendUp } from '@phosphor-icons/react';
+// Signaux du match : chat noir (confrontations récentes), momentum des équipes. Le match serré est signalé par le
+// badge « Pile ou face » du verdict.
+import { Cat, TrendDown, TrendUp } from '@phosphor-icons/react';
 import { type Game, type Result } from './data.ts';
 import { TeamMark } from './ui.tsx';
 
@@ -11,8 +12,7 @@ export function Signals({ r, g }: { r: Result; g: Game }) {
   const moves = (['away', 'home'] as const)
     .map((k) => ({ team: g[k], m: r.momentum?.[k] }))
     .filter((x) => x.m && Math.abs(x.m.delta) >= 4);
-  const tight = Math.max(r.pHome, r.pAway) < 0.55;
-  if (!cat && !moves.length && !tight) return null;
+  if (!cat && !moves.length) return null;
   return (
     <div className="signals">
       {cat && victim && (
@@ -42,17 +42,6 @@ export function Signals({ r, g }: { r: Result; g: Game }) {
           </div>
         </div>
       ))}
-      {tight && (
-        <div className="signal signal-tight">
-          <span className="signal-icon">
-            <Scales size={20} weight="bold" />
-          </span>
-          <div>
-            <p className="signal-title">Match trop serré : non conseillé</p>
-            <p>Aucune équipe ne dépasse 55 % dans les simulations. Mieux vaut regarder les autres catégories ou passer ce match.</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

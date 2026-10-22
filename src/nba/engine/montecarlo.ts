@@ -108,9 +108,9 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
   // d'équipe ignorent, réduisent encore la part comblée.
   const wt = maxWeight * ((1 - rwEff) * share + rwEff);
   const w: [number, number] = [wt, wt];
-  const measure = (seed: number): [number, number] => {
+  const measure = (seed: number, n = sims): [number, number] => {
     let hp = 0, ap = 0, hpo = 0, apo = 0;
-    for (let i = 0; i < sims; i++) {
+    for (let i = 0; i < n; i++) {
       const r = simulateGame(m, seed + i);
       hp += r.home.pts; ap += r.away.pts; hpo += r.home.poss; apo += r.away.poss;
     }
@@ -129,7 +129,8 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
       // Pente empirique ≈ 0,45 point/possession par unité de logit d'adresse.
       m.params.teamBias[k] = Math.max(-0.3, Math.min(0.3, m.params.teamBias[k] + (desired[k] - cur[k]) / 0.45));
     }
-    cur = measure(710_000 + it * 10_000);
+    // La mesure qui fixe le dernier réglage compte triple : le bruit de l'ancrage passe d'environ ±0,6 à ±0,35 pt.
+    cur = measure(710_000 + it * 10_000, it === 1 ? 3 * sims : sims);
   }
   m.params.edge = composeEdges(m);
   return { target, before, after: cur, talentMult, rwEff };
@@ -323,6 +324,8 @@ export interface Summary {
     blendedHome?: number;
     mlHome?: number; // cotes américaines au moment de la simulation (bilan : valeur de clôture, rendement)
     mlAway?: number;
+    bookHomeOpen?: number; // marché sans marge à l'ouverture
+    steam?: { side: 'home' | 'away'; move: number }; // « suivre l'argent » : la cote a bougé fort sur un match serré
   };
   players: PlayerSummary[];
   props: PropEval[];
@@ -362,13 +365,19 @@ function heatOf(m: GameModel, pm: PlayerModel, side: 0 | 1, playRate: number, pt
   return { base, threshold, pBig, mean: d.mean, p90: d.p90, index: pBig * Math.sqrt(base), reasons };
 }
 
-/** Recalibration (Platt) mesurée par le contrôle de justesse : p = σ(a + b · logit(fréquence simulée)). */
+/**
+ * Recalibration mesurée par le contrôle de justesse : p = σ(a + b · L / (1 + c · |L|)), L = logit(fréquence simulée).
+ * Le moteur est timide entre 50 et 75 % (annonce 52 % : gagne 62 % ; annonce 60 % : 62 %) et trop sûr de lui au-delà
+ * (annonce 89 % : gagne 81 %) : b > 1 écarte les probabilités du milieu, c les resserre en haut. Le favori ne change pas.
+ */
 function calibrated(m: GameModel, p: number): number {
   const a = m.params.calA ?? 0;
   const b = m.params.calB ?? 1;
-  if (a === 0 && b === 1) return p;
+  const c = m.params.calC ?? 0;
+  if (a === 0 && b === 1 && c === 0) return p;
   const q = Math.min(0.999, Math.max(0.001, p));
-  return 1 / (1 + Math.exp(-(a + b * Math.log(q / (1 - q)))));
+  const L = Math.log(q / (1 - q));
+  return 1 / (1 + Math.exp(-(a + (b * L) / (1 + c * Math.abs(L)))));
 }
 
 function profileOf(b: Batch, side: 0 | 1) {
@@ -472,7 +481,22 @@ export function summarize(m: GameModel, b: Batch): Summary {
       // par le contrôle de justesse). Le marché intègre ce que le moteur ignore (infos de dernière minute, avis des pros).
       const w = m.params.blendModel ?? 0.4;
       const lg = (p: number) => Math.log(Math.min(0.995, Math.max(0.005, p)) / (1 - Math.min(0.995, Math.max(0.005, p))));
-      market.blendedHome = 1 / (1 + Math.exp(-(w * lg(homeWins / n) + (1 - w) * lg(mk.pHomeNoVig))));
+      market.blendedHome = 1 / (1 + Math.exp(-(w * lg(calibrated(m, homeWins / n)) + (1 - w) * lg(mk.pHomeNoVig))));
+      // Suivre l'argent : sur un match serré pour le moteur (moins de 60 %), une cote qui a bougé d'au moins 4 points
+      // depuis l'ouverture (blessure de dernière minute, parieurs pros) désigne le favori. Saison 2025-26 : 62 matchs
+      // inversés, 61 % gagnés ; bon vainqueur 70,2 % -> 71,4 % (positif sur les deux moitiés de saison). Probabilité
+      // affichée au moins 56 % (61 % mesuré sur peu de matchs, rétréci).
+      const pe = calibrated(m, homeWins / n);
+      if (mk.pHomeOpen != null) {
+        market.bookHomeOpen = mk.pHomeOpen;
+        const move = mk.pHomeNoVig - mk.pHomeOpen;
+        if (Math.max(pe, 1 - pe) < 0.6 && Math.abs(move) >= 0.04) {
+          const side = move > 0 ? 'home' : 'away';
+          market.steam = { side, move: Math.abs(move) };
+          const pSide = Math.max(0.56, side === 'home' ? market.blendedHome : 1 - market.blendedHome);
+          market.blendedHome = side === 'home' ? pSide : 1 - pSide;
+        }
+      }
     }
   }
 
