@@ -121,6 +121,9 @@ export function calibrateStrength(m: GameModel, sims = 300, maxWeight = m.params
     const fade = (t: TeamModel) => Math.max(0, 1 - (t.gpCur ?? 99) / 10);
     shift += cw * (m.home.continuity - m.away.continuity) * Math.max(fade(m.home), fade(m.away));
   }
+  // Avantage du terrain propre à l'équipe qui reçoit (une salle qui pèse plus, ou moins, que la moyenne).
+  const hw = m.params.hcaWeight ?? 0;
+  if (hw && m.home.hcaDev != null) shift += hw * m.home.hcaDev;
   // Fin de saison sans enjeu (équipe hors course) : moins d'intensité.
   const ns = m.params.noStakesPenalty ?? 0;
   if (ns) shift += ns * ((m.away.noStakes ? 1 : 0) - (m.home.noStakes ? 1 : 0));

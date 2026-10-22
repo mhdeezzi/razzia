@@ -81,7 +81,8 @@ export const DEFAULT_PARAMS: SimParams = {
   coachDef: 1.5,
   noStakesPenalty: 3,
   cohesionWeight: 12,
-  blendModel: 0.4,
+  hcaWeight: 0.3,
+  blendModel: 0.8, // probabilité Razzia : 80 % moteur, 20 % marché (choix : défier le marché)
   qualityCut: 4,
   usageGamma: 1.4,
   astGamma: 2.0,
@@ -1218,6 +1219,17 @@ export function b2bSkipRate(pid: number, date: string): number {
   return Math.max(0, (e[0] + 6 * m.league) / (e[1] + 6) - m.league);
 }
 
+/** Écart (pts) entre l'avantage du terrain d'une équipe et celui de la ligue, sur les deux dernières années. */
+function teamHomeEdge(f: FeatureSet, teamId: number, date: string, leagueHome: number): number | undefined {
+  const since = new Date(Date.parse(date) - 730 * 86_400_000).toISOString().slice(0, 10);
+  const l = (teamLogOf(f).get(teamId) ?? []).filter((g) => g.date < date && g.date >= since);
+  const h = l.filter((g) => g.home);
+  const a = l.filter((g) => !g.home);
+  if (h.length < 30 || a.length < 30) return undefined;
+  const avg = (x: typeof l) => sum(x.map((g) => g.margin)) / x.length;
+  return (avg(h) - avg(a)) / 2 - leagueHome;
+}
+
 function shortNames(all: PlayerModel[]): void {
   const lastOf = (n: string) => n.split(' ').slice(1).join(' ') || n;
   const counts = new Map<string, number>();
@@ -1466,6 +1478,15 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
   for (const p of [...homePlayers, ...awayPlayers]) {
     const r = rapm.get(p.id);
     p.rapm = r ? { o: r.o, d: r.d, poss: Math.round(r.poss) } : { o: -0.8, d: -0.7, poss: 0 };
+    // Les moins de 25 ans progressent d'une saison à l'autre (2024-25 -> 2025-26, 228 joueurs : +0,42 point de Game
+    // Score / 36 par année sous 25 ans, soit +0,13 point d'impact) ; s'efface à mesure que la saison donne des matchs.
+    const a = tables.age.get(p.id);
+    if (a) {
+      const age = a.age + (Number(cur.slice(0, 4)) - Number(a.season.slice(0, 4)));
+      const fresh = Math.max(0, 1 - p.form.gpCur / 40);
+      const bump = 0.13 * Math.max(0, 25 - age) * fresh;
+      if (bump > 0) p.rapm = { ...p.rapm, o: p.rapm.o + 0.7 * bump, d: p.rapm.d + 0.3 * bump };
+    }
   }
   home.momentum = teamMomentum(feats, home.id, opts.date, ctx.league.homeMargin);
   away.momentum = teamMomentum(feats, away.id, opts.date, ctx.league.homeMargin);
@@ -1475,6 +1496,9 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
     const md = opts.date.slice(5);
     t.noStakes = md >= '02-15' && md <= '06-30' && t.record.w + t.record.l >= 40 && t.record.w / (t.record.w + t.record.l) < 0.33;
   }
+  // Avantage du terrain propre à l'équipe qui reçoit (deux dernières saisons) : écart domicile - extérieur comparé à
+  // celui de la ligue. Il se répète en partie (corrélation 0,24 entre deux moitiés de saison) : part retenue réglable.
+  home.hcaDev = teamHomeEdge(feats, home.id, opts.date, ctx.league.homeMargin);
   let teamH2h = teamH2H(feats, home, away, opts.date, ctx.league.homeMargin);
   const sh = styleEffect(home.id, away.id, opts.date);
   const sa = styleEffect(away.id, home.id, opts.date);

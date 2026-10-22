@@ -12,7 +12,7 @@ export interface Rapm {
   poss: number; // possessions jouées (pondérées) : fiabilité
 }
 
-const HALF_LIFE_DAYS = 365; // une saison de décroissance : la saison passée compte moitié moins que la récente
+const HALF_LIFE_DAYS = 120; // forme récente : testé sur 1 230 matchs 2025-26 (365 j : erreur 14,58 ; 180 j : 14,53 ; 120 j : 14,51)
 const LAMBDA = 1500; // rétrécissement vers 0 (premier passage), en possessions pondérées
 const LAMBDA_PRIOR = 3000; // rétrécissement vers l'a priori des stats (passage final)
 const HOME_KEY = -1;
