@@ -36,6 +36,8 @@ export interface PlayerModel {
   starter: boolean;
   presence: number[]; // 48 : probabilité d'être sur le terrain par minute
   expMin: number;
+  quality: number; // niveau du joueur : Game Score ramené à 36 minutes (forme récente, rétréci) — hiérarchie du coach
+  momentum?: { recent: number; base: number; delta: number }; // Game Score/36 : 15 derniers matchs contre saisons précédentes
   stintMean: number;
   usg: number;
   pt: Record<PT, number>; // fins de possession par possession d'équipe sur le terrain
@@ -106,6 +108,9 @@ export interface TeamModel {
   ortg: number; // points par possession en attaque (forme récente)
   drtg: number; // points par possession concédés
   continuity: number; // part des minutes attendues jouées par des joueurs déjà dans l'équipe
+  gpCur: number; // matchs joués cette saison
+  strengthSd: number; // incertitude sur la force réelle (logit d'adresse) : effectif remanié, début de saison
+  momentum?: TeamMomentum;
   ratings: Record<string, number | string>;
 }
 
@@ -126,6 +131,19 @@ export interface LeagueModel {
   rankMinutes: number[]; // minutes moyennes par rang dans la rotation (0 = joueur le plus utilisé)
   contest?: { s2: number[]; s3: number[] }; // part des tirs par niveau de contestation (ligue)
   distFg: number[]; // adresse de la ligue par distance au panier (pied par pied, 0 à 40)
+}
+
+/**
+ * Momentum : écart moyen de points des 15 derniers matchs (playoffs compris) contre celui des deux saisons précédentes,
+ * corrigé du terrain. Positif = l'équipe fait mieux que ce qu'elle a jamais montré ces dernières années.
+ */
+export interface TeamMomentum {
+  recent: number; // écart moyen par match, 15 derniers matchs
+  base: number; // écart moyen par match, saisons précédentes (hors 15 derniers)
+  delta: number; // recent - base
+  n: number; // matchs récents comptés
+  nBase: number;
+  streak: number; // série en cours (+ victoires, - défaites)
 }
 
 /** Contestation : 0 = très serré (0-2 pieds), 1 = serré, 2 = ouvert, 3 = grand ouvert (6+ pieds). */
@@ -158,6 +176,9 @@ export interface SimParams {
   astGamma: number;
   rebGamma: number; // partage des rebonds entre joueurs : part ∝ taux^γ // partage des passes décisives : part ∝ taux^γ (les créateurs gardent leur part)
   teamBias: [number, number]; // ancrage de force collective (logit d'adresse) domicile, extérieur
+  uncWeight: number; // poids de l'incertitude de force collective (strengthSd) tirée à chaque simulation
+  momentumWeight: number; // part du momentum d'équipe (écart récent - saisons précédentes) ajoutée à la force visée
+  qualityCut: number; // échelle (Game Score/36) : un coach coupe d'abord les minutes des joueurs les plus faibles
   usageGamma: number; // partage de l'usage dans un cinq : part ∝ usage^γ (γ > 1 : la star garde sa part)
   rubber: number; // effet élastique : logit d'adresse retiré par tranche de 10 pts d'avance
   sdGameNight: number; // environnement de tir commun aux deux équipes (logit)

@@ -1,7 +1,7 @@
 // Construction du modèle de match : fusion PBP (forme récente) + Synergy + tracking + matchups + blessures + marché.
-import { buildFeaturesCached, topLabels, zi, type FeatureSet, type PlayerFeat, type TeamFeat, type ZoneArr } from './features.ts';
+import { buildFeaturesCached, topLabels, zi, type FeatureSet, type GameLine, type PlayerFeat, type TeamFeat, type ZoneArr } from './features.ts';
 import { loadTablesCached, heightToIn, groupOfPos, type Tables, type SynAgg, type ContestAgg } from './tables.ts';
-import { PT_LIST, HALF_COURT_PT, type Contest, type GameModel, type PlayerModel, type TeamModel, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
+import { PT_LIST, HALF_COURT_PT, type Contest, type GameModel, type PlayerModel, type TeamModel, type TeamMomentum, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
 import { START_TYPES, type StartType } from './pbp.ts';
 import { ZONES, isThree } from './zones.ts';
 import { teamById, teamByTri, type TeamInfo } from '../teams.ts';
@@ -60,6 +60,9 @@ export const DEFAULT_PARAMS: SimParams = {
   fg3Bias: -0.045,
   threeMult: 0.926,
   teamBias: [0, 0],
+  uncWeight: 1,
+  momentumWeight: 0,
+  qualityCut: 4,
   usageGamma: 1.4,
   astGamma: 2.0,
   rebGamma: 1.25,
@@ -76,6 +79,15 @@ export const DEFAULT_PARAMS: SimParams = {
 
 const logit = (p: number): number => Math.log(Math.max(1e-6, p) / Math.max(1e-6, 1 - p));
 const clamp = (x: number, a: number, b: number): number => Math.max(a, Math.min(b, x));
+
+// Niveau d'un joueur : Game Score (Hollinger) ramené à 36 minutes. LF réussis et paniers estimés depuis la ligne de match.
+const QUALITY_FLOOR = 7; // remplaçant type de fin de banc
+const QUALITY_K = 150; // minutes (pondérées) avant de croire le niveau observé
+function gameScore(x: GameLine): number {
+  const ftm = 0.78 * x.fta;
+  const fgm = Math.max(0, (x.pts - x.fg3m - ftm) / 2);
+  return x.pts + 0.4 * fgm - 0.7 * x.fga - 0.4 * (x.fta - ftm) + 0.4 * x.reb + x.stl + 0.7 * x.ast + 0.7 * x.blk - 0.4 * x.pf - x.tov;
+}
 const sum = (a: number[]): number => a.reduce((s, v) => s + v, 0);
 const norm6 = (a: number[]): Z6 => {
   const s = sum(a) || 1;
@@ -564,7 +576,7 @@ function buildPlayer(ctx: Ctx, pid: number, info: { name: string; jersey: string
 
   return {
     id: pid, name: info.name, short: info.name, jersey: info.jersey, pos: info.pos, group: g, heightIn: info.heightIn, teamId: info.teamId,
-    status: status.status, avail: status.avail, starter: false, presence: new Array(48).fill(0), expMin: 0,
+    status: status.status, avail: status.avail, starter: false, presence: new Array(48).fill(0), expMin: 0, quality: QUALITY_FLOOR,
     stintMean: pf && pf.stintN > 2 ? pf.stintSum / pf.stintN : ctx.feats.league.stintMean,
     usg, pt, eff, zone, fg, ft, astd, astNorm,
     spots: pf?.spots ?? ZONES.map(() => []),
@@ -628,7 +640,7 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
     const lastMins = recent.slice(-20).map((x) => x.sec / 60).sort((a, b) => a - b);
     const med = lastMins.length ? lastMins[Math.floor(lastMins.length / 2)] : 0;
     if (med >= 16) recent = recent.filter((x) => x.sec / 60 >= 0.5 * med);
-    let wS = 0, mS = 0;
+    let wS = 0, mS = 0, qGs = 0, qMin = 0;
     const rm = { wS: 0, mS: 0, wB: 0, mB: 0 };
     recent.forEach((x, i, arr) => {
       // En playoffs, les rotations se resserrent : les matchs de playoffs de la saison deviennent la référence.
@@ -639,8 +651,22 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
       mS += w * (x.sec / 60);
       if (x.starter) (rm.wS += w), (rm.mS += w * (x.sec / 60));
       else (rm.wB += w), (rm.mB += w * (x.sec / 60));
+      qGs += w * gameScore(x);
+      qMin += w * (x.sec / 60);
     });
     roleMin.set(p.id, rm);
+    // Niveau (Game Score / 36 min) rétréci vers un remplaçant type : la hiérarchie qu'un coach respecte.
+    p.quality = (36 * qGs + QUALITY_K * QUALITY_FLOOR) / (qMin + QUALITY_K);
+    // Momentum du joueur : niveau des 15 derniers matchs contre celui des saisons précédentes.
+    const played = lines.filter((x) => x.sec > 0);
+    const rec = played.slice(-15);
+    const old = played.slice(0, -15).filter((x) => x.season !== curSeason);
+    const per36 = (a: GameLine[]) => (36 * sum(a.map(gameScore))) / Math.max(1, sum(a.map((x) => x.sec / 60)));
+    if (rec.length >= 8 && sum(old.map((x) => x.sec)) / 60 >= 300) {
+      const r = per36(rec);
+      const b = per36(old);
+      p.momentum = { recent: r, base: b, delta: r - b };
+    }
     let exp = wS > 0 ? mS / wS : 0;
     // Début de saison (< 3 matchs cette saison) : la médiane des 50 derniers matchs joués résiste aux périodes
     // de restriction (retour de blessure) et aux sorties prématurées ; on la mélange à la tendance récente.
@@ -661,6 +687,7 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
       // Rookie / sans historique NBA : rôle estimé selon le rang de draft.
       const pick = Number(ctx.tables.index.get(p.id)?.DRAFT_NUMBER) || 99;
       exp = pick <= 3 ? 28 : pick <= 10 ? 22 : pick <= 20 ? 15 : pick <= 30 ? 10 : 4;
+      p.quality = pick <= 3 ? 12 : pick <= 10 ? 10 : pick <= 20 ? 8.5 : QUALITY_FLOOR;
       p.notes.push(`sans historique NBA (draft n° ${pick === 99 ? 'non drafté' : pick})`);
     }
     // Rôle dans la nouvelle rotation (pré-saison) quand il n'y a pas encore 3 matchs officiels avec l'équipe.
@@ -702,8 +729,9 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
     if (lastDate) starters = [...last.entries()].filter(([, d]) => d === lastDate).map(([id]) => id);
   }
   starters = starters.filter((id) => avail.some((p) => p.id === id));
-  // Complète avec les meilleurs temps de jeu disponibles en respectant les postes.
-  const byMin = [...avail].sort((a, b) => b.expMin - a.expMin);
+  // Complète avec la hiérarchie du coach (minutes habituelles et niveau) en respectant les postes.
+  const qRef = avail.length ? sum(avail.map((p) => p.quality)) / avail.length : QUALITY_FLOOR;
+  const byMin = [...avail].sort((a, b) => b.expMin + (b.quality - qRef) - (a.expMin + (a.quality - qRef)));
   for (const p of byMin) {
     if (starters.length >= 5) break;
     if (starters.includes(p.id)) continue;
@@ -833,6 +861,11 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
     contDen += p.expMin * p.avail;
   }
   const continuity = contDen ? contNum / contDen : 0;
+  // Incertitude sur la force réelle : un effectif remanié ou un début de saison (peu de matchs ensemble) rendent les
+  // notes moins sûres ; tirée à chaque simulation, elle rapproche la probabilité du 50/50 quand le moteur sait peu.
+  const season = seasonOfDate(date);
+  const gpCur = T?.sched.filter((s) => s.date < date && seasonOfDate(s.date) === season).length ?? 0;
+  const strengthSd = 0.1 * (1 - continuity) + 0.06 * Math.max(0, 1 - gpCur / 20);
 
   // Fatigue : back-to-back, voyage de 2 fuseaux ou plus vers l'est sans jour de repos, altitude pour le visiteur.
   const prevGame = T?.sched.filter((s) => s.date < date).at(-1);
@@ -870,6 +903,8 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
     ortg: T && T.poss > 0 ? T.pts / T.poss : league.ppg / league.pace,
     drtg: T && T.defPoss > 0 ? T.ptsAllowed / T.defPoss : league.ppg / league.pace,
     continuity,
+    gpCur,
+    strengthSd,
     id: info.id, tri: info.tri, name: info.name, city: info.city, color: info.color, color2: info.color2, players,
     pace: adv?.pace ?? league.pace,
     hcDurOff: T && T.durN > 50 ? T.durSum / T.durN : league.hcDur,
@@ -882,6 +917,59 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
       tovPct: four?.tovPct ?? 0, oppTovPct: four?.oppTovPct ?? 0, orebPct: four?.orebPct ?? 0,
     },
   };
+}
+
+// Résultats par équipe et par match (points de chaque équipe reconstitués depuis les lignes de match des joueurs).
+const teamLogs = new WeakMap<FeatureSet, Map<number, Array<{ date: string; margin: number; home: boolean }>>>();
+function teamLogOf(f: FeatureSet): Map<number, Array<{ date: string; margin: number; home: boolean }>> {
+  let out = teamLogs.get(f);
+  if (out) return out;
+  const pts = new Map<string, { date: string; home: boolean; tm: number; opp: number; gameId: string; pts: number }>();
+  for (const pf of f.players.values()) {
+    for (const x of pf.games) {
+      const k = `${x.gameId}:${x.tm}`;
+      const e = pts.get(k) ?? { date: x.date, home: x.home, tm: x.tm, opp: x.opp, gameId: x.gameId, pts: 0 };
+      e.pts += x.pts;
+      pts.set(k, e);
+    }
+  }
+  out = new Map();
+  for (const e of pts.values()) {
+    const o = pts.get(`${e.gameId}:${e.opp}`);
+    if (!o) continue;
+    let l = out.get(e.tm);
+    if (!l) out.set(e.tm, (l = []));
+    l.push({ date: e.date, margin: e.pts - o.pts, home: e.home });
+  }
+  for (const l of out.values()) l.sort((a, b) => a.date.localeCompare(b.date));
+  teamLogs.set(f, out);
+  return out;
+}
+
+/**
+ * Momentum d'équipe : écart moyen (corrigé du terrain) des 15 derniers matchs, playoffs compris, contre celui des deux
+ * saisons précédentes. Une équipe qui fait ce qu'elle n'a jamais fait ces dernières années, ou l'inverse.
+ */
+function teamMomentum(f: FeatureSet, teamId: number, date: string, homeMargin: number): TeamMomentum | undefined {
+  const games = (teamLogOf(f).get(teamId) ?? []).filter((g) => g.date < date);
+  if (games.length < 25) return undefined;
+  const adj = (g: { margin: number; home: boolean }) => g.margin - (g.home ? homeMargin : -homeMargin);
+  const recent = games.slice(-15);
+  const cur = seasonOfDate(date);
+  const from = String(Number(cur.slice(0, 4)) - 2);
+  const base = games.slice(0, -15).filter((g) => seasonOfDate(g.date).slice(0, 4) >= from);
+  if (base.length < 20) return undefined;
+  const avg = (a: typeof games) => sum(a.map(adj)) / a.length;
+  let streak = 0;
+  for (let i = games.length - 1; i >= 0; i--) {
+    const win = games[i].margin > 0;
+    if (streak === 0) streak = win ? 1 : -1;
+    else if (win === streak > 0) streak += win ? 1 : -1;
+    else break;
+  }
+  const r = avg(recent);
+  const b = avg(base);
+  return { recent: r, base: b, delta: r - b, n: recent.length, nBase: base.length, streak };
 }
 
 function shortNames(all: PlayerModel[]): void {
@@ -926,6 +1014,18 @@ function insightsFor(ctx: Ctx, home: TeamModel, away: TeamModel): string[] {
   };
   const tov = new Map([...t.teamFour].map(([k, v]) => [k, v.tovPct]));
   const forced = new Map([...t.teamFour].map(([k, v]) => [k, v.oppTovPct]));
+  const n1 = (x: number) => `${x > 0 ? '+' : ''}${x.toFixed(1).replace('.', ',')}`;
+  for (const tm of [away, home]) {
+    const mo = tm.momentum;
+    if (mo && Math.abs(mo.delta) >= 4) {
+      out.push(`${tm.name} ${mo.delta > 0 ? 'en pleine montée' : 'en baisse'} : ${n1(mo.recent)} pts d'écart par match sur les ${mo.n} derniers matchs, contre ${n1(mo.base)} les deux saisons précédentes.`);
+    }
+    const riser = tm.players.filter((p) => p.avail > 0.5 && p.expMin >= 18 && p.momentum).sort((a, b) => Math.abs(b.momentum!.delta) - Math.abs(a.momentum!.delta))[0];
+    if (riser && Math.abs(riser.momentum!.delta) >= 3) {
+      const m = riser.momentum!;
+      out.push(`${riser.name} ${m.delta > 0 ? 'en pleine progression' : 'en recul'} : niveau ${m.recent.toFixed(1).replace('.', ',')} sur 36 min ces 15 derniers matchs, contre ${m.base.toFixed(1).replace('.', ',')} les saisons précédentes.`);
+    }
+  }
   for (const tm of [away, home]) {
     const f4 = t.teamFour.get(tm.id);
     if (f4) out.push(`${tm.tri} : pertes de balle ${pct(f4.tovPct)} des possessions (rang ${rank(tov, tm.id, false)}), en provoque ${pct(f4.oppTovPct)} (rang ${rank(forced, tm.id, true)}).`);
@@ -1062,6 +1162,8 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
 
   const home = teamModel(ctx, homeInfo, homePlayers, opts.date, homeInfo);
   const away = teamModel(ctx, awayInfo, awayPlayers, opts.date, homeInfo);
+  home.momentum = teamMomentum(feats, home.id, opts.date, ctx.league.homeMargin);
+  away.momentum = teamMomentum(feats, away.id, opts.date, ctx.league.homeMargin);
 
   // H2H : minutes de duel entre attaquants d'une équipe et défenseurs de l'autre.
   const h2h: Record<string, Record<string, number>> = {};

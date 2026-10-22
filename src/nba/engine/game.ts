@@ -189,7 +189,9 @@ export class GameSim {
       const extra = ps.filter((p) => !p.active && p.m.avail > 0).sort((a, b) => b.m.expMin - a.m.expMin);
       for (const p of extra.slice(0, 8 - act)) p.active = true;
     }
-    const s: Side = { t, ps, lineup: [], fouls: 0, foulsLast2: 0, timeouts: 7, night: this.r.normal(0, P.sdTeamNight), night3: this.r.normal(0, P.sdTeam3Night), run: 0, q: [] };
+    // Soir de l'équipe + incertitude sur sa force réelle (effectif remanié, début de saison).
+    const night = this.r.normal(0, P.sdTeamNight) + this.r.normal(0, (P.uncWeight ?? 0) * (t.strengthSd ?? 0));
+    const s: Side = { t, ps, lineup: [], fouls: 0, foulsLast2: 0, timeouts: 7, night, night3: this.r.normal(0, P.sdTeam3Night), run: 0, q: [] };
     this.planRotation(s);
     return s;
   }
@@ -218,18 +220,23 @@ export class GameSim {
     for (const ab of s.ps.filter((p) => !p.active && p.m.expMin > 0)) absentGroups.set(ab.m.group, (absentGroups.get(ab.m.group) ?? 0) + ab.m.expMin);
     const absentTot = [...absentGroups.values()].reduce((a, b) => a + b, 0);
     const cap = (p: PState) => Math.min(42, Math.max(36, p.m.expMin + 8));
+    // Hiérarchie du coach : les minutes en trop (mercato, retours) sont retirées d'abord aux joueurs les plus faibles,
+    // les minutes libérées vont d'abord aux meilleurs.
+    const qRef = act.reduce((a, p) => a + p.m.quality * mins.get(p)!, 0) / Math.max(1, act.reduce((a, p) => a + mins.get(p)!, 0));
+    const qs = P.qualityCut || 0;
+    const lvl = (p: PState, k: number) => (qs > 0 ? Math.exp((k * (p.m.quality - qRef)) / qs) : 1);
     for (let it = 0; it < 10; it++) {
       const tot = [...mins.values()].reduce((a, b) => a + b, 0);
       const diff = 240 - tot;
       if (Math.abs(diff) < 0.05) break;
       if (diff > 0) {
         const room = act.filter((p) => mins.get(p)! < cap(p) - 0.01);
-        const w = (p: PState) => Math.pow(Math.max(1, mins.get(p)!), 1.2) * (1 + (absentTot > 0 ? (2 * (absentGroups.get(p.m.group) ?? 0)) / absentTot : 0));
+        const w = (p: PState) => Math.pow(Math.max(1, mins.get(p)!), 1.2) * (1 + (absentTot > 0 ? (2 * (absentGroups.get(p.m.group) ?? 0)) / absentTot : 0)) * lvl(p, 0.5);
         const ws = room.reduce((a, p) => a + w(p), 0);
         if (!ws) break;
         for (const p of room) mins.set(p, Math.min(cap(p), mins.get(p)! + (diff * w(p)) / ws));
       } else {
-        const w = new Map(act.map((p) => [p, Math.max(0.01, mins.get(p)! * (1 - Math.min(mins.get(p)!, 46) / 48) ** 2)]));
+        const w = new Map(act.map((p) => [p, Math.max(0.01, mins.get(p)! * (1 - Math.min(mins.get(p)!, 46) / 48) ** 2 * lvl(p, -1))]));
         const ws = [...w.values()].reduce((a, b) => a + b, 0);
         for (const p of act) mins.set(p, Math.max(0, mins.get(p)! + (diff * w.get(p)!) / ws));
       }

@@ -42,6 +42,7 @@ export async function simulateMatchup(o: SimRunOpts): Promise<{ dir: string; mod
   say(`rythme : cible ${cal.target.toFixed(1)} poss/48, simulé ${cal.got.toFixed(1)} (échelle ${model.params.durScale.toFixed(3)})`);
   const st = calibrateStrength(model);
   say(`force collective : cible ${st.target.map((v) => v.toFixed(3)).join('/')} pts/poss, joueurs seuls ${st.before.map((v) => v.toFixed(3)).join('/')}, ancré ${st.after.map((v) => v.toFixed(3)).join('/')} (continuité ${model.home.tri} ${(model.home.continuity * 100).toFixed(0)} %, ${model.away.tri} ${(model.away.continuity * 100).toFixed(0)} %)`);
+  for (const t of [model.home, model.away]) if (t.momentum) say(`momentum ${t.tri} : ${t.momentum.recent.toFixed(1)} pts d'écart sur ${t.momentum.n} matchs contre ${t.momentum.base.toFixed(1)} avant (${t.momentum.delta > 0 ? '+' : ''}${t.momentum.delta.toFixed(1)}), série ${t.momentum.streak}, incertitude ${t.strengthSd.toFixed(3)}`);
   const t1 = Date.now();
   const batch = await runSims(model, o.n, o.seed);
   say(`${o.n} simulations en ${((Date.now() - t1) / 1000).toFixed(1)} s`);

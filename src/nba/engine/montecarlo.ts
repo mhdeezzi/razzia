@@ -88,6 +88,14 @@ export function calibrateStrength(m: GameModel, sims = 300, maxWeight = 0.6): { 
     }
     cur = measure(710_000 + it * 10_000);
   }
+  // Momentum : part de l'écart « 15 derniers matchs - saisons précédentes » ajoutée à l'écart attendu, au prorata de la
+  // continuité de l'effectif (le momentum d'une équipe tient à ses joueurs). Moitié en attaque, moitié en défense.
+  const mw = m.params.momentumWeight ?? 0;
+  if (mw && m.home.momentum && m.away.momentum) {
+    const shift = mw * (m.home.continuity * m.home.momentum.delta - m.away.continuity * m.away.momentum.delta);
+    const dl = shift / 2 / m.league.pace / 0.45;
+    m.params.teamBias = [Math.max(-0.3, Math.min(0.3, m.params.teamBias[0] + dl)), Math.max(-0.3, Math.min(0.3, m.params.teamBias[1] - dl))];
+  }
   return { target, before, after: cur };
 }
 
