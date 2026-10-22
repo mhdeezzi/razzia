@@ -108,9 +108,9 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
   // d'équipe ignorent, réduisent encore la part comblée.
   const wt = maxWeight * ((1 - rwEff) * share + rwEff);
   const w: [number, number] = [wt, wt];
-  const measure = (seed: number): [number, number] => {
+  const measure = (seed: number, n = sims): [number, number] => {
     let hp = 0, ap = 0, hpo = 0, apo = 0;
-    for (let i = 0; i < sims; i++) {
+    for (let i = 0; i < n; i++) {
       const r = simulateGame(m, seed + i);
       hp += r.home.pts; ap += r.away.pts; hpo += r.home.poss; apo += r.away.poss;
     }
@@ -129,7 +129,8 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
       // Pente empirique ≈ 0,45 point/possession par unité de logit d'adresse.
       m.params.teamBias[k] = Math.max(-0.3, Math.min(0.3, m.params.teamBias[k] + (desired[k] - cur[k]) / 0.45));
     }
-    cur = measure(710_000 + it * 10_000);
+    // La mesure qui fixe le dernier réglage compte triple : le bruit de l'ancrage passe d'environ ±0,6 à ±0,35 pt.
+    cur = measure(710_000 + it * 10_000, it === 1 ? 3 * sims : sims);
   }
   m.params.edge = composeEdges(m);
   return { target, before, after: cur, talentMult, rwEff };
