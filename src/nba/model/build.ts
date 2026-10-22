@@ -67,13 +67,19 @@ export const DEFAULT_PARAMS: SimParams = {
   threeMult: 0.926,
   teamBias: [0, 0],
   uncWeight: 1,
-  // Contrôle sans fuite sur 2 x 200 matchs avec les tables de tirs contestés : momentum, confrontations récentes et
-  // fin de saison sans enjeu (combinés) font moins bien que ce réglage (Brier 0,2277 vs 0,2251 et 0,2164 vs 0,2120).
-  momentumWeight: 0,
-  momentumEarly: 0,
+  // Contrôles sans fuite, 2 x 200 matchs (janv.-avr. 2026 / oct. 2025-janv. 2026), Brier contre 0,2251 / 0,2120 :
+  // notes d'impact joueurs à 50 % 0,2203 / 0,2122 ; momentum en occasions 0,2213 / 0,2094 ; fin de saison sans enjeu
+  // 0,2233 en fin de saison ; « qui garde qui » du coach utile (0,2270 / 0,2156 sans) ; chat noir nuisible au score
+  // (0,2288 / 0,2173) comme en qualité de tir (0,2313 / 0,2248) : désactivé.
+  rapmWeight: 0.5,
+  momentumWeight: 0.3,
+  momentumEarly: 0.5,
+  momentumOcc: 0.5,
   h2hWeight: 0,
+  h2hShotWeight: 0,
   coachDef: 1.5,
-  noStakesPenalty: 0,
+  noStakesPenalty: 3,
+  blendModel: 0.4,
   qualityCut: 4,
   usageGamma: 1.4,
   astGamma: 2.0,
