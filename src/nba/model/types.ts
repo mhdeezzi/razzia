@@ -258,6 +258,7 @@ export interface SimParams {
   contestWeight: number; // poids de l'adresse du joueur au niveau de contestation tiré (0 = ignoré)
   calA?: number; // recalibration finale de la probabilité de victoire (Platt), mesurée par backtest
   calB?: number;
+  calC?: number; // resserrement des probabilités extrêmes (0 = Platt simple)
 }
 
 export interface GameModel {

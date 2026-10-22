@@ -362,13 +362,19 @@ function heatOf(m: GameModel, pm: PlayerModel, side: 0 | 1, playRate: number, pt
   return { base, threshold, pBig, mean: d.mean, p90: d.p90, index: pBig * Math.sqrt(base), reasons };
 }
 
-/** Recalibration (Platt) mesurée par le contrôle de justesse : p = σ(a + b · logit(fréquence simulée)). */
+/**
+ * Recalibration mesurée par le contrôle de justesse : p = σ(a + b · L / (1 + c · |L|)), L = logit(fréquence simulée).
+ * Le moteur est timide entre 50 et 75 % (annonce 52 % : gagne 62 % ; annonce 60 % : 62 %) et trop sûr de lui au-delà
+ * (annonce 89 % : gagne 81 %) : b > 1 écarte les probabilités du milieu, c les resserre en haut. Le favori ne change pas.
+ */
 function calibrated(m: GameModel, p: number): number {
   const a = m.params.calA ?? 0;
   const b = m.params.calB ?? 1;
-  if (a === 0 && b === 1) return p;
+  const c = m.params.calC ?? 0;
+  if (a === 0 && b === 1 && c === 0) return p;
   const q = Math.min(0.999, Math.max(0.001, p));
-  return 1 / (1 + Math.exp(-(a + b * Math.log(q / (1 - q)))));
+  const L = Math.log(q / (1 - q));
+  return 1 / (1 + Math.exp(-(a + (b * L) / (1 + c * Math.abs(L)))));
 }
 
 function profileOf(b: Batch, side: 0 | 1) {
@@ -472,7 +478,7 @@ export function summarize(m: GameModel, b: Batch): Summary {
       // par le contrôle de justesse). Le marché intègre ce que le moteur ignore (infos de dernière minute, avis des pros).
       const w = m.params.blendModel ?? 0.4;
       const lg = (p: number) => Math.log(Math.min(0.995, Math.max(0.005, p)) / (1 - Math.min(0.995, Math.max(0.005, p))));
-      market.blendedHome = 1 / (1 + Math.exp(-(w * lg(homeWins / n) + (1 - w) * lg(mk.pHomeNoVig))));
+      market.blendedHome = 1 / (1 + Math.exp(-(w * lg(calibrated(m, homeWins / n)) + (1 - w) * lg(mk.pHomeNoVig))));
     }
   }
 

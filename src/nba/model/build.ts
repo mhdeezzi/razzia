@@ -95,6 +95,10 @@ export const DEFAULT_PARAMS: SimParams = {
   // 100 % 0,2039 / 0,2150).
   strengthPull: 1,
   blendModel: 0.9, // probabilité Razzia : 90 % moteur, 10 % marché (choix : défier le marché)
+  // Probabilités moins timides au milieu, moins audacieuses en haut (800 matchs 2025-26 ; apprise sur oct.-déc.,
+  // vérifiée sur janv.-fév. : log-perte 0,6393 -> 0,6343). 55 % -> 57 %, 60 % -> 64 %, 70 % -> 73 %, 90 % -> 87 %.
+  calB: 1.6,
+  calC: 0.4,
   qualityCut: 4,
   usageGamma: 1.4,
   astGamma: 2.0,
