@@ -72,18 +72,15 @@ export const DEFAULT_PARAMS: SimParams = {
   // notes d'impact joueurs à 50 % 0,2203 / 0,2122 ; momentum en occasions 0,2213 / 0,2094 ; fin de saison sans enjeu
   // 0,2233 en fin de saison ; « qui garde qui » du coach utile (0,2270 / 0,2156 sans) ; chat noir nuisible au score
   // (0,2288 / 0,2173) comme en qualité de tir (0,2313 / 0,2248) : désactivé.
-  // Collectif 80 % / talent 20 % à continuité moyenne (choix : le basket est d'abord collectif ; à valider au contrôle).
-  rapmWeight: 0.13,
-  // Talent : le cinq de départ compte en entier ; au banc, les 3 meilleurs du soir à moitié (jusqu'à en entier s'ils
-  // sont en forme), les autres très peu. Forme récente des joueurs à 50 %. Talent multiplié jusqu'à ×2 (selon la
-  // cohésion du cinq) quand la même équipe domine le collectif.
-  playerMomentum: 0.5,
-  benchTop: 3,
-  benchTopWeight: 0.5,
-  benchRestWeight: 0.15,
-  talentBoost: 1,
-  // Chat noir de style : l'effet se répète hors échantillon (pente 0,4 à 0,6) ; on en garde la moitié.
-  styleWeight: 0.5,
+  // Contrôle 2 x 200 matchs (oct. 2025-avr. 2026), même code, bon vainqueur sur 400 / contre le marché sur 270 :
+  //   notes joueurs 50 % (ci-dessous)                         72,0 % ; Razzia 72,6 % — marché 69,6 % ; Brier 0,2004
+  //   chat noir 50 %, collectif 60 %, cinq pesé plus que le banc 71,0 % ; Razzia 70,0 % — marché 69,6 % ; Brier 0,2014
+  //   façon parieur (collectif 80 %, banc réduit, forme des joueurs, multiplicateur de talent)
+  //                                                             70,3 % ; Razzia 69,6 % — marché 69,6 % ; Brier 0,2017
+  //   façon parieur sans la forme des joueurs                   70,5 % ; Razzia 68,9 % — marché 69,6 % ; Brier 0,2018
+  // Réglages disponibles mais désactivés : playerMomentum, benchTop / benchTopWeight / benchRestWeight, talentBoost.
+  rapmWeight: 0.5,
+  styleWeight: 0,
   momentumWeight: 0.3,
   momentumEarly: 0.5,
   momentumOcc: 0.5,
