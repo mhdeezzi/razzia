@@ -63,7 +63,10 @@ export const DEFAULT_PARAMS: SimParams = {
   threeMult: 0.926,
   teamBias: [0, 0],
   uncWeight: 1,
+  // Contrôle sans fuite sur 2 x 200 matchs avec les tables de tirs contestés : momentum, confrontations récentes et
+  // fin de saison sans enjeu (combinés) font moins bien que ce réglage (Brier 0,2277 vs 0,2251 et 0,2164 vs 0,2120).
   momentumWeight: 0,
+  momentumEarly: 0,
   h2hWeight: 0,
   coachDef: 1.5,
   noStakesPenalty: 0,
