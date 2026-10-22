@@ -3,6 +3,7 @@ import { buildFeaturesCached, loadGames, topLabels, zi, type FeatureSet, type Ga
 import { loadTablesCached, heightToIn, groupOfPos, type Tables, type SynAgg, type ContestAgg } from './tables.ts';
 import { occLogs, occProfile, type OccGame, type OccProfile } from './xpts.ts';
 import { rapmAsOf } from './rapm.ts';
+import { styleEffect } from './stylecat.ts';
 import { PT_LIST, HALF_COURT_PT, type Contest, type Edge, type OccSummary, type GameModel, type PlayerModel, type TeamModel, type TeamMomentum, type TeamH2H, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
 import { START_TYPES, type StartType } from './pbp.ts';
 import { ZONES, isThree } from './zones.ts';
@@ -1237,6 +1238,13 @@ function insightsFor(ctx: Ctx, home: TeamModel, away: TeamModel, h2h?: TeamH2H):
   const forced = new Map([...t.teamFour].map(([k, v]) => [k, v.oppTovPct]));
   const n1 = (x: number) => `${x > 0 ? '+' : ''}${x.toFixed(1).replace('.', ',')}`;
   if (h2h?.blackCat) out.push(`Chat noir : ${h2h.blackCat.text}`);
+  for (const [k, tm, opp] of [['home', home, away], ['away', away, home]] as const) {
+    const st = h2h?.style?.[k];
+    if (st && st.driver && st.pts <= -1.5) {
+      const one = SINGULAR_TEAMS.has(tm.name);
+      out.push(`Chat noir de style : ${one ? 'le' : 'les'} ${tm.name} ${one ? 'souffre' : 'souffrent'} d'habitude contre les équipes comme ${SINGULAR_TEAMS.has(opp.name) ? 'le' : 'les'} ${opp.name} (${st.driver.high ? 'fort' : 'faible'} ${st.driver.key}) : ${n1(st.pts)} pts par rapport à l'attendu.`);
+    }
+  }
   const last = h2h?.meetings.at(-1);
   if (last && Math.abs(last.hs - last.as) >= 15) {
     const lostTri = (last.hs > last.as) === (last.homeTri === home.tri) ? away.tri : home.tri;
@@ -1442,7 +1450,10 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
     const md = opts.date.slice(5);
     t.noStakes = md >= '02-15' && md <= '06-30' && t.record.w + t.record.l >= 40 && t.record.w / (t.record.w + t.record.l) < 0.33;
   }
-  const teamH2h = teamH2H(feats, home, away, opts.date, ctx.league.homeMargin);
+  let teamH2h = teamH2H(feats, home, away, opts.date, ctx.league.homeMargin);
+  const sh = styleEffect(home.id, away.id, opts.date);
+  const sa = styleEffect(away.id, home.id, opts.date);
+  if (sh || sa) teamH2h = { ...(teamH2h ?? { meetings: [], residualHome: 0 }), style: { home: sh, away: sa } };
 
   // H2H : minutes de duel entre attaquants d'une équipe et défenseurs de l'autre.
   const h2h: Record<string, Record<string, number>> = {};

@@ -186,6 +186,8 @@ export interface TeamH2H {
   // Ce qui change dans ces confrontations par rapport à l'habitude de chaque équipe (rétréci), en points / 100 poss. :
   // emplacements de tir, tirs contestés ou ratés, pertes, rebonds offensifs.
   shots?: { home: Edge; away: Edge; n: number };
+  // Chat noir de style : effet du type d'adversaire sur chaque équipe (points par match, appris sur deux ans).
+  style?: { home?: { pts: number; driver?: { key: string; pts: number; high: boolean } }; away?: { pts: number; driver?: { key: string; pts: number; high: boolean } } };
 }
 
 /** Contestation : 0 = très serré (0-2 pieds), 1 = serré, 2 = ouvert, 3 = grand ouvert (6+ pieds). */
@@ -224,7 +226,9 @@ export interface SimParams {
   noStakesPenalty: number; // points d'écart retirés à une équipe en fin de saison sans enjeu
   coachDef: number; // le coach met son meilleur défenseur sur la plus grosse menace et cache son plus faible
   h2hWeight: number; // part de l'écart réel - attendu des confrontations récentes (chat noir) ajoutée à l'écart visé
-  h2hShotWeight?: number; // part des écarts de qualité de tir dans les confrontations (emplacements, contestation, pertes, rebonds)
+  h2hShotWeight?: number;
+  styleWeight?: number;
+  strengthPull?: number; // part de l'écart entre la force simulée joueur par joueur et la force visée qui est comblée // part du chat noir de style (effet du type d'adversaire) ajoutée à l'écart visé // part des écarts de qualité de tir dans les confrontations (emplacements, contestation, pertes, rebonds)
   blendModel?: number; // part du moteur dans la probabilité affichée (mélange logit avec la cote sans marge)
   rapmWeight?: number; // part des notes d'impact joueurs (selon qui joue ce soir) dans la force visée, contre les notes d'équipe
   momentumOcc?: number; // part des occasions (plutôt que du score) dans la mesure du momentum : 0 = score seul, 1 = occasions seules
