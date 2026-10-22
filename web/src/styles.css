@@ -460,6 +460,43 @@ a.row:hover .mark { transform: scale(1.06); }
 .duel-legend { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-2); }
 .duel-legend span { display: inline-flex; align-items: center; gap: 8px; }
 
+/* Carte de tirs : demi-terrain, ligne de fond en haut. Plein = réussi, anneau = manqué. */
+.shotchart { display: grid; gap: 12px; }
+.shotchart-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.shotchart svg { width: 100%; max-width: 640px; justify-self: center; display: block; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line); }
+.court-lines { fill: none; stroke: var(--line-3); stroke-width: 1.5; }
+.shot { animation: pop 0.5s var(--spring) both; animation-delay: var(--d, 0ms); transform-box: fill-box; transform-origin: center; transition: r 0.15s var(--ease); }
+.shot.away { --c: var(--blue); }
+.shot.home { --c: var(--rose); }
+.shot.made { fill: var(--c); fill-opacity: 0.85; stroke: var(--bg); stroke-width: 1; }
+.shot.miss { fill: none; stroke: var(--c); stroke-width: 1.6; stroke-opacity: 0.55; }
+.shot:hover { r: 9; fill-opacity: 1; stroke-opacity: 1; }
+.shotchart-legend { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; justify-content: center; font-size: 13px; color: var(--text-2); }
+.shotchart-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sw-shot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; --c: var(--blue); }
+.sw-shot.home { --c: var(--rose); }
+.sw-shot.made { background: var(--c); }
+.sw-shot.miss { border: 1.6px solid var(--c); opacity: 0.7; }
+
+/* Profil de tir : barres miroir par zone (part des tirs de l'équipe), volume et réussite de chaque côté. */
+.profile { display: grid; gap: 18px; }
+.profile-grid { display: grid; gap: 4px; }
+.profile-row { display: grid; grid-template-columns: 92px minmax(0, 1fr) 150px minmax(0, 1fr) 92px; align-items: center; gap: 12px; padding: 7px 0; animation: rise 0.6s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
+.profile-row .pk { text-align: center; font-size: 13px; color: var(--text-2); }
+.profile-row .pv { font-size: 14px; color: var(--text); }
+.profile-row .pv small { font-size: 12px; color: var(--text-3); }
+.profile-row .right { text-align: right; }
+.pbar { height: 8px; border-radius: 8px; background: var(--panel-3); display: flex; overflow: hidden; }
+.pbar span { height: 100%; border-radius: 8px; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms + 120ms); }
+.pbar.away { justify-content: flex-end; }
+.pbar.away span { background: var(--blue); transform-origin: right; }
+.pbar.home span { background: var(--rose); transform-origin: left; }
+.profile-extra { margin: 0; display: grid; border-top: 1px solid var(--line); }
+.profile-extra div { display: grid; grid-template-columns: 92px 1fr 92px; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.profile-extra dt { text-align: center; font-size: 13px; color: var(--text-2); }
+.profile-extra dd { margin: 0; font-size: 15px; font-weight: 600; }
+.profile-extra .right { text-align: right; }
+
 /* Tableaux */
 .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .tile { border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; align-content: start; gap: 10px; background: var(--panel-2); }
@@ -531,6 +568,7 @@ a.row:hover .mark { transform: scale(1.06); }
 
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes pop { from { opacity: 0; transform: scale(0.2); } to { opacity: 1; transform: none; } }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 @keyframes reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
@@ -605,4 +643,8 @@ a.row:hover .mark { transform: scale(1.06); }
   .moments li > :nth-child(2) { display: none; }
   .moments li > :first-child { grid-column: 1 / -1; font-size: 12px; }
   .flow svg { height: 170px; }
+  .profile-row { grid-template-columns: 62px minmax(0, 1fr) 84px minmax(0, 1fr) 62px; gap: 8px; }
+  .profile-row .pk { font-size: 11px; line-height: 1.25; }
+  .profile-row .pv small { display: block; }
+  .profile-extra div { grid-template-columns: 52px 1fr 52px; }
 }
