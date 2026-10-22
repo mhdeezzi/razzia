@@ -1,7 +1,7 @@
 // Construction du modèle de match : fusion PBP (forme récente) + Synergy + tracking + matchups + blessures + marché.
 import { buildFeaturesCached, topLabels, zi, type FeatureSet, type GameLine, type PlayerFeat, type TeamFeat, type ZoneArr } from './features.ts';
 import { loadTablesCached, heightToIn, groupOfPos, type Tables, type SynAgg, type ContestAgg } from './tables.ts';
-import { PT_LIST, HALF_COURT_PT, type Contest, type GameModel, type PlayerModel, type TeamModel, type TeamMomentum, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
+import { PT_LIST, HALF_COURT_PT, type Contest, type GameModel, type PlayerModel, type TeamModel, type TeamMomentum, type TeamH2H, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
 import { START_TYPES, type StartType } from './pbp.ts';
 import { ZONES, isThree } from './zones.ts';
 import { teamById, teamByTri, type TeamInfo } from '../teams.ts';
@@ -62,6 +62,9 @@ export const DEFAULT_PARAMS: SimParams = {
   teamBias: [0, 0],
   uncWeight: 1,
   momentumWeight: 0,
+  h2hWeight: 0,
+  coachDef: 1.5,
+  noStakesPenalty: 0,
   qualityCut: 4,
   usageGamma: 1.4,
   astGamma: 2.0,
@@ -83,6 +86,7 @@ const clamp = (x: number, a: number, b: number): number => Math.max(a, Math.min(
 // Niveau d'un joueur : Game Score (Hollinger) ramené à 36 minutes. LF réussis et paniers estimés depuis la ligne de match.
 const QUALITY_FLOOR = 7; // remplaçant type de fin de banc
 const QUALITY_K = 150; // minutes (pondérées) avant de croire le niveau observé
+const RETURN_MIN = 0.85; // premier match après une absence : minutes limitées
 function gameScore(x: GameLine): number {
   const ftm = 0.78 * x.fta;
   const fgm = Math.max(0, (x.pts - x.fg3m - ftm) / 2);
@@ -701,6 +705,17 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
         p.notes.push(`rôle élargi en pré-saison (rang ${Math.round(pre.rank) + 1})`);
       }
     }
+    // Retour après une absence (3 matchs de l'équipe ou plus sans lui) : temps de jeu limité le premier soir.
+    // (seulement si son dernier match était avec cette équipe : un transfert n'est pas une absence).
+    const lastLine = lines.filter((x) => x.sec > 0).at(-1);
+    const lastPlayed = lastLine?.tm === team.id ? lastLine.date : undefined;
+    if (lastPlayed && exp >= 15) {
+      const missed = (teamLogOf(f).get(team.id) ?? []).filter((g) => g.date > lastPlayed).length;
+      if (missed >= 3 && missed < 82) {
+        exp *= RETURN_MIN;
+        p.notes.push(`retour après ${missed} matchs d'absence (temps de jeu limité)`);
+      }
+    }
     p.expMin = exp;
     const pres = pf?.presenceByTeam.get(team.id);
     if (pres && pres.w > 3) {
@@ -920,8 +935,9 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
 }
 
 // Résultats par équipe et par match (points de chaque équipe reconstitués depuis les lignes de match des joueurs).
-const teamLogs = new WeakMap<FeatureSet, Map<number, Array<{ date: string; margin: number; home: boolean }>>>();
-function teamLogOf(f: FeatureSet): Map<number, Array<{ date: string; margin: number; home: boolean }>> {
+type TeamGame = { date: string; margin: number; home: boolean; opp: number; pts: number; oppPts: number };
+const teamLogs = new WeakMap<FeatureSet, Map<number, TeamGame[]>>();
+function teamLogOf(f: FeatureSet): Map<number, TeamGame[]> {
   let out = teamLogs.get(f);
   if (out) return out;
   const pts = new Map<string, { date: string; home: boolean; tm: number; opp: number; gameId: string; pts: number }>();
@@ -939,7 +955,7 @@ function teamLogOf(f: FeatureSet): Map<number, Array<{ date: string; margin: num
     if (!o) continue;
     let l = out.get(e.tm);
     if (!l) out.set(e.tm, (l = []));
-    l.push({ date: e.date, margin: e.pts - o.pts, home: e.home });
+    l.push({ date: e.date, margin: e.pts - o.pts, home: e.home, opp: e.opp, pts: e.pts, oppPts: o.pts });
   }
   for (const l of out.values()) l.sort((a, b) => a.date.localeCompare(b.date));
   teamLogs.set(f, out);
@@ -970,6 +986,52 @@ function teamMomentum(f: FeatureSet, teamId: number, date: string, homeMargin: n
   const r = avg(recent);
   const b = avg(base);
   return { recent: r, base: b, delta: r - b, n: recent.length, nBase: base.length, streak };
+}
+
+/**
+ * Confrontations des deux dernières années. Avant chaque match, l'écart attendu vient de la forme des deux équipes sur
+ * leurs 30 matchs précédents (corrigée du terrain). Chat noir : une équipe favorite au moins 3 fois qui a perdu au moins
+ * 3 de ces matchs (70 % ou plus), très en dessous de l'attendu. Rare par construction.
+ */
+// Noms d'équipe au singulier en français (le Heat, le Magic...).
+const SINGULAR_TEAMS = new Set(['Heat', 'Magic', 'Thunder', 'Jazz']);
+
+function teamH2H(f: FeatureSet, home: TeamModel, away: TeamModel, date: string, homeMargin: number): TeamH2H | undefined {
+  const logs = teamLogOf(f);
+  const since = new Date(Date.parse(date) - 730 * 86_400_000).toISOString().slice(0, 10);
+  const meets = (logs.get(home.id) ?? []).filter((g) => g.opp === away.id && g.date < date && g.date >= since);
+  if (!meets.length) return undefined;
+  const adj = (g: TeamGame) => g.margin - (g.home ? homeMargin : -homeMargin);
+  const formBefore = (id: number, d: string) => {
+    const l = (logs.get(id) ?? []).filter((g) => g.date < d).slice(-30);
+    return l.length ? sum(l.map(adj)) / l.length : 0;
+  };
+  const meetings = meets.map((g) => {
+    const exp = formBefore(home.id, g.date) - formBefore(away.id, g.date) + (g.home ? homeMargin : -homeMargin); // pour l'équipe à domicile ce soir
+    return { date: g.date, homeTri: g.home ? home.tri : away.tri, hs: g.home ? g.pts : g.oppPts, as: g.home ? g.oppPts : g.pts, expHome: g.home ? exp : -exp, exp, real: g.margin };
+  });
+  const res = sum(meetings.map((m) => m.real - m.exp)) / meetings.length;
+  const out: TeamH2H = {
+    meetings: meetings.map(({ exp: _e, real: _r, ...m }) => m),
+    residualHome: (res * meetings.length) / (meetings.length + 4),
+  };
+  for (const victim of ['home', 'away'] as const) {
+    // Écart attendu et réel du point de vue de la victime potentielle (exp et real sont vus de l'équipe à domicile ce soir).
+    const sign = victim === 'home' ? 1 : -1;
+    const favored = meetings.map((m) => ({ exp: sign * m.exp, real: sign * m.real })).filter((x) => x.exp >= 2);
+    const lost = favored.filter((x) => x.real < 0).length;
+    const resid = favored.length ? sum(favored.map((x) => x.real - x.exp)) / favored.length : 0;
+    if (favored.length >= 3 && lost >= 3 && lost / favored.length >= 0.7 && resid <= -6) {
+      const v = victim === 'home' ? home : away;
+      const c = victim === 'home' ? away : home;
+      const one = SINGULAR_TEAMS.has(v.name);
+      out.blackCat = {
+        victim, favored: favored.length, lost, residual: resid,
+        text: `${one ? 'Le' : 'Les'} ${v.name} ${one ? 'a' : 'ont'} perdu ${lost} de ${one ? 'ses' : 'leurs'} ${favored.length} derniers matchs contre ${SINGULAR_TEAMS.has(c.name) ? 'le' : 'les'} ${c.name} en étant ${one ? 'favori' : 'favoris'} (${Math.abs(resid).toFixed(1).replace('.', ',')} pts sous l'écart attendu en moyenne).`,
+      };
+    }
+  }
+  return out;
 }
 
 function shortNames(all: PlayerModel[]): void {
@@ -1004,7 +1066,7 @@ async function attachPasses(t: Tables, players: PlayerModel[], log: (...a: unkno
   });
 }
 
-function insightsFor(ctx: Ctx, home: TeamModel, away: TeamModel): string[] {
+function insightsFor(ctx: Ctx, home: TeamModel, away: TeamModel, h2h?: TeamH2H): string[] {
   const out: string[] = [];
   const t = ctx.tables;
   const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
@@ -1015,6 +1077,21 @@ function insightsFor(ctx: Ctx, home: TeamModel, away: TeamModel): string[] {
   const tov = new Map([...t.teamFour].map(([k, v]) => [k, v.tovPct]));
   const forced = new Map([...t.teamFour].map(([k, v]) => [k, v.oppTovPct]));
   const n1 = (x: number) => `${x > 0 ? '+' : ''}${x.toFixed(1).replace('.', ',')}`;
+  if (h2h?.blackCat) out.push(`Chat noir : ${h2h.blackCat.text}`);
+  const last = h2h?.meetings.at(-1);
+  if (last && Math.abs(last.hs - last.as) >= 15) {
+    const lostTri = (last.hs > last.as) === (last.homeTri === home.tri) ? away.tri : home.tri;
+    const loser = lostTri === home.tri ? home : away;
+    out.push(`Revanche : ${loser.name} ${SINGULAR_TEAMS.has(loser.name) ? 'avait' : 'avaient'} perdu de ${Math.abs(last.hs - last.as)} points le dernier face-à-face (${last.date.split('-').reverse().join('/')}).`);
+  }
+  for (const [tm, opp] of [[home, away], [away, home]] as const) {
+    for (const p of tm.players) {
+      if (p.avail < 0.5 || p.expMin < 15) continue;
+      const withOpp = ctx.feats.players.get(p.id)?.games.filter((g) => g.tm === opp.id && g.sec > 0).length ?? 0;
+      if (withOpp >= 20) out.push(`${p.name} retrouve son ancienne équipe (${withOpp} matchs avec ${SINGULAR_TEAMS.has(opp.name) ? 'le' : 'les'} ${opp.name}).`);
+    }
+    if (tm.noStakes) out.push(`${tm.name} : fin de saison sans enjeu (${tm.record!.w}-${tm.record!.l}).`);
+  }
   for (const tm of [away, home]) {
     const mo = tm.momentum;
     if (mo && Math.abs(mo.delta) >= 4) {
@@ -1164,6 +1241,13 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
   const away = teamModel(ctx, awayInfo, awayPlayers, opts.date, homeInfo);
   home.momentum = teamMomentum(feats, home.id, opts.date, ctx.league.homeMargin);
   away.momentum = teamMomentum(feats, away.id, opts.date, ctx.league.homeMargin);
+  for (const t of [home, away]) {
+    const cur = (teamLogOf(feats).get(t.id) ?? []).filter((g) => g.date < opts.date && seasonOfDate(g.date) === season);
+    t.record = { w: cur.filter((g) => g.margin > 0).length, l: cur.filter((g) => g.margin < 0).length };
+    const md = opts.date.slice(5);
+    t.noStakes = md >= '02-15' && md <= '06-30' && t.record.w + t.record.l >= 40 && t.record.w / (t.record.w + t.record.l) < 0.33;
+  }
+  const teamH2h = teamH2H(feats, home, away, opts.date, ctx.league.homeMargin);
 
   // H2H : minutes de duel entre attaquants d'une équipe et défenseurs de l'autre.
   const h2h: Record<string, Record<string, number>> = {};
@@ -1220,9 +1304,9 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
       gamesUsed: feats.gamesUsed,
       sources: ['cdn.nba.com play-by-play', 'stats.nba.com Synergy', 'stats.nba.com tracking défensif', 'stats.nba.com matchups', 'stats.nba.com passes', 'ESPN blessures', 'ESPN/DraftKings cotes'],
     },
-    league: ctx.league, duel, home, away, h2hMatchups: h2h, params: { ...DEFAULT_PARAMS }, insights: [],
+    league: ctx.league, duel, h2h: teamH2h, home, away, h2hMatchups: h2h, params: { ...DEFAULT_PARAMS }, insights: [],
   };
-  model.insights = insightsFor(ctx, home, away);
+  model.insights = insightsFor(ctx, home, away, teamH2h);
 
   if (opts.market ?? !opts.actual) {
     const m = await getMarket(opts.date, homeInfo.tri, awayInfo.tri).catch(() => undefined);

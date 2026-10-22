@@ -143,6 +143,21 @@ a.row:active { transform: scale(0.995); }
 .conf-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line-2); font: 600 12px var(--mono); color: var(--text-2); white-space: nowrap; transition: border-color 0.2s, color 0.2s, background 0.2s; }
 .conf-pill.sim { color: #9cc4ff; border-color: rgba(61, 139, 255, 0.4); background: var(--blue-soft); }
 .conf-pill.go { color: var(--text); }
+.pill-group { display: inline-flex; align-items: center; gap: 6px; }
+/* Chat noir : noir et blanc, volontairement hors de la palette (rare, doit sauter aux yeux). */
+.cat-mini { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #f2f4f7; color: #050607; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6); }
+
+/* Signaux du match sous le verdict. */
+.signals { display: grid; gap: 10px; animation: rise 0.6s var(--ease) both; }
+.signal { display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start; padding: 14px 16px; border-radius: var(--r-card); border: 1px solid var(--line-2); background: var(--panel); font-size: 14px; color: var(--text-2); }
+.signal-title { color: var(--text); font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.signal-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--panel-3); color: var(--text); }
+.signal-cat { background: #f2f4f7; border-color: #f2f4f7; color: #3a3d44; }
+.signal-cat .signal-title { color: #050607; }
+.signal-cat .signal-icon { background: #050607; color: #f2f4f7; }
+.signal-up .signal-icon { background: rgba(61, 220, 151, 0.14); color: var(--green); }
+.signal-down .signal-icon { background: var(--rose-soft); color: var(--rose); }
+.signal-tight .signal-icon { background: var(--panel-4); color: var(--text-2); }
 a.row:hover .conf-pill.go { border-color: var(--text); background: var(--text); color: var(--bg); }
 .row-caret { color: var(--text-3); transition: transform 0.3s var(--ease), color 0.2s; }
 a.row:hover .row-caret { transform: translateX(4px); color: var(--text); }

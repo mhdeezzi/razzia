@@ -111,6 +111,8 @@ export interface TeamModel {
   gpCur: number; // matchs joués cette saison
   strengthSd: number; // incertitude sur la force réelle (logit d'adresse) : effectif remanié, début de saison
   momentum?: TeamMomentum;
+  record?: { w: number; l: number }; // bilan de la saison en cours (saison régulière)
+  noStakes?: boolean; // fin de saison sans enjeu : après la mi-février, moins de 33 % de victoires
   ratings: Record<string, number | string>;
 }
 
@@ -146,6 +148,13 @@ export interface TeamMomentum {
   streak: number; // série en cours (+ victoires, - défaites)
 }
 
+/** Confrontations des deux dernières années, avec l'écart attendu avant chaque match (forme des 30 matchs précédents). */
+export interface TeamH2H {
+  meetings: Array<{ date: string; homeTri: string; hs: number; as: number; expHome: number }>; // expHome : écart attendu pour l'équipe à domicile de ce match
+  residualHome: number; // écart réel - attendu, moyenne du point de vue de l'équipe à domicile ce soir (rétréci)
+  blackCat?: { victim: 'home' | 'away'; favored: number; lost: number; residual: number; text: string };
+}
+
 /** Contestation : 0 = très serré (0-2 pieds), 1 = serré, 2 = ouvert, 3 = grand ouvert (6+ pieds). */
 export interface Contest {
   s2: number[]; // part des tirs à 2 pts par niveau
@@ -178,6 +187,9 @@ export interface SimParams {
   teamBias: [number, number]; // ancrage de force collective (logit d'adresse) domicile, extérieur
   uncWeight: number; // poids de l'incertitude de force collective (strengthSd) tirée à chaque simulation
   momentumWeight: number; // part du momentum d'équipe (écart récent - saisons précédentes) ajoutée à la force visée
+  noStakesPenalty: number; // points d'écart retirés à une équipe en fin de saison sans enjeu
+  coachDef: number; // le coach met son meilleur défenseur sur la plus grosse menace et cache son plus faible
+  h2hWeight: number; // part de l'écart réel - attendu des confrontations récentes (chat noir) ajoutée à l'écart visé
   qualityCut: number; // échelle (Game Score/36) : un coach coupe d'abord les minutes des joueurs les plus faibles
   usageGamma: number; // partage de l'usage dans un cinq : part ∝ usage^γ (γ > 1 : la star garde sa part)
   rubber: number; // effet élastique : logit d'adresse retiré par tranche de 10 pts d'avance
@@ -207,6 +219,7 @@ export interface GameModel {
   };
   league: LeagueModel;
   duel?: Record<number, Record<number, number>>; // tireur -> défenseur -> écart d'adresse du duel (logit, rétréci)
+  h2h?: TeamH2H; // confrontations récentes entre les deux équipes (chat noir)
   home: TeamModel;
   away: TeamModel;
   market?: {

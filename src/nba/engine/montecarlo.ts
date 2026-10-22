@@ -1,7 +1,7 @@
 // Monte Carlo : calibration du rythme, N simulations en parallèle, agrégation, match typique, probabilité de victoire.
 import { Worker } from 'node:worker_threads';
 import { availableParallelism } from 'node:os';
-import type { GameModel, PlayerModel } from '../model/types.ts';
+import type { GameModel, PlayerModel, TeamModel } from '../model/types.ts';
 import { simulateGame, type GameResult, type SimEvent } from './game.ts';
 import { merge, playerOrder, runRange, stat, MAXQ, NK, ZK, STAT_KEYS, type Batch, type StatKey } from './batch.ts';
 import { noVig, americanToProb } from '../../data/espn.ts';
@@ -90,9 +90,15 @@ export function calibrateStrength(m: GameModel, sims = 300, maxWeight = 0.6): { 
   }
   // Momentum : part de l'écart « 15 derniers matchs - saisons précédentes » ajoutée à l'écart attendu, au prorata de la
   // continuité de l'effectif (le momentum d'une équipe tient à ses joueurs). Moitié en attaque, moitié en défense.
+  // Confrontations récentes (chat noir) : part de l'écart réel - attendu des deux dernières années.
   const mw = m.params.momentumWeight ?? 0;
-  if (mw && m.home.momentum && m.away.momentum) {
-    const shift = mw * (m.home.continuity * m.home.momentum.delta - m.away.continuity * m.away.momentum.delta);
+  let shift = 0;
+  if (mw && m.home.momentum && m.away.momentum) shift += mw * (m.home.continuity * m.home.momentum.delta - m.away.continuity * m.away.momentum.delta);
+  if (m.params.h2hWeight && m.h2h) shift += m.params.h2hWeight * m.h2h.residualHome;
+  // Fin de saison sans enjeu (équipe hors course) : moins d'intensité.
+  const ns = m.params.noStakesPenalty ?? 0;
+  if (ns) shift += ns * ((m.away.noStakes ? 1 : 0) - (m.home.noStakes ? 1 : 0));
+  if (shift) {
     const dl = shift / 2 / m.league.pace / 0.45;
     m.params.teamBias = [Math.max(-0.3, Math.min(0.3, m.params.teamBias[0] + dl)), Math.max(-0.3, Math.min(0.3, m.params.teamBias[1] - dl))];
   }
@@ -213,6 +219,9 @@ export interface Summary {
   teamStats: Record<'home' | 'away', Record<string, number>>;
   /** Profil de tir moyen par équipe : zones (RA, raquette, mi-distance, coin gauche, coin droit, 3 pts de face). */
   shotProfile?: Record<'home' | 'away', { fga: number[]; fgm: number[]; astM: number; transFga: number; transFgm: number; cont: number[] }>;
+  h2h?: GameModel['h2h'];
+  momentum?: Record<'home' | 'away', TeamModel['momentum']>;
+  uncertainty?: Record<'home' | 'away', number>;
 }
 
 /**
@@ -377,6 +386,7 @@ export function summarize(m: GameModel, b: Batch): Summary {
     homePts: dist(Array.from(b.home)), awayPts: dist(Array.from(b.away)), margin: dist(margin), total: dist(total), poss: dist(possA),
     quarters: { home: qH, away: qA }, firstHalf: { home: qH[0] + qH[1], away: qA[0] + qA[1], pHome: h1Home / n },
     spreadLadder, totalLadder, market, players, props, teamStats, shotProfile,
+    h2h: m.h2h, momentum: { home: m.home.momentum, away: m.away.momentum }, uncertainty: { home: m.home.strengthSd, away: m.away.strengthSd },
   };
 }
 

@@ -5,6 +5,7 @@ import { line, n1, odds, pct, pct0, signed, type Game, type Result } from './dat
 import { buildCategories, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
+import { Signals } from './signals.tsx';
 import { CountUp, Ring, Segmented, TeamMark } from './ui.tsx';
 import { HotPlayers, LineupNotice } from './hot.tsx';
 
@@ -24,6 +25,7 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
       </div>
       <LineupNotice r={r} g={g} onRelaunch={onRelaunch} busy={busy} />
       <Verdict r={r} g={g} />
+      <Signals r={r} g={g} />
       {r.typical && (
         <Section i={0} title="Le match typique" tag="déroulé le plus probable">
           <TypicalGame t={r.typical} g={g} />

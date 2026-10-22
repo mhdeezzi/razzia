@@ -433,12 +433,18 @@ export class GameSim {
       const def = off === 0 ? 1 : 0;
       const O = this.onCourt(off);
       const D = this.onCourt(def);
+      // Menace offensive (usage × niveau) : le coach met son meilleur défenseur sur la plus grosse menace et cache
+      // son défenseur le plus faible sur l'attaquant le moins dangereux, dans les limites de la taille.
+      const threat = (o: PState) => Math.max(0.05, o.m.usg) * Math.max(3, o.m.quality);
+      const tAvg = O.reduce((a, o) => a + threat(o), 0) / Math.max(1, O.length);
+      const cd = this.m.params.coachDef ?? 0;
       const aff = O.map((o) =>
         D.map((d) => {
           const gp = d.m.guardProfile;
           let a = -(((o.m.heightIn - gp.height) / 3) ** 2) - ((o.m.usg - gp.usg) / 0.06) ** 2;
           const hh = h2h[o.m.id]?.[d.m.id] ?? 0;
           a += 1.6 * Math.log1p(hh / 15);
+          a += cd * (threat(o) / tAvg - 1) * (-d.m.dOverall / 0.1);
           return a;
         }),
       );
