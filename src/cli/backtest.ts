@@ -10,6 +10,8 @@ import { buildGameModel } from '../nba/model/build.ts';
 import { calibratePace, calibrateStrength, runSims, summarize } from '../nba/engine/montecarlo.ts';
 import type { SimParams } from '../nba/model/types.ts';
 import { getMarket, noVig } from '../data/espn.ts';
+import { parseGame } from '../nba/model/pbp.ts';
+import { ZONES } from '../nba/model/zones.ts';
 
 function arg(name: string, def?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -41,11 +43,14 @@ export interface BacktestResult {
 export interface Autopsy {
   n: number;
   sq: { err: number; a3: number; a2: number; aft: number; vol: number }; // somme des carrés (erreur de marge et ses composantes)
+  zones: Record<string, { adr: number; vol: number }>; // somme des carrés par catégorie de zone : adresse et volume
+  style: { trans: number; transN: number; ast: number; astN: number }; // écarts absolus moyens contre-attaque / passes
   misses: Array<{ game: string; date: string; real: string; sim: string; pFav: number; driver: string; detail: string; players: string[] }>;
   drivers: Record<string, number>; // cause principale parmi les matchs où le favori a perdu
   minutes: Record<string, { n: number; abs: number; bias: number; over8: number }>;
   explosions: number;
   playersSeen: number;
+  lateOut: number; // actifs à 0 minute pour blessure/repos : forfait de dernière minute, hors tableau des minutes
 }
 
 type Box = { pts: number; fga: number; fgm: number; fg3a: number; fg3m: number; fta: number; ftm: number; tov: number; oreb: number };
@@ -85,7 +90,7 @@ export async function backtest(opts: { from: string; to: string; games: number; 
   const bucket = (p: number) => { const c = Math.max(p, 1 - p); return c >= 0.9 ? '90-100' : c >= 0.8 ? '80-90' : c >= 0.7 ? '70-80' : c >= 0.6 ? '60-70' : '50-60'; };
   const cb = (k: string) => (calib[k] ??= { n: 0, pred: 0, won: 0, nMkt: 0, predMkt: 0, wonMkt: 0 });
   let hits = 0, hitsMkt = 0, nMkt = 0;
-  const auto: Autopsy = { n: 0, sq: { err: 0, a3: 0, a2: 0, aft: 0, vol: 0 }, misses: [], drivers: {}, minutes: {}, explosions: 0, playersSeen: 0 };
+  const auto: Autopsy = { n: 0, sq: { err: 0, a3: 0, a2: 0, aft: 0, vol: 0 }, zones: {}, style: { trans: 0, transN: 0, ast: 0, astN: 0 }, misses: [], drivers: {}, minutes: {}, explosions: 0, playersSeen: 0, lateOut: 0 };
   const mkt = { n: 0, brierModel: 0, brierMarket: 0, brierBlend: 0, spreadN: 0, spreadErrModel: 0, spreadErrMarket: 0, totN: 0, totErrModel: 0, totErrMarket: 0, ats: 0, atsWin: 0 };
   for (const [gi, g] of sample.entries()) {
     const t0 = Date.now();
@@ -196,12 +201,69 @@ export async function backtest(opts: { from: string; to: string; games: number; 
       auto.n++;
       auto.sq.err += err ** 2;
       for (const k of ['a3', 'a2', 'aft', 'vol'] as const) auto.sq[k] += c[k] ** 2;
+      // Profil de tir réel (play-by-play) contre simulé, zone par zone.
+      const CAT: Record<string, string> = { RA: 'au cercle', PAINT: 'raquette', MID: 'mi-distance', LC3: '3 pts de coin', RC3: '3 pts de coin', ATB3: '3 pts de face' };
+      const pg = parseGame(g);
+      const realProf = (tm: number) => {
+        const p = { fga: [0, 0, 0, 0, 0, 0], fgm: [0, 0, 0, 0, 0, 0], trans: 0, astM: 0 };
+        for (const sh of pg.shots) {
+          if (sh.tm !== tm) continue;
+          const z = ZONES.indexOf(sh.zone);
+          p.fga[z]++;
+          p.fgm[z] += sh.made;
+          if (sh.fb) p.trans++;
+          if (sh.made && sh.ast) p.astM++;
+        }
+        return p;
+      };
+      const zoneParts: Array<{ txt: string; v: number }> = [];
+      const zc: Record<string, { adr: number; vol: number }> = {};
+      for (const [side, t, sp] of [[1, g.home, s.shotProfile?.home], [-1, g.away, s.shotProfile?.away]] as const) {
+        if (!sp) continue;
+        const rp = realProf(t.id);
+        const byCat: Record<string, { ra: number; rm: number; sa: number; sm: number; v: number }> = {};
+        ZONES.forEach((zn, z) => {
+          const cat = CAT[zn];
+          const b = (byCat[cat] ??= { ra: 0, rm: 0, sa: 0, sm: 0, v: zn.endsWith('3') ? 3 : 2 });
+          b.ra += rp.fga[z]; b.rm += rp.fgm[z]; b.sa += sp.fga[z]; b.sm += sp.fgm[z];
+        });
+        for (const [cat, b] of Object.entries(byCat)) {
+          const ps = b.sa > 0 ? b.sm / b.sa : 0;
+          const pr = b.ra > 0 ? b.rm / b.ra : 0;
+          const adr = side * b.v * b.ra * (pr - ps);
+          const vol = side * b.v * (b.ra - b.sa) * ps;
+          const e = (zc[cat] ??= { adr: 0, vol: 0 });
+          e.adr += adr;
+          e.vol += vol;
+          zoneParts.push({ txt: `${t.tri} ${cat} ${b.rm}/${b.ra} (${b.ra ? Math.round(pr * 100) : 0} %) contre ${b.sa.toFixed(1)} tirs à ${Math.round(ps * 100)} % simulés`, v: Math.abs(adr) + Math.abs(vol) });
+        }
+        auto.style.trans += Math.abs(rp.trans - sp.transFga);
+        auto.style.transN++;
+        const realMade = rp.fgm.reduce((a, v) => a + v, 0);
+        const simMade = sp.fgm.reduce((a, v) => a + v, 0);
+        if (realMade && simMade) {
+          auto.style.ast += Math.abs(rp.astM / realMade - sp.astM / simMade);
+          auto.style.astN++;
+        }
+        if (Math.abs(rp.trans - sp.transFga) >= 6) zoneParts.push({ txt: `${t.tri} contre-attaque ${rp.trans} tirs (simulé ${sp.transFga.toFixed(1)})`, v: 2 * Math.abs(rp.trans - sp.transFga) });
+      }
+      for (const [cat, e] of Object.entries(zc)) {
+        const a = (auto.zones[cat] ??= { adr: 0, vol: 0 });
+        a.adr += e.adr ** 2;
+        a.vol += e.vol ** 2;
+      }
+      const tactical = zoneParts.sort((x, y) => y.v - x.v).slice(0, 3).map((z) => z.txt);
       // Joueurs : explosions (au-dessus de P90 de 5 pts ou plus) et minutes imprévues (10 min d'écart ou plus).
       const notes: string[] = [];
       for (const t of [g.home, g.away]) {
         for (const bp of t.players) {
           const ps = s.players.find((x) => x.id === bp.id);
           if (!ps || ps.playRate < 0.3) continue;
+          if (bp.sec <= 0 && bp.reason && !bp.reason.includes('COACH')) {
+            auto.lateOut++;
+            notes.push(`${bp.name} forfait de dernière minute (${bp.reason.toLowerCase()}, simulé ${ps.stats.min.mean.toFixed(0)} min)`);
+            continue;
+          }
           const min = bp.sec / 60;
           auto.playersSeen++;
           const exp = ps.stats.min.mean;
@@ -228,7 +290,7 @@ export async function backtest(opts: { from: string; to: string; games: number; 
           game: `${g.away.tri}@${g.home.tri}`, date: g.date, real: `${g.away.score}-${g.home.score}`, sim: `${s.awayPts.mean.toFixed(0)}-${s.homePts.mean.toFixed(0)}`,
           pFav: Math.max(s.pHome, 1 - s.pHome), driver: lab[k],
           detail: `écart ${err > 0 ? '+' : ''}${err.toFixed(1)} : 3 pts ${c.a3 >= 0 ? '+' : ''}${c.a3.toFixed(1)} (${g.home.tri} ${pc(dh.p3r)} vs ${pc(dh.p3s)}, ${g.away.tri} ${pc(da.p3r)} vs ${pc(da.p3s)}), 2 pts ${c.a2 >= 0 ? '+' : ''}${c.a2.toFixed(1)}, LF ${c.aft >= 0 ? '+' : ''}${c.aft.toFixed(1)}, volume ${c.vol >= 0 ? '+' : ''}${c.vol.toFixed(1)}`,
-          players: notes.slice(0, 4),
+          players: [...tactical, ...notes.slice(0, 4)],
         });
       }
     }
@@ -272,6 +334,10 @@ export function printBacktest(r: BacktestResult): string {
     L.push('');
     L.push(`Autopsie (${A.n} matchs) : part de l'erreur de marge (variance) liée à chaque écart réel - simulé`);
     L.push(`  adresse à 3 pts ${sh(A.sq.a3)} | adresse à 2 pts ${sh(A.sq.a2)} | lancers francs ${sh(A.sq.aft)} | volume (tirs, pertes, rebonds) ${sh(A.sq.vol)}`);
+    L.push('  Par zone (part de la variance de l\'erreur) : adresse | volume (ce que la défense a laissé prendre)');
+    for (const [cat, z] of Object.entries(A.zones)) L.push(`    ${cat.padEnd(14)} adresse ${sh(z.adr)} | volume ${sh(z.vol)}`);
+    if (A.style.transN) L.push(`  Contre-attaque : écart moyen ${(A.style.trans / A.style.transN).toFixed(1)} tirs par équipe ; part des paniers après une passe : écart moyen ${((A.style.ast / Math.max(1, A.style.astN)) * 100).toFixed(1)} pts`);
+    L.push(`  forfaits de dernière minute (actif sur la feuille, 0 min pour blessure ou repos) : ${A.lateOut}, retirés du tableau des minutes`);
     L.push(`  joueurs au-dessus de leur P90 de 5 pts ou plus : ${A.explosions} sur ${A.playersSeen} lignes (${((A.explosions / A.playersSeen) * 100).toFixed(1)} %)`);
     L.push('  Minutes (simulé - réel), par rôle réel et minutes attendues : erreur absolue moyenne, biais, part à 8 min ou plus');
     for (const [k, m] of Object.entries(A.minutes).sort()) L.push(`    ${k.padEnd(18)} ${(m.abs / m.n).toFixed(1)} min, biais ${(m.bias / m.n >= 0 ? '+' : '')}${(m.bias / m.n).toFixed(1)}, ${((m.over8 / m.n) * 100).toFixed(0)} % (n=${m.n})`);
