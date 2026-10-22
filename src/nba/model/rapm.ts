@@ -25,31 +25,48 @@ interface Row {
   y: number; // points par possession au-dessus de la moyenne (somme pondérée / w)
 }
 
-/** Lignes compactées : une par combinaison (cinq en attaque, cinq en défense, terrain). */
+/**
+ * Lignes compactées : une par combinaison (cinq en attaque, cinq en défense, terrain, contexte). Les points sont centrés
+ * par contexte (saison régulière ou playoffs de chaque saison) : en playoffs tout le monde marque moins (défenses plus
+ * intenses, rotations courtes), ce qui ne doit pas pénaliser les joueurs des équipes allées loin. Les playoffs comptent
+ * moitié (petits échantillons contre un seul adversaire).
+ */
+const PLAYOFF_W = 0.5;
 function rowsOf(games: Array<{ g: GameRecord; pg: ParsedGame }>, asOf: string): { rows: Row[]; mean: number } {
   const t0 = Date.parse(asOf);
-  const acc = new Map<string, Row & { sy: number }>();
+  const acc = new Map<string, Row & { sy: number; ctx: string }>();
+  const ctxSum = new Map<string, [number, number]>();
   let sw = 0;
   let swy = 0;
   for (const { g, pg } of games) {
     if (!pg.lineupOk) continue;
-    const w = Math.pow(0.5, (t0 - Date.parse(g.date)) / 86_400_000 / HALF_LIFE_DAYS);
+    const po = g.gameId.startsWith('004');
+    const ctx = `${g.gameId.slice(3, 5)}:${po ? 'po' : 'rs'}`;
+    const w = Math.pow(0.5, (t0 - Date.parse(g.date)) / 86_400_000 / HALF_LIFE_DAYS) * (po ? PLAYOFF_W : 1);
     for (const p of pg.poss) {
       if (p.off?.length !== 5 || p.def?.length !== 5) continue;
       const off = [...p.off].sort((a, b) => a - b);
       const def = [...p.def].sort((a, b) => a - b);
       const home = p.home ? 1 : -1;
-      const key = `${off.join(',')}|${def.join(',')}|${home}`;
+      const key = `${off.join(',')}|${def.join(',')}|${home}|${ctx}`;
       let r = acc.get(key);
-      if (!r) acc.set(key, (r = { off, def, home, w: 0, y: 0, sy: 0 }));
+      if (!r) acc.set(key, (r = { off, def, home, w: 0, y: 0, sy: 0, ctx }));
       r.w += w;
       r.sy += w * p.pts;
+      const c = ctxSum.get(ctx) ?? [0, 0];
+      c[0] += w;
+      c[1] += w * p.pts;
+      ctxSum.set(ctx, c);
       sw += w;
       swy += w * p.pts;
     }
   }
   const mean = sw ? swy / sw : 1.12;
-  const rows = [...acc.values()].map((r) => ({ off: r.off, def: r.def, home: r.home, w: r.w, y: r.sy / r.w - mean }));
+  const ctxMean = (ctx: string) => {
+    const c = ctxSum.get(ctx);
+    return c && c[0] > 0 ? c[1] / c[0] : mean;
+  };
+  const rows = [...acc.values()].map((r) => ({ off: r.off, def: r.def, home: r.home, w: r.w, y: r.sy / r.w - ctxMean(r.ctx) }));
   return { rows, mean };
 }
 

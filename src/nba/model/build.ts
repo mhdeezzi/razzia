@@ -80,11 +80,12 @@ export const DEFAULT_PARAMS: SimParams = {
   h2hShotWeight: 0,
   coachDef: 1.5,
   noStakesPenalty: 3,
-  cohesionWeight: 12,
+  cohesionWeight: 14,
   hcaWeight: 0.3,
-  // La simulation joueur par joueur seule est trop plate (pente 0,35 contre la ligne du marché) : on comble 90 % de
-  // l'écart vers la force visée (contrôle 2 x 200 matchs : 60 % -> 67,5 % / 66,5 % ; 80 % -> 69,5 % / 67,5 %).
-  strengthPull: 0.9,
+  // La simulation joueur par joueur seule est trop plate (pente 0,35 contre la ligne du marché) : on comble tout
+  // l'écart vers la force visée (contrôle 2 x 200 matchs, Brier : 60 % 0,2092 / 0,2177 ; 80 % 0,2061 / 0,2148 ;
+  // 100 % 0,2039 / 0,2150).
+  strengthPull: 1,
   blendModel: 0.8, // probabilité Razzia : 80 % moteur, 20 % marché (choix : défier le marché)
   qualityCut: 4,
   usageGamma: 1.4,
@@ -821,7 +822,9 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
     const order = [...pool].sort((a, b) => (b.starter ? 1 : 0) - (a.starter ? 1 : 0) || value(b) - value(a));
     order.forEach((p, rank) => {
       const tpl = ctx.league.rankMinutes[Math.min(rank, ctx.league.rankMinutes.length - 1)] ?? p.expMin;
-      const next = 0.5 * p.expMin + 0.5 * tpl;
+      // Au-delà du 9e homme, un coach resserre sa rotation : le gabarit (fin de match surtout) l'emporte.
+      const wTpl = rank >= 9 ? 0.8 : 0.5;
+      const next = (1 - wTpl) * p.expMin + wTpl * tpl;
       if (next < p.expMin - 3) p.notes.push(`rang ${rank + 1} dans la nouvelle hiérarchie (${Math.round(p.expMin)} → ${Math.round(next)} min)`);
       p.expMin = next;
     });
