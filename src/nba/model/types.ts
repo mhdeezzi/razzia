@@ -101,6 +101,7 @@ export interface TeamModel {
   foulRate: number; // fautes défensives hors tir par possession adverse
   switchRate: number;
   hcaDev?: number; // avantage du terrain propre (pts, écart à la ligue, deux dernières saisons)
+  coreCohesion?: number; // cohésion entre joueurs du cinq de départ (possessions ensemble par paire, 0 à 1)
   restDays: number;
   b2b: boolean;
   fatigue: number; // 1 = back-to-back ; + voyage de 2 fuseaux ou plus vers l'est sans repos ; + altitude (visiteur)
@@ -233,8 +234,11 @@ export interface SimParams {
   cohesionWeight?: number; // points par écart de continuité d'effectif de 100 %, sur les 10 premiers matchs de la saison
   hcaWeight?: number; // part de l'avantage du terrain propre à l'équipe qui reçoit (écart à la ligue) retenue
   strengthPull?: number; // part de l'écart entre la force simulée joueur par joueur et la force visée qui est comblée
-  talentStarters?: number; // poids des notes d'impact du cinq de départ dans la force visée
-  talentBench?: number; // poids des notes d'impact du banc
+  playerMomentum?: number; // part de la forme récente de chaque joueur ajoutée à sa note d'impact
+  benchTop?: number; // nombre de remplaçants qui comptent vraiment (les meilleurs du soir)
+  benchTopWeight?: number; // poids de leurs notes (le cinq de départ vaut 1) ; jusqu'à ×2 s'ils sont en forme
+  benchRestWeight?: number; // poids des autres remplaçants
+  talentBoost?: number; // multiplicateur du talent quand la même équipe domine le collectif (× cohésion de son cinq)
   blendModel?: number; // part du moteur dans la probabilité affichée (mélange logit avec la cote sans marge)
   rapmWeight?: number; // part des notes d'impact joueurs (selon qui joue ce soir) dans la force visée, contre les notes d'équipe
   momentumOcc?: number; // part des occasions (plutôt que du score) dans la mesure du momentum : 0 = score seul, 1 = occasions seules

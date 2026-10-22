@@ -72,12 +72,16 @@ export const DEFAULT_PARAMS: SimParams = {
   // notes d'impact joueurs à 50 % 0,2203 / 0,2122 ; momentum en occasions 0,2213 / 0,2094 ; fin de saison sans enjeu
   // 0,2233 en fin de saison ; « qui garde qui » du coach utile (0,2270 / 0,2156 sans) ; chat noir nuisible au score
   // (0,2288 / 0,2173) comme en qualité de tir (0,2313 / 0,2248) : désactivé.
-  // Collectif 60 % / talent 40 % à continuité moyenne (choix : le basket est d'abord collectif ; à valider au contrôle).
-  rapmWeight: 0.29,
-  // Le cinq de départ pèse plus que le banc (2025-26, 1 008 matchs, notes × minutes réelles : 1,22 ± 0,10 contre
-  // 1,04 ± 0,22) : même rapport, moyenne 1.
-  talentStarters: 1.05,
-  talentBench: 0.9,
+  // Collectif 80 % / talent 20 % à continuité moyenne (choix : le basket est d'abord collectif ; à valider au contrôle).
+  rapmWeight: 0.13,
+  // Talent : le cinq de départ compte en entier ; au banc, les 3 meilleurs du soir à moitié (jusqu'à en entier s'ils
+  // sont en forme), les autres très peu. Forme récente des joueurs à 50 %. Talent multiplié jusqu'à ×2 (selon la
+  // cohésion du cinq) quand la même équipe domine le collectif.
+  playerMomentum: 0.5,
+  benchTop: 3,
+  benchTopWeight: 0.5,
+  benchRestWeight: 0.15,
+  talentBoost: 1,
   // Chat noir de style : l'effet se répète hors échantillon (pente 0,4 à 0,6) ; on en garde la moitié.
   styleWeight: 0.5,
   momentumWeight: 0.3,
@@ -93,7 +97,7 @@ export const DEFAULT_PARAMS: SimParams = {
   // l'écart vers la force visée (contrôle 2 x 200 matchs, Brier : 60 % 0,2092 / 0,2177 ; 80 % 0,2061 / 0,2148 ;
   // 100 % 0,2039 / 0,2150).
   strengthPull: 1,
-  blendModel: 0.8, // probabilité Razzia : 80 % moteur, 20 % marché (choix : défier le marché)
+  blendModel: 0.9, // probabilité Razzia : 90 % moteur, 10 % marché (choix : défier le marché)
   qualityCut: 4,
   usageGamma: 1.4,
   astGamma: 2.0,
@@ -696,8 +700,9 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
     roleMin.set(p.id, rm);
     // Niveau (Game Score / 36 min) rétréci vers un remplaçant type : la hiérarchie qu'un coach respecte.
     p.quality = (36 * qGs + QUALITY_K * QUALITY_FLOOR) / (qMin + QUALITY_K);
-    // Momentum du joueur : niveau des 15 derniers matchs contre celui des saisons précédentes.
-    const played = lines.filter((x) => x.sec > 0);
+    // Momentum du joueur : niveau des 15 derniers matchs contre celui des saisons précédentes. Hors playoffs (sauf en
+    // playoffs) : face aux défenses de playoffs tout le monde produit moins, ce qui pénaliserait les équipes allées loin.
+    const played = lines.filter((x) => x.sec > 0 && (playoffs || !x.gameId.startsWith('004')));
     const rec = played.slice(-15);
     const old = played.slice(0, -15).filter((x) => x.season !== curSeason);
     const per36 = (a: GameLine[]) => (36 * sum(a.map(gameScore))) / Math.max(1, sum(a.map((x) => x.sec / 60)));
@@ -1234,6 +1239,33 @@ export function b2bSkipRate(pid: number, date: string): number {
 }
 
 /** Écart (pts) entre l'avantage du terrain d'une équipe et celui de la ligue, sur les deux dernières années. */
+/**
+ * Cohésion entre joueurs : possessions que chaque paire du cinq de départ a jouées ensemble sur l'année écoulée
+ * (duos, trios), distincte du collectif (toute l'équipe) et de la continuité de l'effectif. 0 = jamais ensemble,
+ * 1 = une saison pleine ensemble (3 000 possessions) pour toutes les paires.
+ */
+function coreCohesion(teamId: number, starters: number[], date: string): number {
+  if (starters.length < 2) return 0;
+  const from = new Date(Date.parse(date) - 365 * 86_400_000).toISOString().slice(0, 10);
+  const idx = new Map(starters.map((id, i) => [id, i]));
+  const shared = new Map<number, number>();
+  for (const { g, pg } of loadGames()) {
+    if (g.date >= date || g.date < from || (g.home.id !== teamId && g.away.id !== teamId)) continue;
+    for (const p of pg.poss) {
+      if (p.tm !== teamId || !p.off) continue;
+      const on = p.off.map((id) => idx.get(id)).filter((i): i is number => i != null);
+      for (let a = 0; a < on.length; a++) for (let b = a + 1; b < on.length; b++) {
+        const k = Math.min(on[a], on[b]) * 16 + Math.max(on[a], on[b]);
+        shared.set(k, (shared.get(k) ?? 0) + 1);
+      }
+    }
+  }
+  const pairs = (starters.length * (starters.length - 1)) / 2;
+  let tot = 0;
+  for (const v of shared.values()) tot += Math.min(1, v / 3000);
+  return tot / pairs;
+}
+
 function teamHomeEdge(f: FeatureSet, teamId: number, date: string, leagueHome: number): number | undefined {
   const since = new Date(Date.parse(date) - 730 * 86_400_000).toISOString().slice(0, 10);
   const l = (teamLogOf(f).get(teamId) ?? []).filter((g) => g.date < date && g.date >= since);
@@ -1513,6 +1545,7 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
   // Avantage du terrain propre à l'équipe qui reçoit (deux dernières saisons) : écart domicile - extérieur comparé à
   // celui de la ligue. Il se répète en partie (corrélation 0,24 entre deux moitiés de saison) : part retenue réglable.
   home.hcaDev = teamHomeEdge(feats, home.id, opts.date, ctx.league.homeMargin);
+  for (const t of [home, away]) t.coreCohesion = coreCohesion(t.id, t.players.filter((p) => p.starter).map((p) => p.id), opts.date);
   let teamH2h = teamH2H(feats, home, away, opts.date, ctx.league.homeMargin);
   const sh = styleEffect(home.id, away.id, opts.date);
   const sa = styleEffect(away.id, home.id, opts.date);
