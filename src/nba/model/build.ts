@@ -1642,6 +1642,7 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
     if (m) {
       model.market = { provider: m.provider, spreadHome: m.spreadHome, total: m.total, mlHome: m.mlHome, mlAway: m.mlAway };
       if (m.mlHome != null && m.mlAway != null) model.market.pHomeNoVig = noVig(m.mlHome, m.mlAway)[0];
+      if (m.mlHomeOpen != null && m.mlAwayOpen != null) model.market.pHomeOpen = noVig(m.mlHomeOpen, m.mlAwayOpen)[0];
       model.props = await getProps(m.eventId).catch(() => []);
     }
   }

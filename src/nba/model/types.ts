@@ -283,6 +283,7 @@ export interface GameModel {
     mlHome?: number;
     mlAway?: number;
     pHomeNoVig?: number;
+    pHomeOpen?: number; // marché sans marge à l'ouverture (mouvement de la cote jusqu'à la simulation)
   };
   props?: Array<{ player: string; market: string; line?: number; over?: number; under?: number; price?: number }>;
   h2hMatchups: Record<string, Record<string, number>>; // attaquant -> défenseur -> minutes de duel (saison(s) précédente(s))

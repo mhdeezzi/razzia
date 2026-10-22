@@ -1,7 +1,7 @@
 // Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, les lignes, et le détail
 // (joueurs en feu, signaux, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowClockwise, Scales, ShieldCheck } from '@phosphor-icons/react';
+import { ArrowClockwise, Scales, ShieldCheck, TrendUp } from '@phosphor-icons/react';
 import { line, n1, odds, pct, pct0, signed, type Game, type Result } from './data.ts';
 import { buildCategories, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
@@ -66,8 +66,8 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
   );
 }
 
-// Niveaux de confiance, mesurés sur 800 matchs de 2025-26 : quand le moteur est sûr à 75 % ou plus, il voit juste
-// environ 78 % du temps ; sous 55 %, c'est presque un pile ou face.
+// Niveaux de confiance, mesurés sur toute la saison 2025-26 (1 230 matchs) : à 77 % ou plus (un match sur quatre), le
+// moteur voit juste 84,6 % du temps ; sous 55 %, 58 % seulement.
 const SURE = 0.77;
 const FLIP = 0.55;
 
@@ -78,6 +78,7 @@ interface Confidence {
   book?: number; // marché sans marge
   tier: 'sure' | 'flip' | 'normal';
   hedge?: { title: string; p: number }; // handicap qui passe dans au moins 75 % des simulations
+  steam?: { side: 'home' | 'away'; move: number }; // la cote a bougé fort vers cette équipe (match serré)
 }
 
 function confidenceOf(r: Result, g: Game): Confidence {
@@ -91,7 +92,7 @@ function confidenceOf(r: Result, g: Game): Confidence {
   const h = r.spreadLadder.filter((x) => cover(x) >= 0.75 && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
   const hedge = h ? { title: `${g[side].name} +${line(lineOf(h))}`, p: cover(h) } : undefined;
   const book = r.market?.bookHome != null ? (side === 'home' ? r.market.bookHome : 1 - r.market.bookHome) : undefined;
-  return { side, p, engine: side === 'home' ? r.pHome : r.pAway, book, tier, hedge };
+  return { side, p, engine: side === 'home' ? r.pHome : r.pAway, book, tier, hedge, steam: r.market?.steam };
 }
 
 function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
@@ -101,7 +102,20 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
         <ShieldCheck size={20} weight="fill" />
         <div>
           <p className="conf-badge-title">Razzia assuré</p>
-          <p>Quand le moteur est aussi sûr de lui, il a vu juste environ 78 % du temps sur la saison passée.</p>
+          <p>Quand le moteur est aussi sûr de lui, il a vu juste 85 % du temps sur la saison passée (un match sur quatre).</p>
+        </div>
+      </div>
+    );
+  if (c.steam)
+    return (
+      <div className="conf-badge steam">
+        <TrendUp size={20} weight="bold" />
+        <div>
+          <p className="conf-badge-title">Suivre l'argent</p>
+          <p>
+            Match serré pour le moteur, mais la cote a bougé de <b>{Math.round(c.steam.move * 100)} pts</b> vers {g[c.steam.side].name} depuis
+            l'ouverture (blessure, parieurs pros). Suivre ce mouvement a gagné 61 % du temps sur ces matchs la saison passée.
+          </p>
         </div>
       </div>
     );

@@ -419,6 +419,8 @@ a.row:hover .mark { transform: scale(1.06); }
 .conf-badge.sure svg, .conf-badge.sure .conf-badge-title { color: var(--green); }
 .conf-badge.flip { border-color: rgba(255, 196, 92, 0.4); background: rgba(255, 196, 92, 0.08); }
 .conf-badge.flip svg, .conf-badge.flip .conf-badge-title { color: #ffc45c; }
+.conf-badge.steam { border-color: rgba(61, 139, 255, 0.45); background: var(--blue-soft); }
+.conf-badge.steam svg, .conf-badge.steam .conf-badge-title { color: var(--blue); }
 .conf-badge b { color: var(--text); }
 
 /* Compositions non officielles (bleu) */
