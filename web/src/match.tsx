@@ -1,5 +1,5 @@
 // Fiche de match : bandeau, onglets Aperçu / Simulation, lancement et suivi de la simulation.
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, ArrowSquareOut, Basketball, Check, Clock, FirstAidKit, MapPin, Sparkle, WarningCircle } from '@phosphor-icons/react';
 import {
   dayLong, line, listSims, loadProgramme, odds, pending, simKey, simStatus, startSim, teamColor, timeLocal,
@@ -21,7 +21,7 @@ export function MatchPage({ date, away, home }: { date: string; away: string; ho
   return (
     <div className="page">
       <Link href={`/?jour=${date}`} className="back">
-        <ArrowLeft size={15} /> Programme du jour
+        <ArrowLeft size={16} /> Programme
       </Link>
       {error && <Empty title="Le programme n'a pas pu être chargé.">{error}</Empty>}
       {!prog && !error && <span className="sk sk-hero" aria-busy="true" />}
@@ -86,96 +86,103 @@ function Match({ g, injuries }: { g: Game; injuries: Record<string, Injury[]> })
     if (s !== 'queued' && s !== 'running') await sim.launch();
   };
 
-  const running = s === 'queued' || s === 'running';
   return (
     <>
-      <Hero g={g}>
-        {g.state !== 'post' && (
-          <div className="mh-actions">
-            <button className="btn-sim" onClick={go} disabled={sim.busy}>
-              {sim.busy ? <span className="spin" /> : <Sparkle size={18} weight="fill" />}
-              {s === 'done' ? 'Voir la simulation' : running ? 'Suivre la simulation' : 'Simuler ce match'}
-            </button>
-            <p>{s === 'done' ? 'Simulation prête : probabilités, match typique, carte de tirs.' : '5 000 matchs joués possession par possession, résultat en quelques minutes.'}</p>
-          </div>
-        )}
-      </Hero>
+      <Hero g={g} />
       <div className="tabs-row" role="tablist">
         <button role="tab" aria-selected={current === 'apercu'} className={`tab-big${current === 'apercu' ? ' is-on' : ''}`} onClick={() => setTab('apercu')}>
           Aperçu
         </button>
-        <button role="tab" aria-selected={current === 'sim'} className={`tab-big${current === 'sim' ? ' is-on' : ''}`} onClick={() => setTab('sim')}>
-          Simulation
-          {running && <span className="dot" aria-label="en cours" />}
+        <button role="tab" aria-selected={current === 'sim'} className={`tab-big glow${current === 'sim' ? ' is-on' : ''}`} onClick={() => setTab('sim')}>
+          <Sparkle size={18} weight="fill" /> Simulation
+          {(s === 'queued' || s === 'running') && <span className="dot" aria-label="en cours" />}
         </button>
       </div>
 
       <div className="tab-panel" key={current}>
-        {current === 'apercu' ? <Overview g={g} injuries={injuries} /> : <SimPanel g={g} {...sim} />}
+        {current === 'apercu' ? <Overview g={g} injuries={injuries} sim={sim.state} onSim={go} busy={sim.busy} /> : <SimPanel g={g} {...sim} />}
       </div>
     </>
   );
 }
 
-function Hero({ g, children }: { g: Game; children?: ReactNode }) {
+function Hero({ g }: { g: Game }) {
   const team = (side: 'away' | 'home') => (
-    <div className={`mh-team ${side}`}>
+    <div className={`hero-team ${side}`}>
       <TeamMark team={g[side]} size="xl" />
       <div>
-        <h2 className="mh-name">{g[side].name}</h2>
-        <p className="mh-rec">
+        <p className="hero-name">{g[side].name}</p>
+        <p className="hero-rec">
           {g[side].city}
-          {g[side].record ? ` · ${g[side].record}` : ''}
-          {side === 'home' ? ' · domicile' : ''}
+          {g[side].record ? ` | ${g[side].record}` : ''}
         </p>
       </div>
     </div>
   );
   return (
-    <header className="mh">
-      <p className="mh-kicker">
-        <b>NBA</b>
-        <span>{cap(dayLong(g.date))}</span>
+    <header className="hero" style={{ '--away': teamColor(g.away), '--home': teamColor(g.home) } as CSSProperties}>
+      <div className="hero-meta">
+        <span>
+          <Basketball size={15} /> NBA
+        </span>
         {g.venue && (
-          <span>
-            <MapPin size={14} style={{ verticalAlign: '-2px' }} /> {g.venue}
-            {g.city ? `, ${g.city}` : ''}
-          </span>
+          <>
+            <i />
+            <span>
+              <MapPin size={15} /> {g.venue}
+            </span>
+          </>
         )}
-      </p>
-      <div className="mh-title">
+      </div>
+      <div className="hero-grid">
         {team('away')}
-        <div className="mh-mid">
+        <div className="hero-mid">
           {g.state === 'pre' ? (
             <>
-              <span className="mh-at" aria-hidden="true">
-                @
+              <span className="hero-vs" aria-hidden="true">
+                VS
               </span>
-              <span className="mh-time">{timeLocal(g.start)}</span>
+              <span className="hero-time">{timeLocal(g.start)}</span>
             </>
           ) : (
             <>
-              <span className="mh-score">
+              <span className="hero-score">
                 {g.away.score ?? '-'}
-                <span className="muted">-</span>
+                <span className="muted">:</span>
                 {g.home.score ?? '-'}
               </span>
-              <span className="mh-time">{g.state === 'in' ? g.detail : 'Final'}</span>
+              <span className="hero-time">{g.state === 'in' ? g.detail : 'Final'}</span>
             </>
           )}
         </div>
         {team('home')}
       </div>
-      {children}
+      <p className="hero-date">{dayLong(g.date)}</p>
     </header>
   );
 }
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-function Overview({ g, injuries }: { g: Game; injuries: Record<string, Injury[]> }) {
+function Overview({ g, injuries, sim, onSim, busy }: { g: Game; injuries: Record<string, Injury[]>; sim: SimState; onSim: () => void; busy: boolean }) {
+  const done = sim.status === 'done';
+  const running = sim.status === 'queued' || sim.status === 'running';
   return (
-    <div className="match-grid">
-      <div className="results">
+    <div className="results">
+      {g.state !== 'post' && (
+        <section className="cta-card">
+          <div>
+            <h3>{done ? 'La simulation est prête.' : running ? 'Simulation en cours.' : 'Rejouer ce match 5 000 fois.'}</h3>
+            <p>
+              {done
+                ? 'Probabilités, paris mis en avant, duel statistique et projections de chaque joueur.'
+                : 'Avec les effectifs, les absences et les cotes du moment. Résultat en quelques minutes.'}
+            </p>
+          </div>
+          <button className="btn btn-primary btn-lg" onClick={onSim} disabled={busy}>
+            {busy ? <span className="spin" /> : <Sparkle size={18} weight="fill" />} {done || running ? 'Voir la simulation' : 'Lancer la simulation'}
+          </button>
+        </section>
+      )}
+
       <section className="box">
         <div className="box-head">
           <span className="box-icon">
@@ -200,9 +207,8 @@ function Overview({ g, injuries }: { g: Game; injuries: Record<string, Injury[]>
           </div>
         </dl>
       </section>
-      </div>
 
-      <div className="aside">
+      <div className="aside" style={{ position: 'static', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
         <OddsBox g={g} />
         <Absences g={g} injuries={injuries} />
       </div>
@@ -349,7 +355,7 @@ function SimPanel({ g, state, busy, launch, since }: { g: Game } & ReturnType<ty
           <span>pour le résultat</span>
         </div>
       </div>
-      <button className="btn-sim" onClick={launch} disabled={busy || g.state === 'post'}>
+      <button className="btn btn-primary btn-lg" onClick={launch} disabled={busy || g.state === 'post'}>
         {busy ? <span className="spin" /> : <Sparkle size={18} weight="fill" />} {busy ? 'Lancement' : 'Lancer la simulation'}
       </button>
       {g.state === 'post' && <p className="small muted">Match terminé.</p>}
