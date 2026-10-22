@@ -11,7 +11,8 @@ import { seasonOfDate, seasonsInScope } from '../seasons.ts';
 import { getInjuries, getMarket, getProps, noVig, type InjuryItem } from '../../data/espn.ts';
 import { playerPasses, SEASON_TYPES, dailyLineups } from '../../data/nbaStats.ts';
 import { pool } from '../../data/http.ts';
-import { getSchedule, type GameRecord } from '../../data/cdn.ts';
+import { getSchedule, upcomingOfficials, type GameRecord } from '../../data/cdn.ts';
+import { crewEffect, refsAsOf } from './refs.ts';
 import { readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CACHE_DIR, readCache } from '../../data/http.ts';
@@ -1247,7 +1248,26 @@ function insightsFor(ctx: Ctx, home: TeamModel, away: TeamModel, h2h?: TeamH2H):
   for (const tm of [away, home]) {
     const mo = tm.momentum;
     if (mo && Math.abs(mo.delta) >= 4) {
-      out.push(`${tm.name} ${mo.delta > 0 ? 'en pleine montée' : 'en baisse'} : ${n1(mo.recent)} pts d'écart par match sur les ${mo.n} derniers matchs, contre ${n1(mo.base)} les deux saisons précédentes.`);
+      // Ce qui a changé dans ses occasions (relatif à la ligue) : les deux leviers les plus marqués.
+      let why = '';
+      if (mo.occ) {
+        const r = mo.occ.recent, b = mo.occ.base;
+        const parts: Array<[number, string]> = [
+          [-(r.tov - b.tov) * 112, `${r.tov < b.tov ? 'moins' : 'plus'} de pertes de balle`],
+          [(r.tovForced - b.tovForced) * 112, `${r.tovForced > b.tovForced ? 'plus' : 'moins'} de pertes provoquées`],
+          [(r.orb - b.orb) * 58, `${r.orb > b.orb ? 'plus' : 'moins'} de rebonds offensifs`],
+          [-(r.orbAllowed - b.orbAllowed) * 58, `${r.orbAllowed < b.orbAllowed ? 'moins' : 'plus'} de rebonds offensifs concédés`],
+          [(r.xFg - b.xFg) * 88, `${r.xFg > b.xFg ? 'de meilleurs' : 'de moins bons'} tirs créés`],
+          [-(r.xFgAllowed - b.xFgAllowed) * 88, `${r.xFgAllowed < b.xFgAllowed ? 'de moins bons' : 'de meilleurs'} tirs concédés`],
+          [(r.fta - b.fta) * 78, `${r.fta > b.fta ? 'plus' : 'moins'} de lancers obtenus`],
+        ];
+        const top = parts.filter(([v]) => Math.sign(v) === Math.sign(mo.delta) && Math.abs(v) >= 0.8).sort((a, b) => Math.abs(b[0]) - Math.abs(a[0])).slice(0, 2);
+        if (top.length) why = ` Ce qui a changé : ${top.map(([, t]) => t).join(', ')}.`;
+      }
+      out.push(`${tm.name} ${mo.delta > 0 ? 'en pleine montée' : 'en baisse'} : ${n1(mo.recent)} pts d'écart par match sur les ${mo.n} derniers matchs, contre ${n1(mo.base)} les deux saisons précédentes.${why}`);
+    }
+    for (const p of tm.players.filter((x) => x.status.startsWith('Repos possible'))) {
+      out.push(`${p.name} pourrait être laissé au repos : second soir d'un back-to-back (${p.status.replace('Repos possible ', '').replace(/[()]/g, '')} de risque selon ses habitudes).`);
     }
     const riser = tm.players.filter((p) => p.avail > 0.5 && p.expMin >= 18 && p.momentum).sort((a, b) => Math.abs(b.momentum!.delta) - Math.abs(a.momentum!.delta))[0];
     if (riser && Math.abs(riser.momentum!.delta) >= 3) {
@@ -1477,6 +1497,16 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
     league: ctx.league, duel, h2h: teamH2h, home, away, h2hMatchups: h2h, params: { ...DEFAULT_PARAMS }, insights: [],
   };
   model.insights = insightsFor(ctx, home, away, teamH2h);
+  // Arbitres du soir (dès qu'ils figurent sur la feuille de match) : information, sans effet sur les probabilités, leurs
+  // tendances passées ne se répétant pas d'un match à l'autre (contrôle hors échantillon).
+  if (!opts.actual && opts.gameId) {
+    const crew = await upcomingOfficials(opts.gameId);
+    if (crew?.length) {
+      const c = crewEffect(refsAsOf(opts.date), crew);
+      const pctTxt = `${c.log >= 0 ? '+' : ''}${Math.round((Math.exp(c.log) - 1) * 100)} %`;
+      model.insights.push(`Arbitres : ${crew.map((o) => o.name).join(', ')} (lancers francs sifflés d'habitude : ${pctTxt} par rapport à la moyenne ; sans effet mesurable sur l'issue).`);
+    }
+  }
 
   if (opts.market ?? !opts.actual) {
     const m = await getMarket(opts.date, homeInfo.tri, awayInfo.tri).catch(() => undefined);

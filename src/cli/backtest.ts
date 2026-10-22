@@ -41,6 +41,7 @@ export interface BacktestResult {
   accuracyMkt?: number;
   autopsy: Autopsy;
   rows: Array<Record<string, unknown>>;
+  fav?: Array<{ mkt: number; sim: number; target: number; players: number }>;
 }
 
 /** Autopsie : ce qui, dans le vrai match, a écarté le résultat de la simulation. */
@@ -96,6 +97,8 @@ export async function backtest(opts: { from: string; to: string; games: number; 
   let hits = 0, hitsMkt = 0, nMkt = 0;
   const auto: Autopsy = { n: 0, sq: { err: 0, a3: 0, a2: 0, aft: 0, vol: 0 }, zones: {}, style: { trans: 0, transN: 0, ast: 0, astN: 0 }, misses: [], drivers: {}, minutes: {}, explosions: 0, playersSeen: 0, lateOut: 0 };
   const mkt = { n: 0, brierModel: 0, brierMarket: 0, brierBlend: 0, spreadN: 0, spreadErrModel: 0, spreadErrMarket: 0, totN: 0, totErrModel: 0, totErrMarket: 0, ats: 0, atsWin: 0 };
+  // Diagnostic des gros favoris : écart attendu selon chaque étage du moteur, contre la ligne du marché.
+  const fav: Array<{ mkt: number; sim: number; target: number; players: number }> = [];
   const W = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1];
   const blend = W.map((w) => ({ w, brier: 0 }));
   const clv = { n: 0, bets: 0, clvSum: 0, clvPos: 0, profit: 0, won: 0, corrNum: 0, corrDen1: 0, corrDen2: 0, sx: 0, sy: 0 };
@@ -106,7 +109,7 @@ export async function backtest(opts: { from: string; to: string; games: number; 
     const m = await buildGameModel({ date: g.date, homeTri: g.home.tri, awayTri: g.away.tri, gameId: g.gameId, actual: g, injuries: false, market: false, passes: false, pastTablesOnly: !opts.fullTables });
     Object.assign(m.params, opts.params ?? {});
     calibratePace(m, 150);
-    if (!opts.noStrength) calibrateStrength(m, 200);
+    const st = opts.noStrength ? undefined : calibrateStrength(m, 200);
     const b = await runSims(m, opts.n, 11 + gi);
     const s = summarize(m, b);
     for (const k of keys) {
@@ -161,6 +164,10 @@ export async function backtest(opts: { from: string; to: string; games: number; 
             clv.profit += win ? odds - 1 : -1;
             if (win) clv.won++;
           }
+        }
+        if (mk.spreadHome != null && st) {
+          const pace = (m.home.pace + m.away.pace) / 2;
+          fav.push({ mkt: -mk.spreadHome, sim: s.margin.mean, target: (st.target[0] - st.target[1]) * pace, players: (st.before[0] - st.before[1]) * pace });
         }
         if (mk.spreadHome != null) {
           mkt.spreadN++;
@@ -331,7 +338,7 @@ export async function backtest(opts: { from: string; to: string; games: number; 
     if (!opts.quiet) console.log(`[${gi + 1}/${sample.length}] ${g.date} ${g.away.tri}@${g.home.tri} réel ${g.away.score}-${g.home.score} | sim ${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)} pDom ${(s.pHome * 100).toFixed(0)}% (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   }
   for (const b of blend) b.brier /= Math.max(1, mkt.n);
-  return { fullTables: !!opts.fullTables, market: mkt, blend: mkt.n ? blend : undefined, clv: clv.n ? clv : undefined, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, calib, accuracy: hits / sample.length, accuracyMkt: nMkt ? hitsMkt / nMkt : undefined, autopsy: auto, rows };
+  return { fav, fullTables: !!opts.fullTables, market: mkt, blend: mkt.n ? blend : undefined, clv: clv.n ? clv : undefined, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, calib, accuracy: hits / sample.length, accuracyMkt: nMkt ? hitsMkt / nMkt : undefined, autopsy: auto, rows };
 }
 
 export function printBacktest(r: BacktestResult): string {
@@ -359,6 +366,21 @@ export function printBacktest(r: BacktestResult): string {
     const corr = (c.corrNum - (c.sx * c.sy) / n) / Math.sqrt((c.corrDen1 - (c.sx * c.sx) / n) * (c.corrDen2 - (c.sy * c.sy) / n));
     L.push(`Valeur de clôture (cotes d'ouverture, ${n} matchs) : corrélation (modèle - ouverture) / (clôture - ouverture) ${corr.toFixed(3)}`);
     if (c.bets) L.push(`  Écart modèle/ouverture ≥ 4 pts de % : ${c.bets} paris, la ligne bouge dans notre sens ${((c.clvPos / c.bets) * 100).toFixed(1)} % du temps (${((c.clvSum / c.bets) * 100).toFixed(2)} pts de % en moyenne), gagnés ${((c.won / c.bets) * 100).toFixed(1)} %, rendement à la cote d'ouverture ${((c.profit / c.bets) * 100).toFixed(1)} %`);
+  }
+  if (r.fav && r.fav.length > 10) {
+    const F = r.fav;
+    const slope = (k: 'sim' | 'target' | 'players') => {
+      const mx = F.reduce((a, f) => a + f.mkt, 0) / F.length;
+      const my = F.reduce((a, f) => a + f[k], 0) / F.length;
+      let sxy = 0, sxx = 0;
+      for (const f of F) {
+        sxy += (f.mkt - mx) * (f[k] - my);
+        sxx += (f.mkt - mx) ** 2;
+      }
+      return sxy / sxx;
+    };
+    const absm = (k: 'mkt' | 'sim' | 'target' | 'players') => F.reduce((a, f) => a + Math.abs(f[k]), 0) / F.length;
+    L.push(`Favoris (écart attendu, ${F.length} matchs) : |écart| moyen marché ${absm('mkt').toFixed(2)}, simulé ${absm('sim').toFixed(2)}, notes d'équipe ${absm('target').toFixed(2)}, joueurs seuls ${absm('players').toFixed(2)} ; pente contre la ligne : simulé ${slope('sim').toFixed(2)}, notes d'équipe ${slope('target').toFixed(2)}, joueurs seuls ${slope('players').toFixed(2)}`);
   }
   L.push(`Bon vainqueur annoncé : modèle ${(r.accuracy * 100).toFixed(1)} %${r.accuracyMkt != null ? ` | marché ${(r.accuracyMkt * 100).toFixed(1)} %` : ''}`);
   L.push('Calibration (confiance annoncée du favori -> part réellement gagnée)');
