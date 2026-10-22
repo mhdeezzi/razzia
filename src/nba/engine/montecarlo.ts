@@ -277,6 +277,8 @@ export interface Summary {
     pHomeML?: number;
     bookHome?: number;
     blendedHome?: number;
+    mlHome?: number; // cotes américaines au moment de la simulation (bilan : valeur de clôture, rendement)
+    mlAway?: number;
   };
   players: PlayerSummary[];
   props: PropEval[];
@@ -409,7 +411,7 @@ export function summarize(m: GameModel, b: Batch): Summary {
   let market: Summary['market'];
   if (m.market) {
     const mk = m.market;
-    market = { spreadHome: mk.spreadHome, total: mk.total, bookHome: mk.pHomeNoVig };
+    market = { spreadHome: mk.spreadHome, total: mk.total, bookHome: mk.pHomeNoVig, mlHome: mk.mlHome, mlAway: mk.mlAway };
     if (mk.spreadHome != null) {
       let c = 0;
       for (let i = 0; i < n; i++) if (margin[i] + mk.spreadHome > 0) c++;
@@ -422,11 +424,11 @@ export function summarize(m: GameModel, b: Batch): Summary {
     }
     market.pHomeML = homeWins / n;
     if (mk.pHomeNoVig != null) {
-      // Début de saison : la probabilité affichée penche vers le marché tant que l'échantillon est petit.
-      const gp = Math.min(...[m.home, m.away].map((t) => t.players.reduce((a, p) => Math.max(a, p.form.gp), 0)));
-      void gp;
-      const w = 0.6;
-      market.blendedHome = w * (homeWins / n) + (1 - w) * mk.pHomeNoVig;
+      // Probabilité Razzia : le marché comme base, corrigé par le moteur (mélange en logit, part du moteur mesurée
+      // par le contrôle de justesse). Le marché intègre ce que le moteur ignore (infos de dernière minute, avis des pros).
+      const w = m.params.blendModel ?? 0.4;
+      const lg = (p: number) => Math.log(Math.min(0.995, Math.max(0.005, p)) / (1 - Math.min(0.995, Math.max(0.005, p))));
+      market.blendedHome = 1 / (1 + Math.exp(-(w * lg(homeWins / n) + (1 - w) * lg(mk.pHomeNoVig))));
     }
   }
 

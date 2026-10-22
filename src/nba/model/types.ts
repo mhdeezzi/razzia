@@ -225,6 +225,7 @@ export interface SimParams {
   coachDef: number; // le coach met son meilleur défenseur sur la plus grosse menace et cache son plus faible
   h2hWeight: number; // part de l'écart réel - attendu des confrontations récentes (chat noir) ajoutée à l'écart visé
   h2hShotWeight?: number; // part des écarts de qualité de tir dans les confrontations (emplacements, contestation, pertes, rebonds)
+  blendModel?: number; // part du moteur dans la probabilité affichée (mélange logit avec la cote sans marge)
   rapmWeight?: number; // part des notes d'impact joueurs (selon qui joue ce soir) dans la force visée, contre les notes d'équipe
   momentumOcc?: number; // part des occasions (plutôt que du score) dans la mesure du momentum : 0 = score seul, 1 = occasions seules
   edge?: [Edge, Edge]; // leviers appliqués (domicile, extérieur), calculés avant les simulations

@@ -2,6 +2,7 @@
 //   POST /api/sim  {date, away, home}          -> lance une simulation, renvoie {status:'queued', req}
 //   GET  /api/sim?date=&away=&home=[&req=]     -> {status:'done', result} | {status:'queued'|'running'|'failed'|'none'}
 //   GET  /api/sim?list=1                       -> simulations disponibles [{dir, pHome, pAway, at}]
+//   GET  /api/sim?bilan=1                      -> bilan des simulations (valeur de clôture, résultats)
 // Variables Vercel : GH_TOKEN (jeton GitHub avec Actions: write et Contents: read sur le dépôt), GH_REPO (optionnel).
 const REPO = process.env.GH_REPO ?? 'mhdeezzi/simbet';
 const WORKFLOW = 'simulate.yml';
@@ -37,6 +38,11 @@ function matchKey(p: { date?: unknown; away?: unknown; home?: unknown }): { date
 export async function GET(request: Request): Promise<Response> {
   const q = new URL(request.url).searchParams;
   try {
+    if (q.get('bilan')) {
+      const r = await gh(`/contents/sims/bilan.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
+      if (!r.ok) return Response.json({ error: 'Bilan pas encore calculé (une fois par jour, matchs terminés).' }, { status: 404, headers: noStore });
+      return Response.json(await r.json(), { headers: { 'Cache-Control': 'public, s-maxage=300' } });
+    }
     if (q.get('list')) {
       const r = await gh(`/contents/sims/index.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
       const sims = r.ok ? await r.json() : [];
