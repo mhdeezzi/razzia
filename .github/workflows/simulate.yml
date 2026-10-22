@@ -15,7 +15,7 @@ concurrency: { group: "sim-${{ inputs.date }}-${{ inputs.away }}-${{ inputs.home
 permissions: { contents: write }
 jobs:
   sim:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
     env:
       SIMLAB_OFFLINE_HOSTS: stats.nba.com

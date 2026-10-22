@@ -2,15 +2,13 @@
 # (marge, vainqueur, marché, calibration), pour comparer les variantes sans parcourir des journaux entiers.
 name: Lire les contrôles
 on:
-  push:
-    paths: ['.github/workflows/lire-controles.yml']
   workflow_dispatch:
     inputs:
       runs: { description: 'Identifiants des exécutions du contrôle de justesse (séparés par des espaces)', default: '' }
 permissions: { actions: read, contents: read }
 jobs:
   lire:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}

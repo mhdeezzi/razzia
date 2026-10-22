@@ -9,7 +9,9 @@ concurrency: { group: avant-match, cancel-in-progress: false }
 permissions: { actions: write, contents: read }
 jobs:
   relance:
-    runs-on: ubuntu-latest
+    # Toutes les 15 minutes : uniquement sur une machine à soi (variable RUNNER = self-hosted), jamais sur les minutes GitHub.
+    if: vars.RUNNER == 'self-hosted' || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ github.token }}

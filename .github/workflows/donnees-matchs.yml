@@ -3,8 +3,6 @@
 # L'archive est découpée en morceaux de 90 Mo (limite GitHub de 100 Mo par fichier).
 name: Copie des matchs
 on:
-  push:
-    paths: ['.github/workflows/donnees-matchs.yml']
   workflow_dispatch:
 permissions: { contents: write }
 jobs:

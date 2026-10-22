@@ -11,15 +11,13 @@ on:
       games: { description: 'Nombre de matchs', default: '120' }
       n: { description: 'Simulations par match', default: '600' }
       variants: { description: 'Variantes (JSON : nom -> paramètres du moteur)', default: '{"actuel":{}}' }
-  push:
-    paths: ['.github/workflows/backtest.yml', 'src/nba/**', 'src/cli/backtest.ts']
-# Pushs : un seul contrôle en attente par branche. Lancements manuels : un groupe par période testée.
+# Lancements manuels uniquement (un groupe par période testée) : un contrôle coûte des heures de machine.
 concurrency: { group: "backtest-${{ github.ref }}-${{ github.event_name }}-${{ inputs.from }}-${{ inputs.to }}", cancel-in-progress: false }
 env:
   VARIANTS: ${{ inputs.variants || '{"actuel":{}}' }}
 jobs:
   variantes:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     outputs: { names: "${{ steps.v.outputs.names }}" }
     steps:
       - id: v
@@ -30,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: { variant: "${{ fromJSON(needs.variantes.outputs.names) }}" }
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 180
     env:
       SIMLAB_OFFLINE_HOSTS: stats.nba.com
