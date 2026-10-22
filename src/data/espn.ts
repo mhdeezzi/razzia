@@ -82,9 +82,42 @@ export async function getMarket(dateYmd: string, homeTri: string, awayTri: strin
         m.mlAway = toNum(pc.awayTeamOdds?.moneyLine);
       }
     }
+    if (m.mlHome == null || m.mlHomeOpen == null) {
+      // L'API « core » garde les cotes de toute la saison (le résumé les perd pour les matchs anciens), ouverture comprise.
+      const core = await coreOdds(e.id).catch(() => undefined);
+      if (core) {
+        if (m.mlHome == null || m.mlAway == null) {
+          m.provider = core.provider;
+          m.mlHome = core.mlHome;
+          m.mlAway = core.mlAway;
+          m.spreadHome ??= core.spreadHome;
+          m.total ??= core.total;
+        }
+        m.mlHomeOpen ??= core.mlHomeOpen;
+        m.mlAwayOpen ??= core.mlAwayOpen;
+      }
+    }
     return m;
   }
   return undefined;
+}
+
+/** Cotes d'un match par l'API core d'ESPN (premier bookmaker listé) : clôture et ouverture. */
+async function coreOdds(eventId: string): Promise<Omit<MarketLines, 'eventId' | 'homeTri' | 'awayTri'> | undefined> {
+  const list = await fetchJson<any>(`${CORE}/events/${eventId}/competitions/${eventId}/odds`, { ttlHours: 24, namespace: 'espn_core', cacheKey: `odds_${eventId}` });
+  let o = list.items?.[0];
+  if (o?.$ref && !o.homeTeamOdds) o = await fetchJson<any>(String(o.$ref).replace('http://', 'https://'), { ttlHours: 24, namespace: 'espn_core', cacheKey: `odds_${eventId}_0` });
+  if (!o?.homeTeamOdds) return undefined;
+  const ml = (side: any, k?: 'open' | 'close') => toNum(k ? side?.[k]?.moneyLine?.american : side?.moneyLine);
+  return {
+    provider: o.provider?.name ?? 'n/a',
+    spreadHome: toNum(o.spread),
+    total: toNum(o.overUnder),
+    mlHome: ml(o.homeTeamOdds) ?? ml(o.homeTeamOdds, 'close'),
+    mlAway: ml(o.awayTeamOdds) ?? ml(o.awayTeamOdds, 'close'),
+    mlHomeOpen: ml(o.homeTeamOdds, 'open'),
+    mlAwayOpen: ml(o.awayTeamOdds, 'open'),
+  };
 }
 
 export function americanToProb(a: number): number {
