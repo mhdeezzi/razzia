@@ -3,6 +3,8 @@
 name: Accès aux sources
 on:
   workflow_dispatch:
+    inputs:
+      script: { description: 'Sonde à lancer (src/dev/…)', default: 'probe.ts' }
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -11,4 +13,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
-      - run: node src/dev/probe.ts
+      - run: node "src/dev/${{ inputs.script || 'probe.ts' }}"
