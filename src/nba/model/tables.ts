@@ -20,6 +20,15 @@ export interface DefAgg {
   [cat: string]: { dfga: number; dfgm: number; normal: number; gp: number };
 }
 
+/** Tirs à 2 et 3 pts par niveau de contestation (0 = très serré ... 3 = grand ouvert). */
+export interface ContestAgg {
+  fg2a: number[];
+  fg2m: number[];
+  fg3a: number[];
+  fg3m: number[];
+}
+const emptyContest = (): ContestAgg => ({ fg2a: [0, 0, 0, 0], fg2m: [0, 0, 0, 0], fg3a: [0, 0, 0, 0], fg3m: [0, 0, 0, 0] });
+
 export interface Tables {
   cur: string;
   prev: string;
@@ -34,6 +43,9 @@ export interface Tables {
   teamAdv: Map<number, { pace: number; gp: number; offRtg: number; defRtg: number; netRtg: number }>;
   teamFour: Map<number, { tovPct: number; oppTovPct: number; orebPct: number; oppOrebPct: number; ftaRate: number; oppFtaRate: number; gp: number }>;
   matchups: S.Row[]; // lignes saison (attaquant, défenseur)
+  contestP: Map<number, ContestAgg>; // tirs du joueur par niveau de contestation
+  contestT: Map<number, ContestAgg>; // tirs concédés par chaque défense par niveau de contestation
+  contestL: ContestAgg; // ligue
   leagueTovPct: number;
 }
 
@@ -214,8 +226,34 @@ export async function loadTables(cur: string, prev: string, prev2?: string): Pro
     }
   }
 
+  // Contestation (distance du défenseur le plus proche) : saison régulière, pondérée comme le reste.
+  const contestP = new Map<number, ContestAgg>();
+  const contestT = new Map<number, ContestAgg>();
+  const contestL = emptyContest();
+  for (const sc of scopes.filter((s) => s.st === S.SEASON_TYPES.regular)) {
+    for (const [c, range] of S.CLOSE_DEF.entries()) {
+      for (const [who, map, key] of [['Player', contestP, 'PLAYER_ID'], ['Opp', contestT, 'TEAM_ID']] as const) {
+        const rows = await S.closeDefShots(sc.season, sc.st, range, who, sc.ttl).catch(() => [] as S.Row[]);
+        for (const r of rows) {
+          const a = map.get(r[key]) ?? emptyContest();
+          a.fg2a[c] += sc.w * (r.FG2A ?? 0);
+          a.fg2m[c] += sc.w * (r.FG2M ?? 0);
+          a.fg3a[c] += sc.w * (r.FG3A ?? 0);
+          a.fg3m[c] += sc.w * (r.FG3M ?? 0);
+          map.set(r[key], a);
+          if (who === 'Player') {
+            contestL.fg2a[c] += sc.w * (r.FG2A ?? 0);
+            contestL.fg2m[c] += sc.w * (r.FG2M ?? 0);
+            contestL.fg3a[c] += sc.w * (r.FG3A ?? 0);
+            contestL.fg3m[c] += sc.w * (r.FG3M ?? 0);
+          }
+        }
+      }
+    }
+  }
+
   return {
-    cur, prev, index, synP, synT, synTD, synLeague, adv, base, def, teamAdv, teamFour, matchups,
+    cur, prev, index, synP, synT, synTD, synLeague, adv, base, def, teamAdv, teamFour, matchups, contestP, contestT, contestL,
     leagueTovPct: lgTovN ? lgTov / lgTovN : 0.135,
   };
 }

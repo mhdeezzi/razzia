@@ -47,6 +47,7 @@ export interface PlayerModel {
   astNorm: Z6; // prior moyen « type de jeu » de ses paniers par zone (pour moduler astd par type de jeu)
   spots: Array<Array<[number, number]>>;
   spotLogit: Z6; // logit moyen de l'adresse de la ligue à la distance de ses tirs habituels, par zone
+  contest?: Contest; // tendance et adresse du joueur selon la distance du défenseur (stats.nba.com)
   labels: Array<Array<[string, number]>>;
   astTo: Record<string, number>; // passeur -> poids vers coéquipier (id)
   passTo: Record<string, number>; // passes (tracking) vers coéquipier
@@ -100,6 +101,7 @@ export interface TeamModel {
   b2b: boolean;
   fatigue: number; // 1 = back-to-back ; + voyage de 2 fuseaux ou plus vers l'est sans repos ; + altitude (visiteur)
   fatigueWhy: string[];
+  defContest?: { s2: number[]; s3: number[] }; // part des tirs adverses par niveau de contestation (défense)
   sos: [number, number]; // force moyenne des adversaires affrontés : [défense - ligue, attaque - ligue] (points par possession)
   ortg: number; // points par possession en attaque (forme récente)
   drtg: number; // points par possession concédés
@@ -122,7 +124,16 @@ export interface LeagueModel {
   homeMargin: number;
   ppg: number;
   rankMinutes: number[]; // minutes moyennes par rang dans la rotation (0 = joueur le plus utilisé)
+  contest?: { s2: number[]; s3: number[] }; // part des tirs par niveau de contestation (ligue)
   distFg: number[]; // adresse de la ligue par distance au panier (pied par pied, 0 à 40)
+}
+
+/** Contestation : 0 = très serré (0-2 pieds), 1 = serré, 2 = ouvert, 3 = grand ouvert (6+ pieds). */
+export interface Contest {
+  s2: number[]; // part des tirs à 2 pts par niveau
+  s3: number[];
+  f2: number[]; // adresse à 2 pts par niveau (rétrécie vers la ligue)
+  f3: number[];
 }
 
 export interface SimParams {
@@ -158,6 +169,7 @@ export interface SimParams {
   fatigueOff: number; // logit d'adresse retiré par unité de fatigue (back-to-back, voyage vers l'est, altitude)
   fatigueDef: number; // logit d'adresse concédé en plus par unité de fatigue de la défense
   sosWeight: number; // correction des notes d'équipe par la force des adversaires affrontés
+  contestWeight: number; // poids de l'adresse du joueur au niveau de contestation tiré (0 = ignoré)
   calA?: number; // recalibration finale de la probabilité de victoire (Platt), mesurée par backtest
   calB?: number;
 }

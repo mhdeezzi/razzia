@@ -3,7 +3,7 @@ import { Worker } from 'node:worker_threads';
 import { availableParallelism } from 'node:os';
 import type { GameModel, PlayerModel } from '../model/types.ts';
 import { simulateGame, type GameResult, type SimEvent } from './game.ts';
-import { merge, playerOrder, runRange, stat, MAXQ, NK, STAT_KEYS, type Batch, type StatKey } from './batch.ts';
+import { merge, playerOrder, runRange, stat, MAXQ, NK, ZK, STAT_KEYS, type Batch, type StatKey } from './batch.ts';
 import { noVig, americanToProb } from '../../data/espn.ts';
 import { normName } from '../model/build.ts';
 import { loadPropCal, calibratedOver } from '../model/propcal.ts';
@@ -203,6 +203,8 @@ export interface Summary {
   players: PlayerSummary[];
   props: PropEval[];
   teamStats: Record<'home' | 'away', Record<string, number>>;
+  /** Profil de tir moyen par équipe : zones (RA, raquette, mi-distance, coin gauche, coin droit, 3 pts de face). */
+  shotProfile?: Record<'home' | 'away', { fga: number[]; fgm: number[]; astM: number; transFga: number; transFgm: number; cont: number[] }>;
 }
 
 /**
@@ -239,6 +241,12 @@ function calibrated(m: GameModel, p: number): number {
   if (a === 0 && b === 1) return p;
   const q = Math.min(0.999, Math.max(0.001, p));
   return 1 / (1 + Math.exp(-(a + b * Math.log(q / (1 - q)))));
+}
+
+function profileOf(b: Batch, side: 0 | 1) {
+  const acc = new Array(ZK).fill(0);
+  for (let i = 0; i < b.n; i++) for (let k = 0; k < ZK; k++) acc[k] += b.shots[(i * 2 + side) * ZK + k] / b.n;
+  return { fga: acc.slice(0, 6), fgm: acc.slice(6, 12), astM: acc[12], transFga: acc[13], transFgm: acc[14], cont: acc.slice(15, 19) };
 }
 
 export function summarize(m: GameModel, b: Batch): Summary {
@@ -351,6 +359,7 @@ export function summarize(m: GameModel, b: Batch): Summary {
       teamStats[key][sk] = s / n;
     }
   }
+  const shotProfile = { home: profileOf(b, 0), away: profileOf(b, 1) };
 
   return {
     n,
@@ -359,7 +368,7 @@ export function summarize(m: GameModel, b: Batch): Summary {
     pHome: calibrated(m, homeWins / n), pAway: 1 - calibrated(m, homeWins / n), pHomeRaw: homeWins / n, pOT: ot / n,
     homePts: dist(Array.from(b.home)), awayPts: dist(Array.from(b.away)), margin: dist(margin), total: dist(total), poss: dist(possA),
     quarters: { home: qH, away: qA }, firstHalf: { home: qH[0] + qH[1], away: qA[0] + qA[1], pHome: h1Home / n },
-    spreadLadder, totalLadder, market, players, props, teamStats,
+    spreadLadder, totalLadder, market, players, props, teamStats, shotProfile,
   };
 }
 

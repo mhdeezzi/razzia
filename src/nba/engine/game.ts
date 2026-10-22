@@ -46,6 +46,12 @@ export interface TeamResult {
   fta: number;
   tov: number;
   oreb: number;
+  zFga?: number[]; // tirs tentés par zone (RA, raquette, mi-distance, coin gauche, coin droit, 3 pts de face)
+  zFgm?: number[];
+  astM?: number; // paniers après une passe décisive
+  transFga?: number; // tirs en contre-attaque
+  transFgm?: number;
+  cont?: number[]; // tirs par niveau de contestation (0 = très serré ... 3 = grand ouvert)
 }
 
 export type EvType = 'start' | 'jump' | 'poss' | 'shot' | 'ft' | 'reb' | 'tov' | 'foul' | 'sub' | 'timeout' | 'period_start' | 'period_end' | 'end';
@@ -82,6 +88,7 @@ export interface SimEvent {
   fouls?: [number, number];
   bonus?: [boolean, boolean];
   wp?: number;
+  ct?: number; // niveau de contestation du tir (0 = très serré ... 3 = grand ouvert)
 }
 
 export interface GameResult {
@@ -520,6 +527,7 @@ export class GameSim {
         pts: this.score[side], q: S.q.slice(), lines, poss: this.possCount[side],
         fga: lines.reduce((a, l) => a + l.fga, 0), fg3a: lines.reduce((a, l) => a + l.fg3a, 0), fta: lines.reduce((a, l) => a + l.fta, 0),
         tov: lines.reduce((a, l) => a + l.tov, 0) + this.teamTov[side], oreb: lines.reduce((a, l) => a + l.oreb, 0),
+        ...this.prof[side],
       };
     };
     return {
@@ -530,6 +538,7 @@ export class GameSim {
   }
   possCount: [number, number] = [0, 0];
   teamTov: [number, number] = [0, 0];
+  prof = [0, 1].map(() => ({ zFga: [0, 0, 0, 0, 0, 0], zFgm: [0, 0, 0, 0, 0, 0], astM: 0, transFga: 0, transFgm: 0, cont: [0, 0, 0, 0] }));
 
   private startersOf(side: 0 | 1): number[] {
     const S = this.S[side];
@@ -750,6 +759,23 @@ export class GameSim {
         const dft = Math.min(40, Math.floor(Math.hypot(spot[0], spot[1]) / 10));
         lp += (P.distWeight ?? 0) * (logit(this.m.league.distFg[dft]) - (shooter.m.spotLogit?.[z] ?? 0));
       }
+      // Contestation : niveau tiré selon les habitudes du tireur et la défense adverse (relative à la ligue),
+      // puis adresse du joueur à ce niveau, relative à son adresse moyenne (effet nul contre une défense moyenne).
+      const C = shooter.m.contest;
+      const Dc = D.t.defContest;
+      const Lc = this.m.league.contest;
+      let contestLevel: number | undefined;
+      if (C && Dc && Lc && P.contestWeight) {
+        const sh = three ? C.s3 : C.s2;
+        const fg = three ? C.f3 : C.f2;
+        const dw = three ? Dc.s3 : Dc.s2;
+        const lw = three ? Lc.s3 : Lc.s2;
+        const w = sh.map((v, c) => v * (dw[c] / Math.max(1e-6, lw[c])));
+        const tot = w.reduce((a, v) => a + v, 0) || 1;
+        contestLevel = this.r.pick(w.map((v) => v / tot));
+        const avg = sh.reduce((a, v, c) => a + v * fg[c], 0);
+        lp += P.contestWeight * (logit(fg[contestLevel]) - logit(avg));
+      }
       // Duel : historique du tireur face au défenseur qui conteste.
       lp += (P.duelWeight ?? 0) * (this.m.duel?.[shooter.m.id]?.[contest.m.id] ?? 0);
       const dd = z === 0 ? contest.m.dRim : z === 1 ? (contest.m.dRim + contest.m.dMid) / 2 : z === 2 ? contest.m.dMid : contest.m.d3;
@@ -766,6 +792,14 @@ export class GameSim {
       if (mismatch && mismatch[1] === shooter.m.id) lp += 0.06;
       const pMake = logistic(lp);
       const made = this.r.chance(pMake);
+      const pr = this.prof[off];
+      pr.zFga[z]++;
+      if (made) pr.zFgm[z]++;
+      if (contestLevel != null) pr.cont[contestLevel]++;
+      if (pt === 'Transition') {
+        pr.transFga++;
+        if (made) pr.transFgm++;
+      }
       shooter.line.fga++;
       if (three) shooter.line.fg3a++;
       const label = this.shotLabel(shooter, z, pt);
@@ -782,11 +816,14 @@ export class GameSim {
         const pAst = clamp(P.astScale * shooter.m.astd[z] * (PT_AST_PRIOR[pt] / Math.max(0.05, shooter.m.astNorm?.[z] ?? 0.5)) * Math.pow(clamp(lineupPass, 0.5, 2.2), 0.35), 0, 0.97);
         if (this.r.chance(pAst)) {
           assister = pt === 'PRRollman' && handler ? handler : this.pickAssister(oc, shooter);
-          if (assister) assister.line.ast++;
+          if (assister) {
+            assister.line.ast++;
+            pr.astM++;
+          }
         }
         const and1 = this.r.chance(clamp(this.whistle * eff.and1 * (off === 0 ? P.homeFoulMult : 1 / P.homeFoulMult), 0, 0.3));
         this.emit({
-          type: 'shot', side: off, pid: shooter.m.id, pid2: assister?.m.id, made: true, pts, zone: z, x: spot[0], y: spot[1], pt, label,
+          type: 'shot', side: off, pid: shooter.m.id, pid2: assister?.m.id, made: true, pts, zone: z, x: spot[0], y: spot[1], pt, label, ct: contestLevel,
           def: contest.m.id, mismatch,
           text: `${shooter.m.short} ${this.verb(label, three, true)}${assister ? `, ${assister.m.short} assist` : ''}`,
         });
@@ -808,7 +845,7 @@ export class GameSim {
         blocker.line.blk++;
       }
       this.emit({
-        type: 'shot', side: off, pid: shooter.m.id, pid2: blocker?.m.id, made: false, pts: 0, zone: z, x: spot[0], y: spot[1], pt, label, def: contest.m.id, mismatch,
+        type: 'shot', side: off, pid: shooter.m.id, pid2: blocker?.m.id, made: false, pts: 0, zone: z, x: spot[0], y: spot[1], pt, label, def: contest.m.id, mismatch, ct: contestLevel,
         text: blocker ? `${blocker.m.short} blocks ${shooter.m.short}` : `${shooter.m.short} misses ${this.verb(label, three, false)}`,
       });
       // Temps de vol du ballon / lutte au rebond.

@@ -1,7 +1,7 @@
 // Construction du modèle de match : fusion PBP (forme récente) + Synergy + tracking + matchups + blessures + marché.
 import { buildFeaturesCached, topLabels, zi, type FeatureSet, type PlayerFeat, type TeamFeat, type ZoneArr } from './features.ts';
-import { loadTablesCached, heightToIn, groupOfPos, type Tables, type SynAgg } from './tables.ts';
-import { PT_LIST, HALF_COURT_PT, type GameModel, type PlayerModel, type TeamModel, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
+import { loadTablesCached, heightToIn, groupOfPos, type Tables, type SynAgg, type ContestAgg } from './tables.ts';
+import { PT_LIST, HALF_COURT_PT, type Contest, type GameModel, type PlayerModel, type TeamModel, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
 import { START_TYPES, type StartType } from './pbp.ts';
 import { ZONES, isThree } from './zones.ts';
 import { teamById, teamByTri, type TeamInfo } from '../teams.ts';
@@ -71,6 +71,7 @@ export const DEFAULT_PARAMS: SimParams = {
   fatigueOff: 0.03,
   fatigueDef: 0.015,
   sosWeight: 1,
+  contestWeight: 1,
 };
 
 const logit = (p: number): number => Math.log(Math.max(1e-6, p) / Math.max(1e-6, 1 - p));
@@ -124,6 +125,31 @@ interface Ctx {
   mByDef: Map<number, Array<{ off: number; w: number }>>;
 }
 
+/** Parts par niveau de contestation (rétrécies vers la répartition de la ligue quand l'échantillon est petit). */
+function shares(a: ContestAgg | undefined, prior?: { s2: number[]; s3: number[] }, k = 0): { s2: number[]; s3: number[] } | undefined {
+  if (!a) return prior;
+  const n2 = sum(a.fg2a), n3 = sum(a.fg3a);
+  if (!prior && (n2 <= 0 || n3 <= 0)) return undefined;
+  const sh = (x: number[], n: number, p?: number[]) => x.map((v, c) => (v + k * (p?.[c] ?? 0.25)) / (n + k || 1));
+  return { s2: sh(a.fg2a, n2, prior?.s2), s3: sh(a.fg3a, n3, prior?.s3) };
+}
+
+/** Profil de contestation d'un joueur : parts et adresse par niveau, rétrécies vers la ligue (pente ligue × son adresse). */
+function contestOf(a: ContestAgg | undefined, L: ContestAgg): Contest | undefined {
+  const lg = shares(L);
+  if (!a || !lg) return undefined;
+  const s = shares(a, lg, 30)!;
+  const fg = (m: number[], n: number[], lm: number[], ln: number[]) => {
+    const pAll = (sum(m) + 20 * (sum(lm) / Math.max(1, sum(ln)))) / (sum(n) + 20);
+    const lAll = sum(lm) / Math.max(1, sum(ln));
+    return n.map((att, c) => {
+      const prior = clamp(pAll * ((ln[c] ? lm[c] / ln[c] : lAll) / Math.max(1e-6, lAll)), 0.05, 0.95);
+      return (m[c] + 40 * prior) / (att + 40);
+    });
+  };
+  return { ...s, f2: fg(a.fg2m, a.fg2a, L.fg2m, L.fg2a), f3: fg(a.fg3m, a.fg3a, L.fg3m, L.fg3a) };
+}
+
 function leagueModel(f: FeatureSet, t: Tables): LeagueModel {
   const L = f.league;
   const zoneFg = L.zoneFga.map((n, i) => (n ? L.zoneFgm[i] / n : 0.4)) as Z6;
@@ -144,6 +170,7 @@ function leagueModel(f: FeatureSet, t: Tables): LeagueModel {
     ppg: L.pts,
     rankMinutes: L.presenceTemplate.map((row) => sum(row)),
     distFg: L.distFg,
+    contest: shares(t.contestL),
   };
 }
 
@@ -541,6 +568,7 @@ function buildPlayer(ctx: Ctx, pid: number, info: { name: string; jersey: string
     stintMean: pf && pf.stintN > 2 ? pf.stintSum / pf.stintN : ctx.feats.league.stintMean,
     usg, pt, eff, zone, fg, ft, astd, astNorm,
     spots: pf?.spots ?? ZONES.map(() => []),
+    contest: contestOf(ctx.tables.contestP.get(pid), ctx.tables.contestL),
     spotLogit: (pf?.spots ?? ZONES.map(() => [])).map((sp) => (sp.length ? sum(sp.map(([x, y]) => logit(ctx.feats.league.distFg[Math.min(40, Math.floor(Math.hypot(x, y) / 10))]))) / sp.length : 0)) as Z6,
     labels: pf ? pf.labels.map((m) => topLabels(m)) : ZONES.map(() => []),
     astTo: {}, passTo: {}, astRate, putback, orb, drb,
@@ -585,6 +613,8 @@ function preseasonRank(teamId: number, pid: number, season: string): { rank: num
 function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeason: string, actual?: GameRecord, lineup?: number[], playoffs = false): void {
   const f = ctx.feats;
   const T = f.league.presenceTemplate;
+  // Minutes pondérées séparément quand le joueur a commencé le match et quand il est sorti du banc.
+  const roleMin = new Map<number, { wS: number; mS: number; wB: number; mB: number }>();
   for (const p of players) {
     const pf = f.players.get(p.id);
     const lines = pf?.games ?? [];
@@ -599,6 +629,7 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
     const med = lastMins.length ? lastMins[Math.floor(lastMins.length / 2)] : 0;
     if (med >= 16) recent = recent.filter((x) => x.sec / 60 >= 0.5 * med);
     let wS = 0, mS = 0;
+    const rm = { wS: 0, mS: 0, wB: 0, mB: 0 };
     recent.forEach((x, i, arr) => {
       // En playoffs, les rotations se resserrent : les matchs de playoffs de la saison deviennent la référence.
       const po = x.gameId.startsWith('004');
@@ -606,7 +637,10 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
       const w = 0.92 ** (arr.length - 1 - i) * (x.season === curSeason ? 3 : 1) * poW;
       wS += w;
       mS += w * (x.sec / 60);
+      if (x.starter) (rm.wS += w), (rm.mS += w * (x.sec / 60));
+      else (rm.wB += w), (rm.mB += w * (x.sec / 60));
     });
+    roleMin.set(p.id, rm);
     let exp = wS > 0 ? mS / wS : 0;
     // Début de saison (< 3 matchs cette saison) : la médiane des 50 derniers matchs joués résiste aux périodes
     // de restriction (retour de blessure) et aux sorties prématurées ; on la mélange à la tendance récente.
@@ -657,13 +691,7 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
   } else if (lineup && lineup.length >= 4) {
     // Composition du jour (NBA.com) : un joueur promu titulaire reçoit des minutes de titulaire.
     starters = lineup.filter((id) => players.some((p) => p.id === id));
-    for (const p of players) {
-      if (!starters.includes(p.id)) continue;
-      if (p.expMin < 30) {
-        p.expMin = 0.5 * p.expMin + 0.5 * 30;
-        p.notes.push('titulaire annoncé ce soir');
-      }
-    }
+    for (const p of players) if (starters.includes(p.id)) p.notes.push('titulaire annoncé ce soir');
   } else {
     const last = new Map<number, string>();
     for (const p of players) {
@@ -689,6 +717,24 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
     if (!starters.includes(p.id)) starters.push(p.id);
   }
   for (const p of players) p.starter = starters.includes(p.id);
+
+  // Minutes selon le rôle du soir (autopsie 2025-26 : un remplaçant promu titulaire recevait ~11 min de moins que
+  // la réalité, un titulaire habituel qui sort du banc beaucoup trop). Moyenne du joueur dans ce rôle, rétrécie vers
+  // un a priori : minutes de titulaire (~30) pour un promu, trois quarts de ses minutes pour un titulaire relégué.
+  const K = 3;
+  for (const p of players) {
+    const r = roleMin.get(p.id);
+    if (!r || p.expMin <= 0) continue;
+    const usualStarter = r.wS > r.wB;
+    // Écart appliqué aux minutes attendues (qui intègrent déjà mercato, pré-saison, début de saison).
+    const base = r.wS + r.wB > 0 ? (r.mS + r.mB) / (r.wS + r.wB) : p.expMin;
+    const prior = p.starter ? Math.max(base, 0.35 * base + 0.65 * 30) : usualStarter ? 0.75 * base : base;
+    const [w, m] = p.starter ? [r.wS, r.mS] : [r.wB, r.mB];
+    const target = clamp(p.expMin + (m + K * prior) / (w + K) - base, 0, 40);
+    if (p.starter && !usualStarter && target > p.expMin + 1) p.notes.push(`titulaire ce soir (${Math.round(p.expMin)} → ${Math.round(target)} min)`);
+    if (!p.starter && usualStarter && target < p.expMin - 1) p.notes.push(`sort du banc ce soir (${Math.round(p.expMin)} → ${Math.round(target)} min)`);
+    p.expMin = target;
+  }
 
   // Courbes manquantes ou rôle modifié : gabarit de ligue selon le rang de minutes.
   const ranked = [...players].sort((a, b) => (b.starter ? 1 : 0) - (a.starter ? 1 : 0) || b.expMin - a.expMin);
@@ -830,6 +876,7 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
     hcDurDef: T && T.oppDurN > 50 ? T.oppDurSum / T.oppDurN / league.hcDur : 1,
     transOff, transDefMult, ptDefMult, tovForceMult, zoneDefMult, zoneDefFg, foulRate, switchRate,
     restDays, b2b: restDays === 0, fatigue, fatigueWhy, sos,
+    defContest: shares(t.contestT.get(info.id), shares(t.contestL), 200),
     ratings: {
       offRtg: adv?.offRtg ?? 0, defRtg: adv?.defRtg ?? 0, netRtg: adv?.netRtg ?? 0, pace: adv?.pace ?? 0,
       tovPct: four?.tovPct ?? 0, oppTovPct: four?.oppTovPct ?? 0, orebPct: four?.orebPct ?? 0,
