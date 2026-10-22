@@ -1,8 +1,7 @@
 // Point d'entrée : en-tête, routes (programme, fiche de match, simulations), pied de page.
 import { StrictMode, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/geist';
-import '@fontsource-variable/geist-mono';
+import '@fontsource-variable/host-grotesk';
 import { Basketball, CaretRight, ChartLineUp, ClockCounterClockwise, Info, SoccerBall, TennisBall } from '@phosphor-icons/react';
 import './styles.css';
 import { listSims, loadProgramme, matchPath, type Programme, type SimEntry } from './data.ts';
