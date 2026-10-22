@@ -1,0 +1,33 @@
+# Copie des play-by-play (data/cache hors tableaux stats.nba.com) sur la branche donnees-matchs, pour travailler
+# depuis une machine qui ne joint pas cdn.nba.com : git fetch origin donnees-matchs puis cat matchs.tar.* | tar -x -C data/cache.
+# L'archive est découpée en morceaux de 90 Mo (limite GitHub de 100 Mo par fichier).
+name: Copie des matchs
+on:
+  push:
+    paths: ['.github/workflows/donnees-matchs.yml']
+  workflow_dispatch:
+permissions: { contents: write }
+jobs:
+  copie:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SIMLAB_OFFLINE_HOSTS: stats.nba.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci --no-audit --no-fund
+      - uses: actions/cache@v4
+        with:
+          path: data/cache
+          key: nba-cache-${{ github.run_id }}
+          restore-keys: nba-cache-
+      - run: npm run snapshot -- --pull
+      - run: npm run ingest -- --games
+      - name: Publication sur donnees-matchs
+        run: |
+          mkdir -p ../arch && tar -cf - -C data/cache --exclude=stats . | split -b 90m - ../arch/matchs.tar.
+          ls -la ../arch
+          cd ../arch && git init -q -b donnees-matchs && git add . && git -c user.name=simbet-bot -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -qm "Matchs du $(date -u +%FT%H:%M)"
+          git push --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:refs/heads/donnees-matchs
