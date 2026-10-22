@@ -4,6 +4,17 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
-  "git": { "deploymentEnabled": { "resultats": false, "donnees-stats": false } }
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "resultats": false,
+      "donnees-stats": false,
+      "donnees-matchs": false
+    }
+  }
 }

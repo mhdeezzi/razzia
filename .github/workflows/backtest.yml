@@ -11,26 +11,28 @@ on:
       games: { description: 'Nombre de matchs', default: '120' }
       n: { description: 'Simulations par match', default: '600' }
       variants: { description: 'Variantes (JSON : nom -> paramètres du moteur)', default: '{"actuel":{}}' }
-  push:
-    paths: ['.github/workflows/backtest.yml', 'src/nba/**', 'src/cli/backtest.ts']
-# Pushs : un seul contrôle en attente par branche. Lancements manuels : un groupe par période testée.
+      shards: { description: 'Morceaux parallèles par variante (1 match sur k chacun)', default: '1' }
+# Lancements manuels uniquement (un groupe par période testée) : un contrôle coûte des heures de machine.
 concurrency: { group: "backtest-${{ github.ref }}-${{ github.event_name }}-${{ inputs.from }}-${{ inputs.to }}", cancel-in-progress: false }
 env:
   VARIANTS: ${{ inputs.variants || '{"actuel":{}}' }}
 jobs:
   variantes:
-    runs-on: ubuntu-latest
-    outputs: { names: "${{ steps.v.outputs.names }}" }
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
+    outputs: { names: "${{ steps.v.outputs.names }}", shards: "${{ steps.v.outputs.shards }}" }
     steps:
       - id: v
-        run: echo "names=$(node -e 'console.log(JSON.stringify(Object.keys(JSON.parse(process.env.VARIANTS))))')" >> "$GITHUB_OUTPUT"
+        env: { SHARDS: "${{ inputs.shards || '1' }}" }
+        run: |
+          echo "names=$(node -e 'console.log(JSON.stringify(Object.keys(JSON.parse(process.env.VARIANTS))))')" >> "$GITHUB_OUTPUT"
+          echo "shards=$(node -e 'console.log(JSON.stringify([...Array(Math.max(1, Number(process.env.SHARDS))).keys()]))')" >> "$GITHUB_OUTPUT"
   backtest:
     needs: variantes
-    name: "backtest (${{ matrix.variant }})"
+    name: "backtest (${{ matrix.variant }}) ${{ matrix.shard }}"
     strategy:
       fail-fast: false
-      matrix: { variant: "${{ fromJSON(needs.variantes.outputs.names) }}" }
-    runs-on: ubuntu-latest
+      matrix: { variant: "${{ fromJSON(needs.variantes.outputs.names) }}", shard: "${{ fromJSON(needs.variantes.outputs.shards) }}" }
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 180
     env:
       SIMLAB_OFFLINE_HOSTS: stats.nba.com
@@ -39,6 +41,8 @@ jobs:
       GAMES: ${{ inputs.games || '120' }}
       N: ${{ inputs.n || '600' }}
       VARIANT: ${{ matrix.variant }}
+      SHARD: ${{ matrix.shard }}
+      SHARDS: ${{ inputs.shards || '1' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -54,7 +58,21 @@ jobs:
       - run: |
           PARAMS=$(node -e 'console.log(JSON.stringify(JSON.parse(process.env.VARIANTS)[process.env.VARIANT] ?? {}))')
           echo "Variante « $VARIANT » : $PARAMS"
-          npm run backtest -- --from "$FROM" --to "$TO" --games "$GAMES" --n "$N" --params "$PARAMS" | tee backtest.txt
+          npm run backtest -- --from "$FROM" --to "$TO" --games "$GAMES" --n "$N" --params "$PARAMS" --shard "$SHARD" --shards "$SHARDS" --json morceau.json | tee backtest.txt
       - name: Résumé
         run: |
           { echo "### Variante : $VARIANT"; echo '```'; sed -n '/^Matchs :/,$p' backtest.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with: { name: "morceau-${{ strategy.job-index }}", path: morceau.json, retention-days: 7 }
+  synthese:
+    needs: backtest
+    if: always()
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - uses: actions/download-artifact@v4
+        with: { path: morceaux, pattern: 'morceau-*' }
+      - name: Référence par variante
+        run: node src/cli/btmerge.ts morceaux | tee synthese.txt && cat synthese.txt >> "$GITHUB_STEP_SUMMARY"

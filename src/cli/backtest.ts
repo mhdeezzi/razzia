@@ -21,6 +21,9 @@ function arg(name: string, def?: string): string | undefined {
 export interface BacktestResult {
   fullTables?: boolean;
   market?: { n: number; brierModel: number; brierMarket: number; brierBlend: number; spreadN: number; spreadErrModel: number; spreadErrMarket: number; totN: number; totErrModel: number; totErrMarket: number; ats: number; atsWin: number };
+  // Mélange modèle / marché (clôture) en logit, par part du modèle ; valeur de clôture contre les cotes d'ouverture.
+  blend?: Array<{ w: number; brier: number }>;
+  clv?: { n: number; bets: number; clvSum: number; clvPos: number; profit: number; won: number; corrNum: number; corrDen1: number; corrDen2: number; sx: number; sy: number };
   games: number;
   team: Record<string, { sim: number; real: number }>;
   marginMAE: number;
@@ -38,6 +41,7 @@ export interface BacktestResult {
   accuracyMkt?: number;
   autopsy: Autopsy;
   rows: Array<Record<string, unknown>>;
+  fav?: Array<{ mkt: number; sim: number; target: number; players: number }>;
 }
 
 /** Autopsie : ce qui, dans le vrai match, a écarté le résultat de la simulation. */
@@ -69,7 +73,7 @@ function decompose(r: Box, s: Box) {
   };
 }
 
-export async function backtest(opts: { from: string; to: string; games: number; n: number; params?: Partial<SimParams>; quiet?: boolean; market?: boolean; noStrength?: boolean; fullTables?: boolean }): Promise<BacktestResult> {
+export async function backtest(opts: { from: string; to: string; games: number; n: number; params?: Partial<SimParams>; quiet?: boolean; market?: boolean; noStrength?: boolean; fullTables?: boolean; shard?: number; shards?: number }): Promise<BacktestResult> {
   const ids = readdirSync(join(CACHE_DIR, 'games')).map((f) => f.replace('.json.gz', '')).filter((id) => id.startsWith('002')).sort();
   const pool: GameRecord[] = [];
   for (const id of ids) {
@@ -77,7 +81,9 @@ export async function backtest(opts: { from: string; to: string; games: number; 
     if (g.date >= opts.from && g.date <= opts.to) pool.push(g);
   }
   const step = Math.max(1, Math.floor(pool.length / opts.games));
-  const sample = pool.filter((_, i) => i % step === 0).slice(0, opts.games);
+  // Morceaux parallèles : chaque machine prend un match sur k du même échantillon (regroupés ensuite par btmerge.ts).
+  const k = Math.max(1, opts.shards ?? 1);
+  const sample = pool.filter((_, i) => i % step === 0).slice(0, opts.games).filter((_, i) => i % k === (opts.shard ?? 0));
   const keys = ['pts', 'fga', 'fgm', 'fg3a', 'fg3m', 'fta', 'tov', 'oreb', 'reb', 'ast', 'stl', 'blk', 'pf'];
   const realKey: Record<string, string> = {
     pts: 'points', fga: 'fieldGoalsAttempted', fgm: 'fieldGoalsMade', fg3a: 'threePointersAttempted', fg3m: 'threePointersMade', fta: 'freeThrowsAttempted',
@@ -93,12 +99,19 @@ export async function backtest(opts: { from: string; to: string; games: number; 
   let hits = 0, hitsMkt = 0, nMkt = 0;
   const auto: Autopsy = { n: 0, sq: { err: 0, a3: 0, a2: 0, aft: 0, vol: 0 }, zones: {}, style: { trans: 0, transN: 0, ast: 0, astN: 0 }, misses: [], drivers: {}, minutes: {}, explosions: 0, playersSeen: 0, lateOut: 0 };
   const mkt = { n: 0, brierModel: 0, brierMarket: 0, brierBlend: 0, spreadN: 0, spreadErrModel: 0, spreadErrMarket: 0, totN: 0, totErrModel: 0, totErrMarket: 0, ats: 0, atsWin: 0 };
+  // Diagnostic des gros favoris : écart attendu selon chaque étage du moteur, contre la ligne du marché.
+  const fav: Array<{ mkt: number; sim: number; target: number; players: number }> = [];
+  const W = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1];
+  const blend = W.map((w) => ({ w, brier: 0 }));
+  const clv = { n: 0, bets: 0, clvSum: 0, clvPos: 0, profit: 0, won: 0, corrNum: 0, corrDen1: 0, corrDen2: 0, sx: 0, sy: 0 };
+  const lg = (p: number) => Math.log(Math.min(0.995, Math.max(0.005, p)) / (1 - Math.min(0.995, Math.max(0.005, p))));
+  const decimal = (a: number) => (a > 0 ? 1 + a / 100 : 1 + 100 / -a);
   for (const [gi, g] of sample.entries()) {
     const t0 = Date.now();
     const m = await buildGameModel({ date: g.date, homeTri: g.home.tri, awayTri: g.away.tri, gameId: g.gameId, actual: g, injuries: false, market: false, passes: false, pastTablesOnly: !opts.fullTables });
     Object.assign(m.params, opts.params ?? {});
     calibratePace(m, 150);
-    if (!opts.noStrength) calibrateStrength(m, 200);
+    const st = opts.noStrength ? undefined : calibrateStrength(m, 400);
     const b = await runSims(m, opts.n, 11 + gi);
     const s = summarize(m, b);
     for (const k of keys) {
@@ -115,8 +128,18 @@ export async function backtest(opts: { from: string; to: string; games: number; 
     msd += s.margin.sd / sample.length;
     tsd += s.total.sd / sample.length;
     // Marché (clôture DraftKings) : comparaison modèle / marché / mélange.
+    const rowMk: Record<string, number | undefined> = {};
     if (opts.market) {
       const mk = await getMarket(g.date, g.home.tri, g.away.tri).catch(() => undefined);
+      if (mk?.mlHome != null && mk.mlAway != null) {
+        rowMk.pMkt = +noVig(mk.mlHome, mk.mlAway)[0].toFixed(4);
+        rowMk.spread = mk.spreadHome;
+        if (mk.mlHomeOpen != null && mk.mlAwayOpen != null) {
+          rowMk.pOpen = +noVig(mk.mlHomeOpen, mk.mlAwayOpen)[0].toFixed(4);
+          rowMk.mlHomeOpen = mk.mlHomeOpen;
+          rowMk.mlAwayOpen = mk.mlAwayOpen;
+        }
+      }
       if (mk?.mlHome != null && mk.mlAway != null) {
         const pm = noVig(mk.mlHome, mk.mlAway)[0];
         const yy = realMargin > 0 ? 1 : 0;
@@ -130,6 +153,34 @@ export async function backtest(opts: { from: string; to: string; games: number; 
         mkt.brierModel += (s.pHome - yy) ** 2;
         mkt.brierMarket += (pm - yy) ** 2;
         mkt.brierBlend += (0.5 * s.pHome + 0.5 * pm - yy) ** 2;
+        for (const b of blend) b.brier += (1 / (1 + Math.exp(-(b.w * lg(s.pHome) + (1 - b.w) * lg(pm)))) - yy) ** 2;
+        // Valeur de clôture : le modèle contre la cote d'ouverture ; la ligne a-t-elle bougé dans son sens ?
+        if (mk.mlHomeOpen != null && mk.mlAwayOpen != null) {
+          const po = noVig(mk.mlHomeOpen, mk.mlAwayOpen)[0];
+          const x = s.pHome - po;
+          const d = pm - po;
+          clv.n++;
+          clv.sx += x;
+          clv.sy += d;
+          clv.corrNum += x * d;
+          clv.corrDen1 += x * x;
+          clv.corrDen2 += d * d;
+          if (Math.abs(x) >= 0.04) {
+            const home = x > 0;
+            clv.bets++;
+            const move = home ? d : -d;
+            clv.clvSum += move;
+            if (move > 0) clv.clvPos++;
+            const win = home ? yy === 1 : yy === 0;
+            const odds = decimal(home ? mk.mlHomeOpen : mk.mlAwayOpen);
+            clv.profit += win ? odds - 1 : -1;
+            if (win) clv.won++;
+          }
+        }
+        if (mk.spreadHome != null && st) {
+          const pace = (m.home.pace + m.away.pace) / 2;
+          fav.push({ mkt: -mk.spreadHome, sim: s.margin.mean, target: (st.target[0] - st.target[1]) * pace, players: (st.before[0] - st.before[1]) * pace });
+        }
         if (mk.spreadHome != null) {
           mkt.spreadN++;
           mkt.spreadErrModel += Math.abs(realMargin - s.margin.mean);
@@ -295,10 +346,17 @@ export async function backtest(opts: { from: string; to: string; games: number; 
         });
       }
     }
-    rows.push({ game: `${g.away.tri}@${g.home.tri}`, date: g.date, real: `${g.away.score}-${g.home.score}`, sim: `${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)}`, pHome: +s.pHome.toFixed(3) });
+    const pace = (m.home.pace + m.away.pace) / 2;
+    rows.push({
+      game: `${g.away.tri}@${g.home.tri}`, date: g.date, real: `${g.away.score}-${g.home.score}`, sim: `${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)}`,
+      pHome: +s.pHome.toFixed(4), y: realMargin > 0 ? 1 : 0, simMargin: +s.margin.mean.toFixed(2),
+      target: st ? +((st.target[0] - st.target[1]) * pace).toFixed(2) : undefined, players: st ? +((st.before[0] - st.before[1]) * pace).toFixed(2) : undefined,
+      ...rowMk,
+    });
     if (!opts.quiet) console.log(`[${gi + 1}/${sample.length}] ${g.date} ${g.away.tri}@${g.home.tri} réel ${g.away.score}-${g.home.score} | sim ${s.awayPts.mean.toFixed(1)}-${s.homePts.mean.toFixed(1)} pDom ${(s.pHome * 100).toFixed(0)}% (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   }
-  return { fullTables: !!opts.fullTables, market: mkt, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, calib, accuracy: hits / sample.length, accuracyMkt: nMkt ? hitsMkt / nMkt : undefined, autopsy: auto, rows };
+  for (const b of blend) b.brier /= Math.max(1, mkt.n);
+  return { fav, fullTables: !!opts.fullTables, market: mkt, blend: mkt.n ? blend : undefined, clv: clv.n ? clv : undefined, games: sample.length, team, marginMAE: mae, totalMAE: tmae, marginBias: mb, totalBias: tb, simMarginSd: msd, simTotalSd: tsd, brier, logloss: ll, coverage: cov, calib, accuracy: hits / sample.length, accuracyMkt: nMkt ? hitsMkt / nMkt : undefined, autopsy: auto, rows };
 }
 
 export function printBacktest(r: BacktestResult): string {
@@ -315,6 +373,37 @@ export function printBacktest(r: BacktestResult): string {
     L.push(`Marché (clôture DraftKings, ${k.n} matchs) : Brier modèle ${(k.brierModel / k.n).toFixed(4)} | marché ${(k.brierMarket / k.n).toFixed(4)} | mélange 50/50 ${(k.brierBlend / k.n).toFixed(4)}`);
     if (k.spreadN) L.push(`  Erreur absolue sur la marge : modèle ${(k.spreadErrModel / k.spreadN).toFixed(2)} vs ligne ${(k.spreadErrMarket / k.spreadN).toFixed(2)} ; total : modèle ${(k.totErrModel / Math.max(1, k.totN)).toFixed(2)} vs ligne ${(k.totErrMarket / Math.max(1, k.totN)).toFixed(2)}`);
     if (k.ats) L.push(`  Écart modèle/ligne ≥ 3 pts : ${k.atsWin}/${k.ats} gagnants contre le spread (${(k.atsWin / k.ats * 100).toFixed(1)} %)`);
+  }
+  if (r.blend) {
+    const best = [...r.blend].sort((a, b) => a.brier - b.brier)[0];
+    L.push(`Mélange (logit) part du modèle -> Brier : ${r.blend.map((b) => `${Math.round(b.w * 100)} % ${b.brier.toFixed(4)}`).join(' | ')} ; meilleur : ${Math.round(best.w * 100)} %`);
+  }
+  if (r.clv) {
+    const c = r.clv;
+    const n = c.n;
+    const corr = (c.corrNum - (c.sx * c.sy) / n) / Math.sqrt((c.corrDen1 - (c.sx * c.sx) / n) * (c.corrDen2 - (c.sy * c.sy) / n));
+    L.push(`Valeur de clôture (cotes d'ouverture, ${n} matchs) : corrélation (modèle - ouverture) / (clôture - ouverture) ${corr.toFixed(3)}`);
+    if (c.bets) L.push(`  Écart modèle/ouverture ≥ 4 pts de % : ${c.bets} paris, la ligne bouge dans notre sens ${((c.clvPos / c.bets) * 100).toFixed(1)} % du temps (${((c.clvSum / c.bets) * 100).toFixed(2)} pts de % en moyenne), gagnés ${((c.won / c.bets) * 100).toFixed(1)} %, rendement à la cote d'ouverture ${((c.profit / c.bets) * 100).toFixed(1)} %`);
+  }
+  if (r.fav && r.fav.length > 10) {
+    const F = r.fav;
+    const slope = (k: 'sim' | 'target' | 'players') => {
+      const mx = F.reduce((a, f) => a + f.mkt, 0) / F.length;
+      const my = F.reduce((a, f) => a + f[k], 0) / F.length;
+      let sxy = 0, sxx = 0;
+      for (const f of F) {
+        sxy += (f.mkt - mx) * (f[k] - my);
+        sxx += (f.mkt - mx) ** 2;
+      }
+      return sxy / sxx;
+    };
+    const absm = (k: 'mkt' | 'sim' | 'target' | 'players') => F.reduce((a, f) => a + Math.abs(f[k]), 0) / F.length;
+    L.push(`Favoris (écart attendu, ${F.length} matchs) : |écart| moyen marché ${absm('mkt').toFixed(2)}, simulé ${absm('sim').toFixed(2)}, notes d'équipe ${absm('target').toFixed(2)}, joueurs seuls ${absm('players').toFixed(2)} ; pente contre la ligne : simulé ${slope('sim').toFixed(2)}, notes d'équipe ${slope('target').toFixed(2)}, joueurs seuls ${slope('players').toFixed(2)}`);
+  }
+  {
+    const M = r.rows.filter((x) => x.pMkt != null) as Array<{ pHome: number; pMkt: number; y: number }>;
+    const ok = (p: number, y: number) => (p >= 0.5) === (y === 1);
+    if (M.length) L.push(`Référence : Razzia ${((M.filter((x) => ok(x.pHome, x.y)).length / M.length) * 100).toFixed(1)} % — marché ${((M.filter((x) => ok(x.pMkt, x.y)).length / M.length) * 100).toFixed(1)} % (mêmes ${M.length} matchs)`);
   }
   L.push(`Bon vainqueur annoncé : modèle ${(r.accuracy * 100).toFixed(1)} %${r.accuracyMkt != null ? ` | marché ${(r.accuracyMkt * 100).toFixed(1)} %` : ''}`);
   L.push('Calibration (confiance annoncée du favori -> part réellement gagnée)');
@@ -360,6 +449,7 @@ if (import.meta.main) {
     market: !process.argv.includes('--no-market'),
     noStrength: process.argv.includes('--no-strength'),
     fullTables: process.argv.includes('--full-tables') || !!_fullTables,
+    shard: Number(arg('shard', '0')), shards: Number(arg('shards', '1')),
   });
   console.log(r.fullTables ? 'Tables stats.nba.com : saison du match incluse (totaux de fin de saison, fuite possible)' : 'Tables stats.nba.com : saisons précédentes uniquement (aucune donnée postérieure au match)');
   const txt = printBacktest(r);
@@ -367,5 +457,6 @@ if (import.meta.main) {
   mkdirSync(join(ROOT, 'out', 'backtests'), { recursive: true });
   const f = join(ROOT, 'out', 'backtests', `bt_${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   writeFileSync(f, JSON.stringify({ args: process.argv.slice(2), ...r }, null, 1));
+  if (arg('json')) writeFileSync(arg('json')!, JSON.stringify({ variant: process.env.VARIANT ?? '', rows: r.rows }));
   console.log(`\nDétails : ${f}`);
 }

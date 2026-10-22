@@ -278,6 +278,13 @@ a.row:hover .mark { transform: scale(1.06); }
 .odds-t td:first-child { text-align: left; }
 .odds-t td:first-child span { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; }
 .odds-t tfoot td { border-top: 1px solid var(--line); padding-top: 12px; }
+.books-t th { text-align: right; }
+.books-t th:first-child { text-align: left; }
+.books-t td:first-child { font-weight: 600; }
+.books-t .ev { display: block; font: 500 11.5px var(--sans); }
+.books-t .ev.pos { color: var(--green); }
+.books-t .ev.neg { color: var(--text-3); }
+.books-note { margin-top: 10px; line-height: 1.45; }
 .inj-team + .inj-team { border-top: 1px solid var(--line); padding-top: 14px; }
 .inj-head { display: flex; align-items: center; gap: 10px; font-weight: 600; margin-bottom: 8px; }
 .inj { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
@@ -678,3 +685,11 @@ a.row:hover .mark { transform: scale(1.06); }
   .profile-row .pv small { display: block; }
   .profile-extra div { grid-template-columns: 52px 1fr 52px; }
 }
+
+/* Bilan */
+.bilan-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; padding: 20px; }
+.bilan-kpis > div { display: flex; flex-direction: column; gap: 6px; }
+.bilan-kpis b { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.bilan-kpis small { color: var(--text-3); font-size: 12.5px; line-height: 1.4; }
+.bilan-row { grid-template-columns: 70px minmax(0, 1fr) 110px minmax(0, 1.2fr) !important; }
+@media (max-width: 640px) { .bilan-row { grid-template-columns: 56px minmax(0, 1fr) !important; } .bilan-row > :nth-child(3) { display: none; } }

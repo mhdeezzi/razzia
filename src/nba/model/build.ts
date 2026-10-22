@@ -1,7 +1,10 @@
 // Construction du modèle de match : fusion PBP (forme récente) + Synergy + tracking + matchups + blessures + marché.
-import { buildFeaturesCached, topLabels, zi, type FeatureSet, type GameLine, type PlayerFeat, type TeamFeat, type ZoneArr } from './features.ts';
+import { buildFeaturesCached, loadGames, topLabels, zi, type FeatureSet, type GameLine, type PlayerFeat, type TeamFeat, type ZoneArr } from './features.ts';
 import { loadTablesCached, heightToIn, groupOfPos, type Tables, type SynAgg, type ContestAgg } from './tables.ts';
-import { PT_LIST, HALF_COURT_PT, type Contest, type GameModel, type PlayerModel, type TeamModel, type TeamMomentum, type TeamH2H, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
+import { occLogs, occProfile, type OccGame, type OccProfile } from './xpts.ts';
+import { rapmAsOf } from './rapm.ts';
+import { styleEffect } from './stylecat.ts';
+import { PT_LIST, HALF_COURT_PT, type Contest, type Edge, type OccSummary, type GameModel, type PlayerModel, type TeamModel, type TeamMomentum, type TeamH2H, type PT, type PTEff, type Z6, type LeagueModel, type SimParams } from './types.ts';
 import { START_TYPES, type StartType } from './pbp.ts';
 import { ZONES, isThree } from './zones.ts';
 import { teamById, teamByTri, type TeamInfo } from '../teams.ts';
@@ -9,7 +12,8 @@ import { seasonOfDate, seasonsInScope } from '../seasons.ts';
 import { getInjuries, getMarket, getProps, noVig, type InjuryItem } from '../../data/espn.ts';
 import { playerPasses, SEASON_TYPES, dailyLineups } from '../../data/nbaStats.ts';
 import { pool } from '../../data/http.ts';
-import type { GameRecord } from '../../data/cdn.ts';
+import { getSchedule, upcomingOfficials, type GameRecord } from '../../data/cdn.ts';
+import { crewEffect, refsAsOf } from './refs.ts';
 import { readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CACHE_DIR, readCache } from '../../data/http.ts';
@@ -28,6 +32,7 @@ export interface BuildOpts {
   passes?: boolean;
   // Contrôle de justesse : sans les tables stats.nba.com de la saison du match (totaux de fin de saison = futur).
   pastTablesOnly?: boolean;
+  freshInjuries?: boolean; // relance d'avant-match : rapport de blessures relu à l'instant (absents annoncés)
   log?: (...a: unknown[]) => void;
 }
 
@@ -63,13 +68,33 @@ export const DEFAULT_PARAMS: SimParams = {
   threeMult: 0.926,
   teamBias: [0, 0],
   uncWeight: 1,
-  // Contrôle sans fuite sur 2 x 200 matchs avec les tables de tirs contestés : momentum, confrontations récentes et
-  // fin de saison sans enjeu (combinés) font moins bien que ce réglage (Brier 0,2277 vs 0,2251 et 0,2164 vs 0,2120).
-  momentumWeight: 0,
-  momentumEarly: 0,
+  // Contrôles sans fuite, 2 x 200 matchs (janv.-avr. 2026 / oct. 2025-janv. 2026), Brier contre 0,2251 / 0,2120 :
+  // notes d'impact joueurs à 50 % 0,2203 / 0,2122 ; momentum en occasions 0,2213 / 0,2094 ; fin de saison sans enjeu
+  // 0,2233 en fin de saison ; « qui garde qui » du coach utile (0,2270 / 0,2156 sans) ; chat noir nuisible au score
+  // (0,2288 / 0,2173) comme en qualité de tir (0,2313 / 0,2248) : désactivé.
+  // Contrôle 2 x 200 matchs (oct. 2025-avr. 2026), même code, bon vainqueur sur 400 / contre le marché sur 270 :
+  //   notes joueurs 50 % (ci-dessous)                         72,0 % ; Razzia 72,6 % — marché 69,6 % ; Brier 0,2004
+  //   chat noir 50 %, collectif 60 %, cinq pesé plus que le banc 71,0 % ; Razzia 70,0 % — marché 69,6 % ; Brier 0,2014
+  //   façon parieur (collectif 80 %, banc réduit, forme des joueurs, multiplicateur de talent)
+  //                                                             70,3 % ; Razzia 69,6 % — marché 69,6 % ; Brier 0,2017
+  //   façon parieur sans la forme des joueurs                   70,5 % ; Razzia 68,9 % — marché 69,6 % ; Brier 0,2018
+  // Réglages disponibles mais désactivés : playerMomentum, benchTop / benchTopWeight / benchRestWeight, talentBoost.
+  rapmWeight: 0.5,
+  styleWeight: 0,
+  momentumWeight: 0.3,
+  momentumEarly: 0.5,
+  momentumOcc: 0.5,
   h2hWeight: 0,
+  h2hShotWeight: 0,
   coachDef: 1.5,
-  noStakesPenalty: 0,
+  noStakesPenalty: 3,
+  cohesionWeight: 14,
+  hcaWeight: 0.3,
+  // La simulation joueur par joueur seule est trop plate (pente 0,35 contre la ligne du marché) : on comble tout
+  // l'écart vers la force visée (contrôle 2 x 200 matchs, Brier : 60 % 0,2092 / 0,2177 ; 80 % 0,2061 / 0,2148 ;
+  // 100 % 0,2039 / 0,2150).
+  strengthPull: 1,
+  blendModel: 0.9, // probabilité Razzia : 90 % moteur, 10 % marché (choix : défier le marché)
   qualityCut: 4,
   usageGamma: 1.4,
   astGamma: 2.0,
@@ -128,6 +153,7 @@ interface Ctx {
   feats: FeatureSet;
   tables: Tables;
   league: LeagueModel;
+  rapm?: Map<number, { o: number; d: number; poss: number }>; // notes d'impact des joueurs
   Q: Record<PT, Z6>; // distribution de zone de ligue par type de jeu (estimée)
   groupPtRate: Record<string, Record<PT, number>>;
   groupZone: Record<string, Z6>;
@@ -191,7 +217,12 @@ function leagueModel(f: FeatureSet, t: Tables): LeagueModel {
     ppg: L.pts,
     rankMinutes: L.presenceTemplate.map((row) => sum(row)),
     distFg: L.distFg,
-    contest: shares(t.contestL),
+    contest: (() => {
+      const sh = shares(t.contestL);
+      if (!sh || !t.contestL) return sh;
+      const fg = (m: number[], n: number[]) => n.map((a, c) => (a > 0 ? m[c] / a : 0.45));
+      return { ...sh, f2: fg(t.contestL.fg2m, t.contestL.fg2a), f3: fg(t.contestL.fg3m, t.contestL.fg3a) };
+    })(),
   };
 }
 
@@ -666,8 +697,9 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
     roleMin.set(p.id, rm);
     // Niveau (Game Score / 36 min) rétréci vers un remplaçant type : la hiérarchie qu'un coach respecte.
     p.quality = (36 * qGs + QUALITY_K * QUALITY_FLOOR) / (qMin + QUALITY_K);
-    // Momentum du joueur : niveau des 15 derniers matchs contre celui des saisons précédentes.
-    const played = lines.filter((x) => x.sec > 0);
+    // Momentum du joueur : niveau des 15 derniers matchs contre celui des saisons précédentes. Hors playoffs (sauf en
+    // playoffs) : face aux défenses de playoffs tout le monde produit moins, ce qui pénaliserait les équipes allées loin.
+    const played = lines.filter((x) => x.sec > 0 && (playoffs || !x.gameId.startsWith('004')));
     const rec = played.slice(-15);
     const old = played.slice(0, -15).filter((x) => x.season !== curSeason);
     const per36 = (a: GameLine[]) => (36 * sum(a.map(gameScore))) / Math.max(1, sum(a.map((x) => x.sec / 60)));
@@ -782,6 +814,30 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
     if (p.starter && !usualStarter && target > p.expMin + 1) p.notes.push(`titulaire ce soir (${Math.round(p.expMin)} → ${Math.round(target)} min)`);
     if (!p.starter && usualStarter && target < p.expMin - 1) p.notes.push(`sort du banc ce soir (${Math.round(p.expMin)} → ${Math.round(target)} min)`);
     p.expMin = target;
+  }
+
+  // Début de saison (moins de 5 matchs de l'équipe cette saison) : la hiérarchie du banc se refait. Un coach ordonne
+  // ses remplaçants selon leur niveau et le rôle qu'ils tenaient. Minutes attendues : moitié son historique, moitié
+  // le gabarit de la ligue pour son rang de valeur (titulaires d'abord).
+  const teamCur = (teamLogOf(f).get(team.id) ?? []).filter((g) => seasonOfDate(g.date) === curSeason).length;
+  if (teamCur < 5 && !playoffs) {
+    const pool = players.filter((p) => p.avail > 0.5 && p.expMin > 0);
+    const qAvg = pool.length ? sum(pool.map((p) => p.quality)) / pool.length : QUALITY_FLOOR;
+    // Niveau (Game Score) et minutes habituelles, sans les notes d'impact : sur un remplaçant peu utilisé elles
+    // reposent sur trop peu de possessions, et les coachs ne les suivent pas (débuts de saison 2024-25 et 2025-26 :
+    // erreur de minutes 5,77 -> 5,19 et 6,13 -> 5,43 min par joueur ; impact du banc surestimé de 0,7 pt -> 0).
+    // Les minutes d'un nouvel arrivant viennent d'une autre équipe (souvent une équipe qui faisait jouer ses jeunes) :
+    // elles ne disent rien de sa place ici.
+    const value = (p: PlayerModel) => 0.4 * (p.quality - qAvg) + (p.notes.some((n) => n.startsWith('nouveau dans')) ? 0 : 0.3 * (p.expMin - 15));
+    const order = [...pool].sort((a, b) => (b.starter ? 1 : 0) - (a.starter ? 1 : 0) || value(b) - value(a));
+    order.forEach((p, rank) => {
+      const tpl = ctx.league.rankMinutes[Math.min(rank, ctx.league.rankMinutes.length - 1)] ?? p.expMin;
+      // Au-delà du 9e homme, un coach resserre sa rotation : le gabarit (fin de match surtout) l'emporte.
+      const wTpl = rank >= 9 ? 0.8 : 0.5;
+      const next = (1 - wTpl) * p.expMin + wTpl * tpl;
+      if (next < p.expMin - 3) p.notes.push(`rang ${rank + 1} dans la nouvelle hiérarchie (${Math.round(p.expMin)} → ${Math.round(next)} min)`);
+      p.expMin = next;
+    });
   }
 
   // Courbes manquantes ou rôle modifié : gabarit de ligue selon le rang de minutes.
@@ -990,7 +1046,61 @@ function teamMomentum(f: FeatureSet, teamId: number, date: string, homeMargin: n
   }
   const r = avg(recent);
   const b = avg(base);
-  return { recent: r, base: b, delta: r - b, n: recent.length, nBase: base.length, streak };
+  const nCur = recent.filter((g) => seasonOfDate(g.date) === cur).length;
+  const out: TeamMomentum = { recent: r, base: b, delta: r - b, n: recent.length, nCur, nBase: base.length, streak };
+  // Occasions (points attendus créés - concédés) sur les mêmes périodes : l'ascendant dans le jeu, hors réussite du soir.
+  const occ = (occLogsBefore(date).get(teamId) ?? []).filter((g) => g.date < date);
+  if (occ.length >= 25) {
+    const oRecent = occ.slice(-15);
+    const oBase = occ.slice(0, -15).filter((g) => seasonOfDate(g.date).slice(0, 4) >= from);
+    const pr = occProfile(oRecent);
+    const pb = occProfile(oBase);
+    if (pr && pb && oBase.length >= 20) {
+      const xAdj = (l: OccGame[]) => sum(l.map((g) => g.xMargin - (g.home ? homeMargin : -homeMargin))) / l.length;
+      out.xRecent = xAdj(oRecent);
+      out.xBase = xAdj(oBase);
+      // Écarts relatifs à la ligue sur les mêmes périodes : un changement d'arbitrage ou de rythme touche tout le monde.
+      const lg = (l: OccGame[]) => occProfile(leagueBetween(l[0].date, l[l.length - 1].date));
+      const lr = lg(oRecent);
+      const lb = lg(oBase);
+      const rel = (t: OccProfile, l?: OccProfile): OccSummary => {
+        const o = occSummary(t);
+        if (!l) return o;
+        const L = occSummary(l);
+        return Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v - L[k as keyof OccSummary]])) as unknown as OccSummary;
+      };
+      out.occ = { recent: rel(pr, lr), base: rel(pb, lb) };
+    }
+  }
+  return out;
+}
+
+// Journal des occasions (calculé une fois pour tous les matchs du cache ; chaque usage filtre les matchs antérieurs).
+let occCache: Map<number, OccGame[]> | undefined;
+function occLogsBefore(_date: string): Map<number, OccGame[]> {
+  return (occCache ??= occLogs(loadGames()));
+}
+/** Tous les matchs de la ligue entre deux dates (incluses), pour les moyennes de référence. */
+function leagueBetween(from: string, to: string): OccGame[] {
+  const out: OccGame[] = [];
+  for (const l of (occCache ??= occLogs(loadGames())).values()) for (const g of l) if (g.date >= from && g.date <= to) out.push(g);
+  return out;
+}
+const occSummary = (p: OccProfile): OccSummary => ({
+  tov: p.tov, tovForced: p.tovForced, orb: p.orb, orbAllowed: p.orbAllowed, trans: p.trans, transAllowed: p.transAllowed,
+  fta: p.fta, ftaAllowed: p.ftaAllowed, xFg: p.xFg, xFgAllowed: p.xFgAllowed, make: p.make, makeAllowed: p.makeAllowed,
+});
+
+/** Écarts d'occasions d'une équipe en attaque, en points / 100 possessions (valeurs moyennes d'une possession, d'un tir...). */
+export function occEdge(d: { tov: number; orb: number; trans: number; fta: number; xFg: number; make: number }): Edge {
+  return {
+    tov: -d.tov * 100 * 1.12, // une perte évitée vaut une possession menée à son terme
+    orb: d.orb * 55 * 1.05, // ≈ 0,55 tir manqué par possession, un rebond offensif vaut ≈ 1,05 pt
+    trans: d.trans * 100 * 0.15, // une contre-attaque rapporte ≈ 0,15 pt de plus qu'une attaque placée
+    fta: d.fta * 78,
+    shotQ: d.xFg * 88, // ≈ 0,88 tir par possession
+    contest: d.make * 88,
+  };
 }
 
 /**
@@ -1019,6 +1129,7 @@ function teamH2H(f: FeatureSet, home: TeamModel, away: TeamModel, date: string, 
   const out: TeamH2H = {
     meetings: meetings.map(({ exp: _e, real: _r, ...m }) => m),
     residualHome: (res * meetings.length) / (meetings.length + 4),
+    shots: h2hShots(home.id, away.id, date, since),
   };
   for (const victim of ['home', 'away'] as const) {
     // Écart attendu et réel du point de vue de la victime potentielle (exp et real sont vus de l'équipe à domicile ce soir).
@@ -1037,6 +1148,129 @@ function teamH2H(f: FeatureSet, home: TeamModel, away: TeamModel, date: string, 
     }
   }
   return out;
+}
+
+/**
+ * Qualité des occasions dans les confrontations : pour chaque match entre les deux équipes, ce que chacune a obtenu en
+ * attaque (pertes, rebonds offensifs, contre-attaques, lancers, emplacements de tir, réussite compte tenu des tireurs)
+ * comparé à l'attendu : son habitude sur ses 30 matchs précédents + ce que l'adversaire concède d'habitude - la ligue.
+ * Reste ce qui tient au duel lui-même (chat noir : tirs plus loin, plus contestés, plus ratés). Rétréci (n / (n + 4)).
+ */
+function h2hShots(homeId: number, awayId: number, date: string, since: string): TeamH2H['shots'] {
+  const logs = occLogsBefore(date);
+  const H = (logs.get(homeId) ?? []).filter((g) => g.opp === awayId && g.date < date && g.date >= since);
+  if (!H.length) return undefined;
+  const all = [...logs.values()].flat();
+  const keys = ['tov', 'orb', 'trans', 'fta', 'xFg', 'make'] as const;
+  type D = Record<(typeof keys)[number], number>;
+  const offOf = (p: OccProfile): D => ({ tov: p.tov, orb: p.orb, trans: p.trans, fta: p.fta, xFg: p.xFg, make: p.make });
+  const allowedOf = (p: OccProfile): D => ({ tov: p.tovForced, orb: p.orbAllowed, trans: p.transAllowed, fta: p.ftaAllowed, xFg: p.xFgAllowed, make: p.makeAllowed });
+  const dev = (tm: number, opp: number, g: OccGame): D | undefined => {
+    const before = (id: number) => (logs.get(id) ?? []).filter((x) => x.date < g.date).slice(-30);
+    const own = occProfile(before(tm));
+    const vs = occProfile(before(opp));
+    const from = new Date(Date.parse(g.date) - 60 * 86_400_000).toISOString().slice(0, 10);
+    const lg = occProfile(all.filter((x) => x.date < g.date && x.date >= from));
+    const now = occProfile([g]);
+    if (!own || !vs || !lg || !now || own.n < 10 || vs.n < 10) return undefined;
+    const o = offOf(own), a = allowedOf(vs), l = offOf(lg), x = offOf(now);
+    return Object.fromEntries(keys.map((k) => [k, x[k] - (o[k] + a[k] - l[k])])) as D;
+  };
+  const side = (tm: number, opp: number, games: OccGame[]): { e: Edge; n: number } => {
+    const ds = games.map((g) => dev(tm, opp, g)).filter((d): d is D => !!d);
+    const shrink = ds.length / (ds.length + 4);
+    const mean = Object.fromEntries(keys.map((k) => [k, ds.length ? (sum(ds.map((d) => d[k])) / ds.length) * shrink : 0])) as D;
+    return { e: occEdge(mean), n: ds.length };
+  };
+  const awayGames = (logs.get(awayId) ?? []).filter((g) => g.opp === homeId && g.date < date && g.date >= since);
+  const h = side(homeId, awayId, H);
+  const a = side(awayId, homeId, awayGames);
+  return { home: h.e, away: a.e, n: Math.min(h.n, a.n) };
+}
+
+/** L'équipe a-t-elle joué la veille (second soir d'un back-to-back) ? */
+function b2bTonight(teamId: number, date: string): boolean {
+  const y = new Date(Date.parse(`${date}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  return loadGames().some(({ g }) => g.date === y && (g.home.id === teamId || g.away.id === teamId));
+}
+
+/**
+ * Habitude d'un joueur au second soir d'un back-to-back (deux dernières saisons) : part des fois où, après avoir joué
+ * 20 minutes ou plus la veille, il a manqué le match (repos, gêne). Rétrécie vers la moyenne de la ligue (6 occasions),
+ * moyenne retranchée : seul compte l'excès propre au joueur.
+ */
+const skipMemo = new Map<string, { byPlayer: Map<number, [number, number]>; league: number }>();
+export function b2bSkipRate(pid: number, date: string): number {
+  let m = skipMemo.get(date);
+  if (!m) {
+    const from = new Date(Date.parse(date) - 2 * 365 * 86_400_000).toISOString().slice(0, 10);
+    const byPlayer = new Map<number, [number, number]>();
+    const last = new Map<number, { date: string; played: Set<number> }>();
+    let n = 0;
+    let k = 0;
+    for (const { g } of loadGames()) {
+      if (g.date >= date) break;
+      for (const t of [g.home, g.away]) {
+        const prev = last.get(t.id);
+        const played = new Set(t.players.filter((p) => p.sec >= 20 * 60).map((p) => p.id)); // joueurs de rotation
+        if (g.date >= from && prev && (Date.parse(g.date) - Date.parse(prev.date)) / 86_400_000 === 1) {
+          for (const p of t.players) {
+            if (!prev.played.has(p.id)) continue;
+            const skip = p.sec <= 0 && /REST|INJURY|RECONDITIONING/.test(p.reason ?? '') ? 1 : 0;
+            const e = byPlayer.get(p.id) ?? [0, 0];
+            e[0] += skip;
+            e[1]++;
+            byPlayer.set(p.id, e);
+            n++;
+            k += skip;
+          }
+        }
+        last.set(t.id, { date: g.date, played });
+      }
+    }
+    skipMemo.set(date, (m = { byPlayer, league: n ? k / n : 0.03 }));
+  }
+  // Au-delà du risque commun à tous (gêne apparue la veille) : ce qui tient à ce joueur.
+  const e = m.byPlayer.get(pid) ?? [0, 0];
+  return Math.max(0, (e[0] + 6 * m.league) / (e[1] + 6) - m.league);
+}
+
+/** Écart (pts) entre l'avantage du terrain d'une équipe et celui de la ligue, sur les deux dernières années. */
+/**
+ * Cohésion entre joueurs : possessions que chaque paire du cinq de départ a jouées ensemble sur l'année écoulée
+ * (duos, trios), distincte du collectif (toute l'équipe) et de la continuité de l'effectif. 0 = jamais ensemble,
+ * 1 = une saison pleine ensemble (3 000 possessions) pour toutes les paires.
+ */
+function coreCohesion(teamId: number, starters: number[], date: string): number {
+  if (starters.length < 2) return 0;
+  const from = new Date(Date.parse(date) - 365 * 86_400_000).toISOString().slice(0, 10);
+  const idx = new Map(starters.map((id, i) => [id, i]));
+  const shared = new Map<number, number>();
+  for (const { g, pg } of loadGames()) {
+    if (g.date >= date || g.date < from || (g.home.id !== teamId && g.away.id !== teamId)) continue;
+    for (const p of pg.poss) {
+      if (p.tm !== teamId || !p.off) continue;
+      const on = p.off.map((id) => idx.get(id)).filter((i): i is number => i != null);
+      for (let a = 0; a < on.length; a++) for (let b = a + 1; b < on.length; b++) {
+        const k = Math.min(on[a], on[b]) * 16 + Math.max(on[a], on[b]);
+        shared.set(k, (shared.get(k) ?? 0) + 1);
+      }
+    }
+  }
+  const pairs = (starters.length * (starters.length - 1)) / 2;
+  let tot = 0;
+  for (const v of shared.values()) tot += Math.min(1, v / 3000);
+  return tot / pairs;
+}
+
+function teamHomeEdge(f: FeatureSet, teamId: number, date: string, leagueHome: number): number | undefined {
+  const since = new Date(Date.parse(date) - 730 * 86_400_000).toISOString().slice(0, 10);
+  const l = (teamLogOf(f).get(teamId) ?? []).filter((g) => g.date < date && g.date >= since);
+  const h = l.filter((g) => g.home);
+  const a = l.filter((g) => !g.home);
+  if (h.length < 30 || a.length < 30) return undefined;
+  const avg = (x: typeof l) => sum(x.map((g) => g.margin)) / x.length;
+  return (avg(h) - avg(a)) / 2 - leagueHome;
 }
 
 function shortNames(all: PlayerModel[]): void {
@@ -1083,6 +1317,13 @@ function insightsFor(ctx: Ctx, home: TeamModel, away: TeamModel, h2h?: TeamH2H):
   const forced = new Map([...t.teamFour].map(([k, v]) => [k, v.oppTovPct]));
   const n1 = (x: number) => `${x > 0 ? '+' : ''}${x.toFixed(1).replace('.', ',')}`;
   if (h2h?.blackCat) out.push(`Chat noir : ${h2h.blackCat.text}`);
+  for (const [k, tm, opp] of [['home', home, away], ['away', away, home]] as const) {
+    const st = h2h?.style?.[k];
+    if (st && st.driver && st.pts <= -1.5) {
+      const one = SINGULAR_TEAMS.has(tm.name);
+      out.push(`Chat noir de style : ${one ? 'le' : 'les'} ${tm.name} ${one ? 'souffre' : 'souffrent'} d'habitude contre les équipes comme ${SINGULAR_TEAMS.has(opp.name) ? 'le' : 'les'} ${opp.name} (${st.driver.high ? 'fort' : 'faible'} ${st.driver.key}) : ${n1(st.pts)} pts par rapport à l'attendu.`);
+    }
+  }
   const last = h2h?.meetings.at(-1);
   if (last && Math.abs(last.hs - last.as) >= 15) {
     const lostTri = (last.hs > last.as) === (last.homeTri === home.tri) ? away.tri : home.tri;
@@ -1099,8 +1340,27 @@ function insightsFor(ctx: Ctx, home: TeamModel, away: TeamModel, h2h?: TeamH2H):
   }
   for (const tm of [away, home]) {
     const mo = tm.momentum;
-    if (mo && Math.abs(mo.delta) >= 4) {
-      out.push(`${tm.name} ${mo.delta > 0 ? 'en pleine montée' : 'en baisse'} : ${n1(mo.recent)} pts d'écart par match sur les ${mo.n} derniers matchs, contre ${n1(mo.base)} les deux saisons précédentes.`);
+    if (mo && Math.abs(mo.delta) >= 4 && (mo.nCur ?? mo.n) >= 8) {
+      // Ce qui a changé dans ses occasions (relatif à la ligue) : les deux leviers les plus marqués.
+      let why = '';
+      if (mo.occ) {
+        const r = mo.occ.recent, b = mo.occ.base;
+        const parts: Array<[number, string]> = [
+          [-(r.tov - b.tov) * 112, `${r.tov < b.tov ? 'moins' : 'plus'} de pertes de balle`],
+          [(r.tovForced - b.tovForced) * 112, `${r.tovForced > b.tovForced ? 'plus' : 'moins'} de pertes provoquées`],
+          [(r.orb - b.orb) * 58, `${r.orb > b.orb ? 'plus' : 'moins'} de rebonds offensifs`],
+          [-(r.orbAllowed - b.orbAllowed) * 58, `${r.orbAllowed < b.orbAllowed ? 'moins' : 'plus'} de rebonds offensifs concédés`],
+          [(r.xFg - b.xFg) * 88, `${r.xFg > b.xFg ? 'de meilleurs' : 'de moins bons'} tirs créés`],
+          [-(r.xFgAllowed - b.xFgAllowed) * 88, `${r.xFgAllowed < b.xFgAllowed ? 'de moins bons' : 'de meilleurs'} tirs concédés`],
+          [(r.fta - b.fta) * 78, `${r.fta > b.fta ? 'plus' : 'moins'} de lancers obtenus`],
+        ];
+        const top = parts.filter(([v]) => Math.sign(v) === Math.sign(mo.delta) && Math.abs(v) >= 0.8).sort((a, b) => Math.abs(b[0]) - Math.abs(a[0])).slice(0, 2);
+        if (top.length) why = ` Ce qui a changé : ${top.map(([, t]) => t).join(', ')}.`;
+      }
+      out.push(`${tm.name} ${mo.delta > 0 ? 'en pleine montée' : 'en baisse'} : ${n1(mo.recent)} pts d'écart par match sur les ${mo.n} derniers matchs, contre ${n1(mo.base)} les deux saisons précédentes.${why}`);
+    }
+    for (const p of tm.players.filter((x) => x.status.startsWith('Repos possible'))) {
+      out.push(`${p.name} pourrait être laissé au repos : second soir d'un back-to-back (${p.status.replace('Repos possible ', '').replace(/[()]/g, '')} de risque selon ses habitudes).`);
     }
     const riser = tm.players.filter((p) => p.avail > 0.5 && p.expMin >= 18 && p.momentum).sort((a, b) => Math.abs(b.momentum!.delta) - Math.abs(a.momentum!.delta))[0];
     if (riser && Math.abs(riser.momentum!.delta) >= 3) {
@@ -1161,6 +1421,7 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
   log('agrégation des play-by-play (forme récente)…');
   const feats = buildFeaturesCached(opts.date, groupOf);
   const ctx = makeCtx(feats, tables, groupOf, heights);
+  ctx.rapm = rapmAsOf(opts.date);
 
   // Effectifs actuels (index joueurs saison courante = transferts / mercato pris en compte).
   const rosterOf = (info: TeamInfo): number[] => {
@@ -1177,9 +1438,12 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
   // Blessures.
   const useInj = opts.injuries ?? !opts.actual;
   let injuries: InjuryItem[] = [];
-  if (useInj) injuries = await getInjuries().catch(() => []);
+  if (useInj) injuries = await getInjuries(opts.freshInjuries ? 0.02 : 1).catch(() => []);
   const outSet = new Set((opts.out ?? []).map(normName));
   const inSet = new Set((opts.in ?? []).map(normName));
+
+  // Diffusion nationale (match à venir) : règle de la ligue contre le repos des stars ces soirs-là.
+  const nationalTv = opts.actual ? false : await getSchedule(6).then((sc) => sc.games.some((g) => g.date === opts.date && g.home.id === homeInfo.id && g.away.id === awayInfo.id && g.nationalTv)).catch(() => false);
 
   // Compositions du jour (match à venir uniquement).
   const lineups = opts.actual ? [] : await dailyLineups(opts.date).catch(() => []);
@@ -1210,6 +1474,14 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
       if (inj) {
         status = inj.status;
         avail = STATUS_AVAIL[inj.status.toLowerCase()] ?? 0.7;
+      }
+      // Second soir d'un back-to-back, avant l'annonce : risque de repos (ou de gestion d'une gêne) selon son habitude.
+      if (!opts.actual && !inj && avail > 0 && b2bTonight(info.id, opts.date)) {
+        const rate = b2bSkipRate(id, opts.date) * (nationalTv ? 0.4 : 1);
+        if (rate >= 0.08) {
+          avail = Math.max(0, 1 - rate);
+          status = `Repos possible (${Math.round(rate * 100)} %)`;
+        }
       }
       if (outSet.has(normName(name))) {
         status = 'Out (manuel)';
@@ -1244,6 +1516,21 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
 
   const home = teamModel(ctx, homeInfo, homePlayers, opts.date, homeInfo);
   const away = teamModel(ctx, awayInfo, awayPlayers, opts.date, homeInfo);
+  // Notes d'impact (matchs antérieurs à la semaine, a priori tiré de ses stats) ; sans aucun match NBA : un remplaçant.
+  const rapm = ctx.rapm!;
+  for (const p of [...homePlayers, ...awayPlayers]) {
+    const r = rapm.get(p.id);
+    p.rapm = r ? { o: r.o, d: r.d, poss: Math.round(r.poss) } : { o: -0.8, d: -0.7, poss: 0 };
+    // Les moins de 25 ans progressent d'une saison à l'autre (2024-25 -> 2025-26, 228 joueurs : +0,42 point de Game
+    // Score / 36 par année sous 25 ans, soit +0,13 point d'impact) ; s'efface à mesure que la saison donne des matchs.
+    const a = tables.age.get(p.id);
+    if (a) {
+      const age = a.age + (Number(cur.slice(0, 4)) - Number(a.season.slice(0, 4)));
+      const fresh = Math.max(0, 1 - p.form.gpCur / 40);
+      const bump = 0.13 * Math.max(0, 25 - age) * fresh;
+      if (bump > 0) p.rapm = { ...p.rapm, o: p.rapm.o + 0.7 * bump, d: p.rapm.d + 0.3 * bump };
+    }
+  }
   home.momentum = teamMomentum(feats, home.id, opts.date, ctx.league.homeMargin);
   away.momentum = teamMomentum(feats, away.id, opts.date, ctx.league.homeMargin);
   for (const t of [home, away]) {
@@ -1252,7 +1539,14 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
     const md = opts.date.slice(5);
     t.noStakes = md >= '02-15' && md <= '06-30' && t.record.w + t.record.l >= 40 && t.record.w / (t.record.w + t.record.l) < 0.33;
   }
-  const teamH2h = teamH2H(feats, home, away, opts.date, ctx.league.homeMargin);
+  // Avantage du terrain propre à l'équipe qui reçoit (deux dernières saisons) : écart domicile - extérieur comparé à
+  // celui de la ligue. Il se répète en partie (corrélation 0,24 entre deux moitiés de saison) : part retenue réglable.
+  home.hcaDev = teamHomeEdge(feats, home.id, opts.date, ctx.league.homeMargin);
+  for (const t of [home, away]) t.coreCohesion = coreCohesion(t.id, t.players.filter((p) => p.starter).map((p) => p.id), opts.date);
+  let teamH2h = teamH2H(feats, home, away, opts.date, ctx.league.homeMargin);
+  const sh = styleEffect(home.id, away.id, opts.date);
+  const sa = styleEffect(away.id, home.id, opts.date);
+  if (sh || sa) teamH2h = { ...(teamH2h ?? { meetings: [], residualHome: 0 }), style: { home: sh, away: sa } };
 
   // H2H : minutes de duel entre attaquants d'une équipe et défenseurs de l'autre.
   const h2h: Record<string, Record<string, number>> = {};
@@ -1312,6 +1606,16 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
     league: ctx.league, duel, h2h: teamH2h, home, away, h2hMatchups: h2h, params: { ...DEFAULT_PARAMS }, insights: [],
   };
   model.insights = insightsFor(ctx, home, away, teamH2h);
+  // Arbitres du soir (dès qu'ils figurent sur la feuille de match) : information, sans effet sur les probabilités, leurs
+  // tendances passées ne se répétant pas d'un match à l'autre (contrôle hors échantillon).
+  if (!opts.actual && opts.gameId) {
+    const crew = await upcomingOfficials(opts.gameId);
+    if (crew?.length) {
+      const c = crewEffect(refsAsOf(opts.date), crew);
+      const pctTxt = `${c.log >= 0 ? '+' : ''}${Math.round((Math.exp(c.log) - 1) * 100)} %`;
+      model.insights.push(`Arbitres : ${crew.map((o) => o.name).join(', ')} (lancers francs sifflés d'habitude : ${pctTxt} par rapport à la moyenne ; sans effet mesurable sur l'issue).`);
+    }
+  }
 
   if (opts.market ?? !opts.actual) {
     const m = await getMarket(opts.date, homeInfo.tri, awayInfo.tri).catch(() => undefined);

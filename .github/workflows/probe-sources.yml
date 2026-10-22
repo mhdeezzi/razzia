@@ -3,8 +3,6 @@
 name: Accès aux sources
 on:
   workflow_dispatch:
-  push:
-    paths: ['.github/workflows/probe-sources.yml', 'src/dev/probe.ts']
 jobs:
   probe:
     runs-on: ubuntu-latest

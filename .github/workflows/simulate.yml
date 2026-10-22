@@ -10,11 +10,12 @@ on:
       away: { description: 'Équipe extérieure (tricode)', required: true }
       home: { description: 'Équipe à domicile (tricode)', required: true }
       request_id: { description: "Identifiant de la demande (suivi depuis l'app)", required: false, default: manuel }
+      fresh: { description: "Relire le rapport de blessures à l'instant (relance d'avant-match)", required: false, default: 'false' }
 concurrency: { group: "sim-${{ inputs.date }}-${{ inputs.away }}-${{ inputs.home }}", cancel-in-progress: false }
 permissions: { contents: write }
 jobs:
   sim:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
     env:
       SIMLAB_OFFLINE_HOSTS: stats.nba.com
@@ -36,7 +37,7 @@ jobs:
           restore-keys: nba-cache-
       - run: npm run snapshot -- --pull
       - run: npm run ingest -- --games
-      - run: npm run sim -- --game "$AWAY@$HOME_TEAM" --date "$DATE"
+      - run: npm run sim -- --game "$AWAY@$HOME_TEAM" --date "$DATE" ${{ inputs.fresh == 'true' && '--fresh' || '' }}
       - name: Publication sur la branche resultats
         run: |
           git config user.name "simbet-bot"

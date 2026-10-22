@@ -37,6 +37,8 @@ export interface PossRec {
   home: boolean;
   p: number;
   startClock: number;
+  off: number[]; // cinq en attaque à la fin de la possession (notes d'impact)
+  def: number[];
 }
 
 export interface PlayerGame {
@@ -215,7 +217,7 @@ export function parseGame(g: GameRecord): ParsedGame {
   let prevEnd = new Map<number, number[]>([[home, []], [away, []]]);
 
   // Suivi des possessions.
-  type CurPoss = PossRec & { firstDecision?: number; segment: number; lastOrebClock?: number };
+  type CurPoss = Omit<PossRec, 'off' | 'def'> & { firstDecision?: number; segment: number; lastOrebClock?: number };
   const st: { cur: CurPoss | null } = { cur: null };
   const resetCur = () => {
     st.cur = null;
@@ -238,7 +240,10 @@ export function parseGame(g: GameRecord): ParsedGame {
     }
     for (const pid of onCourt.get(st.cur.tm)!) P(pid).offPoss++;
     for (const pid of onCourt.get(st.cur.tm === home ? away : home)!) P(pid).defPoss++;
-    poss.push({ tm: st.cur.tm, start: st.cur.start, dur: st.cur.dur, trans: st.cur.trans, pts: st.cur.pts, home: st.cur.tm === home, p: st.cur.p, startClock: st.cur.startClock });
+    poss.push({
+      tm: st.cur.tm, start: st.cur.start, dur: st.cur.dur, trans: st.cur.trans, pts: st.cur.pts, home: st.cur.tm === home, p: st.cur.p, startClock: st.cur.startClock,
+      off: [...onCourt.get(st.cur.tm)!], def: [...onCourt.get(st.cur.tm === home ? away : home)!],
+    });
     st.cur = null;
   };
 

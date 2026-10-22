@@ -39,6 +39,7 @@ export interface Tables {
   synLeague: Record<PT, SynAgg>;
   adv: Map<number, { poss: number; min: number; gp: number; usg: number; astPct: number; orebPct: number; drebPct: number }>;
   base: Map<number, { gp: number; min: number; pts: number; fga: number; fta: number; tov: number; ast: number }>;
+  age: Map<number, { season: string; age: number }>; // âge du joueur lors de sa saison la plus récente
   def: Map<number, DefAgg>;
   teamAdv: Map<number, { pace: number; gp: number; offRtg: number; defRtg: number; netRtg: number }>;
   teamFour: Map<number, { tovPct: number; oppTovPct: number; orebPct: number; oppOrebPct: number; ftaRate: number; oppFtaRate: number; gp: number }>;
@@ -115,6 +116,7 @@ export async function loadTables(cur: string, prev: string, prev2?: string, past
   };
 
   const adv = new Map<number, { poss: number; min: number; gp: number; usg: number; astPct: number; orebPct: number; drebPct: number }>();
+  const age = new Map<number, { season: string; age: number }>();
   const base = new Map<number, { gp: number; min: number; pts: number; fga: number; fta: number; tov: number; ast: number }>();
   const def = new Map<number, DefAgg>();
   const teamAdv = new Map<number, { pace: number; gp: number; offRtg: number; defRtg: number; netRtg: number }>();
@@ -156,6 +158,8 @@ export async function loadTables(cur: string, prev: string, prev2?: string, past
       a.gp += (r.GP ?? 0) * sc.w;
       a.min += (r.MIN ?? 0) * (r.GP ?? 0) * sc.w;
       adv.set(r.PLAYER_ID, a);
+      const known = age.get(r.PLAYER_ID);
+      if (r.AGE != null && (!known || known.season < sc.season)) age.set(r.PLAYER_ID, { season: sc.season, age: r.AGE });
     }
     for (const r of await S.playerDash(sc.season, sc.st, 'Base', sc.ttl).catch(() => [] as S.Row[])) {
       const b = base.get(r.PLAYER_ID) ?? { gp: 0, min: 0, pts: 0, fga: 0, fta: 0, tov: 0, ast: 0 };
@@ -254,7 +258,7 @@ export async function loadTables(cur: string, prev: string, prev2?: string, past
   }
 
   return {
-    cur, prev, index, synP, synT, synTD, synLeague, adv, base, def, teamAdv, teamFour, matchups, contestP, contestT, contestL,
+    cur, prev, index, synP, synT, synTD, synLeague, adv, base, age, def, teamAdv, teamFour, matchups, contestP, contestT, contestL,
     leagueTovPct: lgTovN ? lgTov / lgTovN : 0.135,
   };
 }

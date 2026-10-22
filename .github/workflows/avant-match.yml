@@ -1,0 +1,33 @@
+# Relance automatique d'avant-match : toutes les 15 minutes pendant les créneaux de matchs NBA, chaque match qui débute
+# dans 10 à 40 minutes est resimulé avec le rapport de blessures relu à l'instant (absents annoncés ~30 min avant).
+name: Relance d'avant-match
+on:
+  schedule:
+    - cron: '*/15 16-23,0-5 * * *'
+  workflow_dispatch:
+concurrency: { group: avant-match, cancel-in-progress: false }
+permissions: { actions: write, contents: read }
+jobs:
+  relance:
+    # Toutes les 15 minutes : uniquement sur une machine à soi (variable RUNNER = self-hosted), jamais sur les minutes GitHub.
+    if: vars.RUNNER == 'self-hosted' || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Matchs à relancer
+        run: |
+          git fetch -q --depth 1 origin resultats && git show FETCH_HEAD:sims/index.json > index.json || echo '[]' > index.json
+          node src/cli/pregame.ts index.json | tee a-relancer.txt
+      - name: Lancement des simulations
+        run: |
+          while read -r date away home; do
+            [ -n "$date" ] || continue
+            gh workflow run simulate.yml --ref main -f date="$date" -f away="$away" -f home="$home" -f request_id="avant-match" -f fresh=true
+            echo "relancé : $away@$home $date"
+          done < a-relancer.txt

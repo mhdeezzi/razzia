@@ -24,6 +24,7 @@ export interface SimRunOpts {
   out?: string[];
   in?: string[];
   quiet?: boolean;
+  fresh?: boolean; // rapport de blessures relu à l'instant (relance d'avant-match)
 }
 
 export async function simulateMatchup(o: SimRunOpts): Promise<{ dir: string; model: GameModel; summary: Summary }> {
@@ -35,7 +36,7 @@ export async function simulateMatchup(o: SimRunOpts): Promise<{ dir: string; mod
   const t0 = Date.now();
   const model = await buildGameModel({
     date: o.date, homeTri: o.home, awayTri: o.away, gameId: sg?.gameId, out: o.out, in: o.in, actual,
-    injuries: !actual, market: true, passes: true, log: say,
+    injuries: !actual, market: true, passes: true, freshInjuries: o.fresh, log: say,
   });
   say(`modèle construit en ${((Date.now() - t0) / 1000).toFixed(1)} s (données jusqu'au ${model.meta.dataThrough}, ${model.meta.gamesUsed} matchs)`);
   const cal = calibratePace(model);
@@ -145,7 +146,7 @@ if (import.meta.main) {
   const date = arg('date', new Date().toISOString().slice(0, 10))!;
   const n = Number(arg('n', '5000'));
   const res = await simulateMatchup({
-    away, home, date, n, seed: Number(arg('seed', '7')),
+    away, home, date, n, seed: Number(arg('seed', '7')), fresh: flag('fresh'),
     out: arg('out')?.split(',').map((s) => s.trim()).filter(Boolean), in: arg('in')?.split(',').map((s) => s.trim()).filter(Boolean),
   });
   console.log('\n' + (await import('node:fs')).readFileSync(join(res.dir, 'report.md'), 'utf8'));

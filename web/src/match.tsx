@@ -6,6 +6,7 @@ import {
   type Game, type Injury, type Programme, type SimState,
 } from './data.ts';
 import { Results } from './results.tsx';
+import { BookOdds } from './books.tsx';
 import { Empty, Link, TeamMark } from './ui.tsx';
 
 type Tab = 'apercu' | 'sim';
@@ -211,6 +212,7 @@ function Overview({ g, injuries, sim, onSim, busy }: { g: Game; injuries: Record
       <div className="aside" style={{ position: 'static', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
         <OddsBox g={g} />
         <Absences g={g} injuries={injuries} />
+        {g.state === 'pre' && <BookOdds g={g} />}
       </div>
     </div>
   );

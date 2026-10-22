@@ -119,6 +119,14 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
             <CountUp value={r.homePts.p50} format={(v) => String(Math.round(v))} /> {g.home.tri}
           </dd>
         </div>
+        {mk?.blendedHome != null && (
+          <div title="Le marché sert de base, le moteur le corrige : c'est l'estimation la plus juste mesurée sur les matchs passés.">
+            <dt>Razzia (moteur + marché)</dt>
+            <dd>
+              {fav.tri} {pct(homeFav ? mk.blendedHome : 1 - mk.blendedHome)}
+            </dd>
+          </div>
+        )}
         {bookFav != null && (
           <div>
             <dt>Marché sans marge</dt>
