@@ -63,14 +63,13 @@ export const DEFAULT_PARAMS: SimParams = {
   threeMult: 0.926,
   teamBias: [0, 0],
   uncWeight: 1,
-  // Réglages issus du contrôle de justesse sans fuite (janv.-avr. 2026 et oct.-déc. 2025, 120 matchs chacun) :
-  // momentum utile surtout en début de saison (Brier 0,2174 -> 0,2061 à 60 %), nuisible à 60 % en cours de saison ;
-  // confrontations récentes et fin de saison sans enjeu améliorent le Brier ; « qui garde qui » du coach sans gain mesuré.
-  momentumWeight: 0.1,
-  momentumEarly: 0.5,
-  h2hWeight: 0.5,
-  coachDef: 0,
-  noStakesPenalty: 3,
+  // Contrôle sans fuite sur 2 x 200 matchs avec les tables de tirs contestés : momentum, confrontations récentes et
+  // fin de saison sans enjeu (combinés) font moins bien que ce réglage (Brier 0,2277 vs 0,2251 et 0,2164 vs 0,2120).
+  momentumWeight: 0,
+  momentumEarly: 0,
+  h2hWeight: 0,
+  coachDef: 1.5,
+  noStakesPenalty: 0,
   qualityCut: 4,
   usageGamma: 1.4,
   astGamma: 2.0,
