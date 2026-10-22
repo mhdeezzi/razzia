@@ -1498,6 +1498,11 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
       players.push(buildPlayer(ctx, id, { name, jersey: r?.JERSEY_NUMBER ?? box?.jersey ?? '', pos, heightIn, teamId: info.id }, { status, avail }, cur));
     }
     assignMinutes(ctx, info, players, cur, opts.actual, lineupFor(info.id), (opts.gameId ?? opts.actual?.gameId ?? '').startsWith('004'));
+    // Cinq « Expected » (probable) tant que NBA.com ne l'a pas confirmé : utilisé, mais pas présenté comme officiel.
+    const lu = lineups.flatMap((g) => [g.home, g.away]).find((sd) => sd.teamId === info.id);
+    if (lu && !lu.starters.every((x) => /confirmed/i.test(x.status))) {
+      for (const p of players) p.notes = p.notes.map((n) => (n === 'titulaire annoncé ce soir' ? 'titulaire probable ce soir (NBA.com)' : n));
+    }
     return players;
   };
 
