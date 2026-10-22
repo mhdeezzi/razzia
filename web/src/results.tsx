@@ -168,7 +168,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
         </p>
         <p className="verdict-sub">
           Probabilité de victoire <b className="mono">{pct(pFav)}</b>
-          {r.market?.blendedHome != null ? ` (moteur ${pct(c.engine)}, marché compris à 10 %)` : ''}.
+          {c.steam ? ` (moteur seul ${pct(c.engine)})` : ''}.
         </p>
         <ConfidenceBadge c={c} g={g} />
         <div className="split" role="img" aria-label={`${g.away.tri} ${pct(r.pAway)}, ${g.home.tri} ${pct(r.pHome)}`}>
