@@ -80,6 +80,7 @@ export const DEFAULT_PARAMS: SimParams = {
   h2hShotWeight: 0,
   coachDef: 1.5,
   noStakesPenalty: 3,
+  cohesionWeight: 12,
   blendModel: 0.4,
   qualityCut: 4,
   usageGamma: 1.4,

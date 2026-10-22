@@ -229,6 +229,7 @@ export interface SimParams {
   h2hWeight: number; // part de l'écart réel - attendu des confrontations récentes (chat noir) ajoutée à l'écart visé
   h2hShotWeight?: number;
   styleWeight?: number;
+  cohesionWeight?: number; // points par écart de continuité d'effectif de 100 %, sur les 10 premiers matchs de la saison
   strengthPull?: number; // part de l'écart entre la force simulée joueur par joueur et la force visée qui est comblée // part du chat noir de style (effet du type d'adversaire) ajoutée à l'écart visé // part des écarts de qualité de tir dans les confrontations (emplacements, contestation, pertes, rebonds)
   blendModel?: number; // part du moteur dans la probabilité affichée (mélange logit avec la cote sans marge)
   rapmWeight?: number; // part des notes d'impact joueurs (selon qui joue ce soir) dans la force visée, contre les notes d'équipe

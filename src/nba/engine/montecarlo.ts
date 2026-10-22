@@ -114,6 +114,13 @@ export function calibrateStrength(m: GameModel, sims = 300, maxWeight = m.params
   // Chat noir de style : ce que chaque équipe perd (ou gagne) d'habitude contre ce type d'adversaire.
   const sw2 = m.params.styleWeight ?? 0;
   if (sw2 && m.h2h?.style) shift += sw2 * ((m.h2h.style.home?.pts ?? 0) - (m.h2h.style.away?.pts ?? 0)) / 2;
+  // Cohésion : une équipe remaniée manque d'automatismes ses premiers matchs. Mesuré sur 2025-26 (matchs 1 à 10) :
+  // +14 pts par écart de continuité de 100 % (erreur 6), effet disparu après le 10e match ; s'éteint linéairement.
+  const cw = m.params.cohesionWeight ?? 0;
+  if (cw) {
+    const fade = (t: TeamModel) => Math.max(0, 1 - (t.gpCur ?? 99) / 10);
+    shift += cw * (m.home.continuity - m.away.continuity) * Math.max(fade(m.home), fade(m.away));
+  }
   // Fin de saison sans enjeu (équipe hors course) : moins d'intensité.
   const ns = m.params.noStakesPenalty ?? 0;
   if (ns) shift += ns * ((m.away.noStakes ? 1 : 0) - (m.home.noStakes ? 1 : 0));
