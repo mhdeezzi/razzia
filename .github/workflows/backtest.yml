@@ -68,6 +68,10 @@ jobs:
     needs: backtest
     if: always()
     runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
+    permissions: { contents: write }
+    env:
+      FROM: ${{ inputs.from || '2026-01-10' }}
+      TO: ${{ inputs.to || '2026-04-12' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -76,3 +80,12 @@ jobs:
         with: { path: morceaux, pattern: 'morceau-*' }
       - name: Référence par variante
         run: node src/cli/btmerge.ts morceaux | tee synthese.txt && cat synthese.txt >> "$GITHUB_STEP_SUMMARY"
+      # Lignes match par match (moteur, marché, résultat) gardées dans la branche « controles » pour les autopsies.
+      - name: Lignes du contrôle (branche controles)
+        env: { GH_TOKEN: "${{ github.token }}", RUN: "${{ github.run_id }}" }
+        run: |
+          node -e 'const fs=require("fs"),p=require("path");const walk=d=>fs.readdirSync(d).flatMap(f=>{const q=p.join(d,f);return fs.statSync(q).isDirectory()?walk(q):q.endsWith(".json")?[q]:[]});const out=[];for(const f of walk("morceaux")){const j=JSON.parse(fs.readFileSync(f,"utf8"));for(const r of j.rows)out.push({variant:j.variant,...r})}fs.writeFileSync("lignes.json",JSON.stringify({from:process.env.FROM,to:process.env.TO,rows:out}))'
+          mkdir ctl && cd ctl && git init -q && git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git fetch -q origin controles; then git checkout -q -b controles FETCH_HEAD; else git checkout -q --orphan controles; fi
+          mkdir -p runs && cp ../lignes.json "runs/$RUN.json"
+          git add runs && git -c user.name=razzia-bot -c user.email=actions@github.com commit -qm "Contrôle $RUN" && git push -q origin controles
