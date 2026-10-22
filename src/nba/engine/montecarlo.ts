@@ -73,7 +73,12 @@ export function calibrateStrength(m: GameModel, sims = 300, maxWeight = m.params
   };
   const ih = imp(m.home), ia = imp(m.away);
   const rapmTarget: [number, number] = [lg + ih.off - ia.def + hca, lg + ia.off - ih.def - hca];
-  const target: [number, number] = [(1 - rw) * teamTarget[0] + rw * rapmTarget[0], (1 - rw) * teamTarget[1] + rw * rapmTarget[1]];
+  // Les notes d'équipe viennent des matchs passés de l'effectif d'alors : elles ne comptent qu'à proportion de la
+  // continuité (et des minutes habituelles disponibles ce soir) ; les notes d'impact suivent qui joue vraiment.
+  const contShare = Math.sqrt(m.home.continuity * m.away.continuity);
+  const wTeam = (1 - rw) * contShare;
+  const rwEff = rw > 0 ? rw / (rw + wTeam) : 0;
+  const target: [number, number] = [(1 - rwEff) * teamTarget[0] + rwEff * rapmTarget[0], (1 - rwEff) * teamTarget[1] + rwEff * rapmTarget[1]];
   // Les notes d'équipe ignorent les absences du soir : leur poids baisse avec la part des minutes habituelles disponibles.
   const avail = (t: GameModel['home']) => {
     const usual = t.players.reduce((a, p) => a + (p.form.gp > 0 ? p.form.minL10 : 0), 0);
@@ -146,7 +151,9 @@ export function composeEdges(m: GameModel): [Edge, Edge] {
       if (!M) continue;
       const u = k === 0 ? 1 : 0;
       const dOcc = M.xRecent != null && M.xBase != null ? M.xRecent - M.xBase : M.delta;
-      const D = mw * T.continuity * ((1 - mo) * M.delta + mo * dOcc);
+      // Seuls les matchs de la saison en cours (même effectif) font un momentum : au premier match, rien.
+      const curShare = M.nCur != null ? Math.min(1, M.nCur / Math.max(1, M.n)) : 1;
+      const D = mw * T.continuity * curShare * ((1 - mo) * M.delta + mo * dOcc);
       let rest = D;
       if (M.occ) {
         const r = M.occ.recent, b = M.occ.base;

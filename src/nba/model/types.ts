@@ -145,6 +145,7 @@ export interface TeamMomentum {
   base: number; // écart moyen par match, saisons précédentes (hors 15 derniers)
   delta: number; // recent - base
   n: number; // matchs récents comptés
+  nCur?: number; // dont matchs de la saison en cours
   nBase: number;
   streak: number; // série en cours (+ victoires, - défaites)
   xRecent?: number; // occasions (points attendus créés - concédés sur 100 possessions), 15 derniers matchs

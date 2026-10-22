@@ -139,6 +139,7 @@ interface Ctx {
   feats: FeatureSet;
   tables: Tables;
   league: LeagueModel;
+  rapm?: Map<number, { o: number; d: number; poss: number }>; // notes d'impact (hiérarchie du coach en début de saison)
   Q: Record<PT, Z6>; // distribution de zone de ligue par type de jeu (estimée)
   groupPtRate: Record<string, Record<PT, number>>;
   groupZone: Record<string, Z6>;
@@ -800,6 +801,27 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
     p.expMin = target;
   }
 
+  // Début de saison (moins de 5 matchs de l'équipe cette saison) : la hiérarchie du banc se refait. Un coach ordonne
+  // ses remplaçants selon leur niveau et leur impact dans ce nouvel effectif, pas selon les minutes qu'ils avaient
+  // ailleurs (un remplaçant d'une équipe qui faisait jouer ses jeunes n'en garde pas le temps de jeu). Minutes
+  // attendues : moitié son historique, moitié le gabarit de la ligue pour son rang de valeur (titulaires d'abord).
+  const teamCur = (teamLogOf(f).get(team.id) ?? []).filter((g) => seasonOfDate(g.date) === curSeason).length;
+  if (teamCur < 5 && !playoffs) {
+    const pool = players.filter((p) => p.avail > 0.5 && p.expMin > 0);
+    const qAvg = pool.length ? sum(pool.map((p) => p.quality)) / pool.length : QUALITY_FLOOR;
+    const value = (p: PlayerModel) => {
+      const r = ctx.rapm?.get(p.id);
+      return (r ? r.o + r.d : -1.5) + 0.4 * (p.quality - qAvg);
+    };
+    const order = [...pool].sort((a, b) => (b.starter ? 1 : 0) - (a.starter ? 1 : 0) || value(b) - value(a));
+    order.forEach((p, rank) => {
+      const tpl = ctx.league.rankMinutes[Math.min(rank, ctx.league.rankMinutes.length - 1)] ?? p.expMin;
+      const next = 0.5 * p.expMin + 0.5 * tpl;
+      if (next < p.expMin - 3) p.notes.push(`rang ${rank + 1} dans la nouvelle hiérarchie (${Math.round(p.expMin)} → ${Math.round(next)} min)`);
+      p.expMin = next;
+    });
+  }
+
   // Courbes manquantes ou rôle modifié : gabarit de ligue selon le rang de minutes.
   const ranked = [...players].sort((a, b) => (b.starter ? 1 : 0) - (a.starter ? 1 : 0) || b.expMin - a.expMin);
   ranked.forEach((p, rank) => {
@@ -1006,7 +1028,8 @@ function teamMomentum(f: FeatureSet, teamId: number, date: string, homeMargin: n
   }
   const r = avg(recent);
   const b = avg(base);
-  const out: TeamMomentum = { recent: r, base: b, delta: r - b, n: recent.length, nBase: base.length, streak };
+  const nCur = recent.filter((g) => seasonOfDate(g.date) === cur).length;
+  const out: TeamMomentum = { recent: r, base: b, delta: r - b, n: recent.length, nCur, nBase: base.length, streak };
   // Occasions (points attendus créés - concédés) sur les mêmes périodes : l'ascendant dans le jeu, hors réussite du soir.
   const occ = (occLogsBefore(date).get(teamId) ?? []).filter((g) => g.date < date);
   if (occ.length >= 25) {
@@ -1261,7 +1284,7 @@ function insightsFor(ctx: Ctx, home: TeamModel, away: TeamModel, h2h?: TeamH2H):
   }
   for (const tm of [away, home]) {
     const mo = tm.momentum;
-    if (mo && Math.abs(mo.delta) >= 4) {
+    if (mo && Math.abs(mo.delta) >= 4 && (mo.nCur ?? mo.n) >= 8) {
       // Ce qui a changé dans ses occasions (relatif à la ligue) : les deux leviers les plus marqués.
       let why = '';
       if (mo.occ) {
@@ -1342,6 +1365,7 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
   log('agrégation des play-by-play (forme récente)…');
   const feats = buildFeaturesCached(opts.date, groupOf);
   const ctx = makeCtx(feats, tables, groupOf, heights);
+  ctx.rapm = rapmAsOf(opts.date);
 
   // Effectifs actuels (index joueurs saison courante = transferts / mercato pris en compte).
   const rosterOf = (info: TeamInfo): number[] => {
@@ -1437,7 +1461,7 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
   const home = teamModel(ctx, homeInfo, homePlayers, opts.date, homeInfo);
   const away = teamModel(ctx, awayInfo, awayPlayers, opts.date, homeInfo);
   // Notes d'impact (matchs antérieurs à la semaine, a priori tiré de ses stats) ; sans aucun match NBA : un remplaçant.
-  const rapm = rapmAsOf(opts.date);
+  const rapm = ctx.rapm!;
   for (const p of [...homePlayers, ...awayPlayers]) {
     const r = rapm.get(p.id);
     p.rapm = r ? { o: r.o, d: r.d, poss: Math.round(r.poss) } : { o: -0.8, d: -0.7, poss: 0 };
