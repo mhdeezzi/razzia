@@ -1513,10 +1513,15 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
           status = `Repos possible (${Math.round(rate * 100)} %)`;
         }
       }
-      // Liste des inactifs du match publiée par NBA.com : absent, quoi que dise le rapport de blessures.
-      if (!opts.actual && lineups.some((g) => [g.home, g.away].some((sd) => sd.teamId === info.id && sd.inactive.includes(id)))) {
+      // Liste des inactifs du match publiée par NBA.com : absent, quoi que dise le rapport de blessures. À l'inverse, un
+      // titulaire confirmé joue, même s'il était annoncé incertain.
+      const side = opts.actual ? undefined : lineups.flatMap((g) => [g.home, g.away]).find((sd) => sd.teamId === info.id);
+      if (side?.inactive.includes(id)) {
         status = 'Out (inactif NBA.com)';
         avail = 0;
+      } else if (side?.starters.some((x) => x.id === id && /confirmed/i.test(x.status))) {
+        status = 'Active (titulaire confirmé)';
+        avail = 1;
       }
       if (outSet.has(normName(name))) {
         status = 'Out (manuel)';
