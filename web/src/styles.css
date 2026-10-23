@@ -630,10 +630,6 @@ a.row:hover .mark { transform: scale(1.06); }
 .pips-blue i.on { background: var(--blue); }
 .pips-rose i.on { background: var(--rose); }
 .pips-mute i.on { background: var(--text-2); }
-.insights { margin: 0; padding: 0; list-style: none; display: grid; }
-.insights li { padding: 14px 0 14px 34px; position: relative; color: var(--text-2); border-top: 1px solid var(--line); font-size: 15px; }
-.insights li:first-child { border-top: 0; }
-.insights li::before { content: counter(list-item, decimal-leading-zero); position: absolute; left: 0; top: 15px; font: 600 12px var(--mono); color: #8fbcff; }
 .footnote { font-size: 12px; color: var(--text-3); padding: 4px 4px 0; }
 
 /* États */
