@@ -439,6 +439,12 @@ export class GameSim {
       if (pick.length >= 5) break;
       if (!pick.includes(p)) pick.push(p);
     }
+    // Moins de 5 joueurs éligibles (effectif court et exclusions pour fautes) : comme en NBA, les exclus restent en jeu.
+    if (pick.length < 5)
+      for (const p of S.ps.filter((q) => !pick.includes(q)).sort((a, b) => Number(b.active) - Number(a.active) || b.m.expMin - a.m.expMin)) {
+        if (pick.length >= 5) break;
+        pick.push(p);
+      }
     return pick.map((p) => p.li);
   }
 
@@ -524,7 +530,11 @@ export class GameSim {
       };
       permute(0);
       const map = new Map<number, number>();
-      O.forEach((o, i) => map.set(o.li, D[bestPerm[i]].li));
+      // Défense en sous-nombre (ne devrait plus arriver) : l'attaquant en trop prend le défenseur qui lui va le mieux.
+      O.forEach((o, i) => {
+        const j = i < n ? bestPerm[i] : aff[i].indexOf(Math.max(...aff[i]));
+        if (D[j]) map.set(o.li, D[j].li);
+      });
       this.assign[off] = map;
     }
   }

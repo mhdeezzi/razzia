@@ -43,7 +43,8 @@ jobs:
           git config user.name "simbet-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git fetch origin resultats; then git worktree add -B resultats ../res FETCH_HEAD; else git worktree add --orphan -b resultats ../res; fi
-          for i in 1 2 3 4 5; do
+          # Jusqu'à 15 simulations d'une même soirée peuvent publier en même temps : essais espacés au hasard.
+          for i in $(seq 1 12); do
             mkdir -p "../res/sims/$DIR"
             cp "out/$DIR/summary.json" "../res/sims/$DIR/summary.json"
             node src/cli/typicalcompact.ts "out/$DIR/typical.json" "../res/sims/$DIR/typical.json"
@@ -52,7 +53,7 @@ jobs:
             git -C ../res commit -qm "Simulation $DIR"
             git -C ../res push origin HEAD:resultats && exit 0
             # Une autre simulation a publié entre-temps : on repart de sa version et on recalcule l'index.
-            sleep $((i * 2))
+            sleep $((i + RANDOM % 6))
             git -C ../res fetch origin resultats && git -C ../res reset -q --hard FETCH_HEAD
           done
           exit 1

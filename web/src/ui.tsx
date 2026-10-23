@@ -19,7 +19,16 @@ export function useLocation(): { path: string; search: URLSearchParams } {
   return { path: u.pathname, search: u.searchParams };
 }
 
-export function Link({ href, className, children, replace, style }: { href: string; className?: string; children: ReactNode; replace?: boolean; style?: CSSProperties }) {
+export function Link({ href, className, children, replace, style, ...aria }: {
+  href: string;
+  className?: string;
+  children: ReactNode;
+  replace?: boolean;
+  style?: CSSProperties;
+  title?: string;
+  'aria-label'?: string;
+  'aria-current'?: 'page';
+}) {
   const go = (e: MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
@@ -29,7 +38,7 @@ export function Link({ href, className, children, replace, style }: { href: stri
     } else navigate(href);
   };
   return (
-    <a href={href} className={className} onClick={go} style={style}>
+    <a href={href} className={className} onClick={go} style={style} {...aria}>
       {children}
     </a>
   );
