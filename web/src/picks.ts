@@ -27,8 +27,17 @@ const deTeam = (name: string) => (['Heat', 'Magic', 'Thunder', 'Jazz'].includes(
 const STD_PRICE = -110; // prix standard quand la cote du handicap ou du total n'est pas publiée
 /** En dessous de cette cote, un pari ne rapporte presque rien : le handicap « plus sûr » n'est pas proposé. */
 export const MIN_ODDS = 1.15;
-/** Favori sous 55 % : pile ou face, le vainqueur est déconseillé et le handicap passe devant. */
-export const FLIP = 0.55;
+/**
+ * Favori à 65 % ou moins : le vainqueur ne passe que 59 à 62 % du temps (deux saisons), le handicap « plus sûr » 81 %.
+ * Le handicap passe devant, le vainqueur est déconseillé, et c'est le handicap qui compte au bilan.
+ */
+export const HEDGE_FIRST = 0.65;
+/** Favori sous 60 % : pile ou face. */
+export const FLIP = 0.6;
+/** Handicap « plus sûr » : la ligne la plus exigeante qui passe dans au moins 80 % des simulations. */
+export const SAFE_COVER = 0.8;
+/** Probabilité arrondie comme à l'écran (une décimale), pour que les seuils suivent le pourcentage affiché. */
+export const shown = (p: number) => Math.round(p * 1000) / 1000;
 
 export function buildCategories(r: Result, g: Game): Category[] {
   const o = g.odds ?? {};
@@ -67,11 +76,11 @@ export function buildCategories(r: Result, g: Game): Category[] {
         text: `Écart moyen simulé : ${signed(margin)} pour ${g[fav].name}. Dans 80 % des matchs, l'écart final va de ${signed(fav === 'home' ? r.margin.p10 : -r.margin.p90)} à ${signed(fav === 'home' ? r.margin.p90 : -r.margin.p10)}.`,
       });
   }
-  // Plus sûr que le simple vainqueur (surtout sur un pile ou face) : le favori avec des points d'avance, la ligne la plus
-  // exigeante qui passe dans 75 % des simulations et plus souvent que la victoire ; pas proposé sous une cote de 1,15.
+  // Plus sûr que le simple vainqueur : le favori avec des points d'avance, la ligne la plus exigeante qui passe dans 80 %
+  // des simulations et plus souvent que la victoire ; pas proposé sous une cote de 1,15.
   const cover = (x: { pHomeCover: number }) => (fav === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
   const hedge = r.spreadLadder
-    .filter((x) => (fav === 'home' ? x.line : -x.line) > 0 && cover(x) >= 0.75 && cover(x) > winP && cover(x) <= 1 / MIN_ODDS)
+    .filter((x) => (fav === 'home' ? x.line : -x.line) > 0 && cover(x) >= SAFE_COVER && cover(x) > winP && cover(x) <= 1 / MIN_ODDS)
     .sort((a, b) => cover(a) - cover(b))[0];
   if (hedge) {
     const l = fav === 'home' ? hedge.line : -hedge.line;
@@ -81,11 +90,12 @@ export function buildCategories(r: Result, g: Game): Category[] {
     });
   }
   // Une seule solution : celle qui passe le plus souvent. Un seul point, sur l'onglet en deuxième position : bleu sur le
-  // handicap (plus sûr que le vainqueur), rouge sur le vainqueur d'un pile ou face (le handicap passe alors en premier).
+  // handicap (plus sûr que le vainqueur), rouge sur le vainqueur d'un favori à 65 % ou moins (le handicap passe devant).
   const best = spreads.sort((a, b) => b.p - a.p)[0];
-  if (best) cats.push({ id: 'spread', label: 'Handicap', items: [winP >= FLIP ? { ...best, safe: 'Safe' } : best], good: winP >= FLIP });
-  // Pile ou face : parier sur le vainqueur est déconseillé ; le handicap passe en premier.
-  if (winP < FLIP && best) {
+  const hedgeFirst = !!best && shown(winP) <= HEDGE_FIRST;
+  if (best) cats.push({ id: 'spread', label: 'Handicap', items: [hedgeFirst ? best : { ...best, safe: 'Safe' }], good: !hedgeFirst });
+  // Favori à 65 % ou moins : parier sur le vainqueur est déconseillé ; le handicap passe en premier.
+  if (hedgeFirst) {
     const win = cats.shift()!;
     win.warn = true;
     win.items = win.items.map((o) => ({ ...o, warn: 'Déconseillé' }));

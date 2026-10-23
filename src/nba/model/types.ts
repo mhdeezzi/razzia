@@ -238,6 +238,7 @@ export interface SimParams {
   cohesionWeight?: number; // points par écart de continuité d'effectif de 100 %, sur les 10 premiers matchs de la saison
   absenceWeight?: number; // points x (part du talent absente)^2 : une équipe décimée perd bien plus que ses notes ne le disent
   moveWeight?: number; // part du mouvement de cote (ouverture -> maintenant, en logit) ajoutée à la probabilité Razzia
+  openWeight?: number; // part de la cote d'ouverture sans marge mélangée (logit) au moteur sans les absences du soir
   starWeight?: number; // points par point de Game Score (au-dessus de 8) de la star absente
   hcaWeight?: number; // part de l'avantage du terrain propre à l'équipe qui reçoit (écart à la ligue) retenue
   strengthPull?: number; // part de l'écart entre la force simulée joueur par joueur et la force visée qui est comblée

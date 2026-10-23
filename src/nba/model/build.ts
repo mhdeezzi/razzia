@@ -101,8 +101,11 @@ export const DEFAULT_PARAMS: SimParams = {
   absenceWeight: 16,
   // Mouvement de cote depuis l'ouverture (logit du marché sans marge) : le marché réagit aux nouvelles (forfait tardif,
   // vestiaire) avant nous. Appris sur une saison, vérifié sur l'autre : 0,32 et 0,37 ; probabilités plus justes les deux
-  // saisons. Seul le mouvement compte, pas le niveau du marché (Razzia reste 100 % moteur).
+  // saisons.
   moveWeight: 0.35,
+  // Un tiers de la cote d'ouverture, mélangé au moteur sans les absences du soir (elles restent à plein poids). Appris sur
+  // une saison, vérifié sur l'autre : 0,33 et 0,39 ; probabilités plus justes les deux saisons, 673 -> 663 ratés.
+  openWeight: 1 / 3,
   // Star absente, en plus : 0,2 pt par point de Game Score au-dessus de 8 (Edwards, ~20 : 2,4 pts). Deux saisons :
   // 70,4 % -> 70,9 % de bons vainqueurs, en hausse sur chacune. Le coup dur dépend de qui manque, pas seulement de combien.
   starWeight: 0.2,
@@ -111,7 +114,7 @@ export const DEFAULT_PARAMS: SimParams = {
   // l'écart vers la force visée (contrôle 2 x 200 matchs, Brier : 60 % 0,2092 / 0,2177 ; 80 % 0,2061 / 0,2148 ;
   // 100 % 0,2039 / 0,2150).
   strengthPull: 1,
-  blendModel: 1, // probabilité Razzia : 100 % moteur, 0 % marché (choix)
+  blendModel: 1, // pas de cote du moment dans la probabilité Razzia : seulement l'ouverture (openWeight) et le mouvement
   // Probabilités moins timides au milieu, moins audacieuses en haut (800 matchs 2025-26 ; apprise sur oct.-déc.,
   // vérifiée sur janv.-fév. : log-perte 0,6393 -> 0,6343). 55 % -> 57 %, 60 % -> 64 %, 70 % -> 73 %, 90 % -> 87 %.
   calB: 1.6,

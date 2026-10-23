@@ -172,18 +172,25 @@ function contextShift(m: GameModel): number {
     const fade = (t: TeamModel) => Math.max(0, 1 - (t.gpCur ?? 99) / 10);
     shift += cw * (m.home.continuity - m.away.continuity) * Math.max(fade(m.home), fade(m.away));
   }
-  // Absences lourdes : au carré de la part du talent absente (une absence légère compte peu, une équipe décimée beaucoup).
-  const aw = m.params.absenceWeight ?? 0;
-  if (aw) shift += aw * ((m.away.missShare ?? 0) ** 2 - (m.home.missShare ?? 0) ** 2);
-  // Star absente : la perte du meilleur joueur pèse selon son niveau.
-  const stw = m.params.starWeight ?? 0;
-  if (stw) shift += stw * ((m.away.starOut ?? 0) - (m.home.starOut ?? 0));
+  shift += absenceShift(m);
   // Avantage du terrain propre à l'équipe qui reçoit (une salle qui pèse plus, ou moins, que la moyenne).
   const hw = m.params.hcaWeight ?? 0;
   if (hw && m.home.hcaDev != null) shift += hw * m.home.hcaDev;
   // Fin de saison sans enjeu (équipe hors course) : moins d'intensité.
   const ns = m.params.noStakesPenalty ?? 0;
   if (ns) shift += ns * ((m.away.noStakes ? 1 : 0) - (m.home.noStakes ? 1 : 0));
+  return shift;
+}
+
+/** Part des absences du soir dans l'écart de contexte (points pour l'équipe à domicile). */
+function absenceShift(m: GameModel): number {
+  let shift = 0;
+  // Absences lourdes : au carré de la part du talent absente (une absence légère compte peu, une équipe décimée beaucoup).
+  const aw = m.params.absenceWeight ?? 0;
+  if (aw) shift += aw * ((m.away.missShare ?? 0) ** 2 - (m.home.missShare ?? 0) ** 2);
+  // Star absente : la perte du meilleur joueur pèse selon son niveau.
+  const stw = m.params.starWeight ?? 0;
+  if (stw) shift += stw * ((m.away.starOut ?? 0) - (m.home.starOut ?? 0));
   return shift;
 }
 
@@ -513,7 +520,18 @@ export function summarize(m: GameModel, b: Batch): Summary {
       // pas. Quand la cote part de 5 points contre notre favori, il gagnait 55 % du temps au lieu de 65 % annoncés.
       const mw = m.params.moveWeight ?? 0;
       const move = mw && mk.pHomeOpen != null ? mw * (lg(mk.pHomeNoVig) - lg(mk.pHomeOpen)) : 0;
-      market.blendedHome = 1 / (1 + Math.exp(-(w * lg(calibrated(m, homeWins / n)) + (1 - w) * lg(mk.pHomeNoVig) + move)));
+      // Cote d'ouverture mélangée au moteur de base, c'est-à-dire sans les absences du soir (marges simulées décalées de
+      // leur part) : absences et star absente restent à plein poids. Mélangées elles aussi, elles perdaient un tiers de
+      // leur effet et le gain disparaissait.
+      const ow = m.params.openWeight ?? 0;
+      let open = 0;
+      if (ow) {
+        const abs = absenceShift(m);
+        let c = 0;
+        for (let i = 0; i < n; i++) if (margin[i] - abs > 0) c++;
+        open = ow * (lg(mk.pHomeOpen ?? mk.pHomeNoVig) - lg(calibrated(m, c / n)));
+      }
+      market.blendedHome = 1 / (1 + Math.exp(-(w * lg(calibrated(m, homeWins / n)) + (1 - w) * lg(mk.pHomeNoVig) + move + open)));
       // Cote d'ouverture gardée aussi pour mesurer la valeur de clôture.
       if (mk.pHomeOpen != null) market.bookHomeOpen = mk.pHomeOpen;
     }

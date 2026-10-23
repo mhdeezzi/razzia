@@ -17,7 +17,9 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   const at = d.name === fresh || !before.has(d.name) ? new Date().toISOString() : before.get(d.name)!.at;
   // cat : équipe victime d'un chat noir dans ce match (icône sur le programme).
   const cat = s.h2h?.blackCat ? (s.h2h.blackCat.victim === 'home' ? s.home.tri : s.away.tri) : undefined;
-  out.push({ dir: d.name, pHome: s.pHome, pAway: s.pAway, at, ...(cat ? { cat } : {}) });
+  // Probabilité affichée sur la fiche (moteur, cote d'ouverture et mouvement de cote), pour que le programme dise pareil.
+  const pHome: number = s.market?.blendedHome ?? s.pHome;
+  out.push({ dir: d.name, pHome, pAway: 1 - pHome, at, ...(cat ? { cat } : {}) });
 }
 out.sort((a, b) => b.at.localeCompare(a.at));
 writeFileSync(file, JSON.stringify(out));
