@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise, Scales, ShieldCheck, WarningCircle } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
-import { buildCategories, FLIP, MIN_ODDS, type Outcome } from './picks.ts';
+import { buildCategories, FLIP, MIN_ODDS, SAFE_COVER, shown, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
@@ -55,7 +55,7 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
 }
 
 // Niveaux de confiance, mesurés sur toute la saison 2025-26 (1 230 matchs) : à 77 % ou plus (un match sur quatre), le
-// moteur voit juste 84,6 % du temps ; sous 55 %, 58 % seulement.
+// moteur voit juste 84,6 % du temps. Sous 60 % (deux saisons), le favori ne gagne que 59 % du temps : pile ou face.
 const SURE = 0.77;
 // Gros désaccord avec le marché en début de saison (octobre-novembre) : le marché voit l'autre équipe favorite, avec au
 // moins 20 points d'écart. Saison 2025-26 : le moteur n'a eu raison que 5 fois sur 10 sur ces matchs. Le favori ne change pas.
@@ -68,18 +68,18 @@ interface Confidence {
   book?: number; // marché sans marge
   tier: 'sure' | 'flip' | 'normal';
   disagree: boolean;
-  hedge?: { title: string; p: number }; // handicap qui passe dans au moins 75 % des simulations
+  hedge?: { title: string; p: number }; // handicap qui passe dans au moins 80 % des simulations
 }
 
 function confidenceOf(r: Result, g: Game): Confidence {
   const pHome = r.market?.blendedHome ?? r.pHome;
   const side = pHome >= 0.5 ? 'home' : 'away';
   const p = side === 'home' ? pHome : 1 - pHome;
-  const tier = p >= SURE ? 'sure' : p < FLIP ? 'flip' : 'normal';
-  // Match serré : le favori avec des points d'avance (gagne, ou perd de peu), la ligne la plus exigeante à 75 % ou plus.
+  const tier = p >= SURE ? 'sure' : shown(p) < FLIP ? 'flip' : 'normal';
+  // Match serré : le favori avec des points d'avance (gagne, ou perd de peu), la ligne la plus exigeante à 80 % ou plus.
   const cover = (x: { line: number; pHomeCover: number }) => (side === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
   const lineOf = (x: { line: number }) => (side === 'home' ? x.line : -x.line);
-  const h = r.spreadLadder.filter((x) => cover(x) >= 0.75 && cover(x) > p && cover(x) <= 1 / MIN_ODDS && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
+  const h = r.spreadLadder.filter((x) => cover(x) >= SAFE_COVER && cover(x) > p && cover(x) <= 1 / MIN_ODDS && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
   const hedge = h ? { title: `${g[side].name} +${line(lineOf(h))}`, p: cover(h) } : undefined;
   const book = r.market?.bookHome != null ? (side === 'home' ? r.market.bookHome : 1 - r.market.bookHome) : undefined;
   const month = Number(g.date.slice(5, 7));
@@ -154,6 +154,8 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
   const fav = g[c.side];
   const pFav = c.p;
   const bookFav = c.book;
+  // La barre reprend la probabilité Razzia affichée (moteur, cote d'ouverture et mouvement de cote).
+  const pH = r.market?.blendedHome ?? r.pHome;
   return (
     <section className={`verdict verdict-${c.tier}`}>
       <Ring value={pFav} format={pctInt} label="Victoire" />
@@ -177,17 +179,17 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
             </span>
           </p>
         )}
-        <div className="split" role="img" aria-label={`${g.away.tri} ${pct(r.pAway)}, ${g.home.tri} ${pct(r.pHome)}`}>
+        <div className="split" role="img" aria-label={`${g.away.tri} ${pct(1 - pH)}, ${g.home.tri} ${pct(pH)}`}>
           <div className="split-bar">
-            <span style={{ flexGrow: r.pAway }} />
-            <span style={{ flexGrow: r.pHome }} />
+            <span style={{ flexGrow: 1 - pH }} />
+            <span style={{ flexGrow: pH }} />
           </div>
           <div className="split-legend">
             <span>
-              {g.away.tri} {pct(r.pAway)}
+              {g.away.tri} {pct(1 - pH)}
             </span>
             <span>
-              {pct(r.pHome)} {g.home.tri}
+              {pct(pH)} {g.home.tri}
             </span>
           </div>
         </div>
