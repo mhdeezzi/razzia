@@ -79,6 +79,12 @@ export const DEFAULT_PARAMS: SimParams = {
   //                                                             70,3 % ; Razzia 69,6 % — marché 69,6 % ; Brier 0,2017
   //   façon parieur sans la forme des joueurs                   70,5 % ; Razzia 68,9 % — marché 69,6 % ; Brier 0,2018
   // Réglages disponibles mais désactivés : playerMomentum, benchTop / benchTopWeight / benchRestWeight, talentBoost.
+  // Saison 2025-26 complète (1 230 matchs, nuit du 23/10/2026), bon vainqueur / log-perte, référence 71,0 % / 0,5841 :
+  //   cohésion 7 (au lieu de 14)        71,0 % / 0,5840  <- retenu : aussi juste, probabilités un peu meilleures
+  //   cohésion 0                        70,9 % / 0,5837 ;  notes joueurs x1,25 / x1,5   70,4 % / 0,5821 et 0,5820
+  //   poids des notes joueurs 70 %      70,3 % / 0,5811 ;  box-score 50 % / 80 %       69,9 % / 70,1 %
+  //   continuité à rebours, propre      70,4 % ;  momentum 0,6 / x2 contre le favori   69,8 % / 70,4 %
+  // Réglages disponibles mais désactivés : rapmScale, boxImpact, ownContinuity, backContinuity, momentumContra.
   rapmWeight: 0.5,
   styleWeight: 0,
   momentumWeight: 0.3,
@@ -88,13 +94,13 @@ export const DEFAULT_PARAMS: SimParams = {
   h2hShotWeight: 0,
   coachDef: 1.5,
   noStakesPenalty: 3,
-  cohesionWeight: 14,
+  cohesionWeight: 7, // une équipe remaniée manque d'automatismes, mais 14 surpénalisait (CLE@PHI du 22/10 : -4,4 pts)
   hcaWeight: 0.3,
   // La simulation joueur par joueur seule est trop plate (pente 0,35 contre la ligne du marché) : on comble tout
   // l'écart vers la force visée (contrôle 2 x 200 matchs, Brier : 60 % 0,2092 / 0,2177 ; 80 % 0,2061 / 0,2148 ;
   // 100 % 0,2039 / 0,2150).
   strengthPull: 1,
-  blendModel: 1, // probabilité Razzia : 100 % moteur, 0 % marché (choix) ; seul le mouvement de la cote sert (suivre l'argent)
+  blendModel: 1, // probabilité Razzia : 100 % moteur, 0 % marché (choix)
   // Probabilités moins timides au milieu, moins audacieuses en haut (800 matchs 2025-26 ; apprise sur oct.-déc.,
   // vérifiée sur janv.-fév. : log-perte 0,6393 -> 0,6343). 55 % -> 57 %, 60 % -> 64 %, 70 % -> 73 %, 90 % -> 87 %.
   calB: 1.6,
@@ -952,6 +958,17 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
     contDen += p.expMin * p.avail;
   }
   const continuity = contDen ? contNum / contDen : 0;
+  // Continuité « à rebours » : part des minutes passées de l'équipe (même pondération que ses notes) jouées par les
+  // joueurs présents ce soir. Une équipe dont la star manquait l'an dernier, ou qui a recruté, a des notes d'équipe qui
+  // décrivent un autre effectif que celui de ce soir.
+  const schedW = new Map((T?.sched ?? []).filter((s) => s.date < date).map((s) => [s.date, s.w]));
+  let backNum = 0;
+  const backDen = [...schedW.values()].reduce((a, w) => a + w, 0) * 14_400;
+  for (const p of players) {
+    if (p.avail <= 0) continue;
+    for (const g of f.players.get(p.id)?.games ?? []) if (g.tm === info.id && schedW.has(g.date)) backNum += schedW.get(g.date)! * g.sec * p.avail;
+  }
+  const continuityBack = backDen > 0 ? Math.min(1, backNum / backDen) : 0;
   // Incertitude sur la force réelle : un effectif remanié ou un début de saison (peu de matchs ensemble) rendent les
   // notes moins sûres ; tirée à chaque simulation, elle rapproche la probabilité du 50/50 quand le moteur sait peu.
   const season = seasonOfDate(date);
@@ -994,6 +1011,7 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
     ortg: T && T.poss > 0 ? T.pts / T.poss : league.ppg / league.pace,
     drtg: T && T.defPoss > 0 ? T.ptsAllowed / T.defPoss : league.ppg / league.pace,
     continuity,
+    continuityBack,
     gpCur,
     strengthSd,
     id: info.id, tri: info.tri, name: info.name, city: info.city, color: info.color, color2: info.color2, players,
@@ -1500,6 +1518,16 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
           avail = Math.max(0, 1 - rate);
           status = `Repos possible (${Math.round(rate * 100)} %)`;
         }
+      }
+      // Liste des inactifs du match publiée par NBA.com : absent, quoi que dise le rapport de blessures. À l'inverse, un
+      // titulaire confirmé joue, même s'il était annoncé incertain.
+      const side = opts.actual ? undefined : lineups.flatMap((g) => [g.home, g.away]).find((sd) => sd.teamId === info.id);
+      if (side?.inactive.includes(id)) {
+        status = 'Out (inactif NBA.com)';
+        avail = 0;
+      } else if (side?.starters.some((x) => x.id === id && /confirmed/i.test(x.status))) {
+        status = 'Active (titulaire confirmé)';
+        avail = 1;
       }
       if (outSet.has(normName(name))) {
         status = 'Out (manuel)';

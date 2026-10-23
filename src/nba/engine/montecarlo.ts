@@ -67,6 +67,13 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
   const mk = m.params.playerMomentum ?? 0;
   const nTop = m.params.benchTop ?? 99, wTop = m.params.benchTopWeight ?? 1, wRest = m.params.benchRestWeight ?? 1;
   const mom = (p: PlayerModel) => mk * 0.31 * (p.momentum?.delta ?? 0);
+  // Niveau box-score (Game Score / 36) converti en impact, mêlé à la note d'impact (part boxImpact) : la note d'impact,
+  // très rétrécie, écrase les écarts entre stars ; le box-score les garde. 70 % en attaque, 30 % en défense.
+  const bw = m.params.boxImpact ?? 0, bs = m.params.boxSlope ?? 0.4;
+  // Échelle des notes d'impact : le ridge les tasse (écart-type 1,4 pt entre joueurs de rotation) ; à tester plus large.
+  const rs = m.params.rapmScale ?? 1;
+  const boxO = (p: PlayerModel) => 0.7 * (0.87 + bs * (p.quality - 12.1));
+  const boxD = (p: PlayerModel) => 0.3 * (0.87 + bs * (p.quality - 12.1));
   const imp = (t: TeamModel) => {
     const share = t.players.map((p) => p.avail * p.expMin);
     const tot = share.reduce((a, v) => a + v, 0) || 1;
@@ -77,8 +84,8 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
       const hot = 1 + Math.min(1, Math.max(0, (p.momentum?.delta ?? 0) / 5)); // remplaçant en forme : jusqu'à ×2
       const w = p.starter ? 1 : Math.min(1, (top.has(p.id) ? wTop : wRest) * hot);
       const k = ((5 * share[i]) / tot) * w;
-      off += k * ((p.rapm?.o ?? -0.8) + 0.7 * mom(p));
-      def += k * ((p.rapm?.d ?? -0.7) + 0.3 * mom(p));
+      off += k * ((1 - bw) * rs * (p.rapm?.o ?? -0.8) + bw * boxO(p) + 0.7 * mom(p));
+      def += k * ((1 - bw) * rs * (p.rapm?.d ?? -0.7) + bw * boxD(p) + 0.3 * mom(p));
     });
     return { off: off / 100, def: def / 100 };
   };
@@ -86,7 +93,10 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
   const rapmTarget: [number, number] = [lg + ih.off - ia.def + hca, lg + ia.off - ih.def - hca];
   // Les notes d'équipe viennent des matchs passés de l'effectif d'alors : elles ne comptent qu'à proportion de la
   // continuité (et des minutes habituelles disponibles ce soir) ; les notes d'impact suivent qui joue vraiment.
-  const contShare = Math.sqrt(m.home.continuity * m.away.continuity);
+  // Continuité qui fixe le poids des notes d'équipe : dans les deux sens si backContinuity (joueurs de ce soir déjà là,
+  // et minutes passées de l'équipe jouées par eux), sinon seulement la première.
+  const contR = (t: TeamModel) => (m.params.backContinuity ? Math.sqrt(t.continuity * (t.continuityBack ?? t.continuity)) : t.continuity);
+  const contShare = Math.sqrt(contR(m.home) * contR(m.away));
   const wTeam = (1 - rw) * contShare;
   const rwEff = rw > 0 ? rw / (rw + wTeam) : 0;
   // Multiplicateur de talent : quand l'équipe qui domine le collectif a aussi le meilleur talent, ses joueurs
@@ -96,7 +106,17 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
   const leader = coll > 0 ? m.home : m.away;
   const talentMult = coll * tal > 0 ? 1 + (m.params.talentBoost ?? 0) * (leader.coreCohesion ?? 0) : 1;
   const rwT = rwEff * talentMult;
-  const target: [number, number] = [(1 - rwEff) * teamTarget[0] + rwEff * (lg + hca) + rwT * (ih.off - ia.def), (1 - rwEff) * teamTarget[1] + rwEff * (lg - hca) + rwT * (ia.off - ih.def)];
+  let target: [number, number] = [(1 - rwEff) * teamTarget[0] + rwEff * (lg + hca) + rwT * (ih.off - ia.def), (1 - rwEff) * teamTarget[1] + rwEff * (lg - hca) + rwT * (ia.off - ih.def)];
+  // Continuité propre à chaque équipe : les notes d'équipe passées d'un effectif remanié ne pèsent que pour lui
+  // (avant : moyenne des deux continuités, qui gardait les vieilles notes d'une équipe transformée par le mercato).
+  if (m.params.ownContinuity) {
+    const rwOf = (t: TeamModel) => (rw > 0 ? rw / (rw + (1 - rw) * contR(t)) : 0);
+    const rh = rwOf(m.home), ra = rwOf(m.away);
+    target = [
+      lg + hca + (1 - rh) * (o(m.home) - lg) + (1 - ra) * (d(m.away) - lg) + talentMult * (rh * ih.off - ra * ia.def),
+      lg - hca + (1 - ra) * (o(m.away) - lg) + (1 - rh) * (d(m.home) - lg) + talentMult * (ra * ia.off - rh * ih.def),
+    ];
+  }
   // Les notes d'équipe ignorent les absences du soir : leur poids baisse avec la part des minutes habituelles disponibles.
   const avail = (t: GameModel['home']) => {
     const usual = t.players.reduce((a, p) => a + (p.form.gp > 0 ? p.form.minL10 : 0), 0);
@@ -132,7 +152,7 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
     // La mesure qui fixe le dernier réglage compte triple : le bruit de l'ancrage passe d'environ ±0,6 à ±0,35 pt.
     cur = measure(710_000 + it * 10_000, it === 1 ? 3 * sims : sims);
   }
-  m.params.edge = composeEdges(m);
+  m.params.edge = composeEdges(m, target[0] - target[1] >= 0 ? 0 : 1);
   return { target, before, after: cur, talentMult, rwEff };
 }
 
@@ -146,6 +166,7 @@ function contextShift(m: GameModel): number {
   if (sw2 && m.h2h?.style) shift += sw2 * ((m.h2h.style.home?.pts ?? 0) - (m.h2h.style.away?.pts ?? 0)) / 2;
   // Cohésion : une équipe remaniée manque d'automatismes ses premiers matchs. Mesuré sur 2025-26 (matchs 1 à 10) :
   // +14 pts par écart de continuité de 100 % (erreur 6), effet disparu après le 10e match ; s'éteint linéairement.
+  // Le contrôle de la saison complète donne le même bon vainqueur à 7, 14 ou 0 : poids ramené à 7.
   const cw = m.params.cohesionWeight ?? 0;
   if (cw) {
     const fade = (t: TeamModel) => Math.max(0, 1 - (t.gpCur ?? 99) / 10);
@@ -175,7 +196,7 @@ const edgeSum = (e: Edge) => EDGE_KEYS.reduce((s, k) => s + e[k], 0);
  * l'effectif ; sa répartition, de ce qui a changé dans son jeu. Pas de levier de réussite : ce n'est qu'une conséquence.
  * Chat noir : ce qui change dans les confrontations (tirs plus loin, plus contestés ou ratés, pertes, rebonds).
  */
-export function composeEdges(m: GameModel): [Edge, Edge] {
+export function composeEdges(m: GameModel, fav?: 0 | 1): [Edge, Edge] {
   const edge: [Edge, Edge] = [zeroEdge(), zeroEdge()];
   const early = Math.max(0, 1 - Math.min(m.home.gpCur ?? 99, m.away.gpCur ?? 99) / 25);
   const mw = (m.params.momentumWeight ?? 0) + (m.params.momentumEarly ?? 0) * early;
@@ -188,7 +209,9 @@ export function composeEdges(m: GameModel): [Edge, Edge] {
       const dOcc = M.xRecent != null && M.xBase != null ? M.xRecent - M.xBase : M.delta;
       // Seuls les matchs de la saison en cours (même effectif) font un momentum : au premier match, rien.
       const curShare = M.nCur != null ? Math.min(1, M.nCur / Math.max(1, M.n)) : 1;
-      const D = mw * T.continuity * curShare * ((1 - mo) * M.delta + mo * dOcc);
+      let D = mw * T.continuity * curShare * ((1 - mo) * M.delta + mo * dOcc);
+      // Momentum qui contredit le favori du moteur (outsider en montée, favori en baisse) : poids à part (à tester).
+      if (fav != null && (k === fav ? D < 0 : D > 0)) D *= m.params.momentumContra ?? 1;
       let rest = D;
       if (M.occ) {
         const r = M.occ.recent, b = M.occ.base;
@@ -325,7 +348,6 @@ export interface Summary {
     mlHome?: number; // cotes américaines au moment de la simulation (bilan : valeur de clôture, rendement)
     mlAway?: number;
     bookHomeOpen?: number; // marché sans marge à l'ouverture
-    steam?: { side: 'home' | 'away'; move: number }; // « suivre l'argent » : la cote a bougé fort sur un match serré
   };
   players: PlayerSummary[];
   props: PropEval[];
@@ -482,21 +504,9 @@ export function summarize(m: GameModel, b: Batch): Summary {
       const w = m.params.blendModel ?? 0.4;
       const lg = (p: number) => Math.log(Math.min(0.995, Math.max(0.005, p)) / (1 - Math.min(0.995, Math.max(0.005, p))));
       market.blendedHome = 1 / (1 + Math.exp(-(w * lg(calibrated(m, homeWins / n)) + (1 - w) * lg(mk.pHomeNoVig))));
-      // Suivre l'argent : sur un match serré pour le moteur (moins de 60 %), une cote qui a bougé d'au moins 4 points
-      // depuis l'ouverture (blessure de dernière minute, parieurs pros) désigne le favori. Saison 2025-26 : 62 matchs
-      // inversés, 61 % gagnés ; bon vainqueur 70,2 % -> 71,4 % (positif sur les deux moitiés de saison). Probabilité
-      // affichée au moins 56 % (61 % mesuré sur peu de matchs, rétréci).
-      const pe = calibrated(m, homeWins / n);
-      if (mk.pHomeOpen != null) {
-        market.bookHomeOpen = mk.pHomeOpen;
-        const move = mk.pHomeNoVig - mk.pHomeOpen;
-        if (Math.max(pe, 1 - pe) < 0.6 && Math.abs(move) >= 0.04) {
-          const side = move > 0 ? 'home' : 'away';
-          market.steam = { side, move: Math.abs(move) };
-          const pSide = Math.max(0.56, side === 'home' ? market.blendedHome : 1 - market.blendedHome);
-          market.blendedHome = side === 'home' ? pSide : 1 - pSide;
-        }
-      }
+      // Cote d'ouverture gardée pour mesurer la valeur de clôture. « Suivre l'argent » (la cote qui bouge désigne le
+      // favori des matchs serrés) est retiré : sur la saison complète après correction des absents, il n'apporte plus rien.
+      if (mk.pHomeOpen != null) market.bookHomeOpen = mk.pHomeOpen;
     }
   }
 

@@ -150,10 +150,12 @@ export async function teamRoster(season: string, teamId: number, ttl: number): P
   return r.CommonTeamRoster ?? [];
 }
 
+type LineupPlayer = { id: number; status: string; roster: string; pos: string };
 export interface DailyLineup {
   gameId: string;
-  home: { teamId: number; starters: Array<{ id: number; status: string; roster: string; pos: string }> };
-  away: { teamId: number; starters: Array<{ id: number; status: string; roster: string; pos: string }> };
+  // Le fichier liste tout l'effectif : seuls les 5 titulaires ont un poste ; « Inactive » = absent du match.
+  home: { teamId: number; starters: LineupPlayer[]; inactive: number[] };
+  away: { teamId: number; starters: LineupPlayer[]; inactive: number[] };
 }
 
 /** Compositions du jour publiées par NBA.com (« Expected » puis « Confirmed ») : fichier statique de stats.nba.com,
@@ -162,9 +164,9 @@ export async function dailyLineups(dateYmd: string): Promise<DailyLineup[]> {
   const d = dateYmd.replaceAll('-', '');
   const { fetchJson: fj } = await import('./http.ts');
   const j = await fj<any>(`https://stats.nba.com/js/data/leaders/00_daily_lineups_${d}.json`, { ttlHours: 0.5, namespace: 'lineups', cacheKey: d, staticFile: true, retries: 1 }).catch(() => undefined);
-  const side = (t: any) => ({
-    teamId: t.teamId,
-    starters: (t.players ?? []).map((p: any) => ({ id: p.personId, status: p.lineupStatus ?? '', roster: p.rosterStatus ?? '', pos: p.position ?? '' })),
-  });
+  const side = (t: any) => {
+    const all: LineupPlayer[] = (t.players ?? []).map((p: any) => ({ id: p.personId, status: p.lineupStatus ?? '', roster: p.rosterStatus ?? '', pos: p.position ?? '' }));
+    return { teamId: t.teamId, starters: all.filter((p) => p.pos !== ''), inactive: all.filter((p) => /inactive/i.test(p.roster)).map((p) => p.id) };
+  };
   return (j?.games ?? []).map((g: any) => ({ gameId: g.gameId, home: side(g.homeTeam), away: side(g.awayTeam) }));
 }

@@ -335,7 +335,6 @@ function SimPanel({ g, state, busy, launch, since }: { g: Game } & ReturnType<ty
           </div>
         </div>
       )}
-      <span className="slash">Simulation</span>
       <h2>
         {g.away.name} contre {g.home.name}, <em>joué 5 000 fois.</em>
       </h2>
@@ -380,8 +379,7 @@ function Progress({ state, since }: { state: Extract<SimState, { status: 'queued
     <section className="progress" aria-live="polite">
       <div className="progress-top">
         <div>
-          <span className="slash">Simulation en cours</span>
-          <h2 style={{ marginTop: 10 }}>On joue le match.</h2>
+          <h2>On joue le match.</h2>
         </div>
         <span className="clock">
           {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
