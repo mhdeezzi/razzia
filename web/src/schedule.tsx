@@ -372,14 +372,14 @@ function BatchTracker({ b }: { b: Batch }) {
     <section className={`batch${running ? '' : ' is-over'}`} aria-live="polite">
       <div className="batch-top">
         <div>
-          <span className="slash">Simulation de la soirée · {shortDay(b.date)}</span>
-          <h3>
+          <h3>Soirée du {shortDay(b.date)}</h3>
+          <p className="batch-sub">
             {running
-              ? `${done} match${done > 1 ? 's' : ''} sur ${n} publié${done > 1 ? 's' : ''}.`
+              ? `${done} match${done > 1 ? 's' : ''} sur ${n} publié${done > 1 ? 's' : ''}`
               : failed
-                ? `${done} sur ${n} simulés, ${failed} en échec.`
-                : `Les ${n} matchs sont simulés.`}
-          </h3>
+                ? `${done} sur ${n} simulés, ${failed} en échec`
+                : `Les ${n} matchs sont simulés`}
+          </p>
         </div>
         <span className="clock">
           {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
