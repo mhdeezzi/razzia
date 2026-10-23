@@ -1,5 +1,5 @@
 // Briques partagées : navigation, pastille d'équipe, onglets à curseur glissant, anneau de probabilité, compteur animé.
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { teamColor, teamLogo, type Team } from './data.ts';
 
 export function navigate(to: string): void {
@@ -130,7 +130,6 @@ export function CountUp({ value, format, duration = 1100 }: { value: number; for
 export function Ring({ value, tone = 'blue', label, format }: { value: number; tone?: 'blue' | 'rose'; label?: string; format: (v: number) => string }) {
   const r = 44;
   const c = 2 * Math.PI * r;
-  const grad = `ring-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const [shown, setShown] = useState(reduced() ? value : 0);
   useEffect(() => {
     const t = requestAnimationFrame(() => setShown(value));
@@ -140,19 +139,8 @@ export function Ring({ value, tone = 'blue', label, format }: { value: number; t
     <figure className={`ring ring-${tone}`}>
       <div className="ring-disc">
         <svg viewBox="0 0 100 100" aria-hidden="true">
-          <defs>
-            <linearGradient id={grad} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="var(--c2)" />
-              <stop offset="100%" stopColor="var(--c)" />
-            </linearGradient>
-          </defs>
           <circle cx="50" cy="50" r={r} className="ring-track" />
-          <circle cx="50" cy="50" r={r} className="ring-val" stroke={`url(#${grad})`} strokeDasharray={c} strokeDashoffset={c * (1 - shown)} />
-          {/* Pointe lumineuse au bout de l'arc : tourne avec lui pendant l'animation. */}
-          <g className="ring-tip" style={{ transform: `rotate(${shown * 360}deg)` }}>
-            <circle className="tip-halo" cx={50 + r} cy="50" r="6" />
-            <circle className="tip" cx={50 + r} cy="50" r="3" />
-          </g>
+          <circle cx="50" cy="50" r={r} className="ring-val" strokeDasharray={c} strokeDashoffset={c * (1 - shown)} />
         </svg>
         <span className="ring-num mono">
           <CountUp value={value} format={format} />
