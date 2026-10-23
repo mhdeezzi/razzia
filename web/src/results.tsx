@@ -1,7 +1,7 @@
 // Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (joueurs à
 // suivre, signaux, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowClockwise, Scales, ShieldCheck } from '@phosphor-icons/react';
+import { ArrowClockwise, Scales, ShieldCheck, WarningCircle } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
 import { buildCategories, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
@@ -67,6 +67,9 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
 // moteur voit juste 84,6 % du temps ; sous 55 %, 58 % seulement.
 const SURE = 0.77;
 const FLIP = 0.55;
+// Gros désaccord avec le marché en début de saison (octobre-novembre) : le marché voit l'autre équipe favorite, avec au
+// moins 20 points d'écart. Saison 2025-26 : le moteur n'a eu raison que 5 fois sur 10 sur ces matchs. Le favori ne change pas.
+const DISAGREE = 0.2;
 
 interface Confidence {
   side: 'home' | 'away';
@@ -74,6 +77,7 @@ interface Confidence {
   engine: number; // probabilité du moteur seul
   book?: number; // marché sans marge
   tier: 'sure' | 'flip' | 'normal';
+  disagree: boolean;
   hedge?: { title: string; p: number }; // handicap qui passe dans au moins 75 % des simulations
 }
 
@@ -88,7 +92,9 @@ function confidenceOf(r: Result, g: Game): Confidence {
   const h = r.spreadLadder.filter((x) => cover(x) >= 0.75 && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
   const hedge = h ? { title: `${g[side].name} +${line(lineOf(h))}`, p: cover(h) } : undefined;
   const book = r.market?.bookHome != null ? (side === 'home' ? r.market.bookHome : 1 - r.market.bookHome) : undefined;
-  return { side, p, engine: side === 'home' ? r.pHome : r.pAway, book, tier, hedge };
+  const month = Number(g.date.slice(5, 7));
+  const disagree = book != null && book < 0.5 && p - book >= DISAGREE && (month === 10 || month === 11);
+  return { side, p, engine: side === 'home' ? r.pHome : r.pAway, book, tier, disagree, hedge };
 }
 
 function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
@@ -124,6 +130,23 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
   return null;
 }
 
+function MarketBadge({ c, g }: { c: Confidence; g: Game }) {
+  if (!c.disagree || c.book == null) return null;
+  const other = g[c.side === 'home' ? 'away' : 'home'];
+  return (
+    <div className="conf-badge disagree">
+      <WarningCircle size={20} weight="bold" />
+      <div>
+        <p className="conf-badge-title">Désaccord avec le marché</p>
+        <p>
+          Le marché voit <b>{other.name}</b> favori ({pct(1 - c.book)}). En début de saison, sur des écarts aussi grands, le moteur
+          n'a eu raison que 5 fois sur 10 la saison passée : prudence.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function Section({ title, tag, i = 0, right, children }: { title: string; tag?: string; i?: number; right?: ReactNode; children: ReactNode }) {
   return (
     <section className="section" style={{ '--i': i } as CSSProperties}>
@@ -154,6 +177,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
 .
         </p>
         <ConfidenceBadge c={c} g={g} />
+        <MarketBadge c={c} g={g} />
         <div className="split" role="img" aria-label={`${g.away.tri} ${pct(r.pAway)}, ${g.home.tri} ${pct(r.pHome)}`}>
           <div className="split-bar">
             <span style={{ flexGrow: r.pAway }} />
