@@ -1,9 +1,39 @@
 // « En feu ce soir » : les joueurs dont les 5 000 simulations annoncent un gros match, et pourquoi.
 // Et l'avertissement quand la simulation précède l'annonce des compositions officielles.
-import { type CSSProperties } from 'react';
-import { ArrowClockwise, Info } from '@phosphor-icons/react';
+import { useState, type CSSProperties } from 'react';
+import { ArrowClockwise, Fire, Info } from '@phosphor-icons/react';
 import { n1, pct0, type Game, type Result } from './data.ts';
 import { TeamMark } from './ui.tsx';
+
+type Player = Result['players'][number];
+
+/** Photo officielle du joueur (cdn.nba.com, identifiant NBA) ; à défaut, le logo de son équipe. */
+const headshot = (id: number) => `https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`;
+
+/** Libellé court d'une raison : « En forme », « Défense favorable », « Plus de minutes »… */
+const short = (t: string) => {
+  const head = t.split(' : ')[0];
+  if (head.startsWith('Plus de temps de jeu')) return 'Plus de minutes';
+  if (head === 'Joue à domicile') return 'À domicile';
+  return head;
+};
+/** Le chiffre qui justifie la raison, raccourci : « 31,2 pts sur 10 matchs », « 37 min ». */
+const detail = (t: string) =>
+  t.includes(' : ')
+    ? t.split(' : ')[1].replace(/ \(.*\)$/, '').replace(' sur ses 10 derniers matchs', ' sur 10 matchs').replace(' de moyenne', '').replace(/ contre .* habituels$/, '').replace(' attendues', '')
+    : '';
+
+function Face({ p, team }: { p: Player; team: Game['home'] }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <span className="feu-face">
+      <span className="feu-photo">
+        {failed ? <TeamMark team={team} size="md" /> : <img src={headshot(p.id)} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />}
+      </span>
+      {!failed && <TeamMark team={team} size="sm" />}
+    </span>
+  );
+}
 
 /** « En feu ce soir » : les joueurs que les simulations voient le plus souvent faire un gros match, et pourquoi. */
 export function HotStrip({ r, g }: { r: Result; g: Game }) {
@@ -13,33 +43,42 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
     .slice(0, 4);
   if (!hot.length) return null;
   return (
-    <aside className="hot" aria-label="Joueurs en feu">
-      <div className="hot-head">
-        <span className="hot-dot" aria-hidden="true" />
-        <p className="hot-title">En feu ce soir</p>
-        <p className="hot-sub">Chance de dépasser largement sa moyenne, sur {r.n.toLocaleString('fr-FR')} simulations</p>
+    <section className="section" aria-label="Joueurs en feu">
+      <div className="section-head">
+        <h3 className="feu-title">
+          <Fire size={16} weight="fill" /> En feu ce soir
+        </h3>
+        <span className="slash">chance de gros match</span>
       </div>
-      <ol className="hot-grid">
+      <ol className="feu">
         {hot.map((p, i) => {
           const h = p.heat!;
           const team = p.side === 0 ? g.home : g.away;
           return (
-            <li key={p.id} className="hot-card" style={{ '--i': i } as CSSProperties}>
-              <div className="hot-top">
-                <TeamMark team={team} size="sm" />
-                <p className="hot-name">{p.name}</p>
-                <span className="hot-p mono">{pct0(h.pBig)}</span>
+            <li key={p.id} className="feu-card" style={{ '--i': i } as CSSProperties}>
+              <div className="feu-who">
+                <Face p={p} team={team} />
+                <div>
+                  <p className="feu-name">{p.name}</p>
+                  <p className="feu-team">{team.name}</p>
+                </div>
               </div>
-              <div className="hot-bar" aria-hidden="true">
-                <span style={{ width: `${Math.min(100, h.pBig * 200)}%` }} />
+              <div className="feu-bet">
+                <div>
+                  <p className="feu-line">
+                    {h.threshold}+ <small>pts</small>
+                  </p>
+                  <p className="feu-base">{n1(h.base)} pts d'habitude</p>
+                </div>
+                <p className="feu-p num">{pct0(h.pBig)}</p>
               </div>
-              <p className="hot-base">
-                <b className="mono">{n1(h.base)}</b> pts d'habitude, gros match à <b className="mono">{h.threshold}</b> ou plus
-              </p>
               {h.reasons.length > 0 && (
-                <ul className="hot-why">
-                  {h.reasons.slice(0, 2).map((t) => (
-                    <li key={t}>{t}</li>
+                <ul className="feu-why">
+                  {h.reasons.slice(0, 3).map((t) => (
+                    <li key={t} title={t}>
+                      {short(t)}
+                      {detail(t) && <span>{detail(t)}</span>}
+                    </li>
                   ))}
                 </ul>
               )}
@@ -47,7 +86,7 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
           );
         })}
       </ol>
-    </aside>
+    </section>
   );
 }
 
