@@ -88,7 +88,7 @@ function confidenceOf(r: Result, g: Game): Confidence {
   // Match serré : le favori avec des points d'avance (gagne, ou perd de peu), la ligne la plus exigeante à 75 % ou plus.
   const cover = (x: { line: number; pHomeCover: number }) => (side === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
   const lineOf = (x: { line: number }) => (side === 'home' ? x.line : -x.line);
-  const h = r.spreadLadder.filter((x) => cover(x) >= 0.75 && cover(x) <= 1 / MIN_ODDS && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
+  const h = r.spreadLadder.filter((x) => cover(x) >= 0.75 && cover(x) > p && cover(x) <= 1 / MIN_ODDS && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
   const hedge = h ? { title: `${g[side].name} +${line(lineOf(h))}`, p: cover(h) } : undefined;
   const book = r.market?.bookHome != null ? (side === 'home' ? r.market.bookHome : 1 - r.market.bookHome) : undefined;
   const month = Number(g.date.slice(5, 7));
@@ -245,10 +245,10 @@ function Categories({ r, g }: { r: Result; g: Game }) {
           onChange={setId}
           options={cats.map((c) => ({
             value: c.id,
-            label: c.warn ? (
+            label: c.warn || c.good ? (
               <>
                 {c.label}
-                <span className="tab-dot" aria-label="déconseillé" />
+                <span className={`tab-dot${c.good ? ' good' : ''}`} aria-label={c.good ? 'plus sûr que le vainqueur' : 'déconseillé'} />
               </>
             ) : (
               c.label
