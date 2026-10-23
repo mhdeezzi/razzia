@@ -175,6 +175,9 @@ function contextShift(m: GameModel): number {
   // Absences lourdes : au carré de la part du talent absente (une absence légère compte peu, une équipe décimée beaucoup).
   const aw = m.params.absenceWeight ?? 0;
   if (aw) shift += aw * ((m.away.missShare ?? 0) ** 2 - (m.home.missShare ?? 0) ** 2);
+  // Star absente : la perte du meilleur joueur pèse selon son niveau.
+  const stw = m.params.starWeight ?? 0;
+  if (stw) shift += stw * ((m.away.starOut ?? 0) - (m.home.starOut ?? 0));
   // Avantage du terrain propre à l'équipe qui reçoit (une salle qui pèse plus, ou moins, que la moyenne).
   const hw = m.params.hcaWeight ?? 0;
   if (hw && m.home.hcaDev != null) shift += hw * m.home.hcaDev;

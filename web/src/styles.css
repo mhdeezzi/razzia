@@ -416,6 +416,9 @@ a.row:hover .mark { transform: scale(1.06); }
 .pick { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 36px; align-items: center; padding: 32px; border-radius: var(--r-hero); border: 1px solid rgba(240, 244, 250, 0.12);
   background: linear-gradient(180deg, #101217, #0a0b0e); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); animation: rise 0.55s var(--ease) both; animation-delay: calc(var(--i, 0) * 80ms); }
 .pick-value { --pglow: rgba(61, 139, 255, 0.1); }
+.pick { position: relative; }
+.pick-warn { position: absolute; top: 18px; right: 18px; font: 700 11px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: #ff6b6b; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(255, 61, 61, 0.45); background: rgba(255, 61, 61, 0.1); }
+.tab-dot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--live); }
 .pick-risky { --pglow: rgba(255, 79, 123, 0.1); }
 .pick-tags { display: flex; align-items: center; gap: 10px; }
 .kind { display: inline-flex; align-items: center; gap: 7px; font: 800 11px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 9px; border-radius: 6px; }
@@ -722,6 +725,8 @@ a.row:hover .mark { transform: scale(1.06); }
   .delta { font-size: 15px; }
   .section { padding: 20px 16px; }
   .pick { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 26px 18px; gap: 18px; }
+  .pick:has(.pick-warn) { padding-top: 58px; }
+  .pick-warn { top: 16px; right: 50%; transform: translateX(50%); }
   .pick-tags, .pick-stats { justify-content: center; }
   .tiles, .ladders { grid-template-columns: 1fr; }
   .notice { flex-wrap: wrap; }

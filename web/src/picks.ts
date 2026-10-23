@@ -8,6 +8,7 @@ export interface Outcome {
   p: number; // fréquence dans les simulations
   odds?: number; // cote décimale de cette issue
   fair?: number; // cote juste (1 / fréquence dans les simulations), quand aucune cote n'est publiée
+  warn?: string; // étiquette rouge (« Déconseillé »)
   implied?: number; // probabilité de la cote, marge retirée
   text?: string;
 }
@@ -16,6 +17,7 @@ export interface Category {
   id: string;
   label: string;
   items: Outcome[];
+  warn?: boolean; // déconseillé (point rouge sur l'onglet)
 }
 
 /** « des Knicks », « du Heat » : les noms de franchise au singulier prennent « du ». */
@@ -23,6 +25,8 @@ const deTeam = (name: string) => (['Heat', 'Magic', 'Thunder', 'Jazz'].includes(
 const STD_PRICE = -110; // prix standard quand la cote du handicap ou du total n'est pas publiée
 /** En dessous de cette cote, un pari ne rapporte presque rien : le handicap « plus sûr » n'est pas proposé. */
 export const MIN_ODDS = 1.15;
+/** Favori sous 55 % : pile ou face, le vainqueur est déconseillé et le handicap passe devant. */
+export const FLIP = 0.55;
 
 export function buildCategories(r: Result, g: Game): Category[] {
   const o = g.odds ?? {};
@@ -73,6 +77,14 @@ export function buildCategories(r: Result, g: Game): Category[] {
   // Une seule solution : celle qui passe le plus souvent (en général le handicap « plus sûr »).
   const best = spreads.sort((a, b) => b.p - a.p)[0];
   if (best) cats.push({ id: 'spread', label: 'Handicap', items: [best] });
+  // Pile ou face : parier sur le vainqueur est déconseillé ; le handicap passe en premier.
+  const pShown = r.market?.blendedHome ?? r.pHome;
+  if (Math.max(pShown, 1 - pShown) < FLIP && best) {
+    const win = cats.shift()!;
+    win.warn = true;
+    win.items = win.items.map((o) => ({ ...o, warn: 'Déconseillé' }));
+    cats.push(win);
+  }
 
   return cats;
 }

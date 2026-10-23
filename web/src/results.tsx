@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise, Scales, ShieldCheck, WarningCircle } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
-import { buildCategories, MIN_ODDS, type Outcome } from './picks.ts';
+import { buildCategories, FLIP, MIN_ODDS, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
@@ -66,7 +66,6 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
 // Niveaux de confiance, mesurés sur toute la saison 2025-26 (1 230 matchs) : à 77 % ou plus (un match sur quatre), le
 // moteur voit juste 84,6 % du temps ; sous 55 %, 58 % seulement.
 const SURE = 0.77;
-const FLIP = 0.55;
 // Gros désaccord avec le marché en début de saison (octobre-novembre) : le marché voit l'autre équipe favorite, avec au
 // moins 20 points d'écart. Saison 2025-26 : le moteur n'a eu raison que 5 fois sur 10 sur ces matchs. Le favori ne change pas.
 const DISAGREE = 0.2;
@@ -244,7 +243,17 @@ function Categories({ r, g }: { r: Result; g: Game }) {
           ariaLabel="Catégorie de pari"
           value={cat.id}
           onChange={setId}
-          options={cats.map((c) => ({ value: c.id, label: c.label }))}
+          options={cats.map((c) => ({
+            value: c.id,
+            label: c.warn ? (
+              <>
+                {c.label}
+                <span className="tab-dot" aria-label="déconseillé" />
+              </>
+            ) : (
+              c.label
+            ),
+          }))}
         />
       </div>
       <p className="note">Pour chaque pari, l'issue qui se produit le plus souvent sur les {r.n.toLocaleString('fr-FR')} matchs simulés. La cote est affichée pour comparaison.</p>
@@ -262,6 +271,7 @@ const dec = (v: number) => v.toFixed(2).replace('.', ',');
 function OutcomeCard({ o }: { o: Outcome }) {
   return (
     <article className="pick">
+      {o.warn && <span className="pick-warn">{o.warn}</span>}
       <Ring value={o.p} format={pctInt} label="Fréquence" />
       <div>
         <h4>{o.title}</h4>
