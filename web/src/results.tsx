@@ -272,6 +272,7 @@ function OutcomeCard({ o }: { o: Outcome }) {
   return (
     <article className="pick">
       {o.warn && <span className="pick-warn">{o.warn}</span>}
+      {!o.warn && o.safe && <span className="pick-warn safe">{o.safe}</span>}
       <Ring value={o.p} format={pctInt} label="Fréquence" />
       <div>
         <h4>{o.title}</h4>

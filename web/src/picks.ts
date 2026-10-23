@@ -9,6 +9,7 @@ export interface Outcome {
   odds?: number; // cote décimale de cette issue
   fair?: number; // cote juste (1 / fréquence dans les simulations), quand aucune cote n'est publiée
   warn?: string; // étiquette rouge (« Déconseillé »)
+  safe?: string; // étiquette bleue (« Safe ») : plus sûr que le vainqueur
   implied?: number; // probabilité de la cote, marge retirée
   text?: string;
 }
@@ -82,7 +83,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
   // Une seule solution : celle qui passe le plus souvent. Un seul point, sur l'onglet en deuxième position : bleu sur le
   // handicap (plus sûr que le vainqueur), rouge sur le vainqueur d'un pile ou face (le handicap passe alors en premier).
   const best = spreads.sort((a, b) => b.p - a.p)[0];
-  if (best) cats.push({ id: 'spread', label: 'Handicap', items: [best], good: winP >= FLIP });
+  if (best) cats.push({ id: 'spread', label: 'Handicap', items: [winP >= FLIP ? { ...best, safe: 'Safe' } : best], good: winP >= FLIP });
   // Pile ou face : parier sur le vainqueur est déconseillé ; le handicap passe en premier.
   if (winP < FLIP && best) {
     const win = cats.shift()!;
