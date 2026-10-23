@@ -1,10 +1,10 @@
-// « En feu » : les joueurs dont les 5 000 simulations annoncent un gros match (petite bande, détail au survol).
+// Joueurs à suivre : ceux dont les 5 000 simulations annoncent un gros match, avec la raison.
 // Et l'avertissement quand la simulation précède l'annonce des compositions officielles.
-import { ArrowClockwise, Flame, Info } from '@phosphor-icons/react';
+import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { n1, pct0, type Game, type Result } from './data.ts';
 import { TeamMark } from './ui.tsx';
 
-/** Bande compacte sous les paris : les joueurs qui peuvent exploser, le détail au survol. */
+/** Joueurs à suivre : ceux que les simulations voient le plus souvent faire un gros match, et pourquoi. */
 export function HotStrip({ r, g }: { r: Result; g: Game }) {
   const hot = r.players
     .filter((p) => p.heat && p.heat.pBig >= 0.1)
@@ -12,24 +12,29 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
     .slice(0, 4);
   if (!hot.length) return null;
   return (
-    <aside className="hot-strip" aria-label="Joueurs en feu">
-      <span className="hot-strip-label">
-        <Flame size={16} weight="fill" /> En feu
-      </span>
-      <ul>
+    <aside className="watch" aria-label="Joueurs à suivre">
+      <p className="watch-title">
+        Joueurs à suivre <span>chance de dépasser largement sa moyenne</span>
+      </p>
+      <ol className="watch-list">
         {hot.map((p) => {
           const h = p.heat!;
           const team = p.side === 0 ? g.home : g.away;
-          const why = [`${n1(h.mean)} pts simulés en moyenne, gros match à ${h.threshold} pts ou plus (${n1(h.base)} habituellement)`, ...h.reasons.slice(0, 3)].join(' · ');
+          const why = [`${n1(h.base)} pts d'habitude`, ...h.reasons.slice(0, 2)].join(' · ');
           return (
-            <li key={p.id} className="hot-chip" title={why}>
+            <li key={p.id}>
               <TeamMark team={team} size="sm" />
-              <span className="hot-chip-name">{p.name}</span>
-              <span className="mono hot-chip-p">{pct0(h.pBig)}</span>
+              <div className="watch-who">
+                <span className="watch-name">{p.name}</span>
+                <span className="watch-why" title={why}>
+                  {why}
+                </span>
+              </div>
+              <span className="watch-p mono">{pct0(h.pBig)}</span>
             </li>
           );
         })}
-      </ul>
+      </ol>
     </aside>
   );
 }
