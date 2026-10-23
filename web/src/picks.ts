@@ -1,6 +1,6 @@
-// Pronostics par catégorie (marchés de match uniquement) : pour chaque pari, l'issue qui se produit le plus souvent
-// sur les 5 000 simulations, avec sa fréquence et la cote du bookmaker pour comparaison.
-import { decimal, line, n1, noVig, pct, signed, type Game, type Result } from './data.ts';
+// Pronostics par catégorie (vainqueur et handicap) : pour chaque pari, l'issue retenue sur les 5 000 simulations, avec
+// sa fréquence et la cote du bookmaker (ou la cote juste) pour comparaison.
+import { decimal, line, noVig, pct, signed, type Game, type Result } from './data.ts';
 
 export interface Outcome {
   id: string;
@@ -70,46 +70,9 @@ export function buildCategories(r: Result, g: Game): Category[] {
       text: `Plus sûr que le simple vainqueur : ${g[fav].name} gagne, ou perd de ${Math.floor(l)} points au plus. Passe dans ${pct(cover(hedge))} des simulations ; intéressant si la cote proposée dépasse la cote juste.`,
     });
   }
-  if (spreads.length) cats.push({ id: 'spread', label: 'Handicap', items: spreads });
+  // Une seule solution : celle qui passe le plus souvent (en général le handicap « plus sûr »).
+  const best = spreads.sort((a, b) => b.p - a.p)[0];
+  if (best) cats.push({ id: 'spread', label: 'Handicap', items: [best] });
 
-  if (mk?.total != null && mk.pOver != null) {
-    const over = mk.pOver >= 0.5;
-    const tp = noVig(o.overOdds ?? STD_PRICE, o.underOdds ?? STD_PRICE)!;
-    const price = (over ? o.overOdds : o.underOdds) ?? (o.overOdds == null && o.underOdds == null ? undefined : STD_PRICE);
-    cats.push({
-      id: 'total', label: 'Total',
-      items: [{
-        id: 'total', title: `${over ? 'Plus' : 'Moins'} de ${line(mk.total)} points`, p: Math.max(mk.pOver, 1 - mk.pOver),
-        odds: price != null ? decimal(price) : undefined, implied: over ? tp[0] : tp[1],
-        text: `${n1(r.total.mean)} points au total en moyenne, sur environ ${n1(r.poss.mean)} possessions par équipe. Dans 80 % des matchs, le total va de ${Math.round(r.total.p10)} à ${Math.round(r.total.p90)}.`,
-      }],
-    });
-  }
-
-  const fhHome = r.firstHalf.pHome >= 0.5;
-  cats.push({
-    id: 'half', label: 'Mi-temps',
-    items: [{
-      id: 'half', title: `${fhHome ? g.home.name : g.away.name} devant à la pause`, p: Math.max(r.firstHalf.pHome, 1 - r.firstHalf.pHome),
-      text: `Score moyen à la pause : ${g.away.tri} ${n1(r.firstHalf.away)}, ${g.home.tri} ${n1(r.firstHalf.home)}. Quart-temps moyens de ${g[fhHome ? 'home' : 'away'].name} : ${r.quarters[fhHome ? 'home' : 'away'].map(n1).join(', ')}.`,
-    }],
-  });
-
-  // Les plus sûrs : handicaps et totaux alternatifs qui passent dans au moins 80 % des simulations
-  // (la ligne la plus exigeante qui reste au-dessus de 80 %).
-  const sure: Outcome[] = [];
-  const pickLine = <T,>(rows: T[], p: (r: T) => number) => rows.filter((x) => p(x) >= 0.8).sort((a, b) => p(a) - p(b))[0];
-  const favSide = homeWins ? 'home' : 'away';
-  const sp = pickLine(r.spreadLadder, (x) => (favSide === 'home' ? x.pHomeCover : 1 - x.pHomeCover));
-  if (sp) {
-    const l = favSide === 'home' ? sp.line : -sp.line;
-    const p = favSide === 'home' ? sp.pHomeCover : 1 - sp.pHomeCover;
-    sure.push({ id: 'sure-sp', title: `${g[favSide].name} ${l > 0 ? '+' : ''}${line(l)}`, p, text: l > 0 ? `${g[favSide].name} gagne, ou perd de ${Math.floor(l)} points au plus.` : `${g[favSide].name} gagne de ${Math.ceil(-l)} points ou plus.` });
-  }
-  const ov = pickLine(r.totalLadder, (x) => x.pOver);
-  if (ov) sure.push({ id: 'sure-over', title: `Plus de ${line(ov.line)} points`, p: ov.pOver, text: `Total des deux équipes au-dessus de ${line(ov.line)} points.` });
-  const un = pickLine(r.totalLadder, (x) => 1 - x.pOver);
-  if (un) sure.push({ id: 'sure-under', title: `Moins de ${line(un.line)} points`, p: 1 - un.pOver, text: `Total des deux équipes en dessous de ${line(un.line)} points.` });
-  if (sure.length) cats.unshift({ id: 'sure', label: 'Les plus sûrs', items: sure });
   return cats;
 }
