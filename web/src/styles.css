@@ -363,7 +363,9 @@ a.row:hover .mark { transform: scale(1.06); }
 /* Résultats */
 .results { display: grid; gap: 22px; }
 .res-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.verdict { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.9fr); gap: 32px; align-items: center; padding: 32px; border-radius: var(--r-hero); border: 1px solid var(--line-2); background: var(--panel); animation: rise 0.6s var(--ease) both; }
+/* Cartes qui portent un cercle de probabilité : fond d'origine, pour que le cercle et sa lueur restent tels qu'avant la refonte. */
+.verdict { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.9fr); gap: 32px; align-items: center; padding: 32px; border-radius: var(--r-hero); border: 1px solid rgba(240, 244, 250, 0.12);
+  background: linear-gradient(180deg, #101217, #0a0b0e); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); animation: rise 0.6s var(--ease) both; }
 .verdict-team { display: flex; align-items: center; gap: 12px; font-size: clamp(24px, 3vw, 34px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; margin-top: 10px; }
 .verdict-sub { color: var(--text-2); margin-top: 10px; }
 .verdict-side { margin: 0; display: grid; gap: 18px; padding-left: 28px; border-left: 1px solid var(--line); }
@@ -401,7 +403,8 @@ a.row:hover .mark { transform: scale(1.06); }
 
 /* Paris mis en avant (Betix) */
 .picks-bar { display: flex; justify-content: center; }
-.pick { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 36px; align-items: center; padding: 32px; border-radius: var(--r-hero); border: 1px solid var(--line-2); background: var(--panel-2); animation: rise 0.55s var(--ease) both; animation-delay: calc(var(--i, 0) * 80ms); }
+.pick { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 36px; align-items: center; padding: 32px; border-radius: var(--r-hero); border: 1px solid rgba(240, 244, 250, 0.12);
+  background: linear-gradient(180deg, #101217, #0a0b0e); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); animation: rise 0.55s var(--ease) both; animation-delay: calc(var(--i, 0) * 80ms); }
 .pick-value { --pglow: rgba(61, 139, 255, 0.1); }
 .pick-risky { --pglow: rgba(255, 79, 123, 0.1); }
 .pick-tags { display: flex; align-items: center; gap: 10px; }
