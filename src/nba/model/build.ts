@@ -1480,7 +1480,10 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
       const heightIn = heights.get(id) ?? 78;
       let status = 'Active';
       let avail = 1;
-      if (box && box.status !== 'ACTIVE') {
+      // Absent connu avant le match : inactif, ou « actif » mais pas en tenue / pas joué pour blessure, repos, raison
+      // personnelle, hors de l'équipe (DND_INJURY, DNP_INJURY, NWT… : 1 065 cas en 2025-26, que le rapport de blessures
+      // annonce). Seul le choix du coach (actif, sans raison) reste imprévisible.
+      if (box && (box.status !== 'ACTIVE' || /INJURY|ILLNESS|REST|PERSONAL|NOT_WITH_TEAM|NWT|SUSPEN/i.test(box.reason ?? ''))) {
         status = `Out (${(box.reason ?? 'inactive').toLowerCase()})`;
         avail = 0;
       }
