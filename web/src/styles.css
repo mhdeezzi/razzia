@@ -144,7 +144,7 @@ a.row:active { transform: scale(0.995); }
 .vs-at { font-size: 13px; color: var(--text-3); }
 .cell-odds { text-align: center; font: 500 15px var(--mono); letter-spacing: -0.02em; color: var(--text); }
 .cell-total { text-align: center; font: 500 15px var(--mono); letter-spacing: -0.02em; color: var(--text-2); }
-.conf-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line-3); font: 600 12px var(--mono); letter-spacing: -0.01em; color: var(--text-2); white-space: nowrap; transition: border-color 0.2s, color 0.2s, background-color 0.2s; }
+.conf-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line-3); font: 600 12px var(--mono); letter-spacing: -0.01em; color: var(--text-2); white-space: nowrap; transition: border-color 0.2s, color 0.2s, background-color 0.2s; }
 .conf-pill.sim { color: #a9cbff; border-color: rgba(77, 142, 255, 0.5); }
 .conf-pill.go { font-family: var(--sans); font-weight: 700; color: var(--text); background: var(--panel-3); border-color: var(--line-3); }
 .conf-pill.wait { color: var(--text-2); }
