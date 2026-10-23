@@ -111,6 +111,7 @@ export interface TeamModel {
   ortg: number; // points par possession en attaque (forme récente)
   drtg: number; // points par possession concédés
   continuity: number; // part des minutes attendues jouées par des joueurs déjà dans l'équipe
+  continuityBack?: number; // part des minutes passées de l'équipe (pondérées comme ses notes) jouées par les joueurs de ce soir
   gpCur: number; // matchs joués cette saison
   strengthSd: number; // incertitude sur la force réelle (logit d'adresse) : effectif remanié, début de saison
   momentum?: TeamMomentum;
@@ -242,6 +243,11 @@ export interface SimParams {
   blendModel?: number; // part du moteur dans la probabilité affichée (mélange logit avec la cote sans marge)
   rapmWeight?: number; // part des notes d'impact joueurs (selon qui joue ce soir) dans la force visée, contre les notes d'équipe
   momentumOcc?: number; // part des occasions (plutôt que du score) dans la mesure du momentum : 0 = score seul, 1 = occasions seules
+  rapmScale?: number; // multiplicateur des notes d'impact joueurs (1 = telles que calculées)
+  boxImpact?: number; // part du niveau box-score (Game Score / 36) mêlée à la note d'impact de chaque joueur
+  boxSlope?: number; // points d'impact par point de Game Score / 36 au-dessus de la moyenne (0,4 par défaut)
+  ownContinuity?: number;
+  backContinuity?: number; // 1 : le poids des notes d'équipe passées tient aussi compte de la continuité à rebours // 1 : poids des notes d'équipe passées selon la continuité de chaque équipe, pas la moyenne des deux
   momentumContra?: number; // multiplicateur du momentum quand il va contre le favori du moteur (outsider en montée, favori en baisse)
   edge?: [Edge, Edge]; // leviers appliqués (domicile, extérieur), calculés avant les simulations
   qualityCut: number; // échelle (Game Score/36) : un coach coupe d'abord les minutes des joueurs les plus faibles

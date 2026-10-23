@@ -67,6 +67,13 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
   const mk = m.params.playerMomentum ?? 0;
   const nTop = m.params.benchTop ?? 99, wTop = m.params.benchTopWeight ?? 1, wRest = m.params.benchRestWeight ?? 1;
   const mom = (p: PlayerModel) => mk * 0.31 * (p.momentum?.delta ?? 0);
+  // Niveau box-score (Game Score / 36) converti en impact, mêlé à la note d'impact (part boxImpact) : la note d'impact,
+  // très rétrécie, écrase les écarts entre stars ; le box-score les garde. 70 % en attaque, 30 % en défense.
+  const bw = m.params.boxImpact ?? 0, bs = m.params.boxSlope ?? 0.4;
+  // Échelle des notes d'impact : le ridge les tasse (écart-type 1,4 pt entre joueurs de rotation) ; à tester plus large.
+  const rs = m.params.rapmScale ?? 1;
+  const boxO = (p: PlayerModel) => 0.7 * (0.87 + bs * (p.quality - 12.1));
+  const boxD = (p: PlayerModel) => 0.3 * (0.87 + bs * (p.quality - 12.1));
   const imp = (t: TeamModel) => {
     const share = t.players.map((p) => p.avail * p.expMin);
     const tot = share.reduce((a, v) => a + v, 0) || 1;
@@ -77,8 +84,8 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
       const hot = 1 + Math.min(1, Math.max(0, (p.momentum?.delta ?? 0) / 5)); // remplaçant en forme : jusqu'à ×2
       const w = p.starter ? 1 : Math.min(1, (top.has(p.id) ? wTop : wRest) * hot);
       const k = ((5 * share[i]) / tot) * w;
-      off += k * ((p.rapm?.o ?? -0.8) + 0.7 * mom(p));
-      def += k * ((p.rapm?.d ?? -0.7) + 0.3 * mom(p));
+      off += k * ((1 - bw) * rs * (p.rapm?.o ?? -0.8) + bw * boxO(p) + 0.7 * mom(p));
+      def += k * ((1 - bw) * rs * (p.rapm?.d ?? -0.7) + bw * boxD(p) + 0.3 * mom(p));
     });
     return { off: off / 100, def: def / 100 };
   };
@@ -86,7 +93,10 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
   const rapmTarget: [number, number] = [lg + ih.off - ia.def + hca, lg + ia.off - ih.def - hca];
   // Les notes d'équipe viennent des matchs passés de l'effectif d'alors : elles ne comptent qu'à proportion de la
   // continuité (et des minutes habituelles disponibles ce soir) ; les notes d'impact suivent qui joue vraiment.
-  const contShare = Math.sqrt(m.home.continuity * m.away.continuity);
+  // Continuité qui fixe le poids des notes d'équipe : dans les deux sens si backContinuity (joueurs de ce soir déjà là,
+  // et minutes passées de l'équipe jouées par eux), sinon seulement la première.
+  const contR = (t: TeamModel) => (m.params.backContinuity ? Math.sqrt(t.continuity * (t.continuityBack ?? t.continuity)) : t.continuity);
+  const contShare = Math.sqrt(contR(m.home) * contR(m.away));
   const wTeam = (1 - rw) * contShare;
   const rwEff = rw > 0 ? rw / (rw + wTeam) : 0;
   // Multiplicateur de talent : quand l'équipe qui domine le collectif a aussi le meilleur talent, ses joueurs
@@ -96,7 +106,17 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
   const leader = coll > 0 ? m.home : m.away;
   const talentMult = coll * tal > 0 ? 1 + (m.params.talentBoost ?? 0) * (leader.coreCohesion ?? 0) : 1;
   const rwT = rwEff * talentMult;
-  const target: [number, number] = [(1 - rwEff) * teamTarget[0] + rwEff * (lg + hca) + rwT * (ih.off - ia.def), (1 - rwEff) * teamTarget[1] + rwEff * (lg - hca) + rwT * (ia.off - ih.def)];
+  let target: [number, number] = [(1 - rwEff) * teamTarget[0] + rwEff * (lg + hca) + rwT * (ih.off - ia.def), (1 - rwEff) * teamTarget[1] + rwEff * (lg - hca) + rwT * (ia.off - ih.def)];
+  // Continuité propre à chaque équipe : les notes d'équipe passées d'un effectif remanié ne pèsent que pour lui
+  // (avant : moyenne des deux continuités, qui gardait les vieilles notes d'une équipe transformée par le mercato).
+  if (m.params.ownContinuity) {
+    const rwOf = (t: TeamModel) => (rw > 0 ? rw / (rw + (1 - rw) * contR(t)) : 0);
+    const rh = rwOf(m.home), ra = rwOf(m.away);
+    target = [
+      lg + hca + (1 - rh) * (o(m.home) - lg) + (1 - ra) * (d(m.away) - lg) + talentMult * (rh * ih.off - ra * ia.def),
+      lg - hca + (1 - ra) * (o(m.away) - lg) + (1 - rh) * (d(m.home) - lg) + talentMult * (ra * ia.off - rh * ih.def),
+    ];
+  }
   // Les notes d'équipe ignorent les absences du soir : leur poids baisse avec la part des minutes habituelles disponibles.
   const avail = (t: GameModel['home']) => {
     const usual = t.players.reduce((a, p) => a + (p.form.gp > 0 ? p.form.minL10 : 0), 0);

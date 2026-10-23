@@ -952,6 +952,17 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
     contDen += p.expMin * p.avail;
   }
   const continuity = contDen ? contNum / contDen : 0;
+  // Continuité « à rebours » : part des minutes passées de l'équipe (même pondération que ses notes) jouées par les
+  // joueurs présents ce soir. Une équipe dont la star manquait l'an dernier, ou qui a recruté, a des notes d'équipe qui
+  // décrivent un autre effectif que celui de ce soir.
+  const schedW = new Map((T?.sched ?? []).filter((s) => s.date < date).map((s) => [s.date, s.w]));
+  let backNum = 0;
+  const backDen = [...schedW.values()].reduce((a, w) => a + w, 0) * 14_400;
+  for (const p of players) {
+    if (p.avail <= 0) continue;
+    for (const g of f.players.get(p.id)?.games ?? []) if (g.tm === info.id && schedW.has(g.date)) backNum += schedW.get(g.date)! * g.sec * p.avail;
+  }
+  const continuityBack = backDen > 0 ? Math.min(1, backNum / backDen) : 0;
   // Incertitude sur la force réelle : un effectif remanié ou un début de saison (peu de matchs ensemble) rendent les
   // notes moins sûres ; tirée à chaque simulation, elle rapproche la probabilité du 50/50 quand le moteur sait peu.
   const season = seasonOfDate(date);
@@ -994,6 +1005,7 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
     ortg: T && T.poss > 0 ? T.pts / T.poss : league.ppg / league.pace,
     drtg: T && T.defPoss > 0 ? T.ptsAllowed / T.defPoss : league.ppg / league.pace,
     continuity,
+    continuityBack,
     gpCur,
     strengthSd,
     id: info.id, tri: info.tri, name: info.name, city: info.city, color: info.color, color2: info.color2, players,
@@ -1500,6 +1512,11 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
           avail = Math.max(0, 1 - rate);
           status = `Repos possible (${Math.round(rate * 100)} %)`;
         }
+      }
+      // Liste des inactifs du match publiée par NBA.com : absent, quoi que dise le rapport de blessures.
+      if (!opts.actual && lineups.some((g) => [g.home, g.away].some((sd) => sd.teamId === info.id && sd.inactive.includes(id)))) {
+        status = 'Out (inactif NBA.com)';
+        avail = 0;
       }
       if (outSet.has(normName(name))) {
         status = 'Out (manuel)';
