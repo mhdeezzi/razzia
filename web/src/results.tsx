@@ -46,15 +46,6 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
       <Section i={3} title="Joueurs" tag="projections">
         <Players r={r} g={g} />
       </Section>
-      {r.insights && r.insights.length > 0 && (
-        <Section i={5} title="Ce que disent les données">
-          <ol className="insights">
-            {r.insights.map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ol>
-        </Section>
-      )}
       <p className="footnote">
         {r.meta ? `Données jusqu'au ${new Date(r.meta.dataThrough).toLocaleDateString('fr-FR')}, ${r.meta.gamesUsed.toLocaleString('fr-FR')} matchs analysés. ` : ''}
         Les probabilités décrivent le modèle, pas une certitude : à confronter aux annonces de dernière minute. Jouer comporte des risques.
