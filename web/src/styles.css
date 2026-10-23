@@ -475,7 +475,8 @@ a.row:hover .mark { transform: scale(1.06); }
 .feu-why { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .feu-why li { font-size: 12px; font-weight: 600; color: var(--text); background: var(--panel-4); border-radius: 8px; padding: 5px 9px; }
 .feu-why li span { color: var(--text-3); font-weight: 500; margin-left: 6px; }
-@media (max-width: 720px) { .feu { grid-template-columns: minmax(0, 1fr); } }
+/* Téléphone : une case par ligne, les trois premiers joueurs seulement. */
+@media (max-width: 720px) { .feu { grid-template-columns: minmax(0, 1fr); } .feu-card:nth-child(n + 4) { display: none; } }
 
 /* Niveau de confiance sous le favori : « Razzia assuré » ou « Pile ou face ». */
 .conf-badge { display: flex; gap: 12px; align-items: flex-start; margin-top: 16px; padding: 12px 14px; border-radius: 14px; font-size: 13.5px; color: var(--text-2); border: 1px solid var(--line-2); background: var(--panel); }
