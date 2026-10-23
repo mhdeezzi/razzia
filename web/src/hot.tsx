@@ -1,10 +1,11 @@
-// Joueurs à suivre : ceux dont les 5 000 simulations annoncent un gros match, avec la raison.
+// « En feu ce soir » : les joueurs dont les 5 000 simulations annoncent un gros match, et pourquoi.
 // Et l'avertissement quand la simulation précède l'annonce des compositions officielles.
+import { type CSSProperties } from 'react';
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { n1, pct0, type Game, type Result } from './data.ts';
 import { TeamMark } from './ui.tsx';
 
-/** Joueurs à suivre : ceux que les simulations voient le plus souvent faire un gros match, et pourquoi. */
+/** « En feu ce soir » : les joueurs que les simulations voient le plus souvent faire un gros match, et pourquoi. */
 export function HotStrip({ r, g }: { r: Result; g: Game }) {
   const hot = r.players
     .filter((p) => p.heat && p.heat.pBig >= 0.1)
@@ -12,25 +13,36 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
     .slice(0, 4);
   if (!hot.length) return null;
   return (
-    <aside className="watch" aria-label="Joueurs à suivre">
-      <p className="watch-title">
-        Joueurs à suivre <span>chance de dépasser largement sa moyenne</span>
-      </p>
-      <ol className="watch-list">
-        {hot.map((p) => {
+    <aside className="hot" aria-label="Joueurs en feu">
+      <div className="hot-head">
+        <span className="hot-dot" aria-hidden="true" />
+        <p className="hot-title">En feu ce soir</p>
+        <p className="hot-sub">Chance de dépasser largement sa moyenne, sur {r.n.toLocaleString('fr-FR')} simulations</p>
+      </div>
+      <ol className="hot-grid">
+        {hot.map((p, i) => {
           const h = p.heat!;
           const team = p.side === 0 ? g.home : g.away;
-          const why = [`${n1(h.base)} pts d'habitude`, ...h.reasons.slice(0, 2)].join(' · ');
           return (
-            <li key={p.id}>
-              <TeamMark team={team} size="sm" />
-              <div className="watch-who">
-                <span className="watch-name">{p.name}</span>
-                <span className="watch-why" title={why}>
-                  {why}
-                </span>
+            <li key={p.id} className="hot-card" style={{ '--i': i } as CSSProperties}>
+              <div className="hot-top">
+                <TeamMark team={team} size="sm" />
+                <p className="hot-name">{p.name}</p>
+                <span className="hot-p mono">{pct0(h.pBig)}</span>
               </div>
-              <span className="watch-p mono">{pct0(h.pBig)}</span>
+              <div className="hot-bar" aria-hidden="true">
+                <span style={{ width: `${Math.min(100, h.pBig * 200)}%` }} />
+              </div>
+              <p className="hot-base">
+                <b className="mono">{n1(h.base)}</b> pts d'habitude, gros match à <b className="mono">{h.threshold}</b> ou plus
+              </p>
+              {h.reasons.length > 0 && (
+                <ul className="hot-why">
+                  {h.reasons.slice(0, 2).map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              )}
             </li>
           );
         })}
