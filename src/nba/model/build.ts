@@ -79,6 +79,12 @@ export const DEFAULT_PARAMS: SimParams = {
   //                                                             70,3 % ; Razzia 69,6 % — marché 69,6 % ; Brier 0,2017
   //   façon parieur sans la forme des joueurs                   70,5 % ; Razzia 68,9 % — marché 69,6 % ; Brier 0,2018
   // Réglages disponibles mais désactivés : playerMomentum, benchTop / benchTopWeight / benchRestWeight, talentBoost.
+  // Saison 2025-26 complète (1 230 matchs, nuit du 23/10/2026), bon vainqueur / log-perte, référence 71,0 % / 0,5841 :
+  //   cohésion 7 (au lieu de 14)        71,0 % / 0,5840  <- retenu : aussi juste, probabilités un peu meilleures
+  //   cohésion 0                        70,9 % / 0,5837 ;  notes joueurs x1,25 / x1,5   70,4 % / 0,5821 et 0,5820
+  //   poids des notes joueurs 70 %      70,3 % / 0,5811 ;  box-score 50 % / 80 %       69,9 % / 70,1 %
+  //   continuité à rebours, propre      70,4 % ;  momentum 0,6 / x2 contre le favori   69,8 % / 70,4 %
+  // Réglages disponibles mais désactivés : rapmScale, boxImpact, ownContinuity, backContinuity, momentumContra.
   rapmWeight: 0.5,
   styleWeight: 0,
   momentumWeight: 0.3,
@@ -88,7 +94,7 @@ export const DEFAULT_PARAMS: SimParams = {
   h2hShotWeight: 0,
   coachDef: 1.5,
   noStakesPenalty: 3,
-  cohesionWeight: 14,
+  cohesionWeight: 7, // une équipe remaniée manque d'automatismes, mais 14 surpénalisait (CLE@PHI du 22/10 : -4,4 pts)
   hcaWeight: 0.3,
   // La simulation joueur par joueur seule est trop plate (pente 0,35 contre la ligne du marché) : on comble tout
   // l'écart vers la force visée (contrôle 2 x 200 matchs, Brier : 60 % 0,2092 / 0,2177 ; 80 % 0,2061 / 0,2148 ;

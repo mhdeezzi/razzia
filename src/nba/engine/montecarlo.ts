@@ -166,6 +166,7 @@ function contextShift(m: GameModel): number {
   if (sw2 && m.h2h?.style) shift += sw2 * ((m.h2h.style.home?.pts ?? 0) - (m.h2h.style.away?.pts ?? 0)) / 2;
   // Cohésion : une équipe remaniée manque d'automatismes ses premiers matchs. Mesuré sur 2025-26 (matchs 1 à 10) :
   // +14 pts par écart de continuité de 100 % (erreur 6), effet disparu après le 10e match ; s'éteint linéairement.
+  // Le contrôle de la saison complète donne le même bon vainqueur à 7, 14 ou 0 : poids ramené à 7.
   const cw = m.params.cohesionWeight ?? 0;
   if (cw) {
     const fade = (t: TeamModel) => Math.max(0, 1 - (t.gpCur ?? 99) / 10);
