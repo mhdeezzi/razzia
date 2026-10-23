@@ -1,0 +1,49 @@
+/* Maquettes « En feu ce soir » (temporaire). Une seule couleur chaude, à plat : pas de halo, pas de dégradé. */
+:root { --fire: #ff6b3d; }
+.feu-h { display: flex; align-items: center; gap: 8px; }
+.feu-ico { color: var(--fire); }
+
+/* A : liste éditoriale, rang, raisons en une ligne, chance à droite. */
+.feuA { list-style: none; margin: 0; padding: 0; }
+.feuA-row { display: grid; grid-template-columns: 24px 28px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 16px 0; border-top: 1px solid var(--line); animation: rise 0.5s var(--ease) both; animation-delay: calc(var(--i) * 60ms); }
+.feuA-row:first-child { border-top: 0; padding-top: 2px; }
+.feuA-rank { font: 600 12px var(--mono); color: var(--text-3); }
+.feuA-name { font-weight: 700; font-size: 15.5px; color: var(--text); display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.feuA-line { font: 700 12px var(--sans); color: var(--fire); background: rgba(255, 107, 61, 0.1); border-radius: 6px; padding: 2px 7px; font-variant-numeric: tabular-nums; }
+.feuA-why { font-size: 13px; color: var(--text-3); margin-top: 4px; white-space: pre-wrap; }
+.feuA-p { display: grid; justify-items: end; gap: 2px; }
+.feuA-p b { font-size: 26px; letter-spacing: -0.03em; line-height: 1.1; }
+.feuA-p span { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+
+/* B : tuiles « pari joueur », seuil en grand, raisons en étiquettes. */
+.feuB { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.feuB-tile { border: 1px solid var(--line-2); border-radius: 16px; background: var(--panel-2); padding: 16px 18px 18px; display: grid; gap: 14px; align-content: start; animation: rise 0.5s var(--ease) both; animation-delay: calc(var(--i) * 60ms); }
+.feuB-top { display: flex; align-items: center; gap: 10px; }
+.feuB-name { font-weight: 700; font-size: 15px; }
+.feuB-bet { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.feuB-line { font: 700 30px var(--sans); letter-spacing: -0.03em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.feuB-line small { font-size: 15px; font-weight: 600; color: var(--text-2); letter-spacing: 0; }
+.feuB-base { font-size: 12.5px; color: var(--text-3); margin-top: 7px; }
+.feuB .feuB-p { font-size: 30px; line-height: 1; letter-spacing: -0.03em; color: var(--fire); }
+.feuB-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.feuB-chips li { display: inline-flex; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text); background: var(--panel-4); border-radius: 8px; padding: 5px 9px; }
+.feuB-chips li span { color: var(--text-3); font-weight: 500; }
+
+/* C : classement en barres, on compare d'un coup d'œil. */
+.feuC { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.feuC-row { display: grid; grid-template-columns: 250px minmax(0, 1fr) 52px; grid-template-areas: 'who track p' '. why .'; gap: 6px 16px; align-items: center; }
+.feuC-who { grid-area: who; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.feuC-name { font-weight: 700; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feuC-line { margin-left: auto; font: 600 12px var(--sans); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.feuC-track { grid-area: track; height: 6px; border-radius: 3px; background: var(--panel-4); overflow: hidden; }
+.feuC-track span { display: block; height: 100%; border-radius: 3px; background: var(--fire); transform-origin: left; animation: grow 0.9s var(--ease) both; animation-delay: calc(0.2s + var(--i) * 70ms); }
+.feuC-why { grid-area: why; font-size: 12.5px; color: var(--text-3); white-space: pre-wrap; }
+.feuC .feuC-p { grid-area: p; justify-self: end; font-size: 18px; letter-spacing: -0.02em; }
+
+@media (max-width: 720px) {
+  .feuA-row { grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+  .feuA-rank { display: none; }
+  .feuA-p span { display: none; }
+  .feuB { grid-template-columns: minmax(0, 1fr); }
+  .feuC-row { grid-template-columns: minmax(0, 1fr) 48px; grid-template-areas: 'who p' 'track track' 'why why'; gap: 8px 12px; }
+}

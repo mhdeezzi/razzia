@@ -4,6 +4,7 @@ import { type CSSProperties } from 'react';
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { n1, pct0, type Game, type Result } from './data.ts';
 import { TeamMark } from './ui.tsx';
+import { HotProto } from './hot-proto.tsx';
 
 /** « En feu ce soir » : les joueurs que les simulations voient le plus souvent faire un gros match, et pourquoi. */
 export function HotStrip({ r, g }: { r: Result; g: Game }) {
@@ -12,6 +13,8 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
     .sort((a, b) => b.heat!.index - a.heat!.index)
     .slice(0, 4);
   if (!hot.length) return null;
+  const v = new URLSearchParams(location.search).get('feu');
+  if (v) return <HotProto v={v} hot={hot} g={g} />;
   return (
     <aside className="hot" aria-label="Joueurs en feu">
       <div className="hot-head">
