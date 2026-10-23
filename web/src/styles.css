@@ -420,6 +420,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .pick-warn { position: absolute; top: 18px; right: 18px; font: 700 11px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: #ff6b6b; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(255, 61, 61, 0.45); background: rgba(255, 61, 61, 0.1); }
 .tab-dot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--live); }
 .tab-dot.good { background: var(--accent); }
+.pick-warn.safe { color: var(--accent); border-color: rgba(77, 142, 255, 0.5); background: rgba(77, 142, 255, 0.12); }
 .pick-risky { --pglow: rgba(255, 79, 123, 0.1); }
 .pick-tags { display: flex; align-items: center; gap: 10px; }
 .kind { display: inline-flex; align-items: center; gap: 7px; font: 800 11px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 9px; border-radius: 6px; }
