@@ -39,6 +39,26 @@ export const SAFE_COVER = 0.8;
 /** Probabilité arrondie comme à l'écran (une décimale), pour que les seuils suivent le pourcentage affiché. */
 export const shown = (p: number) => Math.round(p * 1000) / 1000;
 
+const erf = (x: number) => {
+  const t = 1 / (1 + 0.3275911 * Math.abs(x));
+  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return x >= 0 ? y : -y;
+};
+/**
+ * Lignes de handicap simulées, prolongées de 13 points de chaque côté. Les simulations publiées avant la ligne à 80 % ne
+ * couvrent que 12 points autour de l'écart médian, alors que sur un match très serré la ligne qui passe dans 80 % des
+ * simulations est vers +13. Au-delà : loi normale de l'écart simulé (moyenne, écart-type), sans jamais redescendre.
+ */
+export function ladder(r: Result): Result['spreadLadder'] {
+  const lad = [...r.spreadLadder].sort((a, b) => a.line - b.line);
+  if (!lad.length || !(r.margin?.sd > 0)) return lad;
+  const cdf = (line: number) => 0.5 * (1 + erf((r.margin.mean + line) / r.margin.sd / Math.SQRT2));
+  const lo: Result['spreadLadder'] = [], hi: Result['spreadLadder'] = [];
+  for (let k = 1, c = lad[0].pHomeCover; k <= 13; k++) lo.unshift({ line: lad[0].line - k, pHomeCover: (c = Math.min(c, cdf(lad[0].line - k))) });
+  for (let k = 1, c = lad.at(-1)!.pHomeCover; k <= 13; k++) hi.push({ line: lad.at(-1)!.line + k, pHomeCover: (c = Math.max(c, cdf(lad.at(-1)!.line + k))) });
+  return [...lo, ...lad, ...hi];
+}
+
 export function buildCategories(r: Result, g: Game): Category[] {
   const o = g.odds ?? {};
   const mk = r.market;
@@ -79,7 +99,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
   // Plus sûr que le simple vainqueur : le favori avec des points d'avance, la ligne la plus exigeante qui passe dans 80 %
   // des simulations et plus souvent que la victoire ; pas proposé sous une cote de 1,15.
   const cover = (x: { pHomeCover: number }) => (fav === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
-  const hedge = r.spreadLadder
+  const hedge = ladder(r)
     .filter((x) => (fav === 'home' ? x.line : -x.line) > 0 && cover(x) >= SAFE_COVER && cover(x) > winP && cover(x) <= 1 / MIN_ODDS)
     .sort((a, b) => cover(a) - cover(b))[0];
   if (hedge) {

@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise, Scales, ShieldCheck, WarningCircle } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
-import { buildCategories, FLIP, MIN_ODDS, SAFE_COVER, shown, type Outcome } from './picks.ts';
+import { buildCategories, FLIP, ladder, MIN_ODDS, SAFE_COVER, shown, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
@@ -79,7 +79,7 @@ function confidenceOf(r: Result, g: Game): Confidence {
   // Match serré : le favori avec des points d'avance (gagne, ou perd de peu), la ligne la plus exigeante à 80 % ou plus.
   const cover = (x: { line: number; pHomeCover: number }) => (side === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
   const lineOf = (x: { line: number }) => (side === 'home' ? x.line : -x.line);
-  const h = r.spreadLadder.filter((x) => cover(x) >= SAFE_COVER && cover(x) > p && cover(x) <= 1 / MIN_ODDS && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
+  const h = ladder(r).filter((x) => cover(x) >= SAFE_COVER && cover(x) > p && cover(x) <= 1 / MIN_ODDS && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
   const hedge = h ? { title: `${g[side].name} +${line(lineOf(h))}`, p: cover(h) } : undefined;
   const book = r.market?.bookHome != null ? (side === 'home' ? r.market.bookHome : 1 - r.market.bookHome) : undefined;
   const month = Number(g.date.slice(5, 7));

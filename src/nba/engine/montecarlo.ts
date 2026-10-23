@@ -451,7 +451,8 @@ export function summarize(m: GameModel, b: Batch): Summary {
   const medMargin = quantile(Float64Array.from(margin).sort(), 0.5);
   const medTotal = quantile(Float64Array.from(total).sort(), 0.5);
   const spreadLadder: Summary['spreadLadder'] = [];
-  for (let k = -12; k <= 12; k++) {
+  // 20 points de part et d'autre : sur un match très serré, le handicap qui passe dans 80 % des simulations est vers +13.
+  for (let k = -20; k <= 20; k++) {
     const line = Math.round(-medMargin) + k + 0.5; // spread domicile (négatif = favori)
     let c = 0;
     for (let i = 0; i < n; i++) if (margin[i] + line > 0) c++;
