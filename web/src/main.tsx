@@ -1,13 +1,14 @@
 // Point d'entrée : en-tête, routes (programme, fiche de match, simulations), pied de page.
-import { StrictMode, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { StrictMode, useEffect, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/host-grotesk';
-import { Basketball, CaretRight, ChartLineUp, ClockCounterClockwise, Info, SoccerBall, Target, TennisBall } from '@phosphor-icons/react';
+import { CaretRight } from '@phosphor-icons/react';
 import './styles.css';
 import { listSims, loadProgramme, matchPath, type Programme, type SimEntry } from './data.ts';
 import { MatchPage } from './match.tsx';
 import { BilanPage } from './bilan.tsx';
 import { SchedulePage } from './schedule.tsx';
+import { TopBar } from './topbar.tsx';
 import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
 
 function App() {
@@ -27,40 +28,9 @@ function App() {
   useEffect(() => {
     document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : 'Razzia | Simulations NBA';
   }, [path]);
-  const top = (href: string, label: string, icon: ReactNode, on: boolean) => (
-    <Link href={href} className={`icon-link${on ? ' is-on' : ''}`}>
-      {icon}
-      <span className="lbl">{label}</span>
-    </Link>
-  );
   return (
     <>
-      <header className="topbar">
-        <div className="topbar-in">
-          <Link href="/" className="brand">
-            <span className="brand-tile">
-              <ChartLineUp size={18} weight="bold" />
-            </span>
-            <span className="word">Razzia</span>
-          </Link>
-          <nav className="sports" aria-label="Sports">
-            <Link href="/" className="sport is-on">
-              <Basketball size={18} weight="duotone" /> Basketball
-            </Link>
-            <button className="sport" disabled title="Bientôt">
-              <SoccerBall size={18} /> <span className="lbl-full">Football</span> <span className="soon">Bientôt</span>
-            </button>
-            <button className="sport" disabled title="Bientôt">
-              <TennisBall size={18} /> <span className="lbl-full">Tennis</span> <span className="soon">Bientôt</span>
-            </button>
-          </nav>
-          <div className="top-right">
-            {top('/simulations', 'Simulations', <ClockCounterClockwise size={18} />, path === '/simulations')}
-            {top('/bilan', 'Bilan', <Target size={18} />, path === '/bilan')}
-            {top('/methode', 'Méthode', <Info size={18} />, path === '/methode')}
-          </div>
-        </div>
-      </header>
+      <TopBar path={path} />
       <main>{page}</main>
       <footer className="foot">
         <p>

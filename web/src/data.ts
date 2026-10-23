@@ -128,9 +128,10 @@ export interface SimEntry {
   cat?: string; // équipe victime d'un chat noir dans ce match
 }
 let sims: Promise<Map<string, SimEntry>> | undefined;
-export function listSims(fresh = false): Promise<Map<string, SimEntry>> {
+/** `bust` contourne le cache du CDN (20 s) : sert juste après une publication. */
+export function listSims(fresh = false, bust = false): Promise<Map<string, SimEntry>> {
   if (fresh || !sims)
-    sims = getJson<{ sims: SimEntry[] }>('/api/sim?list=1')
+    sims = getJson<{ sims: SimEntry[] }>(`/api/sim?list=1${bust ? `&v=${Date.now()}` : ''}`)
       .then((j) => new Map(j.sims.map((e) => [e.dir, e])))
       .catch(() => new Map());
   return sims;
@@ -149,6 +150,12 @@ export async function startSim(g: Game): Promise<string> {
     body: JSON.stringify({ date: g.date, away: g.away.tri, home: g.home.tri }),
   });
   return j.req;
+}
+
+export type RunStatus = 'queued' | 'running' | 'done' | 'failed';
+/** État de plusieurs demandes en un seul appel (simulation de toute une soirée). */
+export function simRuns(reqs: string[]): Promise<{ runs: Record<string, { status: RunStatus; startedAt?: string; url?: string }>; actions: string }> {
+  return getJson(`/api/sim?reqs=${reqs.join(',')}`);
 }
 
 // Demande en cours, gardée dans le navigateur pour reprendre le suivi après un rechargement.

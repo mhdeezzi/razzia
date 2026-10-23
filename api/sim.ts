@@ -1,6 +1,7 @@
 // Simulations à la demande, via GitHub Actions (workflow simulate.yml) et la branche resultats.
 //   POST /api/sim  {date, away, home}          -> lance une simulation, renvoie {status:'queued', req}
 //   GET  /api/sim?date=&away=&home=[&req=]     -> {status:'done', result} | {status:'queued'|'running'|'failed'|'none'}
+//   GET  /api/sim?reqs=a,b,c                   -> état de plusieurs demandes en un appel (simulation de toute une soirée)
 //   GET  /api/sim?list=1                       -> simulations disponibles [{dir, pHome, pAway, at}]
 //   GET  /api/sim?bilan=1                      -> bilan des simulations (valeur de clôture, résultats)
 // Variables Vercel : GH_TOKEN (jeton GitHub avec Actions: write et Contents: read sur le dépôt), GH_REPO (optionnel).
@@ -43,6 +44,25 @@ export async function GET(request: Request): Promise<Response> {
       if (!r.ok) return Response.json({ error: 'Bilan pas encore calculé (une fois par jour, matchs terminés).' }, { status: 404, headers: noStore });
       return Response.json(await r.json(), { headers: { 'Cache-Control': 'public, s-maxage=300' } });
     }
+    if (q.get('reqs')) {
+      const reqs = q.get('reqs')!.split(',').filter((r) => /^[a-z0-9]{1,16}$/.test(r)).slice(0, 30);
+      const r = await gh(`/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100`);
+      if (!r.ok) return bad(`GitHub ne répond pas (${r.status})`, 502);
+      const all: any[] = (await r.json()).workflow_runs ?? [];
+      const runs: Record<string, { status: string; startedAt?: string; url?: string }> = {};
+      for (const req of reqs) {
+        const w = all.find((x) => String(x.display_title ?? '').endsWith(`· ${req}`));
+        // Pas encore listée : la demande vient de partir.
+        runs[req] = !w
+          ? { status: 'queued' }
+          : {
+              status: w.status !== 'completed' ? (w.status === 'in_progress' ? 'running' : 'queued') : w.conclusion === 'success' ? 'done' : 'failed',
+              startedAt: w.run_started_at,
+              url: w.html_url,
+            };
+      }
+      return Response.json({ runs, actions: `https://github.com/${REPO}/actions/workflows/${WORKFLOW}` }, { headers: noStore });
+    }
     if (q.get('list')) {
       const r = await gh(`/contents/sims/index.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
       const sims = r.ok ? await r.json() : [];
@@ -76,7 +96,7 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 async function findRun(req: string): Promise<any | undefined> {
-  const r = await gh(`/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=40`);
+  const r = await gh(`/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100`);
   if (!r.ok) return undefined;
   const j = await r.json();
   return (j.workflow_runs ?? []).find((w: any) => String(w.display_title ?? '').endsWith(`· ${req}`));
