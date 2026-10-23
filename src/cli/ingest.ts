@@ -3,6 +3,7 @@
 //   node src/cli/ingest.ts            -> tout
 //   node src/cli/ingest.ts --games    -> uniquement les matchs
 //   node src/cli/ingest.ts --stats    -> uniquement les tableaux de saison
+//   node src/cli/ingest.ts --games --history 2023-24 -> en plus, les matchs d'une saison ancienne (contrôle d'une saison passée)
 import { getGame, getSchedule } from '../data/cdn.ts';
 import { pool } from '../data/http.ts';
 import * as S from '../data/nbaStats.ts';
@@ -12,6 +13,8 @@ import { isCompetitiveGame } from '../nba/model/features.ts';
 const args = new Set(process.argv.slice(2));
 const doGames = args.has('--games') || (!args.has('--stats'));
 const doStats = args.has('--stats') || (!args.has('--games'));
+const hi = process.argv.indexOf('--history');
+const history = hi >= 0 ? (process.argv[hi + 1] ?? '').split(',').filter((x) => /^\d{4}-\d{2}$/.test(x)) : [];
 
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
@@ -46,6 +49,27 @@ async function ingestGames(): Promise<void> {
   const pre = sched.games.filter((g) => g.status === 3 && g.gameId.startsWith('001'));
   await pool(pre, 8, (g) => getGame(g.gameId, { ns: '_preseason' }));
   log(`pré-saison : ${pre.length} matchs (rôles dans les nouvelles rotations)`);
+}
+
+/**
+ * Matchs d'une saison ancienne : rejouer une saison passée avec le même historique que la saison en cours (la saison
+ * d'avant). Sans le journal stats.nba.com (bloqué sur GitHub), les identifiants sont énumérés : saison régulière,
+ * play-in, playoffs (tour, série, match) ; ceux qui n'existent pas sont simplement absents du CDN.
+ */
+async function ingestHistory(season: string, current: string): Promise<void> {
+  let ids = await listGameIds(season, current);
+  if (!ids.length) {
+    const yy = season.slice(2, 4);
+    ids = Array.from({ length: 1230 }, (_, i) => `002${yy}${String(i + 1).padStart(5, '0')}`);
+    for (const x of ['101', '111', '121', '131', '201', '211']) ids.push(`005${yy}00${x}`);
+    for (const [round, series] of [[1, 8], [2, 4], [3, 2], [4, 1]])
+      for (let s = 0; s < series; s++) for (let g = 1; g <= 7; g++) ids.push(`004${yy}00${round}${s}${g}`);
+  }
+  let ok = 0;
+  await pool(ids, 8, async (id) => {
+    if (await getGame(id)) ok++;
+  });
+  log(`historique ${season} : ${ok} matchs sur ${ids.length} identifiants`);
 }
 
 async function ingestSeasonTables(season: string, current: string): Promise<void> {
@@ -94,4 +118,5 @@ if (doStats) {
   await ingestSeasonTables(cur, cur);
 }
 if (doGames) await ingestGames();
+for (const season of history) await ingestHistory(season, cur);
 log('ingestion terminée');

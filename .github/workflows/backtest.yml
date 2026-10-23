@@ -26,8 +26,29 @@ jobs:
         run: |
           echo "names=$(node -e 'console.log(JSON.stringify(Object.keys(JSON.parse(process.env.VARIANTS))))')" >> "$GITHUB_OUTPUT"
           echo "shards=$(node -e 'console.log(JSON.stringify([...Array(Math.max(1, Number(process.env.SHARDS))).keys()]))')" >> "$GITHUB_OUTPUT"
+  # Matchs récupérés une seule fois pour toutes les machines. Une saison passée reçoit aussi la saison d'avant : même
+  # historique que pour la saison en cours (notes joueurs, momentum, cohésion).
+  donnees:
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
+    env:
+      SIMLAB_OFFLINE_HOSTS: stats.nba.com
+      FROM: ${{ inputs.from || '2026-01-10' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci --no-audit --no-fund
+      - uses: actions/cache@v4
+        with:
+          path: data/cache
+          key: nba-cache-${{ github.run_id }}-donnees
+          restore-keys: nba-cache-
+      - run: npm run snapshot -- --pull
+      - run: |
+          HIST=$(node -e 'const [y,m]=process.env.FROM.split("-").map(Number);const s=(m>=9?y:y-1)-1;console.log(s+"-"+String((s+1)%100).padStart(2,"0"))')
+          npm run ingest -- --games --history "$HIST"
   backtest:
-    needs: variantes
+    needs: [variantes, donnees]
     name: "backtest (${{ matrix.variant }}) ${{ matrix.shard }}"
     strategy:
       fail-fast: false
@@ -52,7 +73,9 @@ jobs:
         with:
           path: data/cache
           key: nba-cache-${{ github.run_id }}-${{ strategy.job-index }}
-          restore-keys: nba-cache-
+          restore-keys: |
+            nba-cache-${{ github.run_id }}-donnees
+            nba-cache-
       - run: npm run snapshot -- --pull
       - run: npm run ingest -- --games
       - run: |
