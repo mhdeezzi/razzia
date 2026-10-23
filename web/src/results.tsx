@@ -178,6 +178,15 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
         </p>
         <ConfidenceBadge c={c} g={g} />
         <MarketBadge c={c} g={g} />
+        {c.tier !== 'flip' && c.hedge && (
+          // Fin de match serrée : le favori avec des points d'avance couvre aussi une défaite de peu.
+          <p className="hedge-line">
+            <Scales size={16} weight="bold" />
+            <span>
+              Plus sûr : <b>{c.hedge.title}</b>, passe dans {pct(c.hedge.p)} des simulations (couvre une défaite de peu).
+            </span>
+          </p>
+        )}
         <div className="split" role="img" aria-label={`${g.away.tri} ${pct(r.pAway)}, ${g.home.tri} ${pct(r.pHome)}`}>
           <div className="split-bar">
             <span style={{ flexGrow: r.pAway }} />

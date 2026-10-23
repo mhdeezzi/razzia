@@ -172,6 +172,9 @@ function contextShift(m: GameModel): number {
     const fade = (t: TeamModel) => Math.max(0, 1 - (t.gpCur ?? 99) / 10);
     shift += cw * (m.home.continuity - m.away.continuity) * Math.max(fade(m.home), fade(m.away));
   }
+  // Absences lourdes : au carré de la part du talent absente (une absence légère compte peu, une équipe décimée beaucoup).
+  const aw = m.params.absenceWeight ?? 0;
+  if (aw) shift += aw * ((m.away.missShare ?? 0) ** 2 - (m.home.missShare ?? 0) ** 2);
   // Avantage du terrain propre à l'équipe qui reçoit (une salle qui pèse plus, ou moins, que la moyenne).
   const hw = m.params.hcaWeight ?? 0;
   if (hw && m.home.hcaDev != null) shift += hw * m.home.hcaDev;

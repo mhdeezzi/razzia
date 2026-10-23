@@ -476,6 +476,9 @@ a.row:hover .mark { transform: scale(1.06); }
 .conf-badge.disagree { border-color: rgba(255, 79, 123, 0.4); background: rgba(255, 79, 123, 0.07); }
 .conf-badge.disagree svg, .conf-badge.disagree .conf-badge-title { color: var(--rose); }
 .conf-badge + .conf-badge { margin-top: 8px; }
+.hedge-line { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 13.5px; color: var(--text-2); }
+.hedge-line svg { flex: none; margin-top: 2px; color: var(--text-3); }
+.hedge-line b { color: var(--text); }
 .conf-badge b { color: var(--text); }
 
 /* Compositions non officielles (bleu) */
@@ -706,7 +709,7 @@ a.row:hover .mark { transform: scale(1.06); }
   .info3 { grid-template-columns: 1fr; gap: 14px; }
   .launch, .progress { padding: 28px 20px; }
   .verdict { grid-template-columns: 1fr; padding: 22px; justify-items: center; text-align: center; }
-  .verdict-team { justify-content: center; }
+  .verdict-team, .hedge-line { justify-content: center; }
   .split { margin-left: auto; margin-right: auto; }
   .verdict-side { grid-template-columns: 1fr 1fr; }
   .section { padding: 20px 16px; }
