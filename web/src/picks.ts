@@ -7,6 +7,7 @@ export interface Outcome {
   title: string;
   p: number; // fréquence dans les simulations
   odds?: number; // cote décimale de cette issue
+  fair?: number; // cote juste (1 / fréquence dans les simulations), quand aucune cote n'est publiée
   implied?: number; // probabilité de la cote, marge retirée
   text?: string;
 }
@@ -20,6 +21,8 @@ export interface Category {
 /** « des Knicks », « du Heat » : les noms de franchise au singulier prennent « du ». */
 const deTeam = (name: string) => (['Heat', 'Magic', 'Thunder', 'Jazz'].includes(name) ? `du ${name}` : `des ${name}`);
 const STD_PRICE = -110; // prix standard quand la cote du handicap ou du total n'est pas publiée
+/** En dessous de cette cote, un pari ne rapporte presque rien : le handicap « plus sûr » n'est pas proposé. */
+export const MIN_ODDS = 1.15;
 
 export function buildCategories(r: Result, g: Game): Category[] {
   const o = g.odds ?? {};
@@ -39,6 +42,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
     }],
   });
 
+  const spreads: Outcome[] = [];
   if (mk?.spreadHome != null && mk.pHomeCover != null) {
     const homeCovers = mk.pHomeCover >= 0.5;
     const side = homeCovers ? 'home' : 'away';
@@ -46,15 +50,27 @@ export function buildCategories(r: Result, g: Game): Category[] {
     const sp = noVig(o.spreadOddsHome ?? STD_PRICE, o.spreadOddsAway ?? STD_PRICE)!;
     const price = (homeCovers ? o.spreadOddsHome : o.spreadOddsAway) ?? (o.spreadOddsHome == null && o.spreadOddsAway == null ? undefined : STD_PRICE);
     const margin = homeCovers ? r.margin.mean : -r.margin.mean;
-    cats.push({
-      id: 'spread', label: 'Handicap',
-      items: [{
-        id: 'spread', title: `${g[side].name} ${l > 0 ? '+' : ''}${line(l)}`, p: Math.max(mk.pHomeCover, 1 - mk.pHomeCover),
-        odds: price != null ? decimal(price) : undefined, implied: homeCovers ? sp[0] : sp[1],
-        text: `Écart moyen simulé : ${signed(margin)} pour ${g[side].name}. Dans 80 % des matchs, l'écart final va de ${signed(homeCovers ? r.margin.p10 : -r.margin.p90)} à ${signed(homeCovers ? r.margin.p90 : -r.margin.p10)}.`,
-      }],
+    spreads.push({
+      id: 'spread', title: `${g[side].name} ${l > 0 ? '+' : ''}${line(l)}`, p: Math.max(mk.pHomeCover, 1 - mk.pHomeCover),
+      odds: price != null ? decimal(price) : undefined, implied: homeCovers ? sp[0] : sp[1],
+      text: `Écart moyen simulé : ${signed(margin)} pour ${g[side].name}. Dans 80 % des matchs, l'écart final va de ${signed(homeCovers ? r.margin.p10 : -r.margin.p90)} à ${signed(homeCovers ? r.margin.p90 : -r.margin.p10)}.`,
     });
   }
+  // Plus sûr que le simple vainqueur (surtout sur un pile ou face) : le favori avec des points d'avance, la ligne la plus
+  // exigeante qui passe encore dans 75 % des simulations ; pas proposé si la cote juste tombe sous 1,15.
+  const fav = (r.market?.blendedHome ?? r.pHome) >= 0.5 ? 'home' : 'away';
+  const cover = (x: { pHomeCover: number }) => (fav === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
+  const hedge = r.spreadLadder
+    .filter((x) => (fav === 'home' ? x.line : -x.line) > 0 && cover(x) >= 0.75 && cover(x) <= 1 / MIN_ODDS)
+    .sort((a, b) => cover(a) - cover(b))[0];
+  if (hedge) {
+    const l = fav === 'home' ? hedge.line : -hedge.line;
+    spreads.push({
+      id: 'hedge', title: `${g[fav].name} +${line(l)}`, p: cover(hedge), fair: 1 / cover(hedge),
+      text: `Plus sûr que le simple vainqueur : ${g[fav].name} gagne, ou perd de ${Math.floor(l)} points au plus. Passe dans ${pct(cover(hedge))} des simulations ; intéressant si la cote proposée dépasse la cote juste.`,
+    });
+  }
+  if (spreads.length) cats.push({ id: 'spread', label: 'Handicap', items: spreads });
 
   if (mk?.total != null && mk.pOver != null) {
     const over = mk.pOver >= 0.5;

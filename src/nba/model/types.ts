@@ -77,7 +77,7 @@ export interface PlayerModel {
   tovLiveShare: number;
   guardProfile: { height: number; usg: number };
   h2h?: { games: number; pts: number; reb: number; ast: number; ptsAll: number; last?: { date: string; pts: number }; best?: number };
-  form: { gp: number; gpCur: number; ptsL10: number; minL10: number; ptsSeason: number; minSeason: number; rebL10: number; astL10: number; fg3mL10: number };
+  form: { gp: number; gpCur: number; ptsL10: number; minL10: number; ptsSeason: number; minSeason: number; rebL10: number; astL10: number; fg3mL10: number; minTeam?: number; valTeam?: number };
   notes: string[];
 }
 
@@ -112,6 +112,8 @@ export interface TeamModel {
   drtg: number; // points par possession concédés
   continuity: number; // part des minutes attendues jouées par des joueurs déjà dans l'équipe
   continuityBack?: number; // part des minutes passées de l'équipe (pondérées comme ses notes) jouées par les joueurs de ce soir
+  missShare?: number; // part du talent régulier de la saison absente ce soir (Game Score moyen avec l'équipe)
+  missOut?: string[]; // réguliers absents ce soir, du plus important au moins important
   gpCur: number; // matchs joués cette saison
   strengthSd: number; // incertitude sur la force réelle (logit d'adresse) : effectif remanié, début de saison
   momentum?: TeamMomentum;
@@ -233,6 +235,8 @@ export interface SimParams {
   h2hShotWeight?: number; // part des écarts de qualité de tir dans les confrontations (emplacements, contestation, pertes, rebonds)
   styleWeight?: number; // part du chat noir de style (effet du type d'adversaire) ajoutée à l'écart visé
   cohesionWeight?: number; // points par écart de continuité d'effectif de 100 %, sur les 10 premiers matchs de la saison
+  absenceWeight?: number; // points x (part du talent absente)^2 : une équipe décimée perd bien plus que ses notes ne le disent
+  moveWeight?: number; // part du mouvement de cote (ouverture -> maintenant, en logit) ajoutée à la probabilité Razzia
   hcaWeight?: number; // part de l'avantage du terrain propre à l'équipe qui reçoit (écart à la ligue) retenue
   strengthPull?: number; // part de l'écart entre la force simulée joueur par joueur et la force visée qui est comblée
   playerMomentum?: number; // part de la forme récente de chaque joueur ajoutée à sa note d'impact

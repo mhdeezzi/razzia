@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise, Scales, ShieldCheck, WarningCircle } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
-import { buildCategories, type Outcome } from './picks.ts';
+import { buildCategories, MIN_ODDS, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
@@ -89,7 +89,7 @@ function confidenceOf(r: Result, g: Game): Confidence {
   // Match serré : le favori avec des points d'avance (gagne, ou perd de peu), la ligne la plus exigeante à 75 % ou plus.
   const cover = (x: { line: number; pHomeCover: number }) => (side === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
   const lineOf = (x: { line: number }) => (side === 'home' ? x.line : -x.line);
-  const h = r.spreadLadder.filter((x) => cover(x) >= 0.75 && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
+  const h = r.spreadLadder.filter((x) => cover(x) >= 0.75 && cover(x) <= 1 / MIN_ODDS && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
   const hedge = h ? { title: `${g[side].name} +${line(lineOf(h))}`, p: cover(h) } : undefined;
   const book = r.market?.bookHome != null ? (side === 'home' ? r.market.bookHome : 1 - r.market.bookHome) : undefined;
   const month = Number(g.date.slice(5, 7));
@@ -173,11 +173,20 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
           <TeamMark team={fav} size="md" /> {fav.city} {fav.name}
         </p>
         <p className="verdict-sub">
-          Probabilité de victoire <b className="mono">{pct(pFav)}</b>
+          Probabilité de victoire <b className="num">{pct(pFav)}</b>
 .
         </p>
         <ConfidenceBadge c={c} g={g} />
         <MarketBadge c={c} g={g} />
+        {c.tier !== 'flip' && c.hedge && (
+          // Fin de match serrée : le favori avec des points d'avance couvre aussi une défaite de peu.
+          <p className="hedge-line">
+            <Scales size={16} weight="bold" />
+            <span>
+              Plus sûr : <b>{c.hedge.title}</b>, passe dans {pct(c.hedge.p)} des simulations (couvre une défaite de peu).
+            </span>
+          </p>
+        )}
         <div className="split" role="img" aria-label={`${g.away.tri} ${pct(r.pAway)}, ${g.home.tri} ${pct(r.pHome)}`}>
           <div className="split-bar">
             <span style={{ flexGrow: r.pAway }} />
@@ -259,6 +268,11 @@ function OutcomeCard({ o }: { o: Outcome }) {
         {o.odds != null && (
           <span className="odds-pill">
             Cote <b>{dec(o.odds)}</b>
+          </span>
+        )}
+        {o.odds == null && o.fair != null && (
+          <span className="odds-pill">
+            Cote juste <b>{dec(o.fair)}</b>
           </span>
         )}
         {o.text && <p>{o.text}</p>}
