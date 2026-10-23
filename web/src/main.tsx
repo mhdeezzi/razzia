@@ -2,6 +2,7 @@
 import { StrictMode, useEffect, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/plus-jakarta-sans';
+import '@fontsource-variable/host-grotesk'; // police d'origine des cercles de probabilité
 import '@fontsource-variable/jetbrains-mono';
 import { CaretRight } from '@phosphor-icons/react';
 import './styles.css';

@@ -1,6 +1,6 @@
 // Programme : les matchs des 7 prochains jours (heure de New York), en liste ou en grille, filtrés par statut.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { ArrowSquareOut, CalendarBlank, CaretRight, Cat, Check, ListBullets, LockSimple, Sparkle, SquaresFour, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
+import { ArrowSquareOut, CalendarBlank, CaretRight, Cat, Check, ListBullets, SquaresFour, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
 import { Empty, Link, Segmented, TeamMark } from './ui.tsx';
@@ -306,40 +306,26 @@ function SheetBar({ day, games, batch }: { day: string; games: Game[]; batch?: B
     <div className="sheet-bar">
       {elsewhere && (
         <p className="sheet-hint">
-          <LockSimple size={14} weight="bold" /> Disponible quand la soirée du {shortDay(batch.date)} sera terminée.{' '}
+          Une soirée est déjà en calcul ({shortDay(batch.date)}).{' '}
           <Link href={`/?jour=${batch.date}`} replace>
-            Voir le suivi
+            Voir
           </Link>
         </p>
       )}
       <button
-        className={`btn-soiree${mine ? ' is-running' : ''}`}
+        className="btn-soiree"
         disabled={running}
         onClick={() => void startBatch(day, todo)}
-        aria-describedby={elsewhere ? undefined : 'soiree-why'}
+        title={elsewhere ? undefined : `Simule les ${todo.length} matchs à venir de ce jour, en parallèle`}
       >
-        {mine ? (
-          <>
-            <span className="spin" /> Soirée en cours <span className="n">{done}/{batch.items.length}</span>
-          </>
-        ) : elsewhere ? (
-          <>
-            <LockSimple size={16} weight="bold" /> Simuler toute la soirée
-          </>
-        ) : (
-          <>
-            <Sparkle size={17} weight="fill" /> Simuler toute la soirée <span className="n">{todo.length}</span>
-          </>
-        )}
+        {mine ? 'Soirée en cours' : 'Simuler toute la soirée'}
+        <span className="n">{mine ? `${done}/${batch.items.length}` : `${todo.length} match${todo.length > 1 ? 's' : ''}`}</span>
       </button>
-      <span id="soiree-why" hidden>
-        Lance la simulation des {todo.length} matchs à venir de ce jour, en parallèle.
-      </span>
     </div>
   );
 }
 
-/** Suivi compact de la soirée : même matière que le suivi d'un match, en plus petit. */
+/** Suivi de la soirée : une ligne sobre (état, chrono, lien GitHub) et un filet d'avancement. */
 function BatchTracker({ b }: { b: Batch }) {
   const running = isRunning(b);
   const [now, setNow] = useState(Date.now());
@@ -350,75 +336,38 @@ function BatchTracker({ b }: { b: Batch }) {
   }, [running]);
   const n = b.items.length;
   const count = (f: (s: ItemState) => boolean) => b.items.filter((i) => f(i.state)).length;
-  const sent = b.items.filter((i) => i.req).length;
   const done = count((s) => s === 'done');
   const failed = count((s) => s === 'failed');
-  // Étape de chaque match, comme le suivi d'un match : file d'attente, préparation (~1 min), calcul, publié.
-  const stage = (i: Batch['items'][number]) =>
-    i.state === 'sending' || i.state === 'queued' ? 0 : i.state === 'running' ? ((now - Date.parse(i.startedAt ?? '')) / 1000 < 70 ? 1 : 2) : 4;
-  const live = b.items.filter((i) => i.state !== 'failed');
-  const at = (k: number) => live.filter((i) => stage(i) === k).length;
-  // Les matchs avancent en parallèle : plusieurs étapes peuvent être en cours à la fois, chacune avec son compte.
-  const prep = [at(0) && `${at(0)} en file`, at(1) && `${at(1)} en préparation`].filter(Boolean).join(', ');
-  const steps = [
-    { label: 'Demandes envoyées', n: `${sent}/${n}`, done: live.every((i) => i.req), now: live.some((i) => !i.req) },
-    { label: 'Données du jour', n: prep, done: live.every((i) => stage(i) > 1), now: at(0) + at(1) > 0 },
-    { label: '5 000 simulations', n: at(2) ? `${at(2)} en calcul` : '', done: live.every((i) => stage(i) > 2), now: at(2) > 0 },
-    { label: 'Publication', n: `${done}/${n}`, done: !running, now: running && done > 0 },
-  ];
+  const calc = count((s) => s === 'running');
+  const wait = count((s) => s === 'queued' || s === 'sending');
   const s = Math.max(0, Math.round(((b.endedAt ?? now) - b.at) / 1000));
   const first = b.items.find((i) => i.state === 'failed' && i.error)?.error;
+  const status = running
+    ? [`${done}/${n} publiés`, calc && `${calc} en calcul`, wait && `${wait} en file`, failed && `${failed} en échec`].filter(Boolean).join(' · ')
+    : failed
+      ? `${done} sur ${n} simulés, ${failed} en échec${first ? ` : ${first}` : ''}`
+      : `${n} matchs simulés`;
   return (
-    <section className={`batch${running ? '' : ' is-over'}`} aria-live="polite">
-      <div className="batch-top">
-        <div>
-          <h3>Soirée du {shortDay(b.date)}</h3>
-          <p className="batch-sub">
-            {running
-              ? `${done} match${done > 1 ? 's' : ''} sur ${n} publié${done > 1 ? 's' : ''}`
-              : failed
-                ? `${done} sur ${n} simulés, ${failed} en échec`
-                : `Les ${n} matchs sont simulés`}
-          </p>
-        </div>
-        <span className="clock">
-          {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
-        </span>
-        {!running && (
-          <button className="batch-x" onClick={dismissBatch} aria-label="Fermer le suivi">
-            <X size={16} weight="bold" />
-          </button>
-        )}
-      </div>
-      <div className={`track track-fill${running ? '' : ' is-still'}`}>
-        <span style={{ transform: `scaleX(${(done + failed) / n})` }} />
-      </div>
-      <ol className="steps steps-row">
-        {steps.map((st, i) => (
-          <li key={st.label} className={st.done ? 'is-done' : st.now ? 'is-now' : ''}>
-            <span className="ic">{st.done ? <Check size={12} weight="bold" /> : i + 1}</span>
-            <span>
-              {st.label}
-              {st.n && <small>{st.n}</small>}
-            </span>
-          </li>
-        ))}
-      </ol>
-      <p className="small muted">
-        {running
-          ? 'Chaque ligne passe de « En file » à « Calcul » puis à son pronostic. Le calcul continue si vous quittez la page ; le bouton se libère quand tout est publié.'
-          : first
-            ? `Échec : ${first}`
-            : 'Ouvrez un match pour voir sa simulation complète.'}
-        {b.actions && (
-          <>
-            {' '}
-            <a href={b.actions} target="_blank" rel="noreferrer">
-              Suivre les calculs <ArrowSquareOut size={12} />
-            </a>
-          </>
-        )}
+    <section className="batch" aria-live="polite">
+      <span className={`dot-s${running ? ' is-live' : failed ? ' is-fail' : ' is-done'}`} aria-hidden="true" />
+      <p className="batch-text">
+        <b>Soirée du {shortDay(b.date)}</b>
+        <span>{status}</span>
       </p>
+      <span className="batch-clock mono">
+        {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
+      </span>
+      {b.actions && (
+        <a className="batch-link" href={b.actions} target="_blank" rel="noreferrer">
+          GitHub <ArrowSquareOut size={12} />
+        </a>
+      )}
+      {!running && (
+        <button className="batch-x" onClick={dismissBatch} aria-label="Fermer le suivi">
+          <X size={14} weight="bold" />
+        </button>
+      )}
+      <span className="batch-line" style={{ transform: `scaleX(${(done + failed) / n})` }} aria-hidden="true" />
     </section>
   );
 }

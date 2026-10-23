@@ -1,6 +1,6 @@
 // Barre du haut façon Betix : bandeau noir plat, logo, pastilles de sport, liens de pages à droite,
 // et pastille « Soirée » quand une simulation groupée tourne.
-import { Basketball, ChartLineUp, Check, ClockCounterClockwise, Info, SoccerBall, Target, TennisBall } from '@phosphor-icons/react';
+import { Basketball, ChartLineUp, ClockCounterClockwise, Info, SoccerBall, Target, TennisBall } from '@phosphor-icons/react';
 import { isRunning, useBatch, type Batch } from './batch.ts';
 import { Link } from './ui.tsx';
 
@@ -46,29 +46,21 @@ export function TopBar({ path }: { path: string }) {
   );
 }
 
-/** Pastille de la soirée en cours : anneau d'avancement, ramène à la feuille de match. */
+/** Soirée en cours : un point et un compteur, au même rang que les liens ; ramène à la feuille de match. */
 function LiveChip({ b }: { b: Batch }) {
   const n = b.items.length;
   const done = b.items.filter((i) => i.state === 'done').length;
-  const over = b.items.filter((i) => i.state === 'done' || i.state === 'failed').length;
+  const failed = b.items.some((i) => i.state === 'failed');
   const running = isRunning(b);
-  const r = 8;
-  const c = 2 * Math.PI * r;
   const day = new Date(`${b.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }).replace('.', '');
   return (
     <Link
       href={`/?jour=${b.date}`}
-      className={`live-chip${running ? '' : ' is-over'}`}
+      className="top-link live-link"
       title={running ? `Soirée du ${day} : ${done} sur ${n} publiés` : `Soirée du ${day} terminée`}
       aria-label={running ? `Soirée du ${day} en cours, ${done} matchs sur ${n} publiés` : `Soirée du ${day} terminée`}
     >
-      <span className="mini-ring" aria-hidden="true">
-        <svg viewBox="0 0 20 20">
-          <circle cx="10" cy="10" r={r} className="t" />
-          <circle cx="10" cy="10" r={r} className="v" strokeDasharray={c} strokeDashoffset={c * (1 - over / n)} />
-        </svg>
-        {!running && <Check size={10} weight="bold" />}
-      </span>
+      <span className={`dot-s${running ? ' is-live' : failed ? ' is-fail' : ' is-done'}`} aria-hidden="true" />
       <span className="lbl">Soirée</span>
       <span className="mono">
         {done}/{n}
