@@ -1,5 +1,5 @@
-// Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (joueurs à
-// suivre, signaux, match typique, duel statistique, profil de tir, joueurs).
+// Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
+// joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise, Scales, ShieldCheck, WarningCircle } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
@@ -28,8 +28,8 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
       <Section i={0} title="Pronostics par catégorie" tag="issue la plus fréquente">
         <Categories r={r} g={g} />
       </Section>
-      <HotStrip r={r} g={g} />
       <Signals r={r} g={g} />
+      <HotStrip r={r} g={g} />
       {r.typical && (
         <Section i={1} title="Le match typique" tag="déroulé le plus probable">
           <TypicalGame t={r.typical} g={g} />
