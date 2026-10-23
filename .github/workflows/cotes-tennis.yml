@@ -1,0 +1,26 @@
+# Cotes Pinnacle des matchs ATP (circuit principal) notées toutes les 3 heures : première cote vue (ouverture), dernière,
+# et changements de la cote du vainqueur. Poussées sur la branche cotes-tennis, que le moteur tennis lira.
+name: Cotes tennis
+on:
+  schedule: [{ cron: '17 */3 * * *' }]
+  workflow_dispatch:
+concurrency: { group: cotes-tennis, cancel-in-progress: false }
+permissions: { contents: write }
+jobs:
+  cotes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Notation et publication sur la branche cotes-tennis
+        run: |
+          git config user.name "simbet-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch origin cotes-tennis; then git worktree add -B cotes-tennis ../cotes FETCH_HEAD; else git worktree add --orphan -b cotes-tennis ../cotes; fi
+          node src/cli/tennisodds.ts ../cotes
+          git -C ../cotes add -A
+          git -C ../cotes diff --cached --quiet && exit 0
+          git -C ../cotes commit -qm "Cotes ATP $(date -u +%Y-%m-%dT%H:%MZ)"
+          git -C ../cotes push origin HEAD:cotes-tennis
