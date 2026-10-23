@@ -325,7 +325,7 @@ function SheetBar({ day, games, batch }: { day: string; games: Game[]; batch?: B
   );
 }
 
-/** Suivi de la soirée : une ligne sobre (état, chrono, lien GitHub) et un filet d'avancement. */
+/** Suivi de la soirée : une barre découpée en un segment par match (file, calcul, publié, échec), le chrono et le lien GitHub. */
 function BatchTracker({ b }: { b: Batch }) {
   const running = isRunning(b);
   const [now, setNow] = useState(Date.now());
@@ -342,32 +342,53 @@ function BatchTracker({ b }: { b: Batch }) {
   const wait = count((s) => s === 'queued' || s === 'sending');
   const s = Math.max(0, Math.round(((b.endedAt ?? now) - b.at) / 1000));
   const first = b.items.find((i) => i.state === 'failed' && i.error)?.error;
-  const status = running
-    ? [`${done}/${n} publiés`, calc && `${calc} en calcul`, wait && `${wait} en file`, failed && `${failed} en échec`].filter(Boolean).join(' · ')
-    : failed
-      ? `${done} sur ${n} simulés, ${failed} en échec${first ? ` : ${first}` : ''}`
-      : `${n} matchs simulés`;
+  const label: Record<ItemState, string> = { sending: 'envoi', queued: 'en file', running: 'en calcul', done: 'publié', failed: 'échec' };
   return (
     <section className="batch" aria-live="polite">
-      <span className={`dot-s${running ? ' is-live' : failed ? ' is-fail' : ' is-done'}`} aria-hidden="true" />
-      <p className="batch-text">
-        <b>Soirée du {shortDay(b.date)}</b>
-        <span>{status}</span>
-      </p>
-      <span className="batch-clock mono">
-        {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
-      </span>
-      {b.actions && (
-        <a className="batch-link" href={b.actions} target="_blank" rel="noreferrer">
-          GitHub <ArrowSquareOut size={12} />
-        </a>
-      )}
-      {!running && (
-        <button className="batch-x" onClick={dismissBatch} aria-label="Fermer le suivi">
-          <X size={14} weight="bold" />
-        </button>
-      )}
-      <span className="batch-line" style={{ transform: `scaleX(${(done + failed) / n})` }} aria-hidden="true" />
+      <div className="batch-head">
+        <p className="batch-title">
+          {running ? 'Simulation de la soirée' : failed ? 'Soirée simulée, avec des échecs' : 'Soirée simulée'} <span>· {shortDay(b.date)}</span>
+        </p>
+        <span className="batch-clock mono">
+          {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
+        </span>
+        {b.actions && (
+          <a className="batch-link" href={b.actions} target="_blank" rel="noreferrer">
+            Suivre sur GitHub <ArrowSquareOut size={12} />
+          </a>
+        )}
+        {!running && (
+          <button className="batch-x" onClick={dismissBatch} aria-label="Fermer le suivi">
+            <X size={14} weight="bold" />
+          </button>
+        )}
+      </div>
+      <div className="batch-bar" role="progressbar" aria-valuemin={0} aria-valuemax={n} aria-valuenow={done} aria-label={`${done} matchs publiés sur ${n}`}>
+        {b.items.map((i) => (
+          <span key={i.key} className={`is-${i.state === 'sending' ? 'queued' : i.state}`} title={`${i.away} @ ${i.home} : ${label[i.state]}`} />
+        ))}
+      </div>
+      <div className="batch-legend">
+        <span>
+          <i className="lg-done" /> {done}/{n} publiés
+        </span>
+        {calc > 0 && (
+          <span>
+            <i className="lg-run" /> {calc} en calcul
+          </span>
+        )}
+        {wait > 0 && (
+          <span>
+            <i /> {wait} en file
+          </span>
+        )}
+        {failed > 0 && (
+          <span>
+            <i className="lg-fail" /> {failed} en échec{first ? ` : ${first}` : ''}
+          </span>
+        )}
+        <span className="muted">{running ? 'Compter 3 à 6 minutes ; le calcul continue si vous quittez la page.' : 'Ouvrez un match pour voir sa simulation.'}</span>
+      </div>
     </section>
   );
 }

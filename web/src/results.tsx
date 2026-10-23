@@ -1,7 +1,7 @@
 // Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (joueurs à
 // suivre, signaux, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowClockwise, Scales, ShieldCheck, TrendUp } from '@phosphor-icons/react';
+import { ArrowClockwise, Scales, ShieldCheck } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
 import { buildCategories, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
@@ -75,7 +75,6 @@ interface Confidence {
   book?: number; // marché sans marge
   tier: 'sure' | 'flip' | 'normal';
   hedge?: { title: string; p: number }; // handicap qui passe dans au moins 75 % des simulations
-  steam?: { side: 'home' | 'away'; move: number }; // la cote a bougé fort vers cette équipe (match serré)
 }
 
 function confidenceOf(r: Result, g: Game): Confidence {
@@ -89,7 +88,7 @@ function confidenceOf(r: Result, g: Game): Confidence {
   const h = r.spreadLadder.filter((x) => cover(x) >= 0.75 && lineOf(x) > 0).sort((a, b) => cover(a) - cover(b))[0];
   const hedge = h ? { title: `${g[side].name} +${line(lineOf(h))}`, p: cover(h) } : undefined;
   const book = r.market?.bookHome != null ? (side === 'home' ? r.market.bookHome : 1 - r.market.bookHome) : undefined;
-  return { side, p, engine: side === 'home' ? r.pHome : r.pAway, book, tier, hedge, steam: r.market?.steam };
+  return { side, p, engine: side === 'home' ? r.pHome : r.pAway, book, tier, hedge };
 }
 
 function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
@@ -100,19 +99,6 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
         <div>
           <p className="conf-badge-title">Razzia assuré</p>
           <p>Quand le moteur est aussi sûr de lui, il a vu juste 85 % du temps sur la saison passée (un match sur quatre).</p>
-        </div>
-      </div>
-    );
-  if (c.steam)
-    return (
-      <div className="conf-badge steam">
-        <TrendUp size={20} weight="bold" />
-        <div>
-          <p className="conf-badge-title">Suivre l'argent</p>
-          <p>
-            Match serré pour le moteur, mais la cote a bougé de <b>{Math.round(c.steam.move * 100)} pts</b> vers {g[c.steam.side].name} depuis
-            l'ouverture (blessure, parieurs pros). Suivre ce mouvement a gagné 61 % du temps sur ces matchs la saison passée.
-          </p>
         </div>
       </div>
     );
@@ -165,7 +151,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
         </p>
         <p className="verdict-sub">
           Probabilité de victoire <b className="mono">{pct(pFav)}</b>
-          {c.steam ? ` (moteur seul ${pct(c.engine)})` : ''}.
+.
         </p>
         <ConfidenceBadge c={c} g={g} />
         <div className="split" role="img" aria-label={`${g.away.tri} ${pct(r.pAway)}, ${g.home.tri} ${pct(r.pHome)}`}>

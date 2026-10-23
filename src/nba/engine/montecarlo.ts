@@ -325,7 +325,6 @@ export interface Summary {
     mlHome?: number; // cotes américaines au moment de la simulation (bilan : valeur de clôture, rendement)
     mlAway?: number;
     bookHomeOpen?: number; // marché sans marge à l'ouverture
-    steam?: { side: 'home' | 'away'; move: number }; // « suivre l'argent » : la cote a bougé fort sur un match serré
   };
   players: PlayerSummary[];
   props: PropEval[];
@@ -482,21 +481,9 @@ export function summarize(m: GameModel, b: Batch): Summary {
       const w = m.params.blendModel ?? 0.4;
       const lg = (p: number) => Math.log(Math.min(0.995, Math.max(0.005, p)) / (1 - Math.min(0.995, Math.max(0.005, p))));
       market.blendedHome = 1 / (1 + Math.exp(-(w * lg(calibrated(m, homeWins / n)) + (1 - w) * lg(mk.pHomeNoVig))));
-      // Suivre l'argent : sur un match serré pour le moteur (moins de 60 %), une cote qui a bougé d'au moins 4 points
-      // depuis l'ouverture (blessure de dernière minute, parieurs pros) désigne le favori. Saison 2025-26 : 62 matchs
-      // inversés, 61 % gagnés ; bon vainqueur 70,2 % -> 71,4 % (positif sur les deux moitiés de saison). Probabilité
-      // affichée au moins 56 % (61 % mesuré sur peu de matchs, rétréci).
-      const pe = calibrated(m, homeWins / n);
-      if (mk.pHomeOpen != null) {
-        market.bookHomeOpen = mk.pHomeOpen;
-        const move = mk.pHomeNoVig - mk.pHomeOpen;
-        if (Math.max(pe, 1 - pe) < 0.6 && Math.abs(move) >= 0.04) {
-          const side = move > 0 ? 'home' : 'away';
-          market.steam = { side, move: Math.abs(move) };
-          const pSide = Math.max(0.56, side === 'home' ? market.blendedHome : 1 - market.blendedHome);
-          market.blendedHome = side === 'home' ? pSide : 1 - pSide;
-        }
-      }
+      // Cote d'ouverture gardée pour mesurer la valeur de clôture. « Suivre l'argent » (la cote qui bouge désigne le
+      // favori des matchs serrés) est retiré : sur la saison complète après correction des absents, il n'apporte plus rien.
+      if (mk.pHomeOpen != null) market.bookHomeOpen = mk.pHomeOpen;
     }
   }
 
