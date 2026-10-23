@@ -242,6 +242,7 @@ export interface SimParams {
   blendModel?: number; // part du moteur dans la probabilité affichée (mélange logit avec la cote sans marge)
   rapmWeight?: number; // part des notes d'impact joueurs (selon qui joue ce soir) dans la force visée, contre les notes d'équipe
   momentumOcc?: number; // part des occasions (plutôt que du score) dans la mesure du momentum : 0 = score seul, 1 = occasions seules
+  momentumContra?: number; // multiplicateur du momentum quand il va contre le favori du moteur (outsider en montée, favori en baisse)
   edge?: [Edge, Edge]; // leviers appliqués (domicile, extérieur), calculés avant les simulations
   qualityCut: number; // échelle (Game Score/36) : un coach coupe d'abord les minutes des joueurs les plus faibles
   usageGamma: number; // partage de l'usage dans un cinq : part ∝ usage^γ (γ > 1 : la star garde sa part)

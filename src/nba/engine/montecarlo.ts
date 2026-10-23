@@ -132,7 +132,7 @@ export function calibrateStrength(m: GameModel, sims = 600, maxWeight = m.params
     // La mesure qui fixe le dernier réglage compte triple : le bruit de l'ancrage passe d'environ ±0,6 à ±0,35 pt.
     cur = measure(710_000 + it * 10_000, it === 1 ? 3 * sims : sims);
   }
-  m.params.edge = composeEdges(m);
+  m.params.edge = composeEdges(m, target[0] - target[1] >= 0 ? 0 : 1);
   return { target, before, after: cur, talentMult, rwEff };
 }
 
@@ -175,7 +175,7 @@ const edgeSum = (e: Edge) => EDGE_KEYS.reduce((s, k) => s + e[k], 0);
  * l'effectif ; sa répartition, de ce qui a changé dans son jeu. Pas de levier de réussite : ce n'est qu'une conséquence.
  * Chat noir : ce qui change dans les confrontations (tirs plus loin, plus contestés ou ratés, pertes, rebonds).
  */
-export function composeEdges(m: GameModel): [Edge, Edge] {
+export function composeEdges(m: GameModel, fav?: 0 | 1): [Edge, Edge] {
   const edge: [Edge, Edge] = [zeroEdge(), zeroEdge()];
   const early = Math.max(0, 1 - Math.min(m.home.gpCur ?? 99, m.away.gpCur ?? 99) / 25);
   const mw = (m.params.momentumWeight ?? 0) + (m.params.momentumEarly ?? 0) * early;
@@ -188,7 +188,9 @@ export function composeEdges(m: GameModel): [Edge, Edge] {
       const dOcc = M.xRecent != null && M.xBase != null ? M.xRecent - M.xBase : M.delta;
       // Seuls les matchs de la saison en cours (même effectif) font un momentum : au premier match, rien.
       const curShare = M.nCur != null ? Math.min(1, M.nCur / Math.max(1, M.n)) : 1;
-      const D = mw * T.continuity * curShare * ((1 - mo) * M.delta + mo * dOcc);
+      let D = mw * T.continuity * curShare * ((1 - mo) * M.delta + mo * dOcc);
+      // Momentum qui contredit le favori du moteur (outsider en montée, favori en baisse) : poids à part (à tester).
+      if (fav != null && (k === fav ? D < 0 : D > 0)) D *= m.params.momentumContra ?? 1;
       let rest = D;
       if (M.occ) {
         const r = M.occ.recent, b = M.occ.base;
