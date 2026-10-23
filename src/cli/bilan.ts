@@ -15,6 +15,27 @@ const SAFE_COVER = 0.8; // handicap « plus sûr » : la ligne la plus exigeante
 const MIN_ODDS = 1.15; // handicap « plus sûr » proposé seulement si sa cote juste dépasse 1,15
 
 type Pick = { kind: 'vainqueur' | 'handicap'; label?: string; won: boolean };
+type Rung = { line: number; pHomeCover: number };
+
+const erf = (x: number) => {
+  const t = 1 / (1 + 0.3275911 * Math.abs(x));
+  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return x >= 0 ? y : -y;
+};
+/**
+ * Lignes de handicap simulées, prolongées de 13 points de chaque côté (comme sur la fiche) : les anciennes simulations ne
+ * couvrent que 12 points autour de l'écart médian. Au-delà : loi normale de l'écart simulé, sans jamais redescendre.
+ */
+function ladder(s: any): Rung[] {
+  const lad: Rung[] = [...(s.spreadLadder ?? [])].sort((a: Rung, b: Rung) => a.line - b.line);
+  const mean: number | undefined = s.margin?.mean, sd: number | undefined = s.margin?.sd;
+  if (!lad.length || mean == null || !(sd! > 0)) return lad;
+  const cdf = (line: number) => 0.5 * (1 + erf((mean + line) / sd! / Math.SQRT2));
+  const lo: Rung[] = [], hi: Rung[] = [];
+  for (let k = 1, c = lad[0].pHomeCover; k <= 13; k++) lo.unshift({ line: lad[0].line - k, pHomeCover: (c = Math.min(c, cdf(lad[0].line - k))) });
+  for (let k = 1, c = lad.at(-1)!.pHomeCover; k <= 13; k++) hi.push({ line: lad.at(-1)!.line + k, pHomeCover: (c = Math.max(c, cdf(lad.at(-1)!.line + k))) });
+  return [...lo, ...lad, ...hi];
+}
 /**
  * Pronostic retenu, celui que la fiche met en avant : le vainqueur, ou pour un favori à 65 % ou moins (pourcentage
  * affiché, une décimale) le handicap « plus sûr » (le favori avec des points d'avance, à 80 % des simulations).
@@ -26,7 +47,7 @@ function pickOf(s: any, home: string, away: string, hs: number, as: number): Pic
   const favMargin = fav === 'home' ? hs - as : as - hs;
   if (Math.round(winP * 1000) / 1000 <= HEDGE_FIRST) {
     const cover = (x: { pHomeCover: number }) => (fav === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
-    const h = ((s.spreadLadder ?? []) as Array<{ line: number; pHomeCover: number }>)
+    const h = ladder(s)
       .filter((x) => (fav === 'home' ? x.line : -x.line) > 0 && cover(x) >= SAFE_COVER && cover(x) > winP && cover(x) <= 1 / MIN_ODDS)
       .sort((a, b) => cover(a) - cover(b))[0];
     if (h) {
