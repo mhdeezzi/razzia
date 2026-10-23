@@ -94,7 +94,7 @@ export const DEFAULT_PARAMS: SimParams = {
   // l'écart vers la force visée (contrôle 2 x 200 matchs, Brier : 60 % 0,2092 / 0,2177 ; 80 % 0,2061 / 0,2148 ;
   // 100 % 0,2039 / 0,2150).
   strengthPull: 1,
-  blendModel: 0.9, // probabilité Razzia : 90 % moteur, 10 % marché (choix : défier le marché)
+  blendModel: 1, // probabilité Razzia : 100 % moteur, 0 % marché (choix) ; seul le mouvement de la cote sert (suivre l'argent)
   // Probabilités moins timides au milieu, moins audacieuses en haut (800 matchs 2025-26 ; apprise sur oct.-déc.,
   // vérifiée sur janv.-fév. : log-perte 0,6393 -> 0,6343). 55 % -> 57 %, 60 % -> 64 %, 70 % -> 73 %, 90 % -> 87 %.
   calB: 1.6,
@@ -1480,7 +1480,10 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
       const heightIn = heights.get(id) ?? 78;
       let status = 'Active';
       let avail = 1;
-      if (box && box.status !== 'ACTIVE') {
+      // Absent connu avant le match : inactif, ou « actif » mais pas en tenue / pas joué pour blessure, repos, raison
+      // personnelle, hors de l'équipe (DND_INJURY, DNP_INJURY, NWT… : 1 065 cas en 2025-26, que le rapport de blessures
+      // annonce). Seul le choix du coach (actif, sans raison) reste imprévisible.
+      if (box && (box.status !== 'ACTIVE' || /INJURY|ILLNESS|REST|PERSONAL|NOT_WITH_TEAM|NWT|SUSPEN/i.test(box.reason ?? ''))) {
         status = `Out (${(box.reason ?? 'inactive').toLowerCase()})`;
         avail = 0;
       }

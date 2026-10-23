@@ -401,15 +401,28 @@ a.row:hover .mark { transform: scale(1.06); }
 .oc-bar span { display: block; height: 6px; border-radius: 4px; background: linear-gradient(90deg, var(--blue), var(--cyan)); transform-origin: left; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms + 0.1s); }
 .oc-odds { text-align: right; color: var(--text-2); }
 
-/* Joueurs en feu : petite bande sous les paris, le détail au survol. */
-.hot-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px; border-radius: var(--r-card); border: 1px solid rgba(255, 82, 64, 0.28);
-  background: linear-gradient(180deg, rgba(255, 70, 50, 0.08), rgba(255, 70, 50, 0.03)); animation: rise 0.6s var(--ease) both; }
-.hot-strip-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #ff5a4a; }
-.hot-strip ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.hot-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: 999px; background: rgba(255, 70, 50, 0.07); border: 1px solid rgba(255, 82, 64, 0.18); font-size: 13px; cursor: help; }
-.hot-chip .mark-sm { width: 26px; height: 26px; }
-.hot-chip-name { font-weight: 600; }
-.hot-chip-p { color: #ff5a4a; font-weight: 700; }
+/* En feu ce soir : bandeau rouge sous les paris, une carte par joueur. */
+.hot { border-radius: var(--r-card); padding: 18px 20px 20px; display: grid; gap: 14px;
+  background: radial-gradient(520px 220px at 12% -30%, rgba(255, 70, 50, 0.22), transparent 70%), linear-gradient(180deg, #160a0a, #0b0708);
+  border: 1px solid rgba(255, 82, 64, 0.35); box-shadow: 0 0 0 1px rgba(255, 82, 64, 0.06), 0 24px 60px rgba(255, 50, 30, 0.08); animation: rise 0.6s var(--ease) both; }
+.hot-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.hot-dot { width: 9px; height: 9px; border-radius: 50%; background: #ff4a3a; box-shadow: 0 0 0 4px rgba(255, 74, 58, 0.16), 0 0 12px rgba(255, 74, 58, 0.8); }
+.hot-title { font-size: 18px; font-weight: 750; letter-spacing: -0.03em; color: #ff5a4a; }
+.hot-sub { font-size: 12.5px; color: #c9a4a0; margin-left: auto; }
+.hot-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.hot-card { border-radius: 14px; padding: 14px; background: rgba(255, 70, 50, 0.06); border: 1px solid rgba(255, 82, 64, 0.18); display: grid; gap: 10px; align-content: start;
+  transition: transform 0.25s var(--ease), border-color 0.25s, background 0.25s; animation: rise 0.5s var(--ease) both; animation-delay: calc(0.15s + var(--i, 0) * 80ms); }
+@media (hover: hover) and (pointer: fine) { .hot-card:hover { transform: translateY(-2px); border-color: rgba(255, 82, 64, 0.45); background: rgba(255, 70, 50, 0.1); } }
+.hot-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.hot-name { font-weight: 700; font-size: 14.5px; line-height: 1.2; }
+.hot-p { font-size: 24px; font-weight: 700; color: #ff5a4a; letter-spacing: -0.04em; }
+.hot-bar { height: 4px; border-radius: 4px; background: rgba(255, 82, 64, 0.14); overflow: hidden; }
+.hot-bar span { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #ff8a3d, #ff3b30); transform-origin: left; animation: grow 0.9s var(--ease) both; animation-delay: calc(0.25s + var(--i, 0) * 80ms); }
+.hot-base { font-size: 12.5px; color: var(--text-2); }
+.hot-base b { color: var(--text); font-weight: 600; }
+.hot-why { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+.hot-why li { font-size: 12.5px; color: #e9c9c4; padding-left: 14px; position: relative; }
+.hot-why li::before { content: ''; position: absolute; left: 1px; top: 0.55em; width: 5px; height: 5px; border-radius: 1.5px; background: #ff4a3a; transform: rotate(45deg); }
 
 /* Niveau de confiance sous le favori : « Razzia assuré » ou « Pile ou face ». */
 .conf-badge { display: flex; gap: 12px; align-items: flex-start; margin-top: 16px; padding: 12px 14px; border-radius: 14px; font-size: 13.5px; color: var(--text-2); border: 1px solid var(--line-2); background: var(--panel); }

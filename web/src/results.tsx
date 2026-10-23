@@ -1,8 +1,8 @@
-// Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, les lignes, et le détail
-// (joueurs en feu, signaux, match typique, duel statistique, profil de tir, joueurs).
+// Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (joueurs à
+// suivre, signaux, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise, Scales, ShieldCheck, TrendUp } from '@phosphor-icons/react';
-import { line, n1, odds, pct, pct0, signed, type Game, type Result } from './data.ts';
+import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
 import { buildCategories, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
@@ -27,9 +27,6 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
       <Verdict r={r} g={g} />
       <Section i={0} title="Pronostics par catégorie" tag="issue la plus fréquente">
         <Categories r={r} g={g} />
-      </Section>
-      <Section i={1} title="Lignes" tag="probabilités">
-        <Lines r={r} g={g} />
       </Section>
       <HotStrip r={r} g={g} />
       <Signals r={r} g={g} />
@@ -168,7 +165,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
         </p>
         <p className="verdict-sub">
           Probabilité de victoire <b className="mono">{pct(pFav)}</b>
-          {r.market?.blendedHome != null ? ` (moteur ${pct(c.engine)}, marché compris à 10 %)` : ''}.
+          {c.steam ? ` (moteur seul ${pct(c.engine)})` : ''}.
         </p>
         <ConfidenceBadge c={c} g={g} />
         <div className="split" role="img" aria-label={`${g.away.tri} ${pct(r.pAway)}, ${g.home.tri} ${pct(r.pHome)}`}>
@@ -317,107 +314,6 @@ function Duel({ r, g }: { r: Result; g: Game }) {
         );
       })}
     </div>
-  );
-}
-
-function Lines({ r, g }: { r: Result; g: Game }) {
-  const mk = r.market;
-  return (
-    <>
-      <div className="tiles">
-        <div className="tile">
-          <p className="tile-title">Handicap</p>
-          <p className="tile-value">{mk?.spreadHome != null ? `${g.home.tri} ${mk.spreadHome > 0 ? '+' : ''}${line(mk.spreadHome)}` : 'Pas de ligne'}</p>
-          {mk?.pHomeCover != null && <TwoWay a={[g.home.tri, mk.pHomeCover]} b={[g.away.tri, 1 - mk.pHomeCover]} />}
-          <p className="tile-foot">
-            Écart moyen {g.home.tri} <span className="mono">{signed(r.margin.mean)}</span>, 80 % entre <span className="mono">{signed(r.margin.p10)}</span> et{' '}
-            <span className="mono">{signed(r.margin.p90)}</span>
-          </p>
-        </div>
-        <div className="tile">
-          <p className="tile-title">Total de points</p>
-          <p className="tile-value">{mk?.total != null ? line(mk.total) : 'Pas de ligne'}</p>
-          {mk?.pOver != null && <TwoWay a={['Plus', mk.pOver]} b={['Moins', 1 - mk.pOver]} />}
-          <p className="tile-foot">
-            Total moyen <span className="mono">{n1(r.total.mean)}</span>, 80 % entre <span className="mono">{range(r.total)}</span>
-          </p>
-        </div>
-        <div className="tile">
-          <p className="tile-title">Possessions par équipe</p>
-          <p className="tile-value">{n1(r.poss.mean)}</p>
-          <p className="tile-foot">
-            1re mi-temps : {g.home.tri} devant dans <span className="mono">{pct0(r.firstHalf.pHome)}</span> des cas, <span className="mono">{n1(r.firstHalf.away)}</span> à{' '}
-            <span className="mono">{n1(r.firstHalf.home)}</span> en moyenne.
-          </p>
-        </div>
-      </div>
-      <div className="ladders">
-        <Ladder title={`${g.home.tri} couvre le handicap`} rows={r.spreadLadder.map((l) => ({ label: `${g.home.tri} ${l.line > 0 ? '+' : ''}${line(l.line)}`, p: l.pHomeCover, mark: l.line === mk?.spreadHome }))} />
-        <Ladder title="Plus de ... points" rows={r.totalLadder.map((l) => ({ label: `Plus de ${line(l.line)}`, p: l.pOver, mark: l.line === mk?.total }))} />
-      </div>
-      <div className="scroll-x">
-        <table className="grid-table">
-          <thead>
-            <tr>
-              <th className="sticky">Quart-temps</th>
-              {r.quarters.home.map((_, i) => (
-                <th key={i}>Q{i + 1}</th>
-              ))}
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(['away', 'home'] as const).map((side) => (
-              <tr key={side}>
-                <th scope="row" className="sticky">
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                    <TeamMark team={g[side]} size="sm" /> {g[side].name}
-                  </span>
-                </th>
-                {r.quarters[side].map((v, i) => (
-                  <td key={i} className="mono">
-                    {n1(v)}
-                  </td>
-                ))}
-                <td className="mono strong">{n1(r.teamStats[side].pts)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
-
-function TwoWay({ a, b }: { a: [string, number]; b: [string, number] }) {
-  return (
-    <div className="twoway">
-      {[a, b].map(([k, p]) => (
-        <div key={k} className={p >= 0.5 ? 'is-lean' : ''}>
-          <span>{k}</span>
-          <span className="mono">{pct(p)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Ladder({ title, rows }: { title: string; rows: Array<{ label: string; p: number; mark?: boolean }> }) {
-  return (
-    <table className="ladder">
-      <caption>{title}</caption>
-      <tbody>
-        {rows.map((x, i) => (
-          <tr key={x.label} className={x.mark ? 'is-market' : ''}>
-            <td>{x.label}</td>
-            <td className="mono">{pct(x.p)}</td>
-            <td className="ladder-bar">
-              <span style={{ width: `${x.p * 100}%`, '--i': i } as CSSProperties} />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }
 
