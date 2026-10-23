@@ -506,9 +506,12 @@ export function summarize(m: GameModel, b: Batch): Summary {
       // par le contrôle de justesse). Le marché intègre ce que le moteur ignore (infos de dernière minute, avis des pros).
       const w = m.params.blendModel ?? 0.4;
       const lg = (p: number) => Math.log(Math.min(0.995, Math.max(0.005, p)) / (1 - Math.min(0.995, Math.max(0.005, p))));
-      market.blendedHome = 1 / (1 + Math.exp(-(w * lg(calibrated(m, homeWins / n)) + (1 - w) * lg(mk.pHomeNoVig))));
-      // Cote d'ouverture gardée pour mesurer la valeur de clôture. « Suivre l'argent » (la cote qui bouge désigne le
-      // favori des matchs serrés) est retiré : sur la saison complète après correction des absents, il n'apporte plus rien.
+      // Mouvement de cote depuis l'ouverture : signal de circonstances (forfait tardif, vestiaire) que les stats ne voient
+      // pas. Quand la cote part de 5 points contre notre favori, il gagnait 55 % du temps au lieu de 65 % annoncés.
+      const mw = m.params.moveWeight ?? 0;
+      const move = mw && mk.pHomeOpen != null ? mw * (lg(mk.pHomeNoVig) - lg(mk.pHomeOpen)) : 0;
+      market.blendedHome = 1 / (1 + Math.exp(-(w * lg(calibrated(m, homeWins / n)) + (1 - w) * lg(mk.pHomeNoVig) + move)));
+      // Cote d'ouverture gardée aussi pour mesurer la valeur de clôture.
       if (mk.pHomeOpen != null) market.bookHomeOpen = mk.pHomeOpen;
     }
   }

@@ -236,6 +236,7 @@ export interface SimParams {
   styleWeight?: number; // part du chat noir de style (effet du type d'adversaire) ajoutée à l'écart visé
   cohesionWeight?: number; // points par écart de continuité d'effectif de 100 %, sur les 10 premiers matchs de la saison
   absenceWeight?: number; // points x (part du talent absente)^2 : une équipe décimée perd bien plus que ses notes ne le disent
+  moveWeight?: number; // part du mouvement de cote (ouverture -> maintenant, en logit) ajoutée à la probabilité Razzia
   hcaWeight?: number; // part de l'avantage du terrain propre à l'équipe qui reçoit (écart à la ligue) retenue
   strengthPull?: number; // part de l'écart entre la force simulée joueur par joueur et la force visée qui est comblée
   playerMomentum?: number; // part de la forme récente de chaque joueur ajoutée à sa note d'impact

@@ -99,6 +99,10 @@ export const DEFAULT_PARAMS: SimParams = {
   // l'autre (2024-25, 2025-26) : 1,5 à 1,8 pt par 10 % au carré, d'où 16 ; bon vainqueur 69,6 % -> 70,4 % sur les deux
   // saisons, probabilités aussi justes que le marché. Une absence légère compte peu, une équipe décimée beaucoup.
   absenceWeight: 16,
+  // Mouvement de cote depuis l'ouverture (logit du marché sans marge) : le marché réagit aux nouvelles (forfait tardif,
+  // vestiaire) avant nous. Appris sur une saison, vérifié sur l'autre : 0,32 et 0,37 ; probabilités plus justes les deux
+  // saisons. Seul le mouvement compte, pas le niveau du marché (Razzia reste 100 % moteur).
+  moveWeight: 0.35,
   hcaWeight: 0.3,
   // La simulation joueur par joueur seule est trop plate (pente 0,35 contre la ligne du marché) : on comble tout
   // l'écart vers la force visée (contrôle 2 x 200 matchs, Brier : 60 % 0,2092 / 0,2177 ; 80 % 0,2061 / 0,2148 ;
@@ -622,11 +626,16 @@ function buildPlayer(ctx: Ctx, pid: number, info: { name: string; jersey: string
   const avgMin = (arr: typeof games) => (arr.length ? sum(arr.map((x) => x.sec)) / arr.length / 60 : 0);
   const seasonRef = cur.length >= 5 ? cur : games.filter((x) => x.season !== curSeason);
   // Apport à l'équipe cette saison (Game Score moyen avec elle) : sert à mesurer le talent qui manque un soir d'absence.
+  // Avant 5 matchs avec elle cette saison, son apport chez elle la saison d'avant (10 matchs au moins) : sans ce repli,
+  // une star absente dès la rentrée (Edwards le 27/10/2025) ne comptait pas.
   const withTeam = cur.filter((x) => x.tm === info.teamId);
+  const prevAll = games.filter((x) => x.season !== curSeason && x.tm === info.teamId);
+  const prevTeam = prevAll.filter((x) => x.season === prevAll.at(-1)?.season);
+  const ref = withTeam.length >= 5 ? withTeam : prevTeam.length >= 10 ? prevTeam : [];
   const form = {
     gp: games.length, gpCur: withTeam.length, ptsL10: avg(l10, 'pts'), minL10: avgMin(l10), ptsSeason: avg(seasonRef, 'pts'), minSeason: avgMin(seasonRef),
     rebL10: avg(l10, 'reb'), astL10: avg(l10, 'ast'), fg3mL10: avg(l10, 'fg3m'),
-    minTeam: avgMin(withTeam), valTeam: withTeam.length ? sum(withTeam.map(gameScore)) / withTeam.length : 0,
+    minTeam: avgMin(ref), valTeam: ref.length ? sum(ref.map(gameScore)) / ref.length : 0,
   };
 
   const astRate = shrinkRate(sum([...(ctx.feats.astPairs.get(pid)?.values() ?? [])]), pf?.offPoss ?? 0, 0.03, 400);
@@ -965,10 +974,10 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
     contDen += p.expMin * p.avail;
   }
   const continuity = contDen ? contNum / contDen : 0;
-  // Talent absent ce soir : part de l'apport des titulaires et remplaçants réguliers de la saison (5 matchs, 20 min avec
-  // l'équipe) qui ne jouera pas. Les notes d'équipe décrivent l'équipe au complet et les notes d'impact sont très tassées :
+  // Talent absent ce soir : part de l'apport des titulaires et remplaçants réguliers (20 min avec l'équipe, sur 5 matchs
+  // cette saison ou, avant, sur la saison d'avant) qui ne jouera pas. Les notes d'équipe décrivent l'équipe au complet et les notes d'impact sont très tassées :
   // sur 2024-25 et 2025-26, une équipe privée de 40 % de son talent gagnait 29 % de ses matchs quand Razzia annonçait 38 %.
-  const regulars = players.filter((p) => p.form.gpCur >= 5 && (p.form.minTeam ?? 0) >= 20);
+  const regulars = players.filter((p) => (p.form.minTeam ?? 0) >= 20);
   const regVal = regulars.reduce((a, p) => a + Math.max(0, p.form.valTeam ?? 0), 0);
   const missShare = regVal > 0 ? regulars.reduce((a, p) => a + Math.max(0, p.form.valTeam ?? 0) * (1 - Math.min(1, p.avail)), 0) / regVal : 0;
   const missOut = regulars.filter((p) => p.avail < 0.5).sort((a, b) => (b.form.valTeam ?? 0) - (a.form.valTeam ?? 0)).map((p) => p.name);
