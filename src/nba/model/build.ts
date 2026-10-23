@@ -103,6 +103,9 @@ export const DEFAULT_PARAMS: SimParams = {
   // vestiaire) avant nous. Appris sur une saison, vérifié sur l'autre : 0,32 et 0,37 ; probabilités plus justes les deux
   // saisons. Seul le mouvement compte, pas le niveau du marché (Razzia reste 100 % moteur).
   moveWeight: 0.35,
+  // Star absente, en plus : 0,2 pt par point de Game Score au-dessus de 8 (Edwards, ~20 : 2,4 pts). Deux saisons :
+  // 70,4 % -> 70,9 % de bons vainqueurs, en hausse sur chacune. Le coup dur dépend de qui manque, pas seulement de combien.
+  starWeight: 0.2,
   hcaWeight: 0.3,
   // La simulation joueur par joueur seule est trop plate (pente 0,35 contre la ligne du marché) : on comble tout
   // l'écart vers la force visée (contrôle 2 x 200 matchs, Brier : 60 % 0,2092 / 0,2177 ; 80 % 0,2061 / 0,2148 ;
@@ -981,6 +984,9 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
   const regVal = regulars.reduce((a, p) => a + Math.max(0, p.form.valTeam ?? 0), 0);
   const missShare = regVal > 0 ? regulars.reduce((a, p) => a + Math.max(0, p.form.valTeam ?? 0) * (1 - Math.min(1, p.avail)), 0) / regVal : 0;
   const missOut = regulars.filter((p) => p.avail < 0.5).sort((a, b) => (b.form.valTeam ?? 0) - (a.form.valTeam ?? 0)).map((p) => p.name);
+  // Star absente : le meilleur régulier de l'équipe ; sa perte pèse selon son niveau (Game Score au-dessus de 8).
+  const star = regulars.reduce<PlayerModel | undefined>((b, p) => (!b || (p.form.valTeam ?? 0) > (b.form.valTeam ?? 0) ? p : b), undefined);
+  const starOut = star ? Math.max(0, (star.form.valTeam ?? 0) - 8) * (1 - Math.min(1, star.avail)) : 0;
   // Continuité « à rebours » : part des minutes passées de l'équipe (même pondération que ses notes) jouées par les
   // joueurs présents ce soir. Une équipe dont la star manquait l'an dernier, ou qui a recruté, a des notes d'équipe qui
   // décrivent un autre effectif que celui de ce soir.
@@ -1037,6 +1043,7 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
     continuityBack,
     missShare,
     missOut,
+    starOut,
     gpCur,
     strengthSd,
     id: info.id, tri: info.tri, name: info.name, city: info.city, color: info.color, color2: info.color2, players,

@@ -8,10 +8,12 @@ interface Bilan {
   at: string;
   games: number;
   brier: { model?: number; blend?: number; book?: number; close?: number };
-  accuracy: { model?: number; blend?: number; book?: number };
+  accuracy: { model?: number; blend?: number; book?: number; pick?: number };
+  handicaps?: { n: number; won: number };
   value: { n: number; won: number; clvMean?: number; clvPositive?: number; roi?: number; nOdds: number };
   rows: Array<{
     dir: string; date: string; away: string; home: string; pModel: number; pBlend?: number; pBook?: number; pClose?: number; homeWon: boolean; score: string;
+    pick?: { kind: 'vainqueur' | 'handicap'; label?: string; won: boolean };
     value?: { side: 'home' | 'away'; edge: number; clv?: number; odds?: number; won: boolean; profit?: number };
   }>;
   error?: string;
@@ -43,9 +45,12 @@ export function BilanPage() {
               <b className="mono">{b.games}</b>
             </div>
             <div>
-              <span className="caps">Bon vainqueur</span>
-              <b className="mono">{b.accuracy.blend != null ? pct(b.accuracy.blend) : b.accuracy.model != null ? pct(b.accuracy.model) : '-'}</b>
-              <small>moteur seul {b.accuracy.model != null ? pct(b.accuracy.model) : '-'}, marché {b.accuracy.book != null ? pct(b.accuracy.book) : '-'}</small>
+              <span className="caps">Bon pronostic</span>
+              <b className="mono">{b.accuracy.pick != null ? pct(b.accuracy.pick) : b.accuracy.blend != null ? pct(b.accuracy.blend) : b.accuracy.model != null ? pct(b.accuracy.model) : '-'}</b>
+              <small>
+                {b.handicaps ? `${b.handicaps.n} pile ou face comptés en handicap (${b.handicaps.won} passés), ` : ''}vainqueur seul{' '}
+                {b.accuracy.blend != null ? pct(b.accuracy.blend) : b.accuracy.model != null ? pct(b.accuracy.model) : '-'}, marché {b.accuracy.book != null ? pct(b.accuracy.book) : '-'}
+              </small>
             </div>
             <div>
               <span className="caps">Brier (plus bas = mieux)</span>
@@ -83,7 +88,11 @@ export function BilanPage() {
                           {r.value.clv != null ? `, clôture ${pts(r.value.clv)}` : ''}
                         </span>
                       ) : (
-                        <span className="muted small">{((r.pBlend ?? r.pModel) >= 0.5) === r.homeWon ? 'bon vainqueur' : 'raté'}</span>
+                        <span className="muted small">
+                          {r.pick?.kind === 'handicap'
+                            ? `handicap ${r.pick.label} ${r.pick.won ? 'passé' : 'raté'}`
+                            : ((r.pBlend ?? r.pModel) >= 0.5) === r.homeWon ? 'bon vainqueur' : 'raté'}
+                        </span>
                       )}
                     </span>
                   </Link>

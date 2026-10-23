@@ -114,6 +114,7 @@ export interface TeamModel {
   continuityBack?: number; // part des minutes passées de l'équipe (pondérées comme ses notes) jouées par les joueurs de ce soir
   missShare?: number; // part du talent régulier de la saison absente ce soir (Game Score moyen avec l'équipe)
   missOut?: string[]; // réguliers absents ce soir, du plus important au moins important
+  starOut?: number; // star absente : son Game Score moyen au-dessus de 8 (x part d'absence), 0 si elle joue
   gpCur: number; // matchs joués cette saison
   strengthSd: number; // incertitude sur la force réelle (logit d'adresse) : effectif remanié, début de saison
   momentum?: TeamMomentum;
@@ -237,6 +238,7 @@ export interface SimParams {
   cohesionWeight?: number; // points par écart de continuité d'effectif de 100 %, sur les 10 premiers matchs de la saison
   absenceWeight?: number; // points x (part du talent absente)^2 : une équipe décimée perd bien plus que ses notes ne le disent
   moveWeight?: number; // part du mouvement de cote (ouverture -> maintenant, en logit) ajoutée à la probabilité Razzia
+  starWeight?: number; // points par point de Game Score (au-dessus de 8) de la star absente
   hcaWeight?: number; // part de l'avantage du terrain propre à l'équipe qui reçoit (écart à la ligue) retenue
   strengthPull?: number; // part de l'écart entre la force simulée joueur par joueur et la force visée qui est comblée
   playerMomentum?: number; // part de la forme récente de chaque joueur ajoutée à sa note d'impact

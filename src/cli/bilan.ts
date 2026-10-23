@@ -10,6 +10,30 @@ if (!dir) throw new Error('Usage : node src/cli/bilan.ts <dossier sims>');
 
 const decimal = (a: number) => (a > 0 ? 1 + a / 100 : 1 + 100 / -a);
 const VALUE = 0.04; // écart moteur / marché à partir duquel Razzia signale une valeur
+const FLIP = 0.55; // favori sous 55 % : pile ou face, le vainqueur est déconseillé
+const MIN_ODDS = 1.15; // handicap « plus sûr » proposé seulement si sa cote juste dépasse 1,15
+
+type Pick = { kind: 'vainqueur' | 'handicap'; label?: string; won: boolean };
+/**
+ * Pronostic retenu, celui que la fiche met en avant : le vainqueur, ou sur un pile ou face le handicap « plus sûr » (le
+ * favori avec des points d'avance, la ligne la plus exigeante qui passe dans 75 % des simulations).
+ */
+function pickOf(s: any, home: string, away: string, hs: number, as: number): Pick {
+  const p: number = s.market?.blendedHome ?? s.pHome;
+  const fav = p >= 0.5 ? 'home' : 'away';
+  const favMargin = fav === 'home' ? hs - as : as - hs;
+  if (Math.max(p, 1 - p) < FLIP) {
+    const cover = (x: { pHomeCover: number }) => (fav === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
+    const h = ((s.spreadLadder ?? []) as Array<{ line: number; pHomeCover: number }>)
+      .filter((x) => (fav === 'home' ? x.line : -x.line) > 0 && cover(x) >= 0.75 && cover(x) <= 1 / MIN_ODDS)
+      .sort((a, b) => cover(a) - cover(b))[0];
+    if (h) {
+      const l = fav === 'home' ? h.line : -h.line;
+      return { kind: 'handicap', label: `${fav === 'home' ? home : away} +${String(l).replace('.', ',')}`, won: favMargin + l > 0 };
+    }
+  }
+  return { kind: 'vainqueur', won: favMargin > 0 };
+}
 
 interface Row {
   dir: string;
@@ -22,6 +46,7 @@ interface Row {
   pClose?: number; // marché sans marge à la clôture
   homeWon: boolean;
   score: string;
+  pick: Pick;
   value?: { side: 'home' | 'away'; edge: number; clv?: number; odds?: number; won: boolean; profit?: number };
 }
 
@@ -48,7 +73,7 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   const close = await getMarket(date, home, away).catch(() => undefined);
   const pClose = close?.mlHome != null && close.mlAway != null ? noVig(close.mlHome, close.mlAway)[0] : undefined;
   const pBook = s.market?.bookHome as number | undefined;
-  const row: Row = { dir: d.name, date, away, home, pModel: s.pHome, pBlend: s.market?.blendedHome, pBook, pClose, homeWon: hs > as, score: `${as}-${hs}` };
+  const row: Row = { dir: d.name, date, away, home, pModel: s.pHome, pBlend: s.market?.blendedHome, pBook, pClose, homeWon: hs > as, score: `${as}-${hs}`, pick: pickOf(s, home, away, hs, as) };
   if (pBook != null && Math.abs(s.pHome - pBook) >= VALUE) {
     const side = s.pHome > pBook ? 'home' : 'away';
     const won = side === 'home' ? hs > as : as > hs;
@@ -79,7 +104,9 @@ const out = {
   at: new Date().toISOString(),
   games: rows.length,
   brier: { model: brier('pModel'), blend: brier('pBlend'), book: brier('pBook'), close: brier('pClose') },
-  accuracy: { model: hit('pModel'), blend: hit('pBlend'), book: hit('pBook') },
+  accuracy: { model: hit('pModel'), blend: hit('pBlend'), book: hit('pBook'), pick: rows.length ? rows.filter((x) => x.pick.won).length / rows.length : undefined },
+  // Pile ou face comptés comme leur handicap « plus sûr » (le pronostic affiché à la place du vainqueur).
+  handicaps: { n: rows.filter((x) => x.pick.kind === 'handicap').length, won: rows.filter((x) => x.pick.kind === 'handicap' && x.pick.won).length },
   value: {
     n: vals.length,
     won: vals.filter((x) => x.value!.won).length,
