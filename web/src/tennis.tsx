@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise, ArrowLeft, CalendarBlank, CaretRight, Cat, Flag, House, Mountains, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { Empty, Link, ProgressLine, Ring, Segmented } from './ui.tsx';
-import { PickTabs } from './results.tsx';
+import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_SURE } from './tennispicks.ts';
+import type { Outcome } from './picks.ts';
 
 // ——— Données ———
 export interface TennisPlayer {
@@ -623,7 +624,7 @@ function TennisResults({ r, onRelaunch, busy }: { r: TennisResult; onRelaunch: (
           {busy ? <span className="spin" /> : <ArrowClockwise size={16} />} Relancer
         </button>
       </div>
-      <TennisVerdict r={r} />
+      <TennisVerdict r={r} pick={cats[0]?.items[0]} />
       <Section title="Pronostics par catégorie" tag="issue la plus fréquente">
         <PickTabs cats={cats} n={r.sim.n} />
       </Section>
@@ -759,7 +760,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
   );
 }
 
-function TennisVerdict({ r }: { r: TennisResult }) {
+function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
   const { side, p } = favOf(r);
   const fav = r[side], dog = r[side === 'home' ? 'away' : 'home'];
   const i = side === 'home' ? 0 : 1;
@@ -769,7 +770,7 @@ function TennisVerdict({ r }: { r: TennisResult }) {
   const sets = r.sim.atLeast1[i];
   return (
     <section className={`verdict verdict-${tier}`}>
-      <Ring value={p} format={pct0} label="Victoire" />
+      <Ring value={p} format={pct0} label="Victoire" extra={<PickOdds o={pick} />} />
       <div>
         <span className="caps">Favori Razzia</span>
         <p className="verdict-team">
