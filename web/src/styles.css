@@ -235,9 +235,15 @@ a.row:hover .mark { transform: scale(1.06); }
   transition: background-color 0.2s, border-color 0.2s, color 0.2s, transform 0.1s ease-out, box-shadow 0.25s, opacity 0.2s, filter 0.2s; }
 .btn:active:not(:disabled) { transform: scale(0.97); }
 .btn:disabled { opacity: 0.5; cursor: default; }
-.btn-primary { background: var(--cta); color: #fff; border-color: rgba(255, 255, 255, 0.08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 10px 24px -8px rgba(44, 90, 238, 0.6); }
+/* Bouton principal : blanc, lueur bleu foncé qui fait le tour (comme l'onglet Simulation). */
+.btn-primary { color: #0b0b0b; border: 2px solid transparent; padding: 10px 19px; animation: beam 4.5s linear infinite;
+  background: linear-gradient(#fff, #fff) padding-box,
+    conic-gradient(from var(--beam), transparent 0 70%, rgba(44, 90, 238, 0.7) 84%, #1a3fc4 92%, transparent 100%) border-box,
+    linear-gradient(#fff, #fff) border-box;
+  box-shadow: 0 12px 28px -14px rgba(44, 90, 238, 0.7); }
+.btn-primary.btn-lg { padding: 15px 27px; }
 @media (hover: hover) and (pointer: fine) {
-  .btn-primary:hover:not(:disabled) { filter: brightness(1.1); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 14px 30px -8px rgba(44, 90, 238, 0.7); }
+  .btn-primary:hover:not(:disabled) { box-shadow: 0 14px 30px -12px rgba(44, 90, 238, 0.85); }
 }
 
 
@@ -702,7 +708,7 @@ a.row:hover .mark { transform: scale(1.06); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
-  .tab-big.glow, .btn-soiree { animation: none !important; }
+  .tab-big.glow, .btn-soiree, .btn-primary { animation: none !important; }
 }
 
 @media (max-width: 1080px) { .sport:disabled .lbl { display: none; } .sport:disabled { padding: 0 13px; } .topbar-in { gap: 28px; } }
@@ -880,3 +886,25 @@ a.row:hover .t-ava { transform: scale(1.06); }
 /* Barres de résultats : effet néon (lueur de la couleur autour de la partie remplie). */
 .split-bar span:first-child, .duel-bar .a:not(.dim), .pbar.away span, .t-sets-bar .h, .t-why-bar.h span { box-shadow: var(--blue-glow); }
 .split-bar span:last-child, .duel-bar .h:not(.dim), .pbar.home span, .t-sets-bar .a, .t-why-bar.a span { box-shadow: var(--rose-glow); }
+
+/* Téléphone : pages dans une barre d'onglets en bas (pouce), en-tête allégé, chiffres qui ne se coupent plus. */
+@media (max-width: 720px) {
+  body { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .sports { margin-left: auto; }
+  .top-right { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; margin: 0; gap: 4px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 6px 10px calc(6px + env(safe-area-inset-bottom)); background: rgba(6, 6, 6, 0.9); -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); border-top: 1px solid var(--line); }
+  .top-link { flex-direction: column; justify-content: center; gap: 3px; height: 52px; padding: 0; border-radius: 12px; font-size: 11px; font-weight: 500; color: #8a8a8a; -webkit-tap-highlight-color: transparent; }
+  .top-link .lbl { display: inline; }
+  .top-link svg { width: 22px; height: 22px; }
+  .top-link.is-on { background: none; color: #fff; font-weight: 600; }
+  .top-link.is-on svg { color: #4d8eff; }
+  /* Fiche : score médian sur toute la largeur, sans retour à la ligne. */
+  .verdict-side > div:first-child { grid-column: 1 / -1; }
+  .verdict-side dd { white-space: nowrap; }
+  .hero-rec { white-space: nowrap; font-size: 12px; }
+  /* Tableaux : plus serrés, « Titulaire » devient un petit T. */
+  .grid-table { font-size: 13px; }
+  .grid-table th, .grid-table td { padding: 10px 9px; }
+  .grid-table tbody th .tag:not(.tag-warn) { display: inline-grid; place-items: center; width: 18px; height: 18px; padding: 0; margin-left: 6px; font-size: 0; vertical-align: 1px; }
+  .grid-table tbody th .tag:not(.tag-warn)::before { content: 'T'; font: 600 10px var(--sans); }
+}
