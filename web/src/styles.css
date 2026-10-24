@@ -434,7 +434,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .ring, .ring .ring-num { font-family: 'Host Grotesk Variable', ui-sans-serif, system-ui, sans-serif; }
 .ring-num { position: relative; font-size: 34px; font-weight: 700; color: var(--c); letter-spacing: -0.05em; }
 .ring figcaption { font: 500 12px 'Host Grotesk Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: 0; color: var(--text-3); }
-/* Cote du pronostic mis en avant, sous « Probabilité de victoire ». */
+/* Cote du pronostic mis en avant, juste sous « Probabilité de victoire ». */
 .ring-odds { margin: 10px 0 0; font: 500 17px 'Archivo Variable', var(--sans); font-stretch: 108%; letter-spacing: 0; line-height: 1; color: #fff; white-space: nowrap; }
 .ring-odds b { font-weight: 500; font-variant-numeric: tabular-nums; }
 .ring-sm .ring-disc { width: 132px; height: 132px; }
