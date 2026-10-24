@@ -4,7 +4,7 @@
 // Une liste de jours de même longueur que les ids, ou un seul jour pour tous. Historique TennisMyLife en cache
 // (data/cache/tennis/tml), lu une fois ; photo officielle ATP, Wikipédia en secours. Écrit <out>/<id>.json par match ;
 // un match en erreur n'arrête pas les autres (code de sortie 1 à la fin).
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadHistory } from '../tennis/data.ts';
 import { nameKey, ROUND_ORDER, type Match, type Surface } from '../tennis/history.ts';
@@ -35,8 +35,10 @@ for (const [k, id] of ids.entries()) {
 if (failed) process.exit(1);
 
 async function simMatch(id: string, day: string) {
-  const fiche = JSON.parse(readFileSync(join(cotes, 'atp', `${day}.json`), 'utf8'))[id];
-  if (!fiche) throw new Error(`absent de ${day}.json`);
+  // Fiche du jour donné ; sinon dans les autres jours (un match du calendrier ESPN peut changer d'heure, donc de jour).
+  const read = (d: string) => (existsSync(join(cotes, 'atp', `${d}.json`)) ? JSON.parse(readFileSync(join(cotes, 'atp', `${d}.json`), 'utf8'))[id] : undefined);
+  const fiche = read(day) ?? readdirSync(join(cotes, 'atp')).map((f) => read(f.replace(/\.json$/, ''))).find(Boolean);
+  if (!fiche) throw new Error(`absent des fiches de cotes (${day} et autres jours)`);
 
   // Tournoi : « ATP Brussels - SF » -> Brussels, demi-finale ; surface et format d'après TennisMyLife.
   const [lname, roundRaw = ''] = String(fiche.league).replace(/^ATP\s+/, '').split(' - ');
