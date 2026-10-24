@@ -11,6 +11,7 @@ import { nameKey, ROUND_ORDER, type Match, type Surface } from '../tennis/histor
 import { Ratings, type Snapshot } from '../tennis/ratings.ts';
 import { blend, engineProb, MARKET_WEIGHT } from '../tennis/engine.ts';
 import { simulate } from '../tennis/sim.ts';
+import { espnFixtures, leagueOf, type Fixture } from '../tennis/espn.ts';
 import { atpHeadshot, photoOf } from '../tennis/photos.ts';
 
 const arg = (k: string, d?: string) => { const i = process.argv.indexOf(`--${k}`); return i >= 0 ? process.argv[i + 1] : d; };
@@ -24,6 +25,7 @@ const v = (x?: number) => (x == null || Number.isNaN(x) ? 0 : x);
 const noVig = (o?: [number, number]) => (o ? (1 / o[0]) / (1 / o[0] + 1 / o[1]) : undefined);
 mkdirSync(out, { recursive: true });
 let failed = 0;
+let espnCache: Promise<Map<string, Fixture>> | undefined; // calendrier ESPN, lu au plus une fois
 for (const [k, id] of ids.entries()) {
   try {
     await simMatch(id, days.length === 1 ? days[0] : days[k]);
@@ -34,11 +36,20 @@ for (const [k, id] of ids.entries()) {
 }
 if (failed) process.exit(1);
 
+/** Dernier recours : le match retrouvé par son identifiant dans le calendrier ESPN, en fiche sans cote (moteur seul). */
+async function fromEspn(id: string) {
+  const f = [...(await (espnCache ??= espnFixtures())).values()].find((x) => x.ids.includes(id));
+  if (!f) return undefined;
+  const priced = readdirSync(join(cotes, 'atp')).flatMap((n) => Object.values(JSON.parse(readFileSync(join(cotes, 'atp', n), 'utf8'))) as any[]).filter((m) => m.last?.ml);
+  console.log(`Match ${id} : fiche reprise du calendrier ESPN (${f.home} - ${f.away})`);
+  return { id: Number(id), source: 'espn', league: leagueOf(f, priced), start: f.start, home: f.home, away: f.away, first: {}, last: {}, moves: [] };
+}
+
 async function simMatch(id: string, day: string) {
   // Fiche du jour donné ; sinon dans les autres jours (un match du calendrier ESPN peut changer d'heure, donc de jour).
   const read = (d: string) => (existsSync(join(cotes, 'atp', `${d}.json`)) ? JSON.parse(readFileSync(join(cotes, 'atp', `${d}.json`), 'utf8'))[id] : undefined);
-  const fiche = read(day) ?? readdirSync(join(cotes, 'atp')).map((f) => read(f.replace(/\.json$/, ''))).find(Boolean);
-  if (!fiche) throw new Error(`absent des fiches de cotes (${day} et autres jours)`);
+  const fiche = read(day) ?? readdirSync(join(cotes, 'atp')).map((f) => read(f.replace(/\.json$/, ''))).find(Boolean) ?? (await fromEspn(id));
+  if (!fiche) throw new Error(`absent des fiches de cotes (${day} et autres jours) et du calendrier ESPN`);
 
   // Tournoi : « ATP Brussels - SF » -> Brussels, demi-finale ; surface et format d'après TennisMyLife.
   const [lname, roundRaw = ''] = String(fiche.league).replace(/^ATP\s+/, '').split(' - ');
