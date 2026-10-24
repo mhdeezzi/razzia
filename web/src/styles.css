@@ -31,11 +31,6 @@
   --rose-soft: rgba(255, 79, 123, 0.14);
   --cta: linear-gradient(90deg, #2c5aee, #5148d6); /* boutons de simulation : le bleu d'origine, préféré au bleu clair */
   --bar: linear-gradient(90deg, #4d8eff, #7fb3ff);
-  /* Barres de résultats : bleu ciel vers bleu vif, rouge vers rose. */
-  --blue-grad: linear-gradient(90deg, #1898c4, #1b7ad8 35%, #2256dc 70%, #2a3ec8);
-  --blue-glow: 0 0 10px rgba(34, 100, 230, 0.55), 0 0 2px rgba(60, 150, 230, 0.8);
-  --rose-grad: linear-gradient(90deg, #d0183a, #c8184e 35%, #bc1d68 70%, #a8247f);
-  --rose-glow: 0 0 10px rgba(210, 30, 80, 0.5), 0 0 2px rgba(230, 80, 130, 0.8);
   --r-hero: 28px;
   --r-card: 20px;
   --r-ctl: 12px;
@@ -424,17 +419,15 @@ a.row:hover .mark { transform: scale(1.06); }
 
 .ring { margin: 0; display: grid; justify-items: center; gap: 14px; }
 .ring-disc { position: relative; width: 168px; height: 168px; border-radius: 999px; display: grid; place-items: center; background: radial-gradient(circle, #0b0b0b 55%, #070707 100%); box-shadow: inset 0 0 0 1px var(--line), 0 0 36px var(--glow); }
-.ring-blue { --c: #2272e0; --ca: #1898c4; --cb: #2a3ec8; --glow: rgba(61, 139, 255, 0.07); }
-.ring-rose { --c: #c81a52; --ca: #d0183a; --cb: #a8247f; --glow: rgba(255, 79, 123, 0.07); }
+.ring-blue { --c: var(--blue); --glow: rgba(61, 139, 255, 0.07); }
+.ring-rose { --c: var(--rose); --glow: rgba(255, 79, 123, 0.07); }
 .ring svg { position: absolute; inset: 14px; transform: rotate(-90deg); }
 .ring-track { fill: none; stroke: #e9ecf1; stroke-width: 7; opacity: 0.9; }
-.ring-stop-a { stop-color: var(--ca); }
-.ring-stop-b { stop-color: var(--cb); }
-.ring-val { fill: none; stroke-width: 7.5; stroke-linecap: round; transition: stroke-dashoffset 1.3s var(--ease); filter: drop-shadow(0 0 3px var(--c)); }
+.ring-val { fill: none; stroke: var(--c); stroke-width: 7.5; stroke-linecap: round; transition: stroke-dashoffset 1.3s var(--ease); filter: drop-shadow(0 0 3px var(--c)); }
 .ring, .ring .ring-num { font-family: 'Host Grotesk Variable', ui-sans-serif, system-ui, sans-serif; }
 .ring-num { position: relative; font-size: 34px; font-weight: 700; color: var(--c); letter-spacing: -0.05em; }
 .ring figcaption { font: 500 12px 'Host Grotesk Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: 0; color: var(--text-3); }
-.ring-odds { margin: -6px 0 0; font: 500 16px var(--sans); color: #fff; text-align: center; white-space: nowrap; }
+.ring-odds { margin: -6px 0 0; font: 700 23px var(--sans); letter-spacing: -0.01em; color: #fff; text-align: center; white-space: nowrap; }
 .ring-odds b { font-family: var(--mono); font-weight: 600; }
 .ring-sm .ring-disc { width: 132px; height: 132px; }
 .ring-sm .ring-num { font-size: 26px; }
@@ -443,8 +436,8 @@ a.row:hover .mark { transform: scale(1.06); }
 .split { margin-top: 22px; max-width: 520px; }
 .split-bar { display: flex; gap: 4px; height: 5px; }
 .split-bar span { border-radius: 0; transform-origin: left; animation: grow 1s var(--ease) both; }
-.split-bar span:first-child { background: var(--blue-grad); }
-.split-bar span:last-child { background: var(--rose-grad); transform-origin: right; }
+.split-bar span:first-child { background: var(--blue); }
+.split-bar span:last-child { background: var(--rose); transform-origin: right; }
 .split-legend { display: flex; justify-content: space-between; font: 600 12.5px var(--sans); font-variant-numeric: tabular-nums; color: var(--text-2); margin-top: 8px; }
 
 .section { display: grid; gap: 16px; padding: 28px; border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--panel); animation: rise 0.6s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
@@ -492,7 +485,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .oc-title { font-size: 13px; color: var(--text-2); }
 .oc-freq { display: grid; grid-template-columns: 1fr 64px; align-items: center; gap: 12px; }
 .oc-freq .mono { text-align: right; }
-.oc-bar span { display: block; height: 5px; border-radius: 0; background: var(--blue-grad); box-shadow: var(--blue-glow); transform-origin: left; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms + 0.1s); }
+.oc-bar span { display: block; height: 5px; border-radius: 0; background: var(--bar); transform-origin: left; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms + 0.1s); }
 .oc-odds { text-align: right; color: var(--text-2); }
 
 /* En feu ce soir : même cadre que les autres sections, une case par joueur (photo, seuil du gros match, chance, raisons).
@@ -584,8 +577,8 @@ a.row:hover .mark { transform: scale(1.06); }
 .duel-top .k { text-align: center; font: 500 12.5px var(--sans); letter-spacing: 0; color: var(--text-3); }
 .duel-bar { position: relative; height: 5px; border-radius: 0; background: var(--panel-3); display: flex; }
 .duel-bar span { height: 100%; animation: grow 1s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
-.duel-bar .a { position: relative; background: var(--blue-grad); transform-origin: right; }
-.duel-bar .h { background: var(--rose-grad); transform-origin: left; }
+.duel-bar .a { position: relative; background: var(--blue); transform-origin: right; }
+.duel-bar .h { background: var(--rose); transform-origin: left; }
 .duel-bar .a.dim, .duel-bar .h.dim { background: var(--panel-4); }
 /* Petit trait blanc à la jonction des deux côtés. */
 .duel-bar .a::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 3px; background: #fff; }
@@ -621,8 +614,8 @@ a.row:hover .mark { transform: scale(1.06); }
 .pbar { height: 5px; border-radius: 0; background: var(--panel-3); display: flex; }
 .pbar span { height: 100%; border-radius: 0; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms + 120ms); }
 .pbar.away { justify-content: flex-end; }
-.pbar.away span { background: var(--blue-grad); transform-origin: right; }
-.pbar.home span { background: var(--rose-grad); transform-origin: left; }
+.pbar.away span { background: var(--blue); transform-origin: right; }
+.pbar.home span { background: var(--rose); transform-origin: left; }
 .profile-extra { margin: 0; display: grid; border-top: 1px solid var(--line); }
 .profile-extra div { display: grid; grid-template-columns: 92px 1fr 92px; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .profile-extra dt { text-align: center; font-size: 13px; color: var(--text-2); }
@@ -645,7 +638,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .ladder-bar { width: 45%; }
 .ladder-bar span { display: block; height: 5px; border-radius: 0; background: var(--panel-4); transform-origin: left; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
 .ladder tr.is-market td:first-child { color: var(--text); font-weight: 600; }
-.ladder tr.is-market .ladder-bar span { background: var(--blue-grad); box-shadow: var(--blue-glow); }
+.ladder tr.is-market .ladder-bar span { background: var(--bar); }
 
 .scroll-x { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
 .grid-table { font-size: 14px; }
@@ -841,8 +834,8 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .t-sets-who b { margin-left: 4px; }
 .t-sets-bar { height: 5px; border-radius: 0; background: var(--panel-4); }
 .t-sets-bar span { display: block; height: 100%; border-radius: 0; transform-origin: left; animation: grow 0.9s var(--ease) both; }
-.t-sets-bar .h, .t-why-bar.h span { background: var(--blue-grad); }
-.t-sets-bar .a, .t-why-bar.a span { background: var(--rose-grad); }
+.t-sets-bar .h, .t-why-bar.h span { background: var(--blue); }
+.t-sets-bar .a, .t-why-bar.a span { background: var(--rose); }
 .t-sets li.t-sets-note { display: block; margin-top: 4px; }
 .t-duel { display: grid; gap: 2px; }
 .t-duel-head, .t-duel-row { display: grid; grid-template-columns: 1fr minmax(0, 1.4fr) 1fr; align-items: center; gap: 12px; }
@@ -886,10 +879,6 @@ a.row:hover .t-ava { transform: scale(1.06); }
   .t-why li .t-why-bar { display: none; }
   .t-duel-row { font-size: 13px; }
 }
-
-/* Barres de résultats : effet néon (lueur de la couleur autour de la partie remplie). */
-.split-bar span:first-child, .duel-bar .a:not(.dim), .pbar.away span, .t-sets-bar .h, .t-why-bar.h span { box-shadow: var(--blue-glow); }
-.split-bar span:last-child, .duel-bar .h:not(.dim), .pbar.home span, .t-sets-bar .a, .t-why-bar.a span { box-shadow: var(--rose-glow); }
 
 /* Téléphone : liens de pages masqués pour l'instant (place à trouver), chiffres qui ne se coupent plus. */
 @media (max-width: 720px) {
