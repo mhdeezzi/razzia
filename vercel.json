@@ -12,9 +12,13 @@
   ],
   "git": {
     "deploymentEnabled": {
+      "main-rrucig": false,
       "resultats": false,
+      "cotes-tennis": false,
+      "donnees-tennis": false,
       "donnees-stats": false,
-      "donnees-matchs": false
+      "donnees-matchs": false,
+      "controles": false
     }
   }
 }
