@@ -80,12 +80,8 @@ function Match({ g, injuries }: { g: Game; injuries: Record<string, Injury[]> })
   const sim = useSim(g);
   const [tab, setTab] = useState<Tab | undefined>();
   const s = sim.state.status;
-  // Onglet par défaut : la simulation (lancement si elle n'existe pas encore).
+  // Onglet par défaut : la simulation (on la lance depuis cet onglet si elle n'existe pas encore).
   const current: Tab = tab ?? 'sim';
-  const go = async () => {
-    setTab('sim');
-    if (s !== 'queued' && s !== 'running') await sim.launch();
-  };
 
   return (
     <>
@@ -101,7 +97,7 @@ function Match({ g, injuries }: { g: Game; injuries: Record<string, Injury[]> })
       </div>
 
       <div className="tab-panel" key={current}>
-        {current === 'apercu' ? <Overview g={g} injuries={injuries} sim={sim.state} onSim={go} busy={sim.busy} /> : <SimPanel g={g} {...sim} />}
+        {current === 'apercu' ? <Overview g={g} injuries={injuries} /> : <SimPanel g={g} {...sim} />}
       </div>
     </>
   );
@@ -163,27 +159,9 @@ function Hero({ g }: { g: Game }) {
   );
 }
 
-function Overview({ g, injuries, sim, onSim, busy }: { g: Game; injuries: Record<string, Injury[]>; sim: SimState; onSim: () => void; busy: boolean }) {
-  const done = sim.status === 'done';
-  const running = sim.status === 'queued' || sim.status === 'running';
+function Overview({ g, injuries }: { g: Game; injuries: Record<string, Injury[]> }) {
   return (
     <div className="results">
-      {g.state !== 'post' && (
-        <section className="cta-card">
-          <div>
-            <h3>{done ? 'La simulation est prête.' : running ? 'Simulation en cours.' : 'Rejouer ce match 5 000 fois.'}</h3>
-            <p>
-              {done
-                ? 'Probabilités, paris mis en avant, duel statistique et projections de chaque joueur.'
-                : 'Avec les effectifs, les absences et les cotes du moment. Résultat en quelques minutes.'}
-            </p>
-          </div>
-          <button className="btn btn-primary btn-lg" onClick={onSim} disabled={busy}>
-            {busy && <span className="spin" />}{done || running ? 'Voir la simulation' : 'Lancer la simulation'}
-          </button>
-        </section>
-      )}
-
       <section className="box">
         <div className="box-head">
           <span className="box-icon">

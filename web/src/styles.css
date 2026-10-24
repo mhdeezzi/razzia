@@ -373,9 +373,6 @@ a.row:hover .mark { transform: scale(1.06); }
 .inj-st { font: 500 12.5px var(--sans); letter-spacing: 0; color: var(--text-2); white-space: nowrap; }
 .inj-0 { color: var(--rose); }
 .inj-1, .inj-2 { color: #f5b955; }
-.cta-card { border-radius: var(--r-card); padding: 26px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line-2); }
-.cta-card h3 { font-size: 22px; }
-.cta-card p { color: var(--text-2); margin-top: 6px; max-width: 52ch; }
 
 /* Simulation : lancement et suivi */
 .launch { position: relative; border-radius: var(--r-hero); padding: 48px 40px; overflow: hidden; border: 1px solid var(--line-2); display: grid; gap: 20px; justify-items: start; background: var(--panel); }
