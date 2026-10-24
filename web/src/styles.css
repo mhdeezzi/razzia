@@ -908,3 +908,19 @@ a.row:hover .t-ava { transform: scale(1.06); }
   .grid-table tbody th .tag:not(.tag-warn) { display: inline-grid; place-items: center; width: 18px; height: 18px; padding: 0; margin-left: 6px; font-size: 0; vertical-align: 1px; }
   .grid-table tbody th .tag:not(.tag-warn)::before { content: 'T'; font: 600 10px var(--sans); }
 }
+
+/* Téléphone : en-têtes de page centrés, sélecteurs pleine largeur, sports regroupés dans une pastille en haut. */
+@media (max-width: 720px) {
+  .dash-head { flex-direction: column; align-items: center; text-align: center; gap: 18px; }
+  .dash-meta { justify-content: center; flex-wrap: wrap; }
+  .page-head { text-align: center; margin-left: auto; margin-right: auto; }
+  .page-head .lede { margin-left: auto; margin-right: auto; }
+  .filters { justify-content: center; }
+  .filters .seg, .dash-head .seg { display: flex; width: 100%; }
+  .filters .seg button, .dash-head .seg button { flex: 1; justify-content: center; padding: 9px 8px; }
+  .sports { gap: 4px; padding: 4px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-2); }
+  .sport { height: 38px; padding: 0 14px; gap: 7px; border-radius: 10px; font-size: 14px; }
+  .sport .lbl { display: inline; }
+  .sport:disabled { display: none; }
+}
+@media (max-width: 360px) { .sport .lbl { display: none; } }
