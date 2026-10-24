@@ -370,6 +370,7 @@ export interface Summary {
   shotProfile?: Record<'home' | 'away', { fga: number[]; fgm: number[]; astM: number; transFga: number; transFgm: number; cont: number[] }>;
   h2h?: GameModel['h2h'];
   momentum?: Record<'home' | 'away', TeamModel['momentum']>;
+  gamesPlayed?: Record<'home' | 'away', number>; // matchs joués cette saison avant ce soir
   edge?: [Edge, Edge]; // leviers d'occasions appliqués (domicile, extérieur)
   uncertainty?: Record<'home' | 'away', number>;
 }
@@ -573,7 +574,7 @@ export function summarize(m: GameModel, b: Batch): Summary {
     homePts: dist(Array.from(b.home)), awayPts: dist(Array.from(b.away)), margin: dist(margin), total: dist(total), poss: dist(possA),
     quarters: { home: qH, away: qA }, firstHalf: { home: qH[0] + qH[1], away: qA[0] + qA[1], pHome: h1Home / n },
     spreadLadder, totalLadder, market, players, props, teamStats, shotProfile,
-    h2h: m.h2h, momentum: { home: m.home.momentum, away: m.away.momentum }, edge: m.params.edge, uncertainty: { home: m.home.strengthSd, away: m.away.strengthSd },
+    h2h: m.h2h, momentum: { home: m.home.momentum, away: m.away.momentum }, gamesPlayed: { home: m.home.gpCur ?? 0, away: m.away.gpCur ?? 0 }, edge: m.params.edge, uncertainty: { home: m.home.strengthSd, away: m.away.strengthSd },
   };
 }
 
