@@ -1,9 +1,9 @@
 // Programme : les matchs des 7 prochains jours (heure de New York), en liste ou en grille, filtrés par statut.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { ArrowSquareOut, CalendarBlank, CaretRight, Cat, Check, ListBullets, SquaresFour, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
+import { CalendarBlank, CaretRight, Cat, Check, ListBullets, SquaresFour, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
-import { Empty, Link, Segmented, TeamMark } from './ui.tsx';
+import { Empty, Link, ProgressLine, Segmented, TeamMark } from './ui.tsx';
 
 type Status = 'pre' | 'in' | 'post';
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -325,7 +325,7 @@ function SheetBar({ day, games, batch }: { day: string; games: Game[]; batch?: B
   );
 }
 
-/** Suivi de la soirée : une barre découpée en un segment par match (file, calcul, publié, échec), le chrono et le lien GitHub. */
+/** Suivi de la soirée : une ligne remplie au fil des matchs publiés, le chrono et la légende (publiés, en calcul, en file, échecs). */
 function BatchTracker({ b }: { b: Batch }) {
   const running = isRunning(b);
   const [now, setNow] = useState(Date.now());
@@ -342,7 +342,6 @@ function BatchTracker({ b }: { b: Batch }) {
   const wait = count((s) => s === 'queued' || s === 'sending');
   const s = Math.max(0, Math.round(((b.endedAt ?? now) - b.at) / 1000));
   const first = b.items.find((i) => i.state === 'failed' && i.error)?.error;
-  const label: Record<ItemState, string> = { sending: 'envoi', queued: 'en file', running: 'en calcul', done: 'publié', failed: 'échec' };
   return (
     <section className="batch" aria-live="polite">
       <div className="batch-head">
@@ -352,22 +351,13 @@ function BatchTracker({ b }: { b: Batch }) {
         <span className="batch-clock mono">
           {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
         </span>
-        {b.actions && (
-          <a className="batch-link" href={b.actions} target="_blank" rel="noreferrer">
-            Suivre sur GitHub <ArrowSquareOut size={12} />
-          </a>
-        )}
         {!running && (
           <button className="batch-x" onClick={dismissBatch} aria-label="Fermer le suivi">
             <X size={14} weight="bold" />
           </button>
         )}
       </div>
-      <div className="batch-bar" role="progressbar" aria-valuemin={0} aria-valuemax={n} aria-valuenow={done} aria-label={`${done} matchs publiés sur ${n}`}>
-        {b.items.map((i) => (
-          <span key={i.key} className={`is-${i.state === 'sending' ? 'queued' : i.state}`} title={`${i.away} @ ${i.home} : ${label[i.state]}`} />
-        ))}
-      </div>
+      <ProgressLine done={done} failed={running ? 0 : failed} n={n} running={running} />
       <div className="batch-legend">
         <span>
           <i className="lg-done" /> {done}/{n} publiés

@@ -8,6 +8,7 @@ import { CaretRight } from '@phosphor-icons/react';
 import './styles.css';
 import { listSims, loadProgramme, matchPath, type Programme, type SimEntry } from './data.ts';
 import { MatchPage } from './match.tsx';
+import { BadgesPage } from './badges.tsx';
 import { BilanPage } from './bilan.tsx';
 import { SchedulePage } from './schedule.tsx';
 import { TopBar } from './topbar.tsx';
@@ -32,11 +33,13 @@ function App() {
     <MethodPage />
   ) : path === '/bilan' ? (
     <BilanPage />
+  ) : path === '/badges' ? (
+    <BadgesPage />
   ) : (
     <SchedulePage day={search.get('jour')} />
   );
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : 'Razzia | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : path === '/badges' ? 'Badges | Razzia' : 'Razzia | Simulations NBA';
   }, [path]);
   return (
     <>

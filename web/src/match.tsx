@@ -396,14 +396,6 @@ function Progress({ state, since }: { state: Extract<SimState, { status: 'queued
       </ol>
       <p className="small muted">
         Compter 3 à 6 minutes, un peu plus pour la toute première simulation. La page se met à jour seule, et la simulation continue si vous la quittez.
-        {state.url && (
-          <>
-            {' '}
-            <a href={state.url} target="_blank" rel="noreferrer">
-              Suivre le calcul <ArrowSquareOut size={12} />
-            </a>
-          </>
-        )}
       </p>
     </section>
   );

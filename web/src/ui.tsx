@@ -160,6 +160,16 @@ export function Ring({ value, tone = 'blue', label, format }: { value: number; t
   );
 }
 
+/** Avancement d'une simulation groupée : une seule ligne, remplie au fil des matchs publiés, balayée en bleu foncé tant que ça calcule. */
+export function ProgressLine({ done, failed = 0, n, running }: { done: number; failed?: number; n: number; running: boolean }) {
+  return (
+    <div className={`batch-line${running ? ' is-running' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={n} aria-valuenow={done} aria-label={`${done} matchs publiés sur ${n}`}>
+      <span className="done" style={{ width: `${(100 * done) / Math.max(1, n)}%` }} />
+      {failed > 0 && <span className="fail" style={{ width: `${(100 * failed) / Math.max(1, n)}%` }} />}
+    </div>
+  );
+}
+
 /** Barres d'intensité (confiance) : n barres pleines sur `of`. */
 export function Pips({ n, of = 5, tone = 'blue' }: { n: number; of?: number; tone?: 'blue' | 'rose' | 'mute' }) {
   return (

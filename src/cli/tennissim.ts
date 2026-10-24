@@ -97,6 +97,8 @@ async function simMatch(id: string, day: string) {
       // Objectif Masters : top 20 en ATP 250 / 500 après le 10 octobre (course au Masters de fin d'année). Sur 2024-2025,
       // ces favoris ont gagné 82 % de leurs matchs quand le marché leur en donnait 72 % (72 matchs, les deux saisons).
       goal: v(s.rank) > 0 && s.rank! <= 20 && edition?.level === 'A' && day.slice(5) >= '10-10' ? true : undefined,
+      // Surface : Elo de la surface du jour moins Elo général (positif : il joue mieux sur cette surface que d'habitude).
+      surfaceEdge: Math.round(s.eloSurf - s.elo),
     };
   };
   // Photo officielle ATP (chargée par le navigateur), Wikipédia en secours.

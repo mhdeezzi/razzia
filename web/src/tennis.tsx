@@ -1,8 +1,8 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowClockwise, ArrowLeft, ArrowSquareOut, CalendarBlank, CaretRight, Cat, Flag, House, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
-import { Empty, Link, Ring, Segmented } from './ui.tsx';
+import { ArrowClockwise, ArrowLeft, CalendarBlank, CaretRight, Cat, Flag, House, Mountains, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
+import { Empty, Link, ProgressLine, Ring, Segmented } from './ui.tsx';
 import { PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_SURE } from './tennispicks.ts';
 
@@ -10,7 +10,7 @@ import { buildTennisCategories, favOf, flipOf, T_SURE } from './tennispicks.ts';
 export interface TennisPlayer {
   name: string; ioc?: string; hand?: string; ht?: number; age?: number; rank?: number; matches: number; elo: number; serve: number; ret: number;
   daysOff: number; tourneyMinutes: number; played14: number; layoff: boolean; photo?: string; photoAlt?: string; atp?: string;
-  form10?: number; trend?: 'up' | 'down'; goal?: boolean;
+  form10?: number; trend?: 'up' | 'down'; goal?: boolean; surfaceEdge?: number;
   surfaceSeason: { won: number; lost: number };
   form: Array<{ date: string; tourney: string; round: string; surface: string; opponent: string; won: boolean; score: string }>;
 }
@@ -144,7 +144,7 @@ function useDayRun(onDone: () => void) {
 
 const dayName = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-/** Suivi de la journée : un segment par match (en calcul, publié, échec), le chrono et le lien GitHub. */
+/** Suivi de la journée : une ligne remplie au fil des matchs publiés, et le chrono. */
 function DayTracker({ run, sims, onClose }: { run: DayRun; sims: Map<string, SimIndex>; onClose: () => void }) {
   const live = !ended(run);
   const [now, setNow] = useState(Date.now());
@@ -167,22 +167,13 @@ function DayTracker({ run, sims, onClose }: { run: DayRun; sims: Map<string, Sim
         <span className="batch-clock mono">
           {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
         </span>
-        {run.url && (
-          <a className="batch-link" href={run.url} target="_blank" rel="noreferrer">
-            Suivre sur GitHub <ArrowSquareOut size={12} />
-          </a>
-        )}
         {!live && (
           <button className="batch-x" onClick={onClose} aria-label="Fermer le suivi">
             <X size={14} weight="bold" />
           </button>
         )}
       </div>
-      <div className="batch-bar" role="progressbar" aria-valuemin={0} aria-valuemax={run.ids.length} aria-valuenow={done} aria-label={`${done} matchs publiés sur ${run.ids.length}`}>
-        {run.ids.map((id) => (
-          <span key={id} className={`is-${state(id)}`} />
-        ))}
-      </div>
+      <ProgressLine done={done} failed={live ? 0 : failed} n={run.ids.length} running={live} />
       <div className="batch-legend">
         <span>
           <i className="lg-done" /> {done}/{run.ids.length} publiés
@@ -342,29 +333,35 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
           {dayMatches.length === 0 ? (
             <Empty title="Pas de match ATP coté ce jour-là." />
           ) : view === 'liste' ? (
-            groups.map(([tourney, list]) => (
-              <section className="league-card" key={`${current}-${status}-${tourney}`}>
-                <div className="league-top">
-                  <h2>{tourney}</h2>
-                  <span className="badge-n">{list.length}</span>
-                  <span className="muted">Heures dans votre fuseau</span>
+            // Toute la journée dans une seule carte, comme la NBA ; chaque tournoi séparé par une barre blanche.
+            <section className="league-card" key={`${current}-${status}`}>
+              <div className="league-top">
+                <h2>ATP</h2>
+                <span className="badge-n">{shown.length}</span>
+                <span className="muted">Heures dans votre fuseau</span>
+              </div>
+              <div className="thead t-row" aria-hidden="true">
+                <span>Heure</span>
+                <span className="c">Match</span>
+                <span className="c">Cotes</span>
+                <span className="c">Simulation</span>
+                <span />
+              </div>
+              {groups.map(([tourney, list]) => (
+                <div className="t-group" key={tourney}>
+                  <p className="t-group-head">
+                    {tourney} <span className="badge-n">{list.length}</span>
+                  </p>
+                  <ol className="rows">
+                    {list.map((m, i) => (
+                      <li key={m.id}>
+                        <TennisRow m={m} sim={sims.get(m.id)} players={data.players} running={inRun(m.id)} i={i} />
+                      </li>
+                    ))}
+                  </ol>
                 </div>
-                <div className="thead t-row" aria-hidden="true">
-                  <span>Heure</span>
-                  <span className="c">Match</span>
-                  <span className="c">Cotes</span>
-                  <span className="c">Simulation</span>
-                  <span />
-                </div>
-                <ol className="rows">
-                  {list.map((m, i) => (
-                    <li key={m.id}>
-                      <TennisRow m={m} sim={sims.get(m.id)} players={data.players} running={inRun(m.id)} i={i} />
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ))
+              ))}
+            </section>
           ) : (
             <div className="cards" key={`${current}-${status}`}>
               {shown.map((m, i) => (
@@ -571,14 +568,6 @@ export function TennisMatchPage({ day, id }: { day: string; id: string }) {
           <div className="track" />
           <p className="small muted">
             Compter 1 à 3 minutes : historique ATP, notes des joueurs, cotes Pinnacle, puis 5 000 matchs simulés. La page se met à jour seule.
-            {'url' in state && state.url && (
-              <>
-                {' '}
-                <a href={state.url} target="_blank" rel="noreferrer">
-                  Suivre le calcul <ArrowSquareOut size={12} />
-                </a>
-              </>
-            )}
           </p>
         </section>
       )}
@@ -684,7 +673,11 @@ function TennisSignals({ r }: { r: TennisResult }) {
   const moves = [r.home, r.away].filter((p) => p.trend);
   const home = [r.home, r.away].filter((p) => atHome(r.league, p.ioc));
   const goal = [r.home, r.away].filter((p) => p.goal);
-  if (!cat && !moves.length && !home.length && !goal.length) return null;
+  // Surface favorable : au moins 60 points d'Elo de mieux que l'adversaire sur cette surface par rapport à d'habitude.
+  const edge = (r.home.surfaceEdge ?? 0) - (r.away.surfaceEdge ?? 0);
+  const better = edge > 0 ? r.home : r.away;
+  const surf = Math.abs(edge) >= 60 && (better.surfaceEdge ?? 0) > 0 ? better : undefined;
+  if (!cat && !moves.length && !home.length && !goal.length && !surf) return null;
   return (
     <div className="signals">
       {cat && (
@@ -727,6 +720,21 @@ function TennisSignals({ r }: { r: TennisResult }) {
             </p>
             <p>
               {goal.length > 1 ? `Classés ${goal.map((p) => `${p.rank}e`).join(' et ')}, ils jouent` : `Classé ${goal[0].rank}e, il joue`} la course au Masters de fin d'année : chaque match compte. Sur 2024-2025, les top 20 favoris en ATP 250 et 500 après le 10 octobre ont gagné 82 % de leurs matchs quand le marché leur en donnait 72 % (72 matchs, les deux saisons dans le même sens).
+            </p>
+          </div>
+        </div>
+      )}
+      {surf && (
+        <div className="signal signal-surface">
+          <span className="signal-icon">
+            <Mountains size={20} weight="fill" />
+          </span>
+          <div>
+            <p className="signal-title">
+              <Avatar name={surf.name} photo={surf.photo} alt={surf.photoAlt} size="sm" /> {surf.name} : sa surface
+            </p>
+            <p>
+              Sur {(surfaceFr[r.surface] ?? r.surface).toLowerCase()}, il joue {surf.surfaceEdge} points d'Elo au-dessus de son niveau habituel, nettement mieux que son adversaire. À savoir : le marché en tient déjà compte (2024-2025 : 50,1 % de victoires pour 50,2 % annoncés), le moteur aussi.
             </p>
           </div>
         </div>

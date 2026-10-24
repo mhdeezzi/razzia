@@ -1,7 +1,7 @@
 // « En feu ce soir » : les joueurs dont les 5 000 simulations annoncent un gros match, et pourquoi.
 // Et l'avertissement quand la simulation précède l'annonce des compositions officielles.
 import { useState, type CSSProperties } from 'react';
-import { ArrowClockwise, Fire, Info, Star } from '@phosphor-icons/react';
+import { ArrowClockwise, Fire, Info } from '@phosphor-icons/react';
 import { n1, pct0, type Game, type Result } from './data.ts';
 import { TeamMark } from './ui.tsx';
 
@@ -58,7 +58,6 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
           const team = p.side === 0 ? g.home : g.away;
           return (
             <li key={p.id} className="feu-card" style={{ '--i': i } as CSSProperties}>
-              {i < 2 && hot.length > 2 && <Star className="feu-star" size={22} weight="fill" aria-label="Parmi les deux plus grosses chances" />}
               <div className="feu-who">
                 <Face p={p} team={team} />
                 <div>
