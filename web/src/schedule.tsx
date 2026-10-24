@@ -185,6 +185,9 @@ function TimeTag({ g }: { g: Game }) {
   return local !== us ? <span className="pill-tag">{local.replace('.', '')}</span> : <span className="pill-tag">À venir</span>;
 }
 
+/** Matchs joués par l'équipe qui en a le moins, d'après les bilans du programme (« 2-0 ») : pour les simulations indexées sans ce nombre. */
+const recordGames = (g: Game) => Math.min(...[g.home.record, g.away.record].map((r) => (r ? r.split('-').reduce((n, x) => n + (Number(x) || 0), 0) : 99)));
+
 function SimPill({ g, sim, run }: { g: Game; sim?: SimEntry; run?: ItemState }) {
   // Match pris dans la soirée en cours : son état passe avant l'ancienne simulation.
   if (run === 'sending' || run === 'queued')
@@ -220,7 +223,7 @@ function SimPill({ g, sim, run }: { g: Game; sim?: SimEntry; run?: ItemState }) 
           <Cat size={13} weight="fill" />
         </span>
       )}
-      <span className={`conf-pill sim${flipP(Math.max(sim.pHome, sim.pAway), sim.gp) ? ' flip' : ''}`}>
+      <span className={`conf-pill sim${flipP(Math.max(sim.pHome, sim.pAway), sim.gp ?? recordGames(g)) ? ' flip' : ''}`}>
         <TrendUp size={13} weight="bold" /> {home ? g.home.tri : g.away.tri} {pct0(Math.max(sim.pHome, sim.pAway))}
       </span>
     </span>
