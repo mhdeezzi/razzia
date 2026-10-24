@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CalendarBlank, CaretRight, Cat, Check, ListBullets, SquaresFour, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
-import { Empty, Link, ProgressLine, Segmented, TeamMark } from './ui.tsx';
+import { Empty, Link, ProgressLine, Segmented, TeamMark, Wordmark } from './ui.tsx';
 import { flipP } from './picks.ts';
 
 type Status = 'pre' | 'in' | 'post';
@@ -67,6 +67,7 @@ export function SchedulePage({ day }: { day: string | null }) {
 
   return (
     <div className="page">
+      <Wordmark />
       <header className="dash-head">
         <div>
           <h1>Programme NBA</h1>

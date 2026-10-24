@@ -2,7 +2,7 @@
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise, ArrowLeft, CalendarBlank, CaretRight, Cat, Flag, House, Mountains, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
-import { Empty, Link, ProgressLine, Ring, Segmented } from './ui.tsx';
+import { Empty, Link, ProgressLine, Ring, Segmented, Wordmark } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_FLIP, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
@@ -252,6 +252,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
 
   return (
     <div className="page">
+      <Wordmark />
       <header className="dash-head">
         <div>
           <h1>Programme ATP</h1>
