@@ -48,7 +48,7 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
     <section className="section" aria-label="Joueurs en feu">
       <div className="section-head">
         <h3 className="feu-title">
-          <Fire size={16} weight="fill" /> En feu ce soir
+          <Fire size={16} weight="bold" /> En feu ce soir
         </h3>
         <span className="slash">chance de gros match</span>
       </div>

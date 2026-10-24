@@ -1,7 +1,7 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowClockwise, ArrowLeft, CalendarBlank, CaretRight, Cat, ChartLineDown, ChartLineUp, CoinVertical, HouseLine, ListBullets, Mountains, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
+import { ArrowLeft, CalendarBlank, CaretRight, Cat, ChartLineDown, ChartLineUp, CoinVertical, HouseLine, ListBullets, Mountains, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
 import { Empty, Link, ProgressLine, Ring, Segmented, SimProgress, Wordmark } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_FLIP, T_SURE } from './tennispicks.ts';
@@ -255,7 +255,8 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
   }, [anyLive, load]);
   const shown = dayMatches.filter((m) => stateOf(m) === status);
   const groups = [...shown.reduce((g, m) => g.set(tourneyOf(m.league), [...(g.get(tourneyOf(m.league)) ?? []), m]), new Map<string, SlateMatch[]>())];
-  const todo = dayMatches.filter((m) => stateOf(m) === 'pre');
+  // À simuler : les matchs à venir pas encore simulés (une fois la journée faite, le bouton disparaît).
+  const todo = dayMatches.filter((m) => stateOf(m) === 'pre' && !sims.has(String(m.id)));
   const inRun = (id: string) => busy && run!.ids.includes(id);
 
   return (
@@ -433,12 +434,12 @@ function Who({ m, side, players, sim, align, size = 'row' }: { m: SlateMatch; si
         )}
         {sim?.goal?.[side] && (
           <span className="t-goal" title="Objectif Masters" aria-label="Objectif Masters">
-            <Trophy size={13} weight="duotone" />
+            <Trophy size={13} weight="bold" />
           </span>
         )}
         {atHome(m.league, c?.ioc) && (
           <span className="t-home" title="À domicile" aria-label="À domicile">
-            <HouseLine size={13} weight="duotone" />
+            <HouseLine size={13} weight="bold" />
           </span>
         )}
       </span>
@@ -573,7 +574,7 @@ export function TennisMatchPage({ day, id }: { day: string; id: string }) {
         <ArrowLeft size={16} /> Programme ATP
       </Link>
       {state.status === 'loading' && <span className="sk sk-hero" aria-busy="true" />}
-      {state.status === 'done' && <TennisResults r={state.result} onRelaunch={launch} busy={busy} />}
+      {state.status === 'done' && <TennisResults r={state.result} />}
       {(state.status === 'queued' || state.status === 'running') && (
         <SimProgress
           queued={state.status === 'queued'}
@@ -623,7 +624,7 @@ function Section({ title, tag, children }: { title: string; tag?: string; childr
   );
 }
 
-function TennisResults({ r, onRelaunch, busy }: { r: TennisResult; onRelaunch: () => void; busy: boolean }) {
+function TennisResults({ r }: { r: TennisResult }) {
   const cats = useMemo(() => buildTennisCategories(r), [r]);
   return (
     <div className="results">
@@ -632,9 +633,6 @@ function TennisResults({ r, onRelaunch, busy }: { r: TennisResult; onRelaunch: (
           {r.tourney} · {ROUND_FR[r.round] ?? r.round} · {surfaceFr[r.surface] ?? r.surface}
           {r.indoor ? ' (salle)' : ''} · {r.bestOf === 5 ? '3 sets gagnants' : '2 sets gagnants'} · {new Date(r.start).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
         </span>
-        <button className="btn btn-ghost" onClick={onRelaunch} disabled={busy}>
-          {busy ? <span className="spin" /> : <ArrowClockwise size={16} />} Relancer
-        </button>
       </div>
       <TennisVerdict r={r} pick={cats[0]?.items[0]} />
       <Section title="Pronostics par catégorie" tag="issue la plus fréquente">
@@ -707,7 +705,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {home.map((p) => (
         <div key={`home-${p.name}`} className="signal signal-home">
           <span className="signal-icon">
-            <HouseLine size={20} weight="duotone" />
+            <HouseLine size={20} weight="bold" />
           </span>
           <div>
             <p className="signal-title">
@@ -722,7 +720,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {goal.length > 0 && (
         <div className="signal signal-goal">
           <span className="signal-icon">
-            <Trophy size={20} weight="duotone" />
+            <Trophy size={20} weight="bold" />
           </span>
           <div>
             <p className="signal-title">
@@ -740,7 +738,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {surf && (
         <div className="signal signal-surface">
           <span className="signal-icon">
-            <Mountains size={20} weight="duotone" />
+            <Mountains size={20} weight="bold" />
           </span>
           <div>
             <p className="signal-title">
@@ -756,7 +754,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
         const wins = p.form.filter((m) => m.won).length;
         return (
           <div key={p.name} className={`signal ${p.trend === 'up' ? 'signal-up' : 'signal-down'}`}>
-            <span className="signal-icon">{p.trend === 'up' ? <ChartLineUp size={20} weight="duotone" /> : <ChartLineDown size={20} weight="duotone" />}</span>
+            <span className="signal-icon">{p.trend === 'up' ? <ChartLineUp size={20} weight="bold" /> : <ChartLineDown size={20} weight="bold" />}</span>
             <div>
               <p className="signal-title">
                 <Avatar name={p.name} photo={p.photo} alt={p.photoAlt} size="sm" /> {p.name} {p.trend === 'up' ? 'en hausse' : 'en baisse'}
@@ -794,7 +792,7 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
         <PickOdds o={pick} />
         {tier === 'sure' && (
           <div className="conf-badge sure">
-            <ShieldCheck size={20} weight="duotone" />
+            <ShieldCheck size={20} weight="bold" />
             <div>
               <p className="conf-badge-title">Razzia assuré</p>
               <p>Quand Razzia est aussi sûr, le favori a gagné 88 % du temps sur 2024 et 2025 (un match sur six).</p>
@@ -803,7 +801,7 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
         )}
         {tier === 'flip' && (
           <div className="conf-badge flip">
-            <CoinVertical size={20} weight="duotone" />
+            <CoinVertical size={20} weight="bold" />
             <div>
               <p className="conf-badge-title">Pile ou face</p>
               <p>
