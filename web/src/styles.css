@@ -168,15 +168,17 @@ a.row:active { transform: scale(0.995); }
 .wait-dot { width: 6px; height: 6px; border-radius: 9px; background: var(--text-3); }
 .spin-xs { width: 11px; height: 11px; border-width: 1.6px; }
 .pill-group { display: inline-flex; align-items: center; gap: 6px; }
+/* Chat noir : la pastille du résultat est entourée d'un trait blanc, à 8 px (l'écart de l'ancienne barre). */
+.pill-group:has(.cat-mini) { gap: 18px; }
+.pill-group:has(.cat-mini) .conf-pill { outline: 2px solid #f2f4f7; outline-offset: 8px; }
 /* Chat noir : noir et blanc, volontairement hors de la palette (rare, doit sauter aux yeux). */
 .cat-mini { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #f2f4f7; color: #050607; box-shadow: 0 0 0 1px #f2f4f7; }
-/* Programme ATP : petit chat collé à gauche de la pastille, séparé par une mini barre blanche, sans la décaler. */
+/* Programme ATP : petit chat collé à gauche de la pastille, sans la décaler. */
 .t-row .cat-mini { width: 18px; height: 18px; }
 .t-row .cat-mini svg { width: 11px; height: 11px; }
 @media (min-width: 721px) {
   .t-row .pill-group { position: relative; }
   .t-row .pill-group .cat-mini { position: absolute; right: calc(100% + 18px); top: 50%; transform: translateY(-50%); }
-  .t-row .pill-group .cat-mini::after { content: ''; position: absolute; left: calc(100% + 8px); top: 50%; width: 2px; height: 14px; border-radius: 1px; background: #f2f4f7; transform: translateY(-50%); }
 }
 
 /* Signaux du match sous le verdict. */
