@@ -1,7 +1,7 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowLeft, ArrowSquareOut, CaretRight, Scales, ShieldCheck, Sparkle, WarningCircle } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowSquareOut, CaretRight, Scales, ShieldCheck, Sparkle, WarningCircle, X } from '@phosphor-icons/react';
 import { Empty, Link, Ring } from './ui.tsx';
 import { PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, T_FLIP, T_SURE } from './tennispicks.ts';
@@ -65,24 +65,142 @@ export function Avatar({ name, photo, alt, size = 'md' }: { name: string; photo?
   );
 }
 
+// ——— Toute la journée ———
+// Un seul passage GitHub simule tous les matchs à venir d'une journée (une minute ou deux). Une journée à la fois :
+// la demande vit dans le navigateur ; chaque match la reprend aussi à son compte, pour le suivi depuis sa fiche.
+interface DayRun { req: string; at: number; day: string; ids: string[]; status: 'sending' | 'queued' | 'running' | 'done' | 'failed'; startedAt?: string; url?: string; endedAt?: number; error?: string }
+const DAY_KEY = 'tennis-journee';
+const DAY_KEEP = 30 * 60e3; // une journée terminée reste affichée une demi-heure
+const DAY_MAX = 40 * 60e3; // au-delà, une journée bloquée ne verrouille plus le bouton
+const ended = (r?: DayRun) =>
+  !r || r.status === 'done' || r.status === 'failed' || Date.now() - r.at > DAY_MAX || (r.status === 'sending' && Date.now() - r.at > 2 * 60e3);
+const loadDayRun = (): DayRun | undefined => {
+  try {
+    const r = JSON.parse(store.get(DAY_KEY) ?? 'null') as DayRun | null;
+    return r && Date.now() - (r.endedAt ?? r.at) < (r.endedAt ? DAY_KEEP : DAY_MAX) ? r : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+function useDayRun(onDone: () => void) {
+  const [run, setRun] = useState(loadDayRun);
+  const save = useCallback((r?: DayRun) => {
+    store.set(DAY_KEY, r ? JSON.stringify(r) : null);
+    setRun(r);
+  }, []);
+  useEffect(() => {
+    if (!run?.req || ended(run)) return;
+    const t = window.setTimeout(async () => {
+      try {
+        const s = await api(`?req=${run.req}`);
+        const done = s.status === 'done' || s.status === 'failed';
+        save({ ...run, status: s.status, startedAt: s.startedAt ?? run.startedAt, url: s.url ?? run.url, endedAt: done ? Date.now() : undefined });
+        if (done) onDone();
+      } catch {
+        save({ ...run }); // réseau : nouvel essai au prochain tour
+      }
+    }, 6000);
+    return () => window.clearTimeout(t);
+  }, [run, save, onDone]);
+  const start = async (day: string, list: SlateMatch[]) => {
+    if (!ended(run) || !list.length) return;
+    const r: DayRun = { req: '', at: Date.now(), day, ids: list.map((m) => m.id), status: 'sending' };
+    save(r);
+    try {
+      const { req } = await api('', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: r.ids, days: list.map((m) => m.day) }) });
+      for (const id of r.ids) store.set(pendingKey(id), req);
+      save({ ...r, req, status: 'queued' });
+    } catch (e) {
+      save({ ...r, status: 'failed', error: (e as Error).message, endedAt: Date.now() });
+    }
+  };
+  return { run, start, dismiss: () => ended(run) && save(undefined) };
+}
+
+const dayName = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+/** Suivi de la journée : un segment par match (en calcul, publié, échec), le chrono et le lien GitHub. */
+function DayTracker({ run, sims, onClose }: { run: DayRun; sims: Map<string, SimIndex>; onClose: () => void }) {
+  const live = !ended(run);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!live) return;
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [live]);
+  const since = Date.parse(run.startedAt ?? new Date(run.at).toISOString()) - 60e3;
+  const state = (id: string) => (sims.get(id) && Date.parse(sims.get(id)!.at) >= since ? 'done' : live ? (run.status === 'running' ? 'running' : 'queued') : 'failed');
+  const done = run.ids.filter((id) => state(id) === 'done').length;
+  const failed = run.ids.length - done;
+  const s = Math.max(0, Math.round(((run.endedAt ?? now) - run.at) / 1000));
+  return (
+    <section className="batch" aria-live="polite">
+      <div className="batch-head">
+        <p className="batch-title">
+          {live ? 'Simulation de la journée' : failed ? 'Journée simulée, avec des échecs' : 'Journée simulée'} <span>· {run.day}</span>
+        </p>
+        <span className="batch-clock mono">
+          {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
+        </span>
+        {run.url && (
+          <a className="batch-link" href={run.url} target="_blank" rel="noreferrer">
+            Suivre sur GitHub <ArrowSquareOut size={12} />
+          </a>
+        )}
+        {!live && (
+          <button className="batch-x" onClick={onClose} aria-label="Fermer le suivi">
+            <X size={14} weight="bold" />
+          </button>
+        )}
+      </div>
+      <div className="batch-bar" role="progressbar" aria-valuemin={0} aria-valuemax={run.ids.length} aria-valuenow={done} aria-label={`${done} matchs publiés sur ${run.ids.length}`}>
+        {run.ids.map((id) => (
+          <span key={id} className={`is-${state(id)}`} />
+        ))}
+      </div>
+      <div className="batch-legend">
+        <span>
+          <i className="lg-done" /> {done}/{run.ids.length} publiés
+        </span>
+        {!live && failed > 0 && (
+          <span>
+            <i className="lg-fail" /> {failed} en échec{run.error ? ` : ${run.error}` : ''}
+          </span>
+        )}
+        <span className="muted">{live ? 'Compter une à deux minutes ; le calcul continue si vous quittez la page.' : 'Ouvrez un match pour voir sa simulation.'}</span>
+      </div>
+    </section>
+  );
+}
+
 // ——— Programme ———
 export function TennisSchedulePage() {
   const [data, setData] = useState<{ matches: SlateMatch[]; sims: SimIndex[]; players?: Record<string, PlayerCard> }>();
   const [error, setError] = useState<string>();
+  const load = useCallback(() => api('?slate=1').then(setData, (e: Error) => setError(e.message)), []);
   useEffect(() => {
-    api('?slate=1').then(setData, (e: Error) => setError(e.message));
-  }, []);
+    void load();
+  }, [load]);
+  const { run, start, dismiss } = useDayRun(load);
   const groups = useMemo(() => {
     const now = Date.now() - 3 * 3_600_000;
     const up = (data?.matches ?? []).filter((m) => Date.parse(m.start) > now).sort((a, b) => a.start.localeCompare(b.start));
     const g = new Map<string, SlateMatch[]>();
     for (const m of up) {
-      const k = `${new Date(m.start).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}|${tourneyOf(m.league)}`;
+      const k = `${dayName(m.start)}|${tourneyOf(m.league)}`;
       g.set(k, [...(g.get(k) ?? []), m]);
     }
     return [...g];
   }, [data]);
   const sims = new Map((data?.sims ?? []).map((s) => [s.id, s]));
+  // Toute la journée : les matchs pas encore commencés du premier jour qui en a.
+  const todo = useMemo(() => {
+    const up = (data?.matches ?? []).filter((m) => Date.parse(m.start) > Date.now()).sort((a, b) => a.start.localeCompare(b.start));
+    const first = up[0] && dayName(up[0].start);
+    return { label: first, list: up.filter((m) => dayName(m.start) === first) };
+  }, [data]);
+  const busy = !ended(run);
   // Comme les équipes NBA : photo à côté du nom, classement et pays dessous.
   const who = (name: string, away = false) => {
     const c = data?.players?.[name];
@@ -110,6 +228,16 @@ export function TennisSchedulePage() {
       </header>
       {error && <Empty title="Le programme n'a pas pu être chargé.">{error}</Empty>}
       {!data && !error && <span className="sk sk-hero" aria-busy="true" />}
+      {run && <DayTracker run={run} sims={sims} onClose={dismiss} />}
+      {(todo.list.length > 0 || busy) && (
+        <div className="sheet-bar">
+          {!busy && <p className="sheet-hint" style={{ textTransform: 'capitalize' }}>{todo.label}</p>}
+          <button className="btn-soiree" disabled={busy} onClick={() => void start(todo.label!, todo.list)} title={busy ? undefined : `Simule les ${todo.list.length} matchs à venir de ce jour, en un seul passage`}>
+            {busy ? 'Journée en cours' : 'Simuler toute la journée'}
+            <span className="n">{busy ? `${run!.ids.length} matchs` : `${todo.list.length} match${todo.list.length > 1 ? 's' : ''}`}</span>
+          </button>
+        </div>
+      )}
       {data && groups.length === 0 && <Empty title="Aucun match ATP coté pour le moment." />}
       {groups.map(([k, list]) => {
         const [dayName, tourney] = k.split('|');
@@ -523,3 +651,93 @@ function Form({ p }: { p: TennisPlayer }) {
   );
 }
 
+
+// ——— Bilan ———
+interface Rate { n: number; won: number }
+interface TennisBilan {
+  at: string; games: number; voided?: number; late?: number; pick: Rate; sets: Rate;
+  tiers: { sure: Rate; mid: Rate; flip: Rate; advised: Rate };
+  accuracy: { razzia?: number; market?: number };
+  rows: Array<{ id: string; day: string; start: string; tourney: string; round: string; home: string; away: string; pHome: number; homeWon: boolean; score: string; tier: 'sure' | 'mid' | 'flip'; pick: { kind: 'vainqueur' | 'sets'; label: string; won: boolean } }>;
+  error?: string;
+}
+const rateTxt = (r?: Rate) => (r?.n ? pct(r.won / r.n) : '-');
+const label = (r: TennisBilan['rows'][number]) => (r.pick.kind === 'sets' ? r.pick.label : `Victoire ${r.pick.label}`);
+
+/** Bilan tennis : le pronostic mis en avant par chaque fiche face au résultat, par niveau de confiance. */
+export function TennisBilanPage() {
+  const [b, setB] = useState<TennisBilan>();
+  useEffect(() => {
+    api('?bilan=1').then(setB, (e: Error) => setB({ error: e.message } as TennisBilan));
+  }, []);
+  return (
+    <div className="page">
+      <header className="page-head">
+        <h1>Bilan tennis</h1>
+        <p className="lede">Les simulations ATP publiées face aux résultats. Mis à jour toutes les 3 heures.</p>
+      </header>
+      {!b && <span className="sk sk-panel" aria-busy="true" />}
+      {b && (b.error || !b.games) && <Empty title={b.error ?? 'Aucun match terminé parmi les simulations publiées.'} />}
+      {b && b.games > 0 && (
+        <>
+          <section className="league-card bilan-kpis">
+            <div>
+              <span className="caps">Matchs terminés</span>
+              <b className="mono">{b.games}</b>
+              <small>{b.voided ? `${b.voided} abandons ou forfaits non comptés` : 'Abandons et forfaits non comptés'}</small>
+            </div>
+            <div>
+              <span className="caps">Bon pronostic</span>
+              <b className="mono">{rateTxt(b.pick)}</b>
+              <small>
+                {b.sets.n ? `dont ${b.sets.n} « Un set » (${b.sets.won} passés), ` : ''}vainqueur seul {b.accuracy.razzia != null ? pct(b.accuracy.razzia) : '-'}, marché {b.accuracy.market != null ? pct(b.accuracy.market) : '-'}
+              </small>
+            </div>
+            <div>
+              <span className="caps">Razzia assuré</span>
+              <b className="mono">{rateTxt(b.tiers.sure)}</b>
+              <small>favoris à 80 % ou plus, {b.tiers.sure.n} matchs</small>
+            </div>
+            <div>
+              <span className="caps">Hors pile ou face</span>
+              <b className="mono">{rateTxt(b.tiers.advised)}</b>
+              <small>
+                {b.tiers.advised.n} matchs ; pile ou face (favori sous 60 %) : {rateTxt(b.tiers.flip)} sur {b.tiers.flip.n}
+              </small>
+            </div>
+          </section>
+          <p className="note" style={{ margin: '12px 0 18px' }}>
+            Le pronostic compté est celui que la fiche met en avant : le vainqueur, ou « Un set » quand le favori est à 75 % ou moins. Une simulation lancée après le début du match ne compte pas.
+          </p>
+          <section className="league-card">
+            <ol className="rows">
+              {b.rows.map((r) => {
+                const fav = r.pHome >= 0.5 ? { n: r.home, p: r.pHome } : { n: r.away, p: 1 - r.pHome };
+                return (
+                  <li key={r.id}>
+                    <Link href={`/tennis/match/${r.day}/${r.id}`} className="row t-bilan-row">
+                      <span className="muted">{new Date(r.start ?? `${r.day}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+                      <span className="t-bl-match">
+                        <span className="strong">{r.home} - {r.away}</span>
+                        <span className="mono muted">{r.score}</span>
+                        <span className="t-sm muted">{label(r)}</span>
+                      </span>
+                      <span className="t-bl-fav">
+                        <span className="mono">{fav.n.split(' ').at(-1)} {pct0(fav.p)}</span>
+                        {r.tier !== 'mid' && <span className={`pill-tag${r.tier === 'flip' ? ' final' : ''}`}>{r.tier === 'sure' ? 'Assuré' : 'Pile ou face'}</span>}
+                      </span>
+                      <span className="t-bl-pick">
+                        <span className={`t-res ${r.pick.won ? 'w' : 'l'}`}>{r.pick.won ? 'Passé' : 'Raté'}</span>
+                        <span className="t-lg">{label(r)}</span>
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        </>
+      )}
+    </div>
+  );
+}

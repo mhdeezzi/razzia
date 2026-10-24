@@ -25,9 +25,9 @@ const before: Record<string, { wiki?: string | null }> = existsSync(file) ? JSON
 const out: Record<string, object> = {};
 for (const name of names) {
   const x = last.get(nameKey(name));
-  // Photo Wikipédia seulement pour les joueurs sans code ATP connu (la photo officielle suffit sinon).
-  const wiki = x?.atp ? undefined : name in before ? before[name].wiki : ((await photoOf(name, 'data/cache/tennis')) ?? null);
-  out[name] = { atp: x?.atp, ioc: x?.ioc, rank: x?.rank, age: x?.age != null ? +(x.age + (Date.parse(now.toISOString().slice(0, 10)) - Date.parse(x.date)) / 31_557_600_000).toFixed(1) : undefined, ...(wiki !== undefined ? { wiki } : {}) };
+  // Photo Wikipédia de secours, si la photo officielle ATP ne charge pas (cherchée une fois par joueur).
+  const wiki = before[name]?.wiki !== undefined ? before[name].wiki : ((await photoOf(name, 'data/cache/tennis')) ?? null);
+  out[name] = { atp: x?.atp, ioc: x?.ioc, rank: x?.rank, age: x?.age != null ? +(x.age + (Date.parse(now.toISOString().slice(0, 10)) - Date.parse(x.date)) / 31_557_600_000).toFixed(1) : undefined, wiki };
 }
 writeFileSync(file, JSON.stringify(out));
 console.log(`joueurs à l'affiche : ${names.size}, avec code ATP : ${Object.values(out).filter((x: any) => x.atp).length}`);

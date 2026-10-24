@@ -1,13 +1,14 @@
-# Simulation d'un match ATP à la demande, déclenchée par le bouton « Simuler » de l'onglet Tennis (api/tennis.ts).
-# Lit la fiche de cotes Pinnacle (branche cotes-tennis) et l'historique TennisMyLife ; publie tennis/sims/<id>.json sur
-# la branche resultats, que l'app lit directement.
+# Simulation de matchs ATP à la demande, déclenchée par les boutons « Simuler » et « Simuler toute la journée » de
+# l'onglet Tennis (api/tennis.ts). Lit les fiches de cotes Pinnacle (branche cotes-tennis) et l'historique TennisMyLife ;
+# publie tennis/sims/<id>.json sur la branche resultats, que l'app lit directement. Un match en erreur n'empêche pas
+# la publication des autres (le passage finit alors en échec).
 name: Simulation tennis
 run-name: "Tennis ${{ inputs.id }} ${{ inputs.day }} · ${{ inputs.request_id }}"
 on:
   workflow_dispatch:
     inputs:
-      id: { description: 'Identifiant Pinnacle du match', required: true }
-      day: { description: 'Jour du match (AAAA-MM-JJ, UTC) : fichier de cotes', required: true }
+      id: { description: 'Identifiant Pinnacle du match, ou plusieurs séparés par des virgules', required: true }
+      day: { description: 'Jour du match (AAAA-MM-JJ, UTC) : fichier de cotes ; un seul, ou un par match (virgules)', required: true }
       request_id: { description: "Identifiant de la demande (suivi depuis l'app)", required: false, default: manuel }
 concurrency: { group: "tennis-${{ inputs.id }}", cancel-in-progress: false }
 permissions: { contents: write }
@@ -31,16 +32,19 @@ jobs:
           restore-keys: tennis-cache-
       - name: Cotes du jour
         run: git fetch origin cotes-tennis && git worktree add ../cotes FETCH_HEAD
-      - run: node src/cli/tennissim.ts --id "$ID" --day "$DAY" --cotes ../cotes --out out/tennis
+      - id: sim
+        continue-on-error: true
+        run: node src/cli/tennissim.ts --id "$ID" --day "$DAY" --cotes ../cotes --out out/tennis
       - name: Publication sur la branche resultats
+        if: hashFiles('out/tennis/*.json') != ''
         run: |
           git config user.name "simbet-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git fetch origin resultats; then git worktree add -B resultats ../res FETCH_HEAD; else git worktree add --orphan -b resultats ../res; fi
           for i in $(seq 1 12); do
             mkdir -p ../res/tennis/sims
-            cp "out/tennis/$ID.json" "../res/tennis/sims/$ID.json"
-            node src/cli/tennisindex.ts ../res/tennis "$ID"
+            cp out/tennis/*.json ../res/tennis/sims/
+            node src/cli/tennisindex.ts ../res/tennis "$(ls out/tennis | sed 's/\.json$//' | paste -sd,)"
             git -C ../res add tennis
             git -C ../res commit -qm "Simulation tennis $ID"
             git -C ../res push origin HEAD:resultats && exit 0
@@ -48,3 +52,6 @@ jobs:
             git -C ../res fetch origin resultats && git -C ../res reset -q --hard FETCH_HEAD
           done
           exit 1
+      - name: Matchs en erreur
+        if: steps.sim.outcome == 'failure'
+        run: exit 1

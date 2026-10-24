@@ -1,8 +1,11 @@
 // Tennis (ATP) : programme d'après les cotes Pinnacle notées (branche cotes-tennis), simulations à la demande via GitHub
 // Actions (workflow simulate-tennis.yml) et la branche resultats.
 //   GET  /api/tennis?slate=1             -> {matches, sims, players} : matchs à venir (cotes), déjà simulés, fiche des joueurs
+//   GET  /api/tennis?bilan=1             -> bilan des simulations terminées (bilan-tennis.yml, toutes les 3 heures)
 //   POST /api/tennis {id, day}           -> lance une simulation, renvoie {status:'queued', req}
+//   POST /api/tennis {ids, days}         -> toute la journée en un seul passage GitHub (un jour par match), même réponse
 //   GET  /api/tennis?id=&day=[&req=]     -> {status:'done', result} | {status:'queued'|'running'|'failed'|'none'}
+//   GET  /api/tennis?req=                -> état d'un passage « toute la journée » : {status, startedAt?, url?}
 // Variables Vercel : GH_TOKEN (comme /api/sim), GH_REPO (optionnel).
 const REPO = process.env.GH_REPO ?? 'mhdeezzi/razzia';
 const WORKFLOW = 'simulate-tennis.yml';
@@ -39,7 +42,17 @@ export async function GET(request: Request): Promise<Response> {
       const [s, p] = await Promise.all([raw('tennis/index.json', 'resultats'), raw('players.json', 'cotes-tennis')]);
       return Response.json({ matches, sims: s.ok ? await s.json() : [], players: p.ok ? await p.json() : {} }, { headers: { 'Cache-Control': 'public, s-maxage=60' } });
     }
+    if (q.get('bilan')) {
+      const b = await raw('tennis/bilan.json', 'resultats');
+      return b.ok ? Response.json(await b.json(), { headers: { 'Cache-Control': 'public, s-maxage=300' } }) : Response.json({ games: 0 }, { headers: noStore });
+    }
     const id = q.get('id'), day = q.get('day'), req = q.get('req');
+    if (!id && req && /^[a-z0-9]{4,12}$/.test(req)) {
+      const run = await findRun(req);
+      if (!run) return Response.json({ status: 'queued' }, { headers: noStore });
+      const status = run.status !== 'completed' ? (run.status === 'queued' ? 'queued' : 'running') : run.conclusion === 'success' ? 'done' : 'failed';
+      return Response.json({ status, startedAt: run.run_started_at, url: run.html_url }, { headers: noStore });
+    }
     if (!okId(id) || !okDay(day)) return bad('Paramètres invalides');
     const file = await raw(`tennis/sims/${id}.json`, 'resultats');
     if (file.ok) {
@@ -61,10 +74,13 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   const body = await request.json().catch(() => ({}));
-  if (!okId(body.id) || !okDay(body.day)) return bad('Paramètres invalides');
+  const ids: unknown[] = Array.isArray(body.ids) ? body.ids : [body.id];
+  const days: unknown[] = Array.isArray(body.days) ? body.days : [body.day];
+  if (!ids.length || ids.length > 64 || days.length !== ids.length || !ids.every(okId) || !days.every(okDay)) return bad('Paramètres invalides');
   const req = Math.random().toString(36).slice(2, 10);
   try {
-    const r = await gh(`/actions/workflows/${WORKFLOW}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { id: String(body.id), day: body.day, request_id: req } }) });
+    const inputs = { id: ids.join(','), day: days.every((d) => d === days[0]) ? String(days[0]) : days.join(','), request_id: req };
+    const r = await gh(`/actions/workflows/${WORKFLOW}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs }) });
     if (r.status === 401) return bad('Clé GitHub refusée (401) : invalide ou expirée.', 502);
     if (r.status === 403 || r.status === 404) return bad(`Clé GitHub sans les droits nécessaires (${r.status}) : Actions en lecture et écriture sur ${REPO}.`, 502);
     if (!r.ok) return bad(`GitHub a refusé le lancement (${r.status}) : ${(await r.text()).slice(0, 200)}`, 502);
