@@ -921,3 +921,5 @@ a.row:hover .t-ava { transform: scale(1.06); }
   .sport:disabled { display: none; }
 }
 @media (max-width: 360px) { .sport .lbl { display: none; } }
+/* Téléphone : la cote sous le rond, pile entre « Victoire » et « Favori Razzia » (même espace au-dessus et en dessous). */
+@media (max-width: 720px) { .ring-odds { margin-top: 24px; } }
