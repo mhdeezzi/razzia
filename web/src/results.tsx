@@ -7,7 +7,7 @@ import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SA
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
-import { CountUp, Ring, Segmented, TeamMark } from './ui.tsx';
+import { Ring, Segmented, TeamMark } from './ui.tsx';
 import { HotStrip, LineupNotice } from './hot.tsx';
 
 type Dist = Result['margin'];
@@ -199,13 +199,6 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
         </div>
       </div>
       <dl className="verdict-side">
-        <div>
-          <dt>Score médian</dt>
-          <dd>
-            {g.away.tri} <CountUp value={r.awayPts.p50} format={(v) => String(Math.round(v))} /> <span className="muted">-</span>{' '}
-            <CountUp value={r.homePts.p50} format={(v) => String(Math.round(v))} /> {g.home.tri}
-          </dd>
-        </div>
         {bookFav != null && (
           <div>
             <dt>Marché sans marge</dt>
