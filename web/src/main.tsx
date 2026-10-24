@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/plus-jakarta-sans';
 import '@fontsource-variable/host-grotesk'; // police d'origine des cercles de probabilité
 import '@fontsource-variable/jetbrains-mono';
+import '@fontsource-variable/archivo/wdth.css'; // police large de la cote sous le rond
 import { CaretRight } from '@phosphor-icons/react';
 import './styles.css';
 import { listSims, loadProgramme, matchPath, type Programme, type SimEntry } from './data.ts';
