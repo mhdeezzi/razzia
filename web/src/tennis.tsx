@@ -10,7 +10,7 @@ import { shown } from './picks.ts';
 // ——— Données ———
 export interface TennisPlayer {
   name: string; ioc?: string; hand?: string; ht?: number; age?: number; rank?: number; matches: number; elo: number; serve: number; ret: number;
-  daysOff: number; tourneyMinutes: number; played14: number; layoff: boolean; photo?: string;
+  daysOff: number; tourneyMinutes: number; played14: number; layoff: boolean; photo?: string; photoAlt?: string; atp?: string;
   surfaceSeason: { won: number; lost: number };
   form: Array<{ date: string; tourney: string; round: string; surface: string; opponent: string; won: boolean; score: string }>;
 }
@@ -26,6 +26,7 @@ export interface TennisResult {
 }
 interface SlateMatch { id: string; day: string; league: string; start: string; home: string; away: string; odds?: Odds; oddsOpen?: Odds }
 interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string }
+interface PlayerCard { atp?: string; ioc?: string; rank?: number; age?: number; wiki?: string | null }
 type State = { status: 'loading' } | { status: 'none' } | { status: 'queued' | 'running'; startedAt?: string; url?: string } | { status: 'done'; result: TennisResult } | { status: 'failed'; error?: string; url?: string };
 
 const api = async (q: string, init?: RequestInit) => {
@@ -45,20 +46,28 @@ const surfaceFr: Record<string, string> = { Hard: 'Dur', Clay: 'Terre battue', G
 const tourneyOf = (league: string) => league.replace(/^ATP\s+/, '').split(' - ')[0];
 const roundOf = (league: string) => league.split(' - ')[1] ?? '';
 const ROUND_FR: Record<string, string> = { F: 'Finale', SF: 'Demi-finale', QF: 'Quart de finale', R16: '8e de finale', R32: '16e de finale', R64: '32e de finale', R128: '64e de finale', R1: '1er tour', R2: '2e tour', R3: '3e tour', R4: '8e de finale' };
+const ROUND_SHORT: Record<string, string> = { F: 'Finale', SF: 'Demi', QF: 'Quart', R16: '8e', R32: '16e', R64: '32e', R128: '64e', R4: '8e' };
+/** « Nikoloz Basilashvili » -> « N. Basilashvili » (téléphone). */
+const short = (n: string) => { const [first, ...rest] = n.split(' '); return rest.length ? `${first[0]}. ${rest.join(' ')}` : n; };
 const initials = (n: string) => n.split(' ').map((x) => x[0]).slice(0, 2).join('');
 
-export function Avatar({ name, photo, size = 'md' }: { name: string; photo?: string; size?: 'sm' | 'md' | 'lg' }) {
-  const [failed, setFailed] = useState(false);
+/** Photo officielle ATP d'après le code du joueur. */
+const atpHeadshot = (code: string) => `https://www.atptour.com/-/media/alias/player-headshot/${code.toLowerCase()}`;
+
+/** Photo du joueur : officielle ATP, sinon Wikipédia, sinon ses initiales. */
+export function Avatar({ name, photo, alt, size = 'md' }: { name: string; photo?: string; alt?: string; size?: 'sm' | 'row' | 'md' | 'lg' }) {
+  const srcs = [photo, alt].filter((x): x is string => !!x);
+  const [i, setI] = useState(0);
   return (
     <span className={`t-ava t-ava-${size}`} aria-hidden="true">
-      {photo && !failed ? <img src={photo} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} /> : initials(name)}
+      {i < srcs.length ? <img key={srcs[i]} src={srcs[i]} alt="" loading="lazy" decoding="async" onError={() => setI(i + 1)} /> : initials(name)}
     </span>
   );
 }
 
 // ——— Programme ———
 export function TennisSchedulePage() {
-  const [data, setData] = useState<{ matches: SlateMatch[]; sims: SimIndex[] }>();
+  const [data, setData] = useState<{ matches: SlateMatch[]; sims: SimIndex[]; players?: Record<string, PlayerCard> }>();
   const [error, setError] = useState<string>();
   useEffect(() => {
     api('?slate=1').then(setData, (e: Error) => setError(e.message));
@@ -74,6 +83,25 @@ export function TennisSchedulePage() {
     return [...g];
   }, [data]);
   const sims = new Map((data?.sims ?? []).map((s) => [s.id, s]));
+  // Comme les équipes NBA : photo à côté du nom, classement et pays dessous.
+  const who = (name: string, away = false) => {
+    const c = data?.players?.[name];
+    const sub = [c?.rank != null ? `n° ${c.rank}` : '', c?.ioc ?? ''].filter(Boolean).join(' · ');
+    const ava = <Avatar name={name} photo={c?.atp ? atpHeadshot(c.atp) : undefined} alt={c?.wiki ?? undefined} size="row" />;
+    return (
+      <div className={`vs-team${away ? ' away' : ''}`}>
+        {!away && ava}
+        <span>
+          <span className="vs-name">
+            <span className="t-lg">{name}</span>
+            <span className="t-sm">{short(name)}</span>
+          </span>
+          <span className="vs-rec">{sub}</span>
+        </span>
+        {away && ava}
+      </div>
+    );
+  };
   return (
     <div className="page">
       <header className="page-head">
@@ -101,11 +129,15 @@ export function TennisSchedulePage() {
                     <Link href={`/tennis/match/${m.day}/${m.id}`} className="row t-row" style={{ '--i': i } as CSSProperties}>
                       <div className="row-time">
                         <span className="t">{timeLocal(m.start)}</span>
-                        <span className="pill-tag">{ROUND_FR[roundOf(m.league)] ?? roundOf(m.league)}</span>
+                        <span className="pill-tag">
+                          <span className="t-lg">{ROUND_FR[roundOf(m.league)] ?? roundOf(m.league)}</span>
+                          <span className="t-sm">{ROUND_SHORT[roundOf(m.league)] ?? ROUND_FR[roundOf(m.league)] ?? roundOf(m.league)}</span>
+                        </span>
                       </div>
-                      <div className="t-players">
-                        <span className="vs-name">{m.home}</span>
-                        <span className="vs-name">{m.away}</span>
+                      <div className="vs-line">
+                        {who(m.home, true)}
+                        <span className="vs-at">vs</span>
+                        {who(m.away)}
                       </div>
                       <span className="cell-odds">{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : '-'}</span>
                       <span style={{ textAlign: 'center' }}>
@@ -297,7 +329,7 @@ function TennisVerdict({ r }: { r: TennisResult }) {
       <div>
         <span className="caps">Favori Razzia</span>
         <p className="verdict-team">
-          <Avatar name={fav.name} photo={fav.photo} size="md" /> {fav.name}
+          <Avatar name={fav.name} photo={fav.photo} alt={fav.photoAlt} size="md" /> {fav.name}
         </p>
         <p className="verdict-sub">
           Probabilité de victoire <b className="num">{pct(p)}</b>.
@@ -415,11 +447,11 @@ function Duel({ r }: { r: TennisResult }) {
     <div className="t-duel">
       <div className="t-duel-head">
         <span>
-          <Avatar name={A.name} photo={A.photo} size="sm" /> {A.name}
+          <Avatar name={A.name} photo={A.photo} alt={A.photoAlt} size="sm" /> {A.name}
         </span>
         <span />
         <span>
-          {B.name} <Avatar name={B.name} photo={B.photo} size="sm" />
+          {B.name} <Avatar name={B.name} photo={B.photo} alt={B.photoAlt} size="sm" />
         </span>
       </div>
       {rows.map(([k, a, b]) => (
@@ -473,7 +505,7 @@ function Form({ p }: { p: TennisPlayer }) {
   return (
     <div className="t-form">
       <p className="t-form-head">
-        <Avatar name={p.name} photo={p.photo} size="sm" /> {p.name}
+        <Avatar name={p.name} photo={p.photo} alt={p.photoAlt} size="sm" /> {p.name}
         {p.layoff && <span className="tag tag-warn">longue absence</span>}
       </p>
       <ul className="t-list">

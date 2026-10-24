@@ -26,7 +26,7 @@ interface State {
   recent: Array<{ date: string; res: number; minutes?: number }>; // res : gagné - attendu (Elo)
   retiredAt?: string; // dernier abandon (en perdant)
   tourney?: { tid: string; minutes: number; sets: number; matches: number };
-  info?: { name: string; ioc: string; hand: string; ht?: number; age?: number; ageAt: string; rank?: number };
+  info?: { name: string; atp?: string; ioc: string; hand: string; ht?: number; age?: number; ageAt: string; rank?: number };
 }
 
 /** Ce qu'on sait d'un joueur juste avant un match. */
@@ -141,7 +141,7 @@ export class Ratings {
     }
     if (m.retired) L.retiredAt = m.date;
     for (const [S, x] of [[W, m.w], [L, m.l]] as Array<[State, Side]>)
-      S.info = { name: x.name, ioc: x.ioc, hand: x.hand, ht: x.ht ?? S.info?.ht, age: x.age ?? S.info?.age, ageAt: x.age != null ? m.date : (S.info?.ageAt ?? m.date), rank: x.rank ?? S.info?.rank };
+      S.info = { name: x.name, atp: x.atp ?? S.info?.atp, ioc: x.ioc, hand: x.hand, ht: x.ht ?? S.info?.ht, age: x.age ?? S.info?.age, ageAt: x.age != null ? m.date : (S.info?.ageAt ?? m.date), rank: x.rank ?? S.info?.rank };
   }
 }
 

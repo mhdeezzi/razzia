@@ -1,5 +1,6 @@
 # Cotes Pinnacle des matchs ATP (circuit principal) notées toutes les 3 heures : première cote vue (ouverture), dernière,
-# et changements de la cote du vainqueur. Poussées sur la branche cotes-tennis, que le moteur tennis lira.
+# et changements de la cote du vainqueur ; plus la fiche courte des joueurs à l'affiche (code ATP pour la photo, pays,
+# classement). Poussées sur la branche cotes-tennis, que le moteur tennis et le programme lisent.
 name: Cotes tennis
 on:
   schedule: [{ cron: '17 */3 * * *' }]
@@ -14,12 +15,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
+      # Historique TennisMyLife (fiche des joueurs à l'affiche) : gardé d'un passage à l'autre, sauvé une fois par jour.
+      - id: day
+        run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: data/cache/tennis
+          key: tennis-cotes-${{ steps.day.outputs.day }}
+          restore-keys: tennis-
       - name: Notation et publication sur la branche cotes-tennis
         run: |
           git config user.name "simbet-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git fetch origin cotes-tennis; then git worktree add -B cotes-tennis ../cotes FETCH_HEAD; else git worktree add --orphan -b cotes-tennis ../cotes; fi
           node src/cli/tennisodds.ts ../cotes
+          node src/cli/tennisplayers.ts ../cotes || echo "fiches joueurs non mises à jour"
           git -C ../cotes add -A
           git -C ../cotes diff --cached --quiet && exit 0
           git -C ../cotes commit -qm "Cotes ATP $(date -u +%Y-%m-%dT%H:%MZ)"

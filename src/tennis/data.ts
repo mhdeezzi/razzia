@@ -20,7 +20,10 @@ async function download(url: string, file: string, maxAgeH: number): Promise<boo
   }
 }
 
-/** Tous les matchs ATP depuis `from` (tri chronologique, doublons entre l'année et la semaine en cours retirés). */
+/**
+ * Tous les matchs ATP depuis `from` (tri chronologique, doublons entre l'année et la semaine en cours retirés).
+ * Avec `from` = l'an dernier : de quoi connaître code ATP, pays et classement des joueurs à l'affiche.
+ */
 export async function loadHistory(dir: string, from = 2015, now = new Date()): Promise<Match[]> {
   mkdirSync(dir, { recursive: true });
   const year = now.getUTCFullYear();

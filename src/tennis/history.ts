@@ -8,7 +8,7 @@ import { join } from 'node:path';
 export type Surface = 'Hard' | 'Clay' | 'Grass';
 export interface Serve { svpt: number; firstIn: number; firstWon: number; secondWon: number; svGms: number; bpSaved: number; bpFaced: number; ace: number; df: number }
 /** Un joueur dans un match ; `id` : nom complet normalisé (voir nameKey). */
-export interface Side { id: string; name: string; ioc: string; hand: string; ht?: number; age?: number; rank?: number; pts?: number; entry: string; seed?: number; serve?: Serve }
+export interface Side { id: string; atp?: string; name: string; ioc: string; hand: string; ht?: number; age?: number; rank?: number; pts?: number; entry: string; seed?: number; serve?: Serve }
 export interface Match {
   key: string; // tournoi + numéro du match
   date: string; // jour estimé du match (début du tournoi + jours selon le tour)
@@ -105,7 +105,7 @@ export function readFiles(files: string[], matchDates = false): Match[] {
       const offset = matchDates ? 0 : ((r.tourney_level === 'G' ? ROUND_DAY_SLAM : ROUND_DAY)[r.round] ?? 3);
       const sc = parseScore(r.score);
       const side = (p: 'winner' | 'loser', s: 'w' | 'l'): Side => ({
-        id: nameKey(r[`${p}_name`]), name: r[`${p}_name`], ioc: r[`${p}_ioc`], hand: r[`${p}_hand`], ht: num(r[`${p}_ht`]), age: num(r[`${p}_age`]),
+        id: nameKey(r[`${p}_name`]), atp: /^[A-Z0-9]{4}$/.test(r[`${p}_id`]) ? r[`${p}_id`] : undefined, name: r[`${p}_name`], ioc: r[`${p}_ioc`], hand: r[`${p}_hand`], ht: num(r[`${p}_ht`]), age: num(r[`${p}_age`]),
         rank: num(r[`${p}_rank`]), pts: num(r[`${p}_rank_points`]), entry: r[`${p}_entry`], seed: num(r[`${p}_seed`]),
         serve: r[`${s}_svpt`] ? { svpt: +r[`${s}_svpt`], firstIn: +r[`${s}_1stIn`], firstWon: +r[`${s}_1stWon`], secondWon: +r[`${s}_2ndWon`], svGms: +r[`${s}_SvGms`], bpSaved: +r[`${s}_bpSaved`], bpFaced: +r[`${s}_bpFaced`], ace: +r[`${s}_ace`], df: +r[`${s}_df`] } : undefined,
       });
