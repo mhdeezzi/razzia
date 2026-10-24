@@ -58,7 +58,7 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
           const team = p.side === 0 ? g.home : g.away;
           return (
             <li key={p.id} className="feu-card" style={{ '--i': i } as CSSProperties}>
-              {i < 2 && hot.length > 2 && <Star className="feu-star" size={22} weight="bold" aria-label="Parmi les deux plus grosses chances" />}
+              {i < 2 && hot.length > 2 && <Star className="feu-star" size={22} weight="fill" aria-label="Parmi les deux plus grosses chances" />}
               <div className="feu-who">
                 <Face p={p} team={team} />
                 <div>

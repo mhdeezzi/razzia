@@ -45,7 +45,9 @@ function pickOf(s: any, home: string, away: string, hs: number, as: number): Pic
   const fav = p >= 0.5 ? 'home' : 'away';
   const winP = Math.max(p, 1 - p);
   const favMargin = fav === 'home' ? hs - as : as - hs;
-  if (Math.round(winP * 1000) / 1000 < HEDGE_FIRST) {
+  // Début de saison (une équipe a joué moins de 5 matchs) : pile ou face d'office sous 70 %.
+  const gp = Math.min(s.gamesPlayed?.home ?? s.momentum?.home?.nCur ?? 99, s.gamesPlayed?.away ?? s.momentum?.away?.nCur ?? 99);
+  if (Math.round(winP * 1000) / 1000 < (gp < 5 ? 0.7 : HEDGE_FIRST)) {
     const cover = (x: { pHomeCover: number }) => (fav === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
     const h = ladder(s)
       .filter((x) => (fav === 'home' ? x.line : -x.line) > 0 && cover(x) >= SAFE_COVER && cover(x) > winP && cover(x) <= 1 / MIN_ODDS)

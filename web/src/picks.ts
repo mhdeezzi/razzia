@@ -34,6 +34,14 @@ export const MIN_ODDS = 1.15;
 export const HEDGE_FIRST = 0.66;
 /** Favori sous 66 % : pile ou face. */
 export const FLIP = 0.66;
+/** Début de saison (une équipe a joué moins de 5 matchs) : pile ou face d'office pour un favori sous 70 %. */
+export const EARLY_GAMES = 5;
+export const EARLY_FLIP = 0.7;
+/** Matchs joués cette saison par l'équipe qui en a le moins (anciennes simulations : d'après le momentum). */
+export const gamesPlayed = (r: Result) =>
+  Math.min(r.gamesPlayed?.home ?? r.momentum?.home?.nCur ?? 99, r.gamesPlayed?.away ?? r.momentum?.away?.nCur ?? 99);
+/** Pile ou face : favori sous 66 %, ou sous 70 % en tout début de saison. */
+export const isFlip = (r: Result, p: number) => shown(p) < FLIP || (gamesPlayed(r) < EARLY_GAMES && shown(p) < EARLY_FLIP);
 /** Handicap « plus sûr » : la ligne la plus exigeante qui passe dans au moins 80 % des simulations. */
 export const SAFE_COVER = 0.8;
 /** Probabilité arrondie comme à l'écran (une décimale), pour que les seuils suivent le pourcentage affiché. */
@@ -113,7 +121,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
   // Une seule solution : celle qui passe le plus souvent. Un seul point, sur l'onglet en deuxième position : bleu sur le
   // handicap (plus sûr que le vainqueur), rouge sur le vainqueur d'un favori sous 66 % (le handicap passe devant).
   const best = spreads.sort((a, b) => b.p - a.p)[0];
-  const hedgeFirst = !!best && shown(winP) < HEDGE_FIRST;
+  const hedgeFirst = !!best && (shown(winP) < HEDGE_FIRST || isFlip(r, winP));
   if (best) cats.push({ id: 'spread', label: 'Handicap', items: [hedgeFirst ? best : { ...best, safe: 'Safe' }], good: !hedgeFirst });
   // Favori sous 66 % : parier sur le vainqueur est déconseillé ; le handicap passe en premier.
   if (hedgeFirst) {

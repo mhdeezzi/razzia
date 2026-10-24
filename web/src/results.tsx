@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise, Scales, ShieldCheck, WarningCircle } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
-import { buildCategories, FLIP, ladder, MIN_ODDS, SAFE_COVER, shown, type Category, type Outcome } from './picks.ts';
+import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
@@ -69,13 +69,15 @@ interface Confidence {
   tier: 'sure' | 'flip' | 'normal';
   disagree: boolean;
   hedge?: { title: string; p: number }; // handicap qui passe dans au moins 80 % des simulations
+  early: boolean; // une équipe a joué moins de 5 matchs cette saison
 }
 
 function confidenceOf(r: Result, g: Game): Confidence {
   const pHome = r.market?.blendedHome ?? r.pHome;
   const side = pHome >= 0.5 ? 'home' : 'away';
   const p = side === 'home' ? pHome : 1 - pHome;
-  const tier = p >= SURE ? 'sure' : shown(p) < FLIP ? 'flip' : 'normal';
+  const tier = isFlip(r, p) ? 'flip' : p >= SURE ? 'sure' : 'normal';
+  const early = gamesPlayed(r) < EARLY_GAMES;
   // Match serré : le favori avec des points d'avance (gagne, ou perd de peu), la ligne la plus exigeante à 80 % ou plus.
   const cover = (x: { line: number; pHomeCover: number }) => (side === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
   const lineOf = (x: { line: number }) => (side === 'home' ? x.line : -x.line);
@@ -84,7 +86,7 @@ function confidenceOf(r: Result, g: Game): Confidence {
   const book = r.market?.bookHome != null ? (side === 'home' ? r.market.bookHome : 1 - r.market.bookHome) : undefined;
   const month = Number(g.date.slice(5, 7));
   const disagree = book != null && book < 0.5 && p - book >= DISAGREE && (month === 10 || month === 11);
-  return { side, p, engine: side === 'home' ? r.pHome : r.pAway, book, tier, disagree, hedge };
+  return { side, p, engine: side === 'home' ? r.pHome : r.pAway, book, tier, disagree, hedge, early };
 }
 
 function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
@@ -105,7 +107,7 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
         <div>
           <p className="conf-badge-title">Pile ou face</p>
           <p>
-            {g[c.side].name} reste favori, mais d'un rien : match imprévisible.
+            {c.early && c.p >= 0.66 ? `Début de saison : moins de 5 matchs joués, les équipes repartent de zéro. ${g[c.side].name} reste favori, mais rien n'est sûr.` : `${g[c.side].name} reste favori, mais d'un rien : match imprévisible.`}
             {c.hedge ? (
               <>
                 {' '}Plus sûr : <b>{c.hedge.title}</b> (passe dans {pct(c.hedge.p)} des simulations).
