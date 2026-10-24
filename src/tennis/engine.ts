@@ -1,0 +1,50 @@
+// Moteur tennis : probabilité de victoire à partir des notes (Elo, service-retour) et de l'état des joueurs, puis
+// mélange avec le marché. Poids appris sur 2024 et 2025 (4 400 matchs ATP reliés aux cotes Pinnacle) ; chaque
+// ingrédient a été gardé seulement s'il améliorait la prévision sur une saison en ayant été appris sur l'autre.
+import type { Surface } from './history.ts';
+import type { Ratings, Snapshot } from './ratings.ts';
+
+export const WEIGHTS = {
+  elo: 0.229, // logit de l'Elo moitié général, moitié surface
+  point: 0.489, // logit du match selon les points de service et de retour
+  age: -0.0306, // par année d'écart : à note égale, le plus jeune progresse plus vite que sa note
+  experience: -0.0261, // log du nombre de matchs joués
+  layoff: 0.633, // retour après plus de 45 jours sans jouer
+  played14: 0.0334, // par match joué sur les 14 derniers jours (rythme)
+  form10: 0.0179, // somme (gagné - attendu) sur les 10 derniers matchs
+  rank: 0.0854, // log du classement ATP
+};
+/**
+ * Part du marché (Pinnacle sans marge) dans la probabilité Razzia. Deux saisons, pronostics vainqueur / « Un set » :
+ * moteur seul 79,7 %, un tiers de marché 80,3 %, moitié 80,8 % (2024 81,3 %, 2025 80,3 %).
+ */
+export const MARKET_WEIGHT = 0.5;
+
+const Lg = (p: number) => Math.log(Math.min(0.995, Math.max(0.005, p)) / (1 - Math.min(0.995, Math.max(0.005, p))));
+const Sg = (z: number) => 1 / (1 + Math.exp(-z));
+const v = (x?: number) => (x == null || Number.isNaN(x) ? 0 : x);
+const layoff = (s: Snapshot) => (s.daysOff > 45 && s.daysOff < 999 ? 1 : 0);
+
+export interface Factor { key: string; label: string; z: number } // z : apport en logit pour le joueur A
+export interface EnginePrediction { p: number; elo: number; point: number; factors: Factor[] }
+
+/** Probabilité que A batte B selon le moteur seul, avec l'apport de chaque ingrédient. */
+export function engineProb(R: Ratings, a: Snapshot, b: Snapshot, surface: Surface, bestOf: 3 | 5): EnginePrediction {
+  const elo = R.eloProb(a, b), point = R.pointProb(a, b, surface, bestOf);
+  const factors: Factor[] = [
+    { key: 'elo', label: 'Niveau (Elo général et surface)', z: WEIGHTS.elo * Lg(elo) },
+    { key: 'point', label: 'Service et retour', z: WEIGHTS.point * Lg(point) },
+    { key: 'age', label: 'Âge (progression des jeunes)', z: WEIGHTS.age * (v(a.age) - v(b.age)) },
+    { key: 'experience', label: 'Expérience', z: WEIGHTS.experience * (Math.log(1 + a.n) - Math.log(1 + b.n)) },
+    { key: 'layoff', label: 'Retour après une longue absence', z: WEIGHTS.layoff * (layoff(b) - layoff(a)) },
+    { key: 'played14', label: 'Rythme (matchs sur 14 jours)', z: WEIGHTS.played14 * (a.played14 - b.played14) },
+    { key: 'form10', label: 'Forme sur 10 matchs', z: WEIGHTS.form10 * (a.form10 - b.form10) },
+    { key: 'rank', label: 'Classement ATP', z: WEIGHTS.rank * (Math.log(v(b.rank) || 500) - Math.log(v(a.rank) || 500)) },
+  ];
+  return { p: Sg(factors.reduce((s, f) => s + f.z, 0)), elo, point, factors };
+}
+
+/** Probabilité Razzia : moteur et marché sans marge mélangés en logit (le moteur seul s'il n'y a pas de cote). */
+export function blend(pEngine: number, pMarket?: number): number {
+  return pMarket == null ? pEngine : Sg((1 - MARKET_WEIGHT) * Lg(pEngine) + MARKET_WEIGHT * Lg(pMarket));
+}

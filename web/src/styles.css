@@ -754,3 +754,48 @@ a.row:hover .mark { transform: scale(1.06); }
 .bilan-kpis small { color: var(--text-3); font-size: 12.5px; line-height: 1.4; }
 .bilan-row { grid-template-columns: 70px minmax(0, 1fr) 110px minmax(0, 1.2fr) !important; }
 @media (max-width: 640px) { .bilan-row { grid-template-columns: 56px minmax(0, 1fr) !important; } .bilan-row > :nth-child(3) { display: none; } }
+
+/* Tennis : photos des joueurs, programme, score en sets, duel, raisons du moteur, forme. */
+.t-ava { display: inline-grid; place-items: center; flex: none; border-radius: 50%; overflow: hidden; background: var(--panel-4); color: var(--text-2); font: 700 12px var(--sans); box-shadow: inset 0 0 0 1px var(--line-2); }
+.t-ava img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; }
+.t-ava-sm { width: 28px; height: 28px; font-size: 10px; }
+.t-ava-md { width: 52px; height: 52px; }
+.t-ava-lg { width: 72px; height: 72px; font-size: 16px; }
+.t-row { grid-template-columns: 92px minmax(0, 1fr) 150px 150px 24px; }
+.t-players { display: grid; gap: 4px; min-width: 0; }
+.t-sets { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.t-sets li { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; align-items: center; gap: 12px; font-size: 14px; }
+.t-sets-who b { margin-left: 4px; }
+.t-sets-bar { height: 8px; border-radius: 4px; background: var(--panel-4); overflow: hidden; }
+.t-sets-bar span { display: block; height: 100%; border-radius: 4px; transform-origin: left; animation: grow 0.9s var(--ease) both; }
+.t-sets-bar .h, .t-why-bar.h span { background: var(--blue); }
+.t-sets-bar .a, .t-why-bar.a span { background: var(--rose); }
+.t-sets li.t-sets-note { display: block; margin-top: 4px; }
+.t-duel { display: grid; gap: 2px; }
+.t-duel-head, .t-duel-row { display: grid; grid-template-columns: 1fr minmax(0, 1.4fr) 1fr; align-items: center; gap: 12px; }
+.t-duel-head { font-weight: 700; padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.t-duel-head span { display: flex; align-items: center; gap: 8px; }
+.t-duel-head span:last-child { justify-content: flex-end; text-align: right; }
+.t-duel-row { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.t-duel-row > :nth-child(2) { text-align: center; }
+.t-duel-row > :last-child { text-align: right; }
+.t-why { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 10px; }
+.t-why li { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 150px; align-items: center; gap: 12px; font-size: 14px; }
+.t-why-bar { height: 6px; border-radius: 3px; background: var(--panel-4); overflow: hidden; }
+.t-why-bar span { display: block; height: 100%; border-radius: 3px; transform-origin: left; animation: grow 0.9s var(--ease) both; }
+.t-why li > :last-child { text-align: right; }
+.t-forms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.t-form-head { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }
+.t-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.t-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; font-size: 13.5px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.t-res { font: 700 11px var(--sans); padding: 3px 7px; border-radius: 6px; text-align: center; min-width: 22px; }
+.t-res.w { color: var(--green); background: rgba(61, 220, 151, 0.12); }
+.t-res.l { color: var(--rose); background: var(--rose-soft); }
+@media (max-width: 720px) {
+  .t-row { grid-template-columns: 66px minmax(0, 1fr) auto; }
+  .t-forms { grid-template-columns: minmax(0, 1fr); }
+  .t-sets li { grid-template-columns: 110px minmax(0, 1fr) 56px; }
+  .t-why li { grid-template-columns: minmax(0, 1fr) 110px; }
+  .t-why li .t-why-bar { display: none; }
+  .t-duel-row { font-size: 13px; }
+}

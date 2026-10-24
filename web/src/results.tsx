@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise, Scales, ShieldCheck, WarningCircle } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
-import { buildCategories, FLIP, ladder, MIN_ODDS, SAFE_COVER, shown, type Outcome } from './picks.ts';
+import { buildCategories, FLIP, ladder, MIN_ODDS, SAFE_COVER, shown, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
@@ -226,6 +226,11 @@ function Delta({ v }: { v: number }) {
 
 function Categories({ r, g }: { r: Result; g: Game }) {
   const cats = useMemo(() => buildCategories(r, g), [r, g]);
+  return <PickTabs cats={cats} n={r.n} />;
+}
+
+/** Onglets de pronostics (un point sur l'onglet en deuxième position) et la carte de l'issue retenue : NBA et tennis. */
+export function PickTabs({ cats, n }: { cats: Category[]; n: number }) {
   const [id, setId] = useState(cats[0]?.id);
   const cat = cats.find((c) => c.id === id) ?? cats[0];
   if (!cat) return null;
@@ -249,10 +254,10 @@ function Categories({ r, g }: { r: Result; g: Game }) {
           }))}
         />
       </div>
-      <p className="note">Pour chaque pari, l'issue qui se produit le plus souvent sur les {r.n.toLocaleString('fr-FR')} matchs simulés. La cote est affichée pour comparaison.</p>
+      <p className="note">Pour chaque pari, l'issue qui se produit le plus souvent sur les {n.toLocaleString('fr-FR')} matchs simulés. La cote est affichée pour comparaison.</p>
       <div key={cat.id} className="cat-body">
         {cat.items.map((o) => (
-          <OutcomeCard key={o.id} o={o} />
+          <OutcomeCard key={o.id} o={o} n={n} />
         ))}
       </div>
     </>
@@ -261,7 +266,7 @@ function Categories({ r, g }: { r: Result; g: Game }) {
 
 const dec = (v: number) => v.toFixed(2).replace('.', ',');
 
-function OutcomeCard({ o }: { o: Outcome }) {
+function OutcomeCard({ o, n }: { o: Outcome; n: number }) {
   return (
     <article className="pick">
       {o.warn && <span className="pick-warn">{o.warn}</span>}
@@ -282,8 +287,8 @@ function OutcomeCard({ o }: { o: Outcome }) {
         {o.text && <p>{o.text}</p>}
         <div className="pick-stats">
           <div>
-            <span>Sur 5 000 matchs</span>
-            <b>{Math.round(o.p * 5000).toLocaleString('fr-FR')}</b>
+            <span>Sur {n.toLocaleString('fr-FR')} matchs</span>
+            <b>{Math.round(o.p * n).toLocaleString('fr-FR')}</b>
           </div>
           {o.implied != null && (
             <div>
