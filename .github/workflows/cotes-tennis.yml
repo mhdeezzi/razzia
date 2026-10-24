@@ -23,6 +23,10 @@ jobs:
           path: data/cache/tennis
           key: tennis-cotes-${{ steps.day.outputs.day }}
           restore-keys: tennis-
+      - name: Essai ESPN (temporaire)
+        run: |
+          curl -s "https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard" -o espn.json || true
+          node -e "const j=require('./espn.json');console.log(Object.keys(j));const e=j.events||[];console.log('events',e.length);for(const ev of e.slice(0,3)){console.log('EVENT',ev.name,Object.keys(ev));for(const g of (ev.groupings||[]).slice(0,3)){console.log(' GROUP',JSON.stringify(g.grouping),'n',(g.competitions||[]).length);const c=(g.competitions||[]).slice(-2);for(const x of c)console.log('  COMP',JSON.stringify(x).slice(0,1800))}}" || head -c 2000 espn.json
       - name: Notation et publication sur la branche cotes-tennis
         run: |
           git config user.name "simbet-bot"
