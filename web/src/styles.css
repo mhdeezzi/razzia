@@ -75,7 +75,9 @@ input, textarea { caret-color: #5b9bff; }
 .topbar-in { max-width: 1280px; margin: 0 auto; height: 76px; padding: 0 24px; display: flex; align-items: center; gap: 44px; }
 .brand { display: inline-flex; align-items: center; gap: 9px; font: 800 22px var(--sans); letter-spacing: -0.05em; color: #fff; transition: opacity 0.2s, transform 0.12s ease-out; }
 .brand:active { transform: scale(0.97); }
-.brand svg { color: #fff; }
+/* Logo : la Terre de nuit en fond, RAZZIA en capitales penchées par-dessus. */
+.logo { display: inline-grid; place-items: center; width: 140px; height: 44px; border-radius: 11px; background: #05070d center / cover no-repeat; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 6px 18px rgba(0, 0, 0, 0.5); }
+.logo span { font: 800 22px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: #fff; transform: skewX(-12deg); text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8), 0 0 2px rgba(0, 0, 0, 0.6); }
 .sports { display: flex; align-items: center; gap: 6px; }
 .sport { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 18px; border: 0; border-radius: 12px; background: none;
   font: 600 15.5px var(--sans); letter-spacing: -0.01em; color: #8c8c8c; cursor: pointer; white-space: nowrap; transition: color 0.2s, background-color 0.2s, transform 0.12s ease-out; }
@@ -702,7 +704,9 @@ a.row:hover .mark { transform: scale(1.06); }
 @media (max-width: 720px) {
   main { padding: 0 16px 56px; }
   .topbar-in { padding: 0 16px; gap: 10px; height: 64px; }
-  .brand span.word, .sport .lbl { display: none; }
+  .sport .lbl { display: none; }
+  .logo { width: 104px; height: 36px; border-radius: 9px; }
+  .logo span { font-size: 16px; }
   .sport { height: 42px; padding: 0 13px; }
   .top-right { gap: 2px; }
   .top-link { height: 40px; padding: 0 10px; }

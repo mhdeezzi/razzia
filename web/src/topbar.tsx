@@ -1,6 +1,7 @@
 // Barre du haut façon Betix : bandeau noir plat, logo, pastilles de sport, liens de pages à droite.
-import { Basketball, ChartLineUp, ClockCounterClockwise, Info, SoccerBall, Target, TennisBall } from '@phosphor-icons/react';
+import { Basketball, ClockCounterClockwise, Info, SoccerBall, Target, TennisBall } from '@phosphor-icons/react';
 import { Link } from './ui.tsx';
+import fond from './assets/razzia-fond.webp';
 
 export function TopBar({ path }: { path: string }) {
   const tennis = path.startsWith('/tennis');
@@ -13,8 +14,9 @@ export function TopBar({ path }: { path: string }) {
     <header className="topbar">
       <div className="topbar-in">
         <Link href="/" className="brand" aria-label="Razzia, programme du jour">
-          <ChartLineUp size={24} weight="bold" />
-          <span className="word">Razzia</span>
+          <span className="logo" style={{ backgroundImage: `url(${fond})` }}>
+            <span>Razzia</span>
+          </span>
         </Link>
         <nav className="sports" aria-label="Sports">
           <Link href="/" className={`sport${tennis ? '' : ' is-on'}`} aria-current={path === '/' ? 'page' : undefined} title="Programme NBA">
