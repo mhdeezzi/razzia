@@ -637,7 +637,7 @@ function TennisResults({ r }: { r: TennisResult }) {
           {r.indoor ? ' (salle)' : ''} · {r.bestOf === 5 ? '3 sets gagnants' : '2 sets gagnants'} · {new Date(r.start).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
-      <TennisVerdict r={r} pick={cats[0]?.items[0]} />
+      <TennisVerdict r={r} win={cats.flatMap((c) => c.items).find((o) => o.id === 'win')} />
       <Section title="Pronostics par catégorie" tag="issue la plus fréquente">
         <PickTabs cats={cats} n={r.sim.n} />
       </Section>
@@ -773,7 +773,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
   );
 }
 
-function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
+function TennisVerdict({ r, win }: { r: TennisResult; win?: Outcome }) {
   const { side, p } = favOf(r);
   const fav = r[side], dog = r[side === 'home' ? 'away' : 'home'];
   const i = side === 'home' ? 0 : 1;
@@ -792,7 +792,7 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
         <p className="verdict-sub">
           Probabilité de victoire <b className="num">{pct(p)}</b>.
         </p>
-        <PickOdds o={pick} />
+        <PickOdds o={win} />
         {tier === 'sure' && (
           <div className="conf-badge sure">
             <ShieldCheck size={20} weight="bold" />

@@ -156,7 +156,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
   const bookFav = c.book;
   // La barre reprend la probabilité Razzia affichée (moteur, cote d'ouverture et mouvement de cote).
   const pH = r.market?.blendedHome ?? r.pHome;
-  const pick = useMemo(() => buildCategories(r, g)[0]?.items[0], [r, g]);
+  const win = useMemo(() => buildCategories(r, g).flatMap((c) => c.items).find((o) => o.id === 'win'), [r, g]);
   return (
     <section className={`verdict verdict-${c.tier}`}>
       <Ring value={pFav} format={pctInt} label="Victoire" />
@@ -169,7 +169,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
           Probabilité de victoire <b className="num">{pct(pFav)}</b>
 .
         </p>
-        <PickOdds o={pick} />
+        <PickOdds o={win} />
         <ConfidenceBadge c={c} g={g} />
         <MarketBadge c={c} g={g} />
         {c.tier !== 'flip' && c.hedge && (
@@ -262,12 +262,14 @@ export function PickTabs({ cats, n }: { cats: Category[]; n: number }) {
 const dec = (v: number) => v.toFixed(2).replace('.', ',');
 
 /** Sous « Probabilité de victoire » : la cote du pronostic mis en avant (bookmaker, sinon cote juste). */
+/** Cote du vainqueur sous la probabilité (cote juste du moteur sans cote du marché), avec « Déconseillé » quand un pari plus sûr passe devant. */
 export function PickOdds({ o }: { o?: Outcome }) {
   const v = o?.odds ?? o?.fair;
   if (!o || v == null) return null;
   return (
     <p className="ring-odds">
       Cote <b>{dec(v)}</b>
+      {o.warn && <span className="odds-warn">{o.warn}</span>}
     </p>
   );
 }
