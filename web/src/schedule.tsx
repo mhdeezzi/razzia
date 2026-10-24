@@ -132,7 +132,7 @@ export function SchedulePage({ day }: { day: string | null }) {
             })}
           </nav>
 
-          <SheetBar day={current} games={dayGames} batch={batch} />
+          <SheetBar day={current} games={dayGames} batch={batch} sims={sims} />
           {batch?.date === current && <BatchTracker b={batch} />}
 
           {dayGames.length === 0 ? (
@@ -249,7 +249,7 @@ function FormMark({ g, sim }: { g: Game; sim?: SimEntry }) {
         <span className="forme-item hot">
           <HotFace id={sim.hot.id} team={team} />
           <span className="forme-chip">
-            <Fire size={10} weight="fill" />
+            <Fire size={10} weight="bold" />
           </span>
         </span>
       </span>
@@ -337,11 +337,23 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
   );
 }
 
+/** Les cinq de départ tombent environ 30 minutes avant le coup d'envoi. */
+const COMPOS_BEFORE = 30 * 60e3;
 const shortDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' });
 
 /** Au-dessus de la feuille, à droite : simuler tous les matchs à venir du jour. Une seule soirée à la fois. */
-function SheetBar({ day, games, batch }: { day: string; games: Game[]; batch?: Batch }) {
-  const todo = games.filter((g) => g.state === 'pre');
+function SheetBar({ day, games, batch, sims }: { day: string; games: Game[]; batch?: Batch; sims: Map<string, SimEntry> }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
+  // À simuler : les matchs à venir sans simulation, et ceux simulés avant les compos une fois les compos tombées
+  // (environ 30 minutes avant le coup d'envoi). Soirée déjà faite : le bouton disparaît jusqu'aux compos.
+  const compos = (g: Game) => now >= Date.parse(g.start) - COMPOS_BEFORE;
+  const rerun = (g: Game) => { const sim = sims.get(simKey(g)); return !!sim && compos(g) && Date.parse(sim.at) < Date.parse(g.start) - COMPOS_BEFORE; };
+  const todo = games.filter((g) => g.state === 'pre' && (!sims.get(simKey(g)) || rerun(g)));
+  const withCompos = todo.some(rerun);
   const running = isRunning(batch);
   const mine = running && batch.date === day;
   const elsewhere = running && batch.date !== day;
@@ -363,7 +375,7 @@ function SheetBar({ day, games, batch }: { day: string; games: Game[]; batch?: B
         onClick={() => void startBatch(day, todo)}
         title={elsewhere ? undefined : `Simule les ${todo.length} matchs à venir de ce jour, en parallèle`}
       >
-        {mine ? 'Soirée en cours' : 'Simuler toute la soirée'}
+        {mine ? 'Soirée en cours' : withCompos ? 'Simuler toute la soirée avec les compos' : 'Simuler toute la soirée'}
         <span className="n">{mine ? `${done}/${batch.items.length}` : `${todo.length} match${todo.length > 1 ? 's' : ''}`}</span>
       </button>
     </div>
@@ -387,6 +399,12 @@ function BatchTracker({ b }: { b: Batch }) {
   const wait = count((s) => s === 'queued' || s === 'sending');
   const s = Math.max(0, Math.round(((b.endedAt ?? now) - b.at) / 1000));
   const first = b.items.find((i) => i.state === 'failed' && i.error)?.error;
+  // Soirée finie : le suivi se ferme seul (un peu plus tard s'il y a des échecs, le temps de les voir).
+  useEffect(() => {
+    if (running) return;
+    const t = window.setTimeout(dismissBatch, failed ? 10000 : 4000);
+    return () => window.clearTimeout(t);
+  }, [running, failed]);
   return (
     <section className="batch" aria-live="polite">
       <div className="batch-head">

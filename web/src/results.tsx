@@ -1,7 +1,7 @@
 // Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowClockwise, ArrowsSplit, CoinVertical, Scales, ShieldCheck } from '@phosphor-icons/react';
+import { ArrowsSplit, CoinVertical, Scales, ShieldCheck } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
 import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
@@ -19,10 +19,8 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
     <div className="results">
       <div className="res-head">
         <span className="slash">{r.n.toLocaleString('fr-FR')} matchs simulés</span>
-        <button className="btn btn-ghost" onClick={onRelaunch} disabled={busy}>
-          {busy ? <span className="spin" /> : <ArrowClockwise size={16} />} Relancer
-        </button>
       </div>
+      {/* Pas de « Relancer » : une simulation faite reste ; seul l'avis des compos propose « Relancer avec les compos ». */}
       <LineupNotice r={r} g={g} onRelaunch={onRelaunch} busy={busy} />
       <Verdict r={r} g={g} />
       <Section i={0} title="Pronostics par catégorie" tag="issue la plus fréquente">
@@ -93,7 +91,7 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
   if (c.tier === 'sure')
     return (
       <div className="conf-badge sure">
-        <ShieldCheck size={20} weight="duotone" />
+        <ShieldCheck size={20} weight="bold" />
         <div>
           <p className="conf-badge-title">Razzia assuré</p>
           <p>Quand le moteur est aussi sûr de lui, il a vu juste 85 % du temps sur la saison passée (un match sur quatre).</p>
@@ -103,7 +101,7 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
   if (c.tier === 'flip')
     return (
       <div className="conf-badge flip">
-        <CoinVertical size={20} weight="duotone" />
+        <CoinVertical size={20} weight="bold" />
         <div>
           <p className="conf-badge-title">Pile ou face</p>
           <p>
@@ -127,7 +125,7 @@ function MarketBadge({ c, g }: { c: Confidence; g: Game }) {
   const other = g[c.side === 'home' ? 'away' : 'home'];
   return (
     <div className="conf-badge disagree">
-      <ArrowsSplit size={20} weight="duotone" />
+      <ArrowsSplit size={20} weight="bold" />
       <div>
         <p className="conf-badge-title">Désaccord avec le marché</p>
         <p>

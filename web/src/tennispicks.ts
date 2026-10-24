@@ -45,7 +45,7 @@ export function buildTennisCategories(r: TennisResult): Category[] {
   };
 
   const win: Outcome = {
-    id: 'win', title: `Victoire ${de(fav.name)}`, p: winP,
+    id: 'win', title: `Victoire ${de(fav.name)}`, p: winP, fair: 1 / winP,
     odds: o.ml ? o.ml[i] : undefined, implied: o.ml ? noVig(o.ml[i], o.ml[1 - i]) : undefined,
     text: `${fav.name} gagne ${Math.round(winP * r.sim.n).toLocaleString('fr-FR')} des ${r.sim.n.toLocaleString('fr-FR')} matchs simulés${top ? `. Score le plus fréquent : ${scoreTxt(top[0])} (${pct(top[1])})` : ''}.`,
   };

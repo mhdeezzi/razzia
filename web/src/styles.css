@@ -27,13 +27,13 @@
   --live: #ff3d3d;
   --fire: #ff6b3d; /* « En feu ce soir » */
   --home: #f5b54a; /* tennis : joueur à domicile */
-  /* Badges : mêmes teintes, en mat (moins lumineuses, moins saturées) pour ne pas faire néon. */
-  --m-green: #5aaf88;
-  --m-rose: #d06a80;
-  --m-blue: #7f9dd0;
-  --m-amber: #d0a55c;
-  --m-home: #cc9853;
-  --m-fire: #cf7a57;
+  /* Couleurs des badges (vives). */
+  --m-green: #3ddc97;
+  --m-rose: #ff4f7b;
+  --m-blue: #3d8bff;
+  --m-amber: #ffc45c;
+  --m-home: #f5b54a;
+  --m-fire: #ff6b3d;
   --blue-soft: rgba(61, 139, 255, 0.14);
   --rose-soft: rgba(255, 79, 123, 0.14);
   --cta: linear-gradient(90deg, #2c5aee, #5148d6); /* boutons de simulation : le bleu d'origine, préféré au bleu clair */
@@ -155,8 +155,8 @@ a.row:hover { background: #0b0b0b; }
 a.row:active { transform: scale(0.995); }
 .row-time { display: grid; gap: 5px; justify-items: start; }
 .row-time .t { font: 700 16px var(--mono); letter-spacing: -0.02em; }
-.pill-tag { white-space: nowrap; font: 800 10.5px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 7px; border-radius: 6px; color: #94a9cc; background: rgba(127, 157, 208, 0.13); }
-.pill-tag.live { color: #d58585; background: rgba(208, 106, 106, 0.13); display: inline-flex; align-items: center; gap: 5px; }
+.pill-tag { white-space: nowrap; font: 800 10.5px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 7px; border-radius: 6px; color: #8fbcff; background: rgba(77, 142, 255, 0.13); }
+.pill-tag.live { color: #ff8a8a; background: rgba(255, 61, 61, 0.14); display: inline-flex; align-items: center; gap: 5px; }
 .pill-tag.final { color: var(--text-2); background: var(--panel-3); }
 .vs-line { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 14px; }
 .vs-team { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -184,13 +184,13 @@ a.row:active { transform: scale(0.995); }
 .forme-item.hot .forme-chip { color: var(--m-fire); }
 .forme-none { color: var(--text-3); }
 .conf-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line-3); font: 600 12px var(--mono); letter-spacing: -0.01em; color: var(--text-2); white-space: nowrap; transition: border-color 0.2s, color 0.2s, background-color 0.2s; }
-.conf-pill.sim { color: #a3b5d4; border-color: rgba(127, 157, 208, 0.42); }
+.conf-pill.sim { color: #a9cbff; border-color: rgba(77, 142, 255, 0.5); }
 /* Match pile ou face : même ambre que le badge « Pile ou face » de la fiche. */
-.conf-pill.sim.flip { color: var(--m-amber); border-color: rgba(208, 165, 92, 0.45); }
+.conf-pill.sim.flip { color: #ffc45c; border-color: rgba(255, 196, 92, 0.5); }
 .conf-pill.go { font-family: var(--sans); font-weight: 700; color: var(--text); background: var(--panel-3); border-color: var(--line-3); }
 .conf-pill.wait { color: var(--text-2); }
-.conf-pill.run { color: #a3b5d4; border-color: rgba(127, 157, 208, 0.42); background: rgba(127, 157, 208, 0.08); }
-.conf-pill.fail { color: var(--m-rose); border-color: rgba(208, 106, 128, 0.35); background: rgba(208, 106, 128, 0.08); }
+.conf-pill.run { color: #a9cbff; border-color: rgba(77, 142, 255, 0.5); background: rgba(77, 142, 255, 0.1); }
+.conf-pill.fail { color: var(--rose); border-color: rgba(255, 79, 123, 0.35); background: var(--rose-soft); }
 .wait-dot { width: 6px; height: 6px; border-radius: 9px; background: var(--text-3); }
 .spin-xs { width: 11px; height: 11px; border-width: 1.6px; }
 .pill-group { display: inline-flex; align-items: center; gap: 6px; }
@@ -206,20 +206,20 @@ a.row:active { transform: scale(0.995); }
 .signal-cat { background: #050607; border-color: #f2f4f7; color: var(--text-2); }
 .signal-cat .signal-title { color: #f2f4f7; }
 .signal-cat .signal-icon { background: #f2f4f7; color: #050607; box-shadow: 0 0 0 1px #f2f4f7; }
-.signal-up .signal-icon { background: rgba(90, 175, 136, 0.11); color: var(--m-green); }
-.signal-down .signal-icon { background: rgba(208, 106, 128, 0.11); color: var(--m-rose); }
+.signal-up .signal-icon { background: rgba(61, 220, 151, 0.11); color: var(--m-green); }
+.signal-down .signal-icon { background: rgba(255, 79, 123, 0.11); color: var(--m-rose); }
 .signal-tight .signal-icon { background: var(--panel-4); color: var(--text-2); }
-.signal-home .signal-icon { background: rgba(204, 152, 83, 0.11); color: var(--m-home); }
-.signal-goal .signal-icon { background: rgba(127, 157, 208, 0.12); color: var(--m-blue); }
-.signal-surface .signal-icon { background: rgba(90, 175, 136, 0.11); color: var(--m-green); }
+.signal-home .signal-icon { background: rgba(245, 181, 74, 0.11); color: var(--m-home); }
+.signal-goal .signal-icon { background: rgba(77, 142, 255, 0.12); color: var(--m-blue); }
+.signal-surface .signal-icon { background: rgba(61, 220, 151, 0.11); color: var(--m-green); }
 /* Page Badges. */
 .badge-sec { margin-bottom: 28px; }
 .badge-sec h2 { margin-bottom: 12px; }
 .badge-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.badge-sure .signal-icon { background: rgba(90, 175, 136, 0.11); color: var(--m-green); }
-.badge-flip .signal-icon { background: rgba(208, 165, 92, 0.11); color: var(--m-amber); }
-.badge-market .signal-icon { background: rgba(208, 106, 128, 0.11); color: var(--m-rose); }
-.badge-fire .signal-icon { background: rgba(207, 122, 87, 0.12); color: var(--m-fire); }
+.badge-sure .signal-icon { background: rgba(61, 220, 151, 0.11); color: var(--m-green); }
+.badge-flip .signal-icon { background: rgba(255, 196, 92, 0.11); color: var(--m-amber); }
+.badge-market .signal-icon { background: rgba(255, 79, 123, 0.11); color: var(--m-rose); }
+.badge-fire .signal-icon { background: rgba(255, 107, 61, 0.12); color: var(--m-fire); }
 .badge-info .signal-icon { background: var(--panel-4); color: var(--text-2); }
 .badge-dot { width: 10px; height: 10px; border-radius: 50%; }
 .badge-dot.safe { background: var(--m-blue); }
@@ -556,11 +556,11 @@ a.row:hover .mark { transform: scale(1.06); }
 .conf-badge { display: flex; gap: 12px; align-items: flex-start; margin-top: 16px; padding: 12px 14px; border-radius: 14px; font-size: 13.5px; color: var(--text-2); border: 1px solid var(--line-2); background: var(--panel); }
 .conf-badge svg { flex: none; margin-top: 1px; }
 .conf-badge-title { color: var(--text); font-weight: 700; margin-bottom: 2px; }
-.conf-badge.sure { border-color: rgba(90, 175, 136, 0.34); background: rgba(90, 175, 136, 0.06); }
+.conf-badge.sure { border-color: rgba(61, 220, 151, 0.34); background: rgba(61, 220, 151, 0.06); }
 .conf-badge.sure svg, .conf-badge.sure .conf-badge-title { color: var(--m-green); }
-.conf-badge.flip { border-color: rgba(208, 165, 92, 0.34); background: rgba(208, 165, 92, 0.06); }
+.conf-badge.flip { border-color: rgba(255, 196, 92, 0.34); background: rgba(255, 196, 92, 0.06); }
 .conf-badge.flip svg, .conf-badge.flip .conf-badge-title { color: var(--m-amber); }
-.conf-badge.disagree { border-color: rgba(208, 106, 128, 0.34); background: rgba(208, 106, 128, 0.06); }
+.conf-badge.disagree { border-color: rgba(255, 79, 123, 0.34); background: rgba(255, 79, 123, 0.06); }
 .conf-badge.disagree svg, .conf-badge.disagree .conf-badge-title { color: var(--m-rose); }
 .conf-badge + .conf-badge { margin-top: 8px; }
 .hedge-line { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 13.5px; color: var(--text-2); }
@@ -696,7 +696,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .stat .rng { display: block; font-size: 11px; color: var(--text-3); }
 .pl-name { margin-right: 8px; }
 .tag { font: 500 12.5px var(--sans); color: var(--text-3); border: 1px solid var(--line-2); border-radius: 999px; padding: 1px 7px; margin-right: 4px; letter-spacing: 0; }
-.tag-warn { color: var(--m-amber); border-color: rgba(208, 165, 92, 0.32); }
+.tag-warn { color: var(--m-amber); border-color: rgba(255, 196, 92, 0.32); }
 .lean { font: 500 12.5px var(--sans); letter-spacing: 0; padding: 3px 8px; border-radius: 6px; }
 .lean-over { background: var(--blue-soft); color: #8db8ff; }
 .lean-under { background: var(--rose-soft); color: #ff8aa6; }
