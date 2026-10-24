@@ -1,5 +1,6 @@
 // Briques partagées : navigation, pastille d'équipe, onglets à curseur glissant, anneau de probabilité, compteur animé.
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
+import { Check } from '@phosphor-icons/react';
 import { teamColor, teamLogo, type Team } from './data.ts';
 import lettres from './assets/razzia-lettres.png';
 
@@ -202,4 +203,39 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
 /** RAZZIA en lettres gothiques rouges (celles du logo), en tête des programmes. */
 export function Wordmark() {
   return <img className="wordmark" src={lettres} alt="Razzia" />;
+}
+
+/** Suivi animé d'une simulation (basket et tennis) : chronomètre, barre qui défile, étapes estimées. */
+export function SimProgress({ queued, start, title, steps, prep, note }: { queued: boolean; start?: number; title: string; steps: string[]; prep: number; note: string }) {
+  const [now, setNow] = useState(Date.now());
+  const [first] = useState(Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  const s = Math.max(0, Math.round((now - (start ?? first)) / 1000));
+  // Étape estimée : file d'attente, puis préparation (prep secondes), puis calcul.
+  const at = queued ? 0 : s < prep ? 1 : 2;
+  return (
+    <section className="progress" aria-live="polite">
+      <div className="progress-top">
+        <div>
+          <h2>{title}</h2>
+        </div>
+        <span className="clock">
+          {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
+        </span>
+      </div>
+      <div className="track" />
+      <ol className="steps">
+        {steps.map((label, i) => (
+          <li key={label} className={i < at ? 'is-done' : i === at ? 'is-now' : ''}>
+            <span className="ic">{i < at ? <Check size={14} weight="bold" /> : i + 1}</span>
+            {label}
+          </li>
+        ))}
+      </ol>
+      <p className="small muted">{note}</p>
+    </section>
+  );
 }

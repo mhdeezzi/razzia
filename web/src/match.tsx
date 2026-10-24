@@ -7,7 +7,7 @@ import {
 } from './data.ts';
 import { Results } from './results.tsx';
 import { BookOdds } from './books.tsx';
-import { Empty, Link, TeamMark } from './ui.tsx';
+import { Empty, Link, SimProgress, TeamMark } from './ui.tsx';
 
 type Tab = 'apercu' | 'sim';
 
@@ -365,38 +365,14 @@ function SimPanel({ g, state, busy, launch, since }: { g: Game } & ReturnType<ty
 }
 
 function Progress({ state, since }: { state: Extract<SimState, { status: 'queued' | 'running' }>; since?: number }) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(t);
-  }, []);
-  const start = since ?? (state.startedAt ? Date.parse(state.startedAt) : now);
-  const s = Math.max(0, Math.round((now - start) / 1000));
-  const steps = ['Demande envoyée', 'Données du jour : effectifs, absences, cotes', '5 000 simulations', 'Publication des résultats'];
-  // Étape estimée : file d'attente, puis préparation (~1 min), puis calcul.
-  const at = state.status === 'queued' ? 0 : s < 70 ? 1 : 2;
   return (
-    <section className="progress" aria-live="polite">
-      <div className="progress-top">
-        <div>
-          <h2>On joue le match.</h2>
-        </div>
-        <span className="clock">
-          {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
-        </span>
-      </div>
-      <div className="track" />
-      <ol className="steps">
-        {steps.map((label, i) => (
-          <li key={label} className={i < at ? 'is-done' : i === at ? 'is-now' : ''}>
-            <span className="ic">{i < at ? <Check size={14} weight="bold" /> : i + 1}</span>
-            {label}
-          </li>
-        ))}
-      </ol>
-      <p className="small muted">
-        Compter 3 à 6 minutes, un peu plus pour la toute première simulation. La page se met à jour seule, et la simulation continue si vous la quittez.
-      </p>
-    </section>
+    <SimProgress
+      queued={state.status === 'queued'}
+      start={since ?? (state.startedAt ? Date.parse(state.startedAt) : undefined)}
+      title="On joue le match."
+      steps={['Demande envoyée', 'Données du jour : effectifs, absences, cotes', '5 000 simulations', 'Publication des résultats']}
+      prep={70}
+      note="Compter 3 à 6 minutes, un peu plus pour la toute première simulation. La page se met à jour seule, et la simulation continue si vous la quittez."
+    />
   );
 }

@@ -2,7 +2,7 @@
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowClockwise, ArrowLeft, CalendarBlank, CaretRight, Cat, Flag, House, Mountains, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
-import { Empty, Link, ProgressLine, Ring, Segmented, Wordmark } from './ui.tsx';
+import { Empty, Link, ProgressLine, Ring, Segmented, SimProgress, Wordmark } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_FLIP, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
@@ -522,6 +522,7 @@ function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimI
 function useTennisSim(id: string, day: string) {
   const [state, setState] = useState<State>({ status: 'loading' });
   const [busy, setBusy] = useState(false);
+  const [since, setSince] = useState<number | undefined>(() => Number(store.get(`${pendingKey(id)}-at`)) || undefined);
   const timer = useRef<number | undefined>(undefined);
   const poll = useCallback(async () => {
     window.clearTimeout(timer.current);
@@ -530,7 +531,10 @@ function useTennisSim(id: string, day: string) {
       const s = await api(`?id=${id}&day=${day}${req ? `&req=${req}` : ''}`);
       setState(s);
       if (s.status === 'queued' || s.status === 'running') timer.current = window.setTimeout(poll, 5000);
-      else if (req) store.set(pendingKey(id), null);
+      else if (req) {
+        store.set(pendingKey(id), null);
+        store.set(`${pendingKey(id)}-at`, null);
+      }
     } catch (e) {
       setState({ status: 'failed', error: (e as Error).message });
     }
@@ -544,6 +548,9 @@ function useTennisSim(id: string, day: string) {
     try {
       const { req } = await api('', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, day }) });
       store.set(pendingKey(id), req);
+      const at = Date.now();
+      store.set(`${pendingKey(id)}-at`, String(at));
+      setSince(at);
       setState({ status: 'queued' });
       timer.current = window.setTimeout(poll, 4000);
     } catch (e) {
@@ -552,11 +559,11 @@ function useTennisSim(id: string, day: string) {
       setBusy(false);
     }
   };
-  return { state, busy, launch };
+  return { state, busy, launch, since };
 }
 
 export function TennisMatchPage({ day, id }: { day: string; id: string }) {
-  const { state, busy, launch } = useTennisSim(id, day);
+  const { state, busy, launch, since } = useTennisSim(id, day);
   return (
     <div className="page">
       <Link href="/tennis" className="back">
@@ -565,15 +572,14 @@ export function TennisMatchPage({ day, id }: { day: string; id: string }) {
       {state.status === 'loading' && <span className="sk sk-hero" aria-busy="true" />}
       {state.status === 'done' && <TennisResults r={state.result} onRelaunch={launch} busy={busy} />}
       {(state.status === 'queued' || state.status === 'running') && (
-        <section className="progress" aria-live="polite">
-          <div className="progress-top">
-            <h2>On joue le match, point par point.</h2>
-          </div>
-          <div className="track" />
-          <p className="small muted">
-            Compter 1 à 3 minutes : historique ATP, notes des joueurs, cotes Pinnacle, puis 5 000 matchs simulés. La page se met à jour seule.
-          </p>
-        </section>
+        <SimProgress
+          queued={state.status === 'queued'}
+          start={since ?? (state.startedAt ? Date.parse(state.startedAt) : undefined)}
+          title="On joue le match, point par point."
+          steps={['Demande envoyée', 'Historique ATP, notes des joueurs, cotes Pinnacle', '5 000 matchs simulés', 'Publication des résultats']}
+          prep={40}
+          note="Compter 1 à 3 minutes. La page se met à jour seule, et la simulation continue si vous la quittez."
+        />
       )}
       {(state.status === 'none' || state.status === 'failed') && (
         <section className="launch">
