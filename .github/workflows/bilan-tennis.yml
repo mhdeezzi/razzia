@@ -1,0 +1,38 @@
+# Bilan des simulations tennis publiées (résultats TennisMyLife) toutes les 3 heures : tennis/bilan.json sur la branche
+# resultats, que la page Bilan de l'onglet Tennis lit.
+name: Bilan tennis
+on:
+  schedule: [{ cron: '47 */3 * * *' }]
+  workflow_dispatch:
+concurrency: { group: bilan-tennis, cancel-in-progress: false }
+permissions: { contents: write }
+jobs:
+  bilan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - id: day
+        run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: data/cache/tennis
+          key: tennis-bilan-${{ steps.day.outputs.day }}
+          restore-keys: tennis-
+      - name: Calcul et publication
+        run: |
+          git config user.name "simbet-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin resultats && git worktree add -B resultats ../res FETCH_HEAD
+          for i in 1 2 3 4 5; do
+            node src/cli/tennisbilan.ts ../res/tennis
+            git -C ../res add tennis/bilan.json
+            git -C ../res commit -qm "Bilan tennis" || exit 0
+            git -C ../res push origin HEAD:resultats && exit 0
+            sleep $((i * 3))
+            git -C ../res fetch origin resultats && git -C ../res reset -q --hard FETCH_HEAD
+          done
+          exit 1

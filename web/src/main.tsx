@@ -11,7 +11,7 @@ import { MatchPage } from './match.tsx';
 import { BilanPage } from './bilan.tsx';
 import { SchedulePage } from './schedule.tsx';
 import { TopBar } from './topbar.tsx';
-import { TennisMatchPage, TennisSchedulePage } from './tennis.tsx';
+import { TennisBilanPage, TennisMatchPage, TennisSchedulePage } from './tennis.tsx';
 import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
 
 function App() {
@@ -24,6 +24,8 @@ function App() {
     <TennisMatchPage key={path} day={t[1]} id={t[2]} />
   ) : path === '/tennis' ? (
     <TennisSchedulePage />
+  ) : path === '/tennis/bilan' ? (
+    <TennisBilanPage />
   ) : path === '/simulations' ? (
     <SimsPage />
   ) : path === '/methode' ? (
@@ -34,7 +36,7 @@ function App() {
     <SchedulePage day={search.get('jour')} />
   );
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : 'Razzia | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : 'Razzia | Simulations NBA';
   }, [path]);
   return (
     <>

@@ -6,7 +6,7 @@ export function TopBar({ path }: { path: string }) {
   const tennis = path.startsWith('/tennis');
   const links = [
     { href: '/simulations', label: 'Simulations', icon: <ClockCounterClockwise size={18} />, on: path === '/simulations' },
-    { href: '/bilan', label: 'Bilan', icon: <Target size={18} />, on: path === '/bilan' },
+    { href: tennis ? '/tennis/bilan' : '/bilan', label: 'Bilan', icon: <Target size={18} />, on: path === '/bilan' || path === '/tennis/bilan' },
     { href: '/methode', label: 'Méthode', icon: <Info size={18} />, on: path === '/methode' },
   ];
   return (
