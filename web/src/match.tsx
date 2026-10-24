@@ -80,8 +80,8 @@ function Match({ g, injuries }: { g: Game; injuries: Record<string, Injury[]> })
   const sim = useSim(g);
   const [tab, setTab] = useState<Tab | undefined>();
   const s = sim.state.status;
-  // Onglet par défaut : la simulation dès qu'il y en a une (terminée ou en cours).
-  const current: Tab = tab ?? (s === 'done' || s === 'queued' || s === 'running' ? 'sim' : 'apercu');
+  // Onglet par défaut : la simulation (lancement si elle n'existe pas encore).
+  const current: Tab = tab ?? 'sim';
   const go = async () => {
     setTab('sim');
     if (s !== 'queued' && s !== 'running') await sim.launch();
@@ -356,7 +356,7 @@ function SimPanel({ g, state, busy, launch, since }: { g: Game } & ReturnType<ty
           <span>pour le résultat</span>
         </div>
       </div>
-      <button className="btn btn-primary btn-lg" onClick={launch} disabled={busy || g.state === 'post'}>
+      <button className="btn btn-primary btn-blue btn-lg" onClick={launch} disabled={busy || g.state === 'post'}>
         {busy ? <span className="spin" /> : <Sparkle size={18} weight="fill" />} {busy ? 'Lancement' : 'Lancer la simulation'}
       </button>
       {g.state === 'post' && <p className="small muted">Match terminé.</p>}
