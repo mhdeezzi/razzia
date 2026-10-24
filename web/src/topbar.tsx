@@ -2,6 +2,7 @@
 import { Basketball, ClockCounterClockwise, Info, SoccerBall, Target, TennisBall } from '@phosphor-icons/react';
 import { Link } from './ui.tsx';
 import fond from './assets/razzia-fond.webp';
+import lettres from './assets/razzia-lettres.png';
 
 export function TopBar({ path }: { path: string }) {
   const tennis = path.startsWith('/tennis');
@@ -15,7 +16,7 @@ export function TopBar({ path }: { path: string }) {
       <div className="topbar-in">
         <Link href="/" className="brand" aria-label="Razzia, programme du jour">
           <span className="logo" style={{ backgroundImage: `url(${fond})` }}>
-            <span>Razzia</span>
+            <img src={lettres} alt="Razzia" />
           </span>
         </Link>
         <nav className="sports" aria-label="Sports">
