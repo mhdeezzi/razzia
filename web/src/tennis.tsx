@@ -159,6 +159,14 @@ function DayTracker({ run, sims, onClose }: { run: DayRun; sims: Map<string, Sim
   const done = run.ids.filter((id) => state(id) === 'done').length;
   const failed = run.ids.length - done;
   const s = Math.max(0, Math.round(((run.endedAt ?? now) - run.at) / 1000));
+  // Journée finie : le suivi se ferme seul (un peu plus tard s'il y a des échecs, le temps de les voir).
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    if (live) return;
+    const t = window.setTimeout(() => close.current(), failed ? 10000 : 4000);
+    return () => window.clearTimeout(t);
+  }, [live, failed]);
   return (
     <section className="batch" aria-live="polite">
       <div className="batch-head">

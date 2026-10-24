@@ -387,6 +387,12 @@ function BatchTracker({ b }: { b: Batch }) {
   const wait = count((s) => s === 'queued' || s === 'sending');
   const s = Math.max(0, Math.round(((b.endedAt ?? now) - b.at) / 1000));
   const first = b.items.find((i) => i.state === 'failed' && i.error)?.error;
+  // Soirée finie : le suivi se ferme seul (un peu plus tard s'il y a des échecs, le temps de les voir).
+  useEffect(() => {
+    if (running) return;
+    const t = window.setTimeout(dismissBatch, failed ? 10000 : 4000);
+    return () => window.clearTimeout(t);
+  }, [running, failed]);
   return (
     <section className="batch" aria-live="polite">
       <div className="batch-head">
