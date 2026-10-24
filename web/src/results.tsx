@@ -1,7 +1,7 @@
 // Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowClockwise, Scales, ShieldCheck, WarningCircle } from '@phosphor-icons/react';
+import { ArrowClockwise, ArrowsSplit, CoinVertical, Scales, ShieldCheck } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
 import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
@@ -93,7 +93,7 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
   if (c.tier === 'sure')
     return (
       <div className="conf-badge sure">
-        <ShieldCheck size={20} weight="fill" />
+        <ShieldCheck size={20} weight="duotone" />
         <div>
           <p className="conf-badge-title">Razzia assuré</p>
           <p>Quand le moteur est aussi sûr de lui, il a vu juste 85 % du temps sur la saison passée (un match sur quatre).</p>
@@ -103,7 +103,7 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
   if (c.tier === 'flip')
     return (
       <div className="conf-badge flip">
-        <Scales size={20} weight="bold" />
+        <CoinVertical size={20} weight="duotone" />
         <div>
           <p className="conf-badge-title">Pile ou face</p>
           <p>
@@ -127,7 +127,7 @@ function MarketBadge({ c, g }: { c: Confidence; g: Game }) {
   const other = g[c.side === 'home' ? 'away' : 'home'];
   return (
     <div className="conf-badge disagree">
-      <WarningCircle size={20} weight="bold" />
+      <ArrowsSplit size={20} weight="duotone" />
       <div>
         <p className="conf-badge-title">Désaccord avec le marché</p>
         <p>

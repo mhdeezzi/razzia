@@ -21,7 +21,13 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   const pHome: number = s.market?.blendedHome ?? s.pHome;
   // gp : matchs joués par l'équipe qui en a le moins (pile ou face d'office sous 70 % en tout début de saison).
   const gp = Math.min(s.gamesPlayed?.home ?? s.momentum?.home?.nCur ?? 99, s.gamesPlayed?.away ?? s.momentum?.away?.nCur ?? 99);
-  out.push({ dir: d.name, pHome, pAway: 1 - pHome, at, gp, ...(cat ? { cat } : {}) });
+  // Forme pour le programme : équipe en pleine montée ou en baisse (4 points d'écart par match, comme le badge de la
+  // fiche), sinon le joueur le plus chaud (« En feu ce soir »).
+  const tr = (k: 'home' | 'away') => { const dl = s.momentum?.[k]?.delta; return dl >= 4 ? 'up' : dl <= -4 ? 'down' : undefined; };
+  const trend = tr('home') || tr('away') ? { home: tr('home'), away: tr('away') } : undefined;
+  const top = (s.players ?? []).filter((p: any) => p.heat && p.heat.pBig >= 0.1).sort((a: any, b: any) => b.heat.pBig - a.heat.pBig)[0];
+  const hot = top ? { id: top.id, side: top.side, name: top.name } : undefined;
+  out.push({ dir: d.name, pHome, pAway: 1 - pHome, at, gp, ...(cat ? { cat } : {}), ...(trend ? { trend } : {}), ...(hot ? { hot } : {}) });
 }
 out.sort((a, b) => b.at.localeCompare(a.at));
 writeFileSync(file, JSON.stringify(out));

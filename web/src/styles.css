@@ -27,6 +27,13 @@
   --live: #ff3d3d;
   --fire: #ff6b3d; /* « En feu ce soir » */
   --home: #f5b54a; /* tennis : joueur à domicile */
+  /* Badges : mêmes teintes, en mat (moins lumineuses, moins saturées) pour ne pas faire néon. */
+  --m-green: #5aaf88;
+  --m-rose: #d06a80;
+  --m-blue: #7f9dd0;
+  --m-amber: #d0a55c;
+  --m-home: #cc9853;
+  --m-fire: #cf7a57;
   --blue-soft: rgba(61, 139, 255, 0.14);
   --rose-soft: rgba(255, 79, 123, 0.14);
   --cta: linear-gradient(90deg, #2c5aee, #5148d6); /* boutons de simulation : le bleu d'origine, préféré au bleu clair */
@@ -148,8 +155,8 @@ a.row:hover { background: #0b0b0b; }
 a.row:active { transform: scale(0.995); }
 .row-time { display: grid; gap: 5px; justify-items: start; }
 .row-time .t { font: 700 16px var(--mono); letter-spacing: -0.02em; }
-.pill-tag { white-space: nowrap; font: 800 10.5px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 7px; border-radius: 6px; color: #8fbcff; background: rgba(77, 142, 255, 0.16); }
-.pill-tag.live { color: #ff8a8a; background: rgba(255, 61, 61, 0.14); display: inline-flex; align-items: center; gap: 5px; }
+.pill-tag { white-space: nowrap; font: 800 10.5px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 7px; border-radius: 6px; color: #94a9cc; background: rgba(127, 157, 208, 0.13); }
+.pill-tag.live { color: #d58585; background: rgba(208, 106, 106, 0.13); display: inline-flex; align-items: center; gap: 5px; }
 .pill-tag.final { color: var(--text-2); background: var(--panel-3); }
 .vs-line { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 14px; }
 .vs-team { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -159,56 +166,64 @@ a.row:active { transform: scale(0.995); }
 .vs-at { font-size: 13px; color: var(--text-3); }
 .cell-odds { text-align: center; font: 500 15px var(--mono); letter-spacing: -0.02em; color: var(--text); }
 .cell-total { text-align: center; font: 500 15px var(--mono); letter-spacing: -0.02em; color: var(--text-2); }
+/* Forme : logo (ou photo) et petite pastille en diagonale ; deux équipes en mouvement : les deux en escalier. */
+.forme { position: relative; display: inline-block; width: 46px; height: 36px; vertical-align: middle; }
+.forme-item { position: absolute; left: 6px; top: 2px; }
+.forme.duo .forme-item:first-child { left: 0; top: 0; }
+.forme.duo .forme-item:last-child { left: 16px; top: 10px; }
+.forme.duo .forme-item:first-child .forme-chip { right: auto; bottom: auto; left: -8px; top: -5px; } /* pastilles sur les coins extérieurs */
+.forme-chip { z-index: 1; }
+.forme .mark-sm, .forme-face { width: 28px; height: 28px; box-shadow: 0 0 0 2px #000; }
+.forme.duo .mark-sm { width: 24px; height: 24px; }
+.forme-face { display: block; border-radius: 50%; overflow: hidden; background: var(--panel-4); }
+.forme-face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; transform: scale(1.35); transform-origin: 50% 20%; }
+.forme-chip { position: absolute; right: -7px; bottom: -5px; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; background: #0b0b0b;
+  box-shadow: 0 0 0 1.5px #000, inset 0 0 0 1px color-mix(in srgb, currentColor 45%, transparent); }
+.forme-item.up .forme-chip { color: var(--m-green); }
+.forme-item.down .forme-chip { color: var(--m-rose); }
+.forme-item.hot .forme-chip { color: var(--m-fire); }
+.forme-none { color: var(--text-3); }
 .conf-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line-3); font: 600 12px var(--mono); letter-spacing: -0.01em; color: var(--text-2); white-space: nowrap; transition: border-color 0.2s, color 0.2s, background-color 0.2s; }
-.conf-pill.sim { color: #a9cbff; border-color: rgba(77, 142, 255, 0.5); }
+.conf-pill.sim { color: #a3b5d4; border-color: rgba(127, 157, 208, 0.42); }
 /* Match pile ou face : même ambre que le badge « Pile ou face » de la fiche. */
-.conf-pill.sim.flip { color: #ffc45c; border-color: rgba(255, 196, 92, 0.5); }
+.conf-pill.sim.flip { color: var(--m-amber); border-color: rgba(208, 165, 92, 0.45); }
 .conf-pill.go { font-family: var(--sans); font-weight: 700; color: var(--text); background: var(--panel-3); border-color: var(--line-3); }
 .conf-pill.wait { color: var(--text-2); }
-.conf-pill.run { color: #a9cbff; border-color: rgba(77, 142, 255, 0.5); background: rgba(77, 142, 255, 0.1); }
-.conf-pill.fail { color: var(--rose); border-color: rgba(255, 79, 123, 0.35); background: var(--rose-soft); }
+.conf-pill.run { color: #a3b5d4; border-color: rgba(127, 157, 208, 0.42); background: rgba(127, 157, 208, 0.08); }
+.conf-pill.fail { color: var(--m-rose); border-color: rgba(208, 106, 128, 0.35); background: rgba(208, 106, 128, 0.08); }
 .wait-dot { width: 6px; height: 6px; border-radius: 9px; background: var(--text-3); }
 .spin-xs { width: 11px; height: 11px; border-width: 1.6px; }
 .pill-group { display: inline-flex; align-items: center; gap: 6px; }
-/* Chat noir : la pastille du résultat est entourée d'un trait blanc, à 8 px (l'écart de l'ancienne barre). */
-.pill-group:has(.cat-mini) { gap: 18px; }
-.pill-group:has(.cat-mini) .conf-pill { outline: 2px solid #f2f4f7; outline-offset: 8px; }
-/* Chat noir : noir et blanc, volontairement hors de la palette (rare, doit sauter aux yeux). */
-.cat-mini { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #f2f4f7; color: #050607; box-shadow: 0 0 0 1px #f2f4f7; }
-/* Programme ATP : petit chat collé à gauche de la pastille, sans la décaler. */
-.t-row .cat-mini { width: 18px; height: 18px; }
-.t-row .cat-mini svg { width: 11px; height: 11px; }
-@media (min-width: 721px) {
-  .t-row .pill-group { position: relative; }
-  .t-row .pill-group .cat-mini { position: absolute; right: calc(100% + 18px); top: 50%; transform: translateY(-50%); }
-}
+/* Chat noir : plus de logo dans le programme, la pastille du résultat est entourée d'un trait blanc, à 8 px. */
+.pill-group.has-cat .conf-pill { outline: 2px solid #e9ebef; outline-offset: 8px; }
 
 /* Signaux du match sous le verdict. */
 .signals { display: grid; gap: 10px; animation: rise 0.6s var(--ease) both; }
 .signal { display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start; padding: 14px 16px; border-radius: var(--r-card); border: 1px solid var(--line-2); background: var(--panel); font-size: 14px; color: var(--text-2); }
 .signal-title { color: var(--text); font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
-.signal-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--panel-3); color: var(--text); }
+.signal-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--panel-3); color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 24%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.05); }
 .signal-cat { background: #050607; border-color: #f2f4f7; color: var(--text-2); }
 .signal-cat .signal-title { color: #f2f4f7; }
 .signal-cat .signal-icon { background: #f2f4f7; color: #050607; box-shadow: 0 0 0 1px #f2f4f7; }
-.signal-up .signal-icon { background: rgba(61, 220, 151, 0.14); color: var(--green); }
-.signal-down .signal-icon { background: var(--rose-soft); color: var(--rose); }
+.signal-up .signal-icon { background: rgba(90, 175, 136, 0.11); color: var(--m-green); }
+.signal-down .signal-icon { background: rgba(208, 106, 128, 0.11); color: var(--m-rose); }
 .signal-tight .signal-icon { background: var(--panel-4); color: var(--text-2); }
-.signal-home .signal-icon { background: rgba(245, 181, 74, 0.14); color: var(--home); }
-.signal-goal .signal-icon { background: rgba(77, 142, 255, 0.16); color: var(--blue); }
-.signal-surface .signal-icon { background: rgba(61, 220, 151, 0.12); color: var(--green); }
+.signal-home .signal-icon { background: rgba(204, 152, 83, 0.11); color: var(--m-home); }
+.signal-goal .signal-icon { background: rgba(127, 157, 208, 0.12); color: var(--m-blue); }
+.signal-surface .signal-icon { background: rgba(90, 175, 136, 0.11); color: var(--m-green); }
 /* Page Badges. */
 .badge-sec { margin-bottom: 28px; }
 .badge-sec h2 { margin-bottom: 12px; }
 .badge-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.badge-sure .signal-icon { background: rgba(61, 220, 151, 0.12); color: var(--green); }
-.badge-flip .signal-icon { background: rgba(255, 196, 92, 0.12); color: #ffc45c; }
-.badge-market .signal-icon { background: var(--rose-soft); color: var(--rose); }
-.badge-fire .signal-icon { background: rgba(255, 107, 61, 0.14); color: var(--fire); }
+.badge-sure .signal-icon { background: rgba(90, 175, 136, 0.11); color: var(--m-green); }
+.badge-flip .signal-icon { background: rgba(208, 165, 92, 0.11); color: var(--m-amber); }
+.badge-market .signal-icon { background: rgba(208, 106, 128, 0.11); color: var(--m-rose); }
+.badge-fire .signal-icon { background: rgba(207, 122, 87, 0.12); color: var(--m-fire); }
 .badge-info .signal-icon { background: var(--panel-4); color: var(--text-2); }
 .badge-dot { width: 10px; height: 10px; border-radius: 50%; }
-.badge-dot.safe { background: var(--blue); }
-.badge-dot.warn { background: var(--rose); }
+.badge-dot.safe { background: var(--m-blue); }
+.badge-dot.warn { background: var(--m-rose); }
 @media (max-width: 720px) { .badge-list { grid-template-columns: minmax(0, 1fr); } }
 a.row:hover .conf-pill.go { border-color: var(--text); background: var(--text); color: var(--bg); }
 .row-caret { color: var(--text-3); transition: transform 0.3s var(--ease), color 0.2s; }
@@ -389,7 +404,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .sheet-bar { display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; margin: -8px 0 14px; }
 .sheet-hint { font-size: 13px; color: var(--text-3); text-wrap: pretty; }
 .sheet-hint a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
-/* Bouton noir, lueur blanche qui fait le tour ; blanc au survol et à l'appui. */
+/* Bouton noir, lueur blanche qui fait le tour ; gris au survol et à l'appui. */
 .btn-soiree { --fill: #0b0b0b; display: inline-flex; align-items: center; gap: 12px; height: 42px; padding: 0 16px 0 18px; border-radius: 12px; border: 1px solid transparent;
   background: linear-gradient(var(--fill), var(--fill)) padding-box,
     conic-gradient(from var(--beam), transparent 0 70%, rgba(255, 255, 255, 0.55) 84%, #fff 92%, transparent 100%) border-box,
@@ -398,12 +413,8 @@ a.row:hover .mark { transform: scale(1.06); }
   font: 600 14.5px var(--sans); letter-spacing: -0.01em; color: #fff; cursor: pointer; white-space: nowrap; transition: color 0.2s, transform 0.12s ease-out; }
 
 .btn-soiree .n { font: 500 13px var(--mono); letter-spacing: -0.02em; color: var(--text-3); padding-left: 12px; border-left: 1px solid var(--line-2); }
-.btn-soiree:not(:disabled):active { transform: scale(0.97); --fill: #fff; color: #0b0b0b; }
-.btn-soiree:not(:disabled):active .n { color: #555; border-left-color: rgba(0, 0, 0, 0.2); }
-@media (hover: hover) and (pointer: fine) {
-  .btn-soiree:not(:disabled):hover { --fill: #fff; color: #0b0b0b; }
-  .btn-soiree:not(:disabled):hover .n { color: #555; border-left-color: rgba(0, 0, 0, 0.2); }
-}
+.btn-soiree:not(:disabled):active { transform: scale(0.97); --fill: var(--panel-3); }
+@media (hover: hover) and (pointer: fine) { .btn-soiree:not(:disabled):hover { --fill: var(--panel-3); } }
 .btn-soiree:disabled { cursor: default; color: var(--text-3); animation: none; border-color: var(--line-2); background: var(--panel); }
 
 
@@ -545,12 +556,12 @@ a.row:hover .mark { transform: scale(1.06); }
 .conf-badge { display: flex; gap: 12px; align-items: flex-start; margin-top: 16px; padding: 12px 14px; border-radius: 14px; font-size: 13.5px; color: var(--text-2); border: 1px solid var(--line-2); background: var(--panel); }
 .conf-badge svg { flex: none; margin-top: 1px; }
 .conf-badge-title { color: var(--text); font-weight: 700; margin-bottom: 2px; }
-.conf-badge.sure { border-color: rgba(61, 220, 151, 0.4); background: rgba(61, 220, 151, 0.08); }
-.conf-badge.sure svg, .conf-badge.sure .conf-badge-title { color: var(--green); }
-.conf-badge.flip { border-color: rgba(255, 196, 92, 0.4); background: rgba(255, 196, 92, 0.08); }
-.conf-badge.flip svg, .conf-badge.flip .conf-badge-title { color: #ffc45c; }
-.conf-badge.disagree { border-color: rgba(255, 79, 123, 0.4); background: rgba(255, 79, 123, 0.07); }
-.conf-badge.disagree svg, .conf-badge.disagree .conf-badge-title { color: var(--rose); }
+.conf-badge.sure { border-color: rgba(90, 175, 136, 0.34); background: rgba(90, 175, 136, 0.06); }
+.conf-badge.sure svg, .conf-badge.sure .conf-badge-title { color: var(--m-green); }
+.conf-badge.flip { border-color: rgba(208, 165, 92, 0.34); background: rgba(208, 165, 92, 0.06); }
+.conf-badge.flip svg, .conf-badge.flip .conf-badge-title { color: var(--m-amber); }
+.conf-badge.disagree { border-color: rgba(208, 106, 128, 0.34); background: rgba(208, 106, 128, 0.06); }
+.conf-badge.disagree svg, .conf-badge.disagree .conf-badge-title { color: var(--m-rose); }
 .conf-badge + .conf-badge { margin-top: 8px; }
 .hedge-line { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 13.5px; color: var(--text-2); }
 .hedge-line svg { flex: none; margin-top: 2px; color: var(--text-3); }
@@ -685,7 +696,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .stat .rng { display: block; font-size: 11px; color: var(--text-3); }
 .pl-name { margin-right: 8px; }
 .tag { font: 500 12.5px var(--sans); color: var(--text-3); border: 1px solid var(--line-2); border-radius: 999px; padding: 1px 7px; margin-right: 4px; letter-spacing: 0; }
-.tag-warn { color: #f5b955; border-color: rgba(245, 185, 85, 0.35); }
+.tag-warn { color: var(--m-amber); border-color: rgba(208, 165, 92, 0.32); }
 .lean { font: 500 12.5px var(--sans); letter-spacing: 0; padding: 3px 8px; border-radius: 6px; }
 .lean-over { background: var(--blue-soft); color: #8db8ff; }
 .lean-under { background: var(--rose-soft); color: #ff8aa6; }
@@ -842,10 +853,10 @@ a.row:hover .mark { transform: scale(1.06); }
 .t-card .card-foot > span:first-child { white-space: nowrap; }
 .t-lost .vs-name { color: var(--text-3); }
 .t-trend { display: inline-flex; margin-left: 6px; vertical-align: -1px; }
-.t-trend.up { color: var(--green); }
-.t-trend.down { color: var(--rose); }
+.t-trend.up { color: var(--m-green); }
+.t-trend.down { color: var(--m-rose); }
 .t-home { display: inline-flex; margin-left: 6px; vertical-align: -1px; color: var(--home); }
-.t-goal { display: inline-flex; margin-left: 6px; vertical-align: -1px; color: var(--blue); }
+.t-goal { display: inline-flex; margin-left: 6px; vertical-align: -1px; color: var(--m-blue); }
 /* Cartes (grille) : noms courts, photos à la taille des logos NBA. */
 .t-card .card-vs { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
 .t-card .card-team { min-width: 0; }

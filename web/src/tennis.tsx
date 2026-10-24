@@ -1,7 +1,7 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowClockwise, ArrowLeft, CalendarBlank, CaretRight, Cat, Flag, House, Mountains, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
+import { ArrowClockwise, ArrowLeft, CalendarBlank, CaretRight, Cat, ChartLineDown, ChartLineUp, CoinVertical, HouseLine, ListBullets, Mountains, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
 import { Empty, Link, ProgressLine, Ring, Segmented, SimProgress, Wordmark } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_FLIP, T_SURE } from './tennispicks.ts';
@@ -425,12 +425,12 @@ function Who({ m, side, players, sim, align, size = 'row' }: { m: SlateMatch; si
         )}
         {sim?.goal?.[side] && (
           <span className="t-goal" title="Objectif Masters" aria-label="Objectif Masters">
-            <Flag size={13} weight="fill" />
+            <Trophy size={13} weight="duotone" />
           </span>
         )}
         {atHome(m.league, c?.ioc) && (
           <span className="t-home" title="À domicile" aria-label="À domicile">
-            <House size={13} weight="fill" />
+            <HouseLine size={13} weight="duotone" />
           </span>
         )}
       </span>
@@ -466,12 +466,7 @@ function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
   // Pile ou face (même règle que la fiche) : favori sous 60 %, ou outsider en hausse.
   const flip = shown(fav.p) < T_FLIP || sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up';
   return (
-    <span className="pill-group">
-      {sim.cat && (
-        <span className="cat-mini" title={`Chat noir pour ${sim.cat}`} aria-label={`Chat noir pour ${sim.cat}`}>
-          <Cat size={13} weight="fill" />
-        </span>
-      )}
+    <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
       <span className={`conf-pill sim${flip ? ' flip' : ''}`}>
         <TrendUp size={13} weight="bold" /> {fav.n.split(' ').at(-1)} {pct0(fav.p)}
       </span>
@@ -704,7 +699,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {home.map((p) => (
         <div key={`home-${p.name}`} className="signal signal-home">
           <span className="signal-icon">
-            <House size={20} weight="fill" />
+            <HouseLine size={20} weight="duotone" />
           </span>
           <div>
             <p className="signal-title">
@@ -719,7 +714,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {goal.length > 0 && (
         <div className="signal signal-goal">
           <span className="signal-icon">
-            <Flag size={20} weight="fill" />
+            <Trophy size={20} weight="duotone" />
           </span>
           <div>
             <p className="signal-title">
@@ -737,7 +732,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {surf && (
         <div className="signal signal-surface">
           <span className="signal-icon">
-            <Mountains size={20} weight="fill" />
+            <Mountains size={20} weight="duotone" />
           </span>
           <div>
             <p className="signal-title">
@@ -753,7 +748,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
         const wins = p.form.filter((m) => m.won).length;
         return (
           <div key={p.name} className={`signal ${p.trend === 'up' ? 'signal-up' : 'signal-down'}`}>
-            <span className="signal-icon">{p.trend === 'up' ? <TrendUp size={20} weight="bold" /> : <TrendDown size={20} weight="bold" />}</span>
+            <span className="signal-icon">{p.trend === 'up' ? <ChartLineUp size={20} weight="duotone" /> : <ChartLineDown size={20} weight="duotone" />}</span>
             <div>
               <p className="signal-title">
                 <Avatar name={p.name} photo={p.photo} alt={p.photoAlt} size="sm" /> {p.name} {p.trend === 'up' ? 'en hausse' : 'en baisse'}
@@ -791,7 +786,7 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
         <PickOdds o={pick} />
         {tier === 'sure' && (
           <div className="conf-badge sure">
-            <ShieldCheck size={20} weight="fill" />
+            <ShieldCheck size={20} weight="duotone" />
             <div>
               <p className="conf-badge-title">Razzia assuré</p>
               <p>Quand Razzia est aussi sûr, le favori a gagné 88 % du temps sur 2024 et 2025 (un match sur six).</p>
@@ -800,7 +795,7 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
         )}
         {tier === 'flip' && (
           <div className="conf-badge flip">
-            <Scales size={20} weight="bold" />
+            <CoinVertical size={20} weight="duotone" />
             <div>
               <p className="conf-badge-title">Pile ou face</p>
               <p>
