@@ -1,8 +1,8 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowLeft, ArrowSquareOut, CaretRight, Scales, ShieldCheck, Sparkle, WarningCircle, X } from '@phosphor-icons/react';
-import { Empty, Link, Ring } from './ui.tsx';
+import { ArrowClockwise, ArrowLeft, ArrowSquareOut, CalendarBlank, CaretRight, Cat, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
+import { Empty, Link, Ring, Segmented } from './ui.tsx';
 import { PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, T_FLIP, T_SURE } from './tennispicks.ts';
 import { shown } from './picks.ts';
@@ -11,6 +11,7 @@ import { shown } from './picks.ts';
 export interface TennisPlayer {
   name: string; ioc?: string; hand?: string; ht?: number; age?: number; rank?: number; matches: number; elo: number; serve: number; ret: number;
   daysOff: number; tourneyMinutes: number; played14: number; layoff: boolean; photo?: string; photoAlt?: string; atp?: string;
+  form10?: number; trend?: 'up' | 'down';
   surfaceSeason: { won: number; lost: number };
   form: Array<{ date: string; tourney: string; round: string; surface: string; opponent: string; won: boolean; score: string }>;
 }
@@ -22,10 +23,13 @@ export interface TennisResult {
   market: { pHome?: number; pHomeOpen?: number; odds?: Odds; oddsOpen?: Odds; moves?: Array<{ at: string; ml: [number, number] }> };
   sim: { n: number; pA: number; pB: number; win: number; firstSet: number; scores: Record<string, number>; atLeast1: [number, number]; atLeast2: [number, number]; straight: [number, number]; tiebreak: number; games: { mean: number; p10: number; p50: number; p90: number } };
   h2h: Array<{ date: string; tourney: string; round: string; surface: string; won: boolean; score: string }>;
+  h2hCount?: { home: number; away: number; since: string };
+  blackCat?: { victim: 'home' | 'away'; lost: number; n: number; since: string; text: string };
   meta: { builtAt: string; matchesUsed: number; n: number };
 }
-interface SlateMatch { id: string; day: string; league: string; start: string; home: string; away: string; odds?: Odds; oddsOpen?: Odds }
-interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string }
+type Live = { state: 'pre' | 'in' | 'post'; detail?: string; home: Array<{ g: number; tb?: number; w?: boolean }>; away: Array<{ g: number; tb?: number; w?: boolean }>; winner?: 'home' | 'away' };
+interface SlateMatch { id: string; day: string; league: string; start: string; home: string; away: string; odds?: Odds; oddsOpen?: Odds; live?: Live }
+interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string; cat?: string; trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' } }
 interface PlayerCard { atp?: string; ioc?: string; rank?: number; age?: number; wiki?: string | null }
 type State = { status: 'loading' } | { status: 'none' } | { status: 'queued' | 'running'; startedAt?: string; url?: string } | { status: 'done'; result: TennisResult } | { status: 'failed'; error?: string; url?: string };
 
@@ -60,7 +64,11 @@ export function Avatar({ name, photo, alt, size = 'md' }: { name: string; photo?
   const [i, setI] = useState(0);
   return (
     <span className={`t-ava t-ava-${size}`} aria-hidden="true">
-      {i < srcs.length ? <img key={srcs[i]} src={srcs[i]} alt="" loading="lazy" decoding="async" onError={() => setI(i + 1)} /> : initials(name)}
+      {i < srcs.length ? (
+        <img key={srcs[i]} src={srcs[i]} alt="" loading="lazy" decoding="async" className={photo && i === 0 ? 'atp' : undefined} onError={() => setI(i + 1)} />
+      ) : (
+        initials(name)
+      )}
     </span>
   );
 }
@@ -138,7 +146,7 @@ function DayTracker({ run, sims, onClose }: { run: DayRun; sims: Map<string, Sim
     <section className="batch" aria-live="polite">
       <div className="batch-head">
         <p className="batch-title">
-          {live ? 'Simulation de la journée' : failed ? 'Journée simulée, avec des échecs' : 'Journée simulée'} <span>· {run.day}</span>
+          {live ? 'Simulation de la journée' : failed ? 'Journée simulée, avec des échecs' : 'Journée simulée'} <span>· {dayLongOf(run.day)}</span>
         </p>
         <span className="batch-clock mono">
           {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
@@ -175,112 +183,311 @@ function DayTracker({ run, sims, onClose }: { run: DayRun; sims: Map<string, Sim
 }
 
 // ——— Programme ———
-export function TennisSchedulePage() {
+// Même agencement que le programme NBA : jour en titre, filtre à venir / en direct / terminés, bande des jours,
+// « Simuler toute la journée », puis les matchs par tournoi (liste) ou en cartes (grille).
+type Status = 'pre' | 'in' | 'post';
+type View = 'liste' | 'grille';
+const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+/** Jour local (AAAA-MM-JJ) d'une heure ISO. */
+const localDay = (iso: string | number) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const dayLongOf = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+/** État du match : celui d'ESPN, sinon d'après l'heure (en direct jusqu'à 4 heures après le début). */
+const stateOf = (m: SlateMatch): Status => m.live?.state ?? (Date.parse(m.start) > Date.now() ? 'pre' : Date.now() - Date.parse(m.start) < 4 * 3_600_000 ? 'in' : 'post');
+const setsWon = (l: Live, side: 'home' | 'away') => l[side].filter((x) => x.w).length;
+const storedView = (): View => (store.get('vue') === 'grille' ? 'grille' : 'liste');
+
+export function TennisSchedulePage({ day }: { day: string | null }) {
   const [data, setData] = useState<{ matches: SlateMatch[]; sims: SimIndex[]; players?: Record<string, PlayerCard> }>();
   const [error, setError] = useState<string>();
+  const [view, setView] = useState<View>(storedView);
+  const [status, setStatus] = useState<Status>('pre');
   const load = useCallback(() => api('?slate=1').then(setData, (e: Error) => setError(e.message)), []);
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => store.set('vue', view), [view]);
   const { run, start, dismiss } = useDayRun(load);
-  const groups = useMemo(() => {
-    const now = Date.now() - 3 * 3_600_000;
-    const up = (data?.matches ?? []).filter((m) => Date.parse(m.start) > now).sort((a, b) => a.start.localeCompare(b.start));
-    const g = new Map<string, SlateMatch[]>();
-    for (const m of up) {
-      const k = `${dayName(m.start)}|${tourneyOf(m.league)}`;
-      g.set(k, [...(g.get(k) ?? []), m]);
-    }
-    return [...g];
-  }, [data]);
-  const sims = new Map((data?.sims ?? []).map((s) => [s.id, s]));
-  // Toute la journée : les matchs pas encore commencés du premier jour qui en a.
-  const todo = useMemo(() => {
-    const up = (data?.matches ?? []).filter((m) => Date.parse(m.start) > Date.now()).sort((a, b) => a.start.localeCompare(b.start));
-    const first = up[0] && dayName(up[0].start);
-    return { label: first, list: up.filter((m) => dayName(m.start) === first) };
-  }, [data]);
   const busy = !ended(run);
-  // Comme les équipes NBA : photo à côté du nom, classement et pays dessous.
-  const who = (name: string, away = false) => {
-    const c = data?.players?.[name];
-    const sub = [c?.rank != null ? `n° ${c.rank}` : '', c?.ioc ?? ''].filter(Boolean).join(' · ');
-    const ava = <Avatar name={name} photo={c?.atp ? atpHeadshot(c.atp) : undefined} alt={c?.wiki ?? undefined} size="row" />;
-    return (
-      <div className={`vs-team${away ? ' away' : ''}`}>
-        {!away && ava}
-        <span>
-          <span className="vs-name">
-            <span className="t-lg">{name}</span>
-            <span className="t-sm">{short(name)}</span>
-          </span>
-          <span className="vs-rec">{sub}</span>
-        </span>
-        {away && ava}
-      </div>
-    );
-  };
+  const sims = new Map((data?.sims ?? []).map((s) => [s.id, s]));
+
+  // Hier, aujourd'hui et les six jours suivants, à l'heure locale.
+  const dates = useMemo(() => Array.from({ length: 8 }, (_, i) => localDay(Date.now() + (i - 1) * 86_400_000)), [data]);
+  const byDay = useMemo(() => {
+    const m = new Map<string, SlateMatch[]>(dates.map((d) => [d, []]));
+    for (const x of data?.matches ?? []) m.get(localDay(x.start))?.push(x);
+    for (const list of m.values()) list.sort((a, b) => a.start.localeCompare(b.start));
+    return m;
+  }, [data, dates]);
+  const today = dates[1];
+  const firstWithMatches = dates.slice(1).find((d) => (byDay.get(d)?.length ?? 0) > 0) ?? today;
+  const current = day && byDay.has(day) ? day : firstWithMatches;
+  const dayMatches = byDay.get(current) ?? [];
+  const count = (st: Status) => dayMatches.filter((m) => stateOf(m) === st).length;
+  // Le filtre suit le jour : on bascule sur un statut qui a des matchs.
+  useEffect(() => {
+    if (dayMatches.length && !dayMatches.some((m) => stateOf(m) === status)) setStatus((['in', 'pre', 'post'] as const).find((st) => dayMatches.some((m) => stateOf(m) === st))!);
+  }, [current, data]);
+  // Matchs en direct : programme relu chaque minute.
+  const anyLive = dayMatches.some((m) => stateOf(m) === 'in');
+  useEffect(() => {
+    if (!anyLive) return;
+    const t = window.setInterval(() => void load(), 60_000);
+    return () => window.clearInterval(t);
+  }, [anyLive, load]);
+  const shown = dayMatches.filter((m) => stateOf(m) === status);
+  const groups = [...shown.reduce((g, m) => g.set(tourneyOf(m.league), [...(g.get(tourneyOf(m.league)) ?? []), m]), new Map<string, SlateMatch[]>())];
+  const todo = dayMatches.filter((m) => stateOf(m) === 'pre');
+  const inRun = (id: string) => busy && run!.ids.includes(id);
+
   return (
     <div className="page">
-      <header className="page-head">
-        <h1>Programme ATP</h1>
-        <p className="lede">Circuit principal, matchs avec une cote Pinnacle. Heures dans votre fuseau.</p>
-      </header>
-      {error && <Empty title="Le programme n'a pas pu être chargé.">{error}</Empty>}
-      {!data && !error && <span className="sk sk-hero" aria-busy="true" />}
-      {run && <DayTracker run={run} sims={sims} onClose={dismiss} />}
-      {(todo.list.length > 0 || busy) && (
-        <div className="sheet-bar">
-          {!busy && <p className="sheet-hint" style={{ textTransform: 'capitalize' }}>{todo.label}</p>}
-          <button className="btn-soiree" disabled={busy} onClick={() => void start(todo.label!, todo.list)} title={busy ? undefined : `Simule les ${todo.list.length} matchs à venir de ce jour, en un seul passage`}>
-            {busy ? 'Journée en cours' : 'Simuler toute la journée'}
-            <span className="n">{busy ? `${run!.ids.length} matchs` : `${todo.list.length} match${todo.list.length > 1 ? 's' : ''}`}</span>
-          </button>
+      <header className="dash-head">
+        <div>
+          <h1>Programme ATP</h1>
+          <p className="dash-meta">
+            <CalendarBlank size={16} /> <span>{cap(dayLongOf(current))}</span>
+            <span className="count">
+              {dayMatches.length} match{dayMatches.length > 1 ? 's' : ''}
+            </span>
+          </p>
         </div>
+        <Segmented<View>
+          tone="dark"
+          ariaLabel="Affichage"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'grille', label: <><SquaresFour size={16} /> Grille</> },
+            { value: 'liste', label: <><ListBullets size={16} /> Liste</> },
+          ]}
+        />
+      </header>
+
+      {error && (
+        <Empty title="Le programme n'a pas pu être chargé.">
+          <p>{error}</p>
+          <button className="btn btn-ghost" onClick={() => location.reload()}>
+            Réessayer
+          </button>
+        </Empty>
       )}
-      {data && groups.length === 0 && <Empty title="Aucun match ATP coté pour le moment." />}
-      {groups.map(([k, list]) => {
-        const [dayName, tourney] = k.split('|');
-        return (
-          <section className="league-card" key={k}>
-            <div className="league-top">
-              <h2>{tourney}</h2>
-              <span className="badge-n">{list.length}</span>
-              <span className="muted" style={{ textTransform: 'capitalize' }}>{dayName}</span>
+      {!data && !error && <span className="sk sk-hero" aria-busy="true" />}
+
+      {data && (
+        <>
+          <div className="filters">
+            <Segmented<Status>
+              ariaLabel="Statut"
+              value={status}
+              onChange={setStatus}
+              options={[
+                { value: 'pre', label: <>À venir {count('pre') > 0 && <span className="mono">{count('pre')}</span>}</> },
+                { value: 'in', label: <>{count('in') > 0 && <span className="live-dot" />}En direct {count('in') > 0 && <span className="mono">{count('in')}</span>}</>, disabled: !count('in') },
+                { value: 'post', label: <>Terminés {count('post') > 0 && <span className="mono">{count('post')}</span>}</>, disabled: !count('post') },
+              ]}
+            />
+          </div>
+
+          <nav className="days" aria-label="Jours">
+            {dates.map((d) => {
+              const n = byDay.get(d)?.length ?? 0;
+              const name = d === today ? "Aujourd'hui" : d === dates[2] ? 'Demain' : d === dates[0] ? 'Hier' : new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short' });
+              return (
+                <Link key={d} href={`/tennis?jour=${d}`} replace className={`day${d === current ? ' is-on' : ''}${n ? '' : ' is-empty'}`}>
+                  <span className="day-name">{name}</span>
+                  <span className="day-date">{new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+                  <span className="day-count">{n ? `${n} match${n > 1 ? 's' : ''}` : 'repos'}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          {(todo.length > 0 || (busy && run!.day === current)) && (
+            <div className="sheet-bar">
+              {busy && run!.day !== current && (
+                <p className="sheet-hint">
+                  Une journée est déjà en calcul ({dayLongOf(run!.day)}).{' '}
+                  <Link href={`/tennis?jour=${run!.day}`} replace>
+                    Voir
+                  </Link>
+                </p>
+              )}
+              <button className="btn-soiree" disabled={busy} onClick={() => void start(current, todo)} title={busy ? undefined : `Simule les ${todo.length} matchs à venir de ce jour, en un seul passage`}>
+                {busy && run!.day === current ? 'Journée en cours' : 'Simuler toute la journée'}
+                <span className="n">{busy && run!.day === current ? `${run!.ids.length} matchs` : `${todo.length} match${todo.length > 1 ? 's' : ''}`}</span>
+              </button>
             </div>
-            <ol className="rows">
-              {list.map((m, i) => {
-                const s = sims.get(m.id);
-                const fav = s ? (s.pHome >= 0.5 ? { n: s.home, p: s.pHome } : { n: s.away, p: 1 - s.pHome }) : undefined;
-                return (
-                  <li key={m.id}>
-                    <Link href={`/tennis/match/${m.day}/${m.id}`} className="row t-row" style={{ '--i': i } as CSSProperties}>
-                      <div className="row-time">
-                        <span className="t">{timeLocal(m.start)}</span>
-                        <span className="pill-tag">
-                          <span className="t-lg">{ROUND_FR[roundOf(m.league)] ?? roundOf(m.league)}</span>
-                          <span className="t-sm">{ROUND_SHORT[roundOf(m.league)] ?? ROUND_FR[roundOf(m.league)] ?? roundOf(m.league)}</span>
-                        </span>
-                      </div>
-                      <div className="vs-line">
-                        {who(m.home, true)}
-                        <span className="vs-at">vs</span>
-                        {who(m.away)}
-                      </div>
-                      <span className="cell-odds">{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : '-'}</span>
-                      <span style={{ textAlign: 'center' }}>
-                        {fav ? <span className="conf-pill sim">{fav.n.split(' ').at(-1)} {pct0(fav.p)}</span> : <span className="conf-pill go">Simuler</span>}
-                      </span>
-                      <CaretRight size={16} className="row-caret" />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        );
-      })}
+          )}
+          {run && run.day === current && <DayTracker run={run} sims={sims} onClose={dismiss} />}
+
+          {dayMatches.length === 0 ? (
+            <Empty title="Pas de match ATP coté ce jour-là." />
+          ) : view === 'liste' ? (
+            groups.map(([tourney, list]) => (
+              <section className="league-card" key={`${current}-${status}-${tourney}`}>
+                <div className="league-top">
+                  <h2>{tourney}</h2>
+                  <span className="badge-n">{list.length}</span>
+                  <span className="muted">Heures dans votre fuseau</span>
+                </div>
+                <div className="thead t-row" aria-hidden="true">
+                  <span>Heure</span>
+                  <span className="c">Match</span>
+                  <span className="c">Cotes</span>
+                  <span className="c">Simulation</span>
+                  <span />
+                </div>
+                <ol className="rows">
+                  {list.map((m, i) => (
+                    <li key={m.id}>
+                      <TennisRow m={m} sim={sims.get(m.id)} players={data.players} running={inRun(m.id)} i={i} />
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ))
+          ) : (
+            <div className="cards" key={`${current}-${status}`}>
+              {shown.map((m, i) => (
+                <TennisCard key={m.id} m={m} sim={sims.get(m.id)} players={data.players} running={inRun(m.id)} i={i} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
+  );
+}
+
+/** Heure ou sets gagnés, et l'étiquette du tour (à venir), « Direct » ou « Final ». */
+function TimeCell({ m }: { m: SlateMatch }) {
+  const st = stateOf(m);
+  const round = roundOf(m.league);
+  return (
+    <div className="row-time">
+      <span className="t">{st === 'pre' || !m.live ? timeLocal(m.start) : `${setsWon(m.live, 'home')}-${setsWon(m.live, 'away')}`}</span>
+      {st === 'in' ? (
+        <span className="pill-tag live">
+          <span className="live-dot" /> Direct
+        </span>
+      ) : st === 'post' ? (
+        <span className="pill-tag final">Final</span>
+      ) : (
+        <span className="pill-tag">
+          <span className="t-lg">{ROUND_FR[round] ?? round}</span>
+          <span className="t-sm">{ROUND_SHORT[round] ?? ROUND_FR[round] ?? round}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Jeux de chaque set (jeu décisif du perdant du set entre parenthèses), ou classement et pays avant le match. */
+function subLine(m: SlateMatch, side: 'home' | 'away', c?: PlayerCard) {
+  const l = m.live;
+  if (l && l.state !== 'pre' && l[side].length) return l[side].map((x) => `${x.g}${x.tb != null && !x.w ? `(${x.tb})` : ''}`).join('  ');
+  return [c?.rank != null ? `n° ${c.rank}` : '', c?.ioc ?? ''].filter(Boolean).join(' · ');
+}
+
+/** Joueur comme une équipe NBA : photo à côté du nom, flèche de forme, ligne du dessous (classement ou jeux). */
+function Who({ m, side, players, sim, align, size = 'row' }: { m: SlateMatch; side: 'home' | 'away'; players?: Record<string, PlayerCard>; sim?: SimIndex; align?: 'away'; size?: 'row' | 'lg' }) {
+  const name = m[side], c = players?.[name];
+  const lost = m.live?.winner && m.live.winner !== side;
+  const trend = sim?.trend?.[side];
+  const ava = <Avatar name={name} photo={c?.atp ? atpHeadshot(c.atp) : undefined} alt={c?.wiki ?? undefined} size={size} />;
+  const label = (
+    <span className={lost ? 't-lost' : undefined}>
+      <span className="vs-name">
+        <span className="t-lg">{name}</span>
+        <span className="t-sm">{short(name)}</span>
+        {trend && (
+          <span className={`t-trend ${trend}`} title={trend === 'up' ? 'En hausse' : 'En baisse'} aria-label={trend === 'up' ? 'En hausse' : 'En baisse'}>
+            {trend === 'up' ? <TrendUp size={13} weight="bold" /> : <TrendDown size={13} weight="bold" />}
+          </span>
+        )}
+      </span>
+      <span className="vs-rec">{subLine(m, side, c)}</span>
+    </span>
+  );
+  if (size === 'lg')
+    return (
+      <div className={`card-team${lost ? ' t-lost' : ''}`}>
+        {ava}
+        {label}
+      </div>
+    );
+  return (
+    <div className={`vs-team${align ? ' away' : ''}`}>
+      {!align && ava}
+      {label}
+      {align && ava}
+    </div>
+  );
+}
+
+/** Pastille de simulation, comme au basket : chat noir, favori et son pourcentage ; « Calcul » pendant la journée. */
+function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
+  if (running)
+    return (
+      <span className="conf-pill run">
+        <span className="spin spin-xs" /> Calcul
+      </span>
+    );
+  if (!sim) return <span className="conf-pill go">Simuler</span>;
+  const fav = sim.pHome >= 0.5 ? { n: sim.home, p: sim.pHome } : { n: sim.away, p: 1 - sim.pHome };
+  return (
+    <span className="pill-group">
+      {sim.cat && (
+        <span className="cat-mini" title={`Chat noir pour ${sim.cat}`} aria-label={`Chat noir pour ${sim.cat}`}>
+          <Cat size={13} weight="fill" />
+        </span>
+      )}
+      <span className="conf-pill sim">
+        <TrendUp size={13} weight="bold" /> {fav.n.split(' ').at(-1)} {pct0(fav.p)}
+      </span>
+    </span>
+  );
+}
+
+function TennisRow({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimIndex; players?: Record<string, PlayerCard>; running: boolean; i: number }) {
+  return (
+    <Link href={`/tennis/match/${m.day}/${m.id}`} className="row t-row" style={{ '--i': i } as CSSProperties}>
+      <TimeCell m={m} />
+      <div className="vs-line">
+        <Who m={m} side="home" players={players} sim={sim} align="away" />
+        <span className="vs-at">vs</span>
+        <Who m={m} side="away" players={players} sim={sim} />
+      </div>
+      <span className="cell-odds">{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : '-'}</span>
+      <span style={{ textAlign: 'center' }}>
+        <TennisSimPill sim={sim} running={running} />
+      </span>
+      <CaretRight size={16} className="row-caret" />
+    </Link>
+  );
+}
+
+function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimIndex; players?: Record<string, PlayerCard>; running: boolean; i: number }) {
+  const st = stateOf(m);
+  return (
+    <Link href={`/tennis/match/${m.day}/${m.id}`} className="card t-card" style={{ '--i': i } as CSSProperties}>
+      <div className="card-top">
+        <span className="mono strong">{st === 'pre' || !m.live ? timeLocal(m.start) : `${setsWon(m.live, 'home')}-${setsWon(m.live, 'away')}`}</span>
+        <span className="muted small">{tourneyOf(m.league)}</span>
+      </div>
+      <div className="card-vs">
+        <Who m={m} side="home" players={players} sim={sim} size="lg" />
+        <span className="card-x">VS</span>
+        <Who m={m} side="away" players={players} sim={sim} size="lg" />
+      </div>
+      <div className="card-foot">
+        <span>{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : 'Cotes à venir'}</span>
+        <TennisSimPill sim={sim} running={running} />
+      </div>
+    </Link>
   );
 }
 
@@ -398,13 +605,14 @@ function TennisResults({ r, onRelaunch, busy }: { r: TennisResult; onRelaunch: (
           {r.indoor ? ' (salle)' : ''} · {r.bestOf === 5 ? '3 sets gagnants' : '2 sets gagnants'} · {new Date(r.start).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
         </span>
         <button className="btn btn-ghost" onClick={onRelaunch} disabled={busy}>
-          {busy ? <span className="spin" /> : <Sparkle size={16} />} Relancer
+          {busy ? <span className="spin" /> : <ArrowClockwise size={16} />} Relancer
         </button>
       </div>
       <TennisVerdict r={r} />
       <Section title="Pronostics par catégorie" tag="issue la plus fréquente">
         <PickTabs cats={cats} n={r.sim.n} />
       </Section>
+      <TennisSignals r={r} />
       <Section title="Score en sets" tag={`${r.sim.n.toLocaleString('fr-FR')} matchs simulés`}>
         <SetScores r={r} />
       </Section>
@@ -440,6 +648,44 @@ function TennisResults({ r, onRelaunch, busy }: { r: TennisResult; onRelaunch: (
         Données jusqu'au {new Date(r.meta.builtAt).toLocaleDateString('fr-FR')} : {r.meta.matchesUsed.toLocaleString('fr-FR')} matchs ATP, Challengers et qualifications (TennisMyLife),
         cotes Pinnacle. Probabilité Razzia : moitié moteur, moitié marché. Les probabilités décrivent le modèle, pas une certitude. Jouer comporte des risques.
       </p>
+    </div>
+  );
+}
+
+/** Signaux du match, comme au basket : chat noir (confrontations), joueurs en hausse ou en baisse (forme). */
+function TennisSignals({ r }: { r: TennisResult }) {
+  const cat = r.blackCat;
+  const moves = [r.home, r.away].filter((p) => p.trend);
+  if (!cat && !moves.length) return null;
+  return (
+    <div className="signals">
+      {cat && (
+        <div className="signal signal-cat">
+          <span className="signal-icon">
+            <Cat size={20} weight="fill" />
+          </span>
+          <div>
+            <p className="signal-title">Chat noir pour {r[cat.victim].name}</p>
+            <p>{cat.text}</p>
+          </div>
+        </div>
+      )}
+      {moves.map((p) => {
+        const wins = p.form.filter((m) => m.won).length;
+        return (
+          <div key={p.name} className={`signal ${p.trend === 'up' ? 'signal-up' : 'signal-down'}`}>
+            <span className="signal-icon">{p.trend === 'up' ? <TrendUp size={20} weight="bold" /> : <TrendDown size={20} weight="bold" />}</span>
+            <div>
+              <p className="signal-title">
+                <Avatar name={p.name} photo={p.photo} alt={p.photoAlt} size="sm" /> {p.name} {p.trend === 'up' ? 'en hausse' : 'en baisse'}
+              </p>
+              <p>
+                {wins} victoire{wins > 1 ? 's' : ''} sur ses {p.form.length} derniers matchs : {Math.abs(p.form10 ?? 0).toFixed(1).replace('.', ',')} de {(p.form10 ?? 0) > 0 ? 'plus' : 'moins'} que ce qu'annonçait son niveau face à ces adversaires.
+              </p>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

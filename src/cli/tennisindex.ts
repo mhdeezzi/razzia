@@ -14,7 +14,10 @@ for (const f of existsSync(join(dir, 'sims')) ? readdirSync(join(dir, 'sims')) :
   if (!f.endsWith('.json')) continue;
   const s = JSON.parse(readFileSync(join(dir, 'sims', f), 'utf8'));
   const at = fresh.has(s.id) || !before.has(s.id) ? new Date().toISOString() : before.get(s.id)!.at;
-  out.push({ id: s.id, day: s.day, start: s.start, tourney: s.tourney, round: s.round, home: s.home.name, away: s.away.name, pHome: s.pHome, at });
+  // Badges du programme : victime d'un chat noir, joueurs en hausse ou en baisse.
+  const cat = s.blackCat ? s[s.blackCat.victim].name : undefined;
+  const trend = { home: s.home.trend, away: s.away.trend };
+  out.push({ id: s.id, day: s.day, start: s.start, tourney: s.tourney, round: s.round, home: s.home.name, away: s.away.name, pHome: s.pHome, at, cat, trend });
 }
 out.sort((a, b) => b.at.localeCompare(a.at));
 writeFileSync(file, JSON.stringify(out));

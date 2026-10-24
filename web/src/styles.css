@@ -758,12 +758,27 @@ a.row:hover .mark { transform: scale(1.06); }
 /* Tennis : photos des joueurs, programme, score en sets, duel, raisons du moteur, forme. */
 .t-ava { display: inline-grid; place-items: center; flex: none; border-radius: 50%; overflow: hidden; background: var(--panel-4); color: var(--text-2); font: 700 12px var(--sans); box-shadow: inset 0 0 0 1px var(--line-2); transition: transform 0.3s var(--spring); }
 .t-ava img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; }
+/* Photo officielle ATP : un peu de recul (tête et épaules), posée en bas du cercle. */
+.t-ava img.atp { transform: scale(0.86); transform-origin: 50% 100%; object-position: 50% 0; }
 .t-ava-sm { width: 28px; height: 28px; font-size: 10px; }
 .t-ava-md { width: 52px; height: 52px; }
 .t-ava-lg { width: 72px; height: 72px; font-size: 16px; }
-.t-row { grid-template-columns: 92px minmax(0, 1fr) 150px 150px 24px; }
+.t-row { grid-template-columns: 92px minmax(0, 1fr) 140px 190px 24px; }
 .t-ava-row { width: 44px; height: 44px; font-size: 12px; }
 .t-row .vs-team > span { min-width: 0; }
+.t-lost .vs-name { color: var(--text-3); }
+.t-trend { display: inline-flex; margin-left: 6px; vertical-align: -1px; }
+.t-trend.up { color: var(--green); }
+.t-trend.down { color: var(--rose); }
+/* Cartes (grille) : noms courts, photos à la taille des logos NBA. */
+.t-card .card-vs { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.t-card .card-team { min-width: 0; }
+.t-card .card-team > span { min-width: 0; max-width: 100%; }
+.t-card .vs-name { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-card .t-lg { display: none; }
+.t-card .t-sm { display: inline; }
+.t-card .t-ava-lg { width: 64px; height: 64px; }
+.t-card .card-top > .muted { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 12px; }
 .t-row .vs-name { display: block; }
 .t-sm { display: none; }
 a.row:hover .t-ava { transform: scale(1.06); }
@@ -802,7 +817,10 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .t-res.w { color: var(--green); background: rgba(61, 220, 151, 0.12); }
 .t-res.l { color: var(--rose); background: var(--rose-soft); }
 @media (max-width: 720px) {
-  .t-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  /* Téléphone : la pastille de simulation passe sous les joueurs, les noms gardent la largeur. */
+  .t-row { grid-template-columns: auto minmax(0, 1fr); row-gap: 10px; }
+  .t-row > :nth-child(4) { grid-column: 2; justify-self: start; }
+  .t-row .vs-rec { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .t-bilan-row { grid-template-columns: 48px minmax(0, 1fr) auto; }
   .t-bl-fav { display: none; }
   .t-ava-row { width: 38px; height: 38px; }
