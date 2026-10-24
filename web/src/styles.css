@@ -239,15 +239,16 @@ a.row:hover .mark { transform: scale(1.06); }
   transition: background-color 0.2s, border-color 0.2s, color 0.2s, transform 0.1s ease-out, box-shadow 0.25s, opacity 0.2s, filter 0.2s; }
 .btn:active:not(:disabled) { transform: scale(0.97); }
 .btn:disabled { opacity: 0.5; cursor: default; }
-/* Bouton principal : blanc, lueur bleu foncé qui fait le tour (comme l'onglet Simulation). */
-.btn-primary { color: #0b0b0b; border: 2px solid transparent; padding: 10px 19px; animation: beam 4.5s linear infinite;
-  background: linear-gradient(#fff, #fff) padding-box,
+/* Bouton principal : blanc, lueur bleu foncé qui fait le tour (comme l'onglet Simulation) ; bleu foncé au survol et à l'appui. */
+.btn-primary { --pfill: #fff; color: #0b0b0b; border: 2px solid transparent; padding: 10px 19px; animation: beam 4.5s linear infinite;
+  background: linear-gradient(var(--pfill), var(--pfill)) padding-box,
     conic-gradient(from var(--beam), transparent 0 70%, rgba(44, 90, 238, 0.7) 84%, #1a3fc4 92%, transparent 100%) border-box,
     linear-gradient(#fff, #fff) border-box;
   box-shadow: 0 12px 28px -14px rgba(44, 90, 238, 0.7); }
 .btn-primary.btn-lg { padding: 15px 27px; }
+.btn-primary:active:not(:disabled) { --pfill: #1a3fc4; color: #fff; }
 @media (hover: hover) and (pointer: fine) {
-  .btn-primary:hover:not(:disabled) { box-shadow: 0 14px 30px -12px rgba(44, 90, 238, 0.85); }
+  .btn-primary:hover:not(:disabled) { --pfill: #1a3fc4; color: #fff; box-shadow: 0 14px 30px -12px rgba(44, 90, 238, 0.85); }
 }
 
 
@@ -376,7 +377,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .sheet-bar { display: flex; justify-content: flex-end; align-items: center; gap: 14px; flex-wrap: wrap; margin: -8px 0 14px; }
 .sheet-hint { font-size: 13px; color: var(--text-3); text-wrap: pretty; }
 .sheet-hint a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
-/* Bouton noir, lueur blanche qui fait le tour. */
+/* Bouton noir, lueur blanche qui fait le tour ; blanc au survol et à l'appui. */
 .btn-soiree { --fill: #0b0b0b; display: inline-flex; align-items: center; gap: 12px; height: 42px; padding: 0 16px 0 18px; border-radius: 12px; border: 1px solid transparent;
   background: linear-gradient(var(--fill), var(--fill)) padding-box,
     conic-gradient(from var(--beam), transparent 0 70%, rgba(255, 255, 255, 0.55) 84%, #fff 92%, transparent 100%) border-box,
@@ -385,8 +386,12 @@ a.row:hover .mark { transform: scale(1.06); }
   font: 600 14.5px var(--sans); letter-spacing: -0.01em; color: #fff; cursor: pointer; white-space: nowrap; transition: color 0.2s, transform 0.12s ease-out; }
 
 .btn-soiree .n { font: 500 13px var(--mono); letter-spacing: -0.02em; color: var(--text-3); padding-left: 12px; border-left: 1px solid var(--line-2); }
-.btn-soiree:not(:disabled):active { transform: scale(0.97); }
-@media (hover: hover) and (pointer: fine) { .btn-soiree:not(:disabled):hover { --fill: var(--panel-3); } }
+.btn-soiree:not(:disabled):active { transform: scale(0.97); --fill: #fff; color: #0b0b0b; }
+.btn-soiree:not(:disabled):active .n { color: #555; border-left-color: rgba(0, 0, 0, 0.2); }
+@media (hover: hover) and (pointer: fine) {
+  .btn-soiree:not(:disabled):hover { --fill: #fff; color: #0b0b0b; }
+  .btn-soiree:not(:disabled):hover .n { color: #555; border-left-color: rgba(0, 0, 0, 0.2); }
+}
 .btn-soiree:disabled { cursor: default; color: var(--text-3); animation: none; border-color: var(--line-2); background: var(--panel); }
 
 
