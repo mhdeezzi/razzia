@@ -104,6 +104,8 @@ main { max-width: 1280px; margin: 0 auto; padding: 0 24px 72px; }
 .back svg { transition: transform 0.25s var(--ease); }
 
 /* Tableau de bord (Betix) */
+/* RAZZIA en lettres rouges du logo, au-dessus du titre du programme. */
+.wordmark { display: block; height: 64px; width: auto; margin: 0 0 18px; filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.6)); }
 .dash-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin-bottom: 22px; }
 .dash-head h1 { font-size: clamp(32px, 4vw, 44px); font-weight: 700; letter-spacing: -0.035em; line-height: 1.05; }
 .dash-meta { display: flex; align-items: center; gap: 10px; color: var(--text-2); margin-top: 10px; }
@@ -910,6 +912,7 @@ a.row:hover .t-ava { transform: scale(1.06); }
 
 /* Téléphone : en-têtes de page centrés, sélecteurs pleine largeur, sports regroupés dans une pastille en haut. */
 @media (max-width: 720px) {
+  .wordmark { height: 56px; margin: 0 auto 14px; }
   .dash-head { flex-direction: column; align-items: center; text-align: center; gap: 18px; }
   .dash-meta { justify-content: center; flex-wrap: wrap; }
   .page-head { text-align: center; margin-left: auto; margin-right: auto; }

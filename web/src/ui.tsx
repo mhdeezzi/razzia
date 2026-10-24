@@ -1,6 +1,7 @@
 // Briques partagées : navigation, pastille d'équipe, onglets à curseur glissant, anneau de probabilité, compteur animé.
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { teamColor, teamLogo, type Team } from './data.ts';
+import lettres from './assets/razzia-lettres.png';
 
 export function navigate(to: string): void {
   history.pushState(null, '', to);
@@ -196,4 +197,9 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
       {children && <div className="empty-body">{children}</div>}
     </div>
   );
+}
+
+/** RAZZIA en lettres gothiques rouges (celles du logo), en tête des programmes. */
+export function Wordmark() {
+  return <img className="wordmark" src={lettres} alt="Razzia" />;
 }
