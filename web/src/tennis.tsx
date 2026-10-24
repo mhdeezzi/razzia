@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { ArrowClockwise, ArrowLeft, CalendarBlank, CaretRight, Cat, Flag, House, Mountains, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { Empty, Link, ProgressLine, Ring, Segmented } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
-import { buildTennisCategories, favOf, flipOf, T_SURE } from './tennispicks.ts';
-import type { Outcome } from './picks.ts';
+import { buildTennisCategories, favOf, flipOf, T_FLIP, T_SURE } from './tennispicks.ts';
+import { shown, type Outcome } from './picks.ts';
 
 // ——— Données ———
 export interface TennisPlayer {
@@ -462,6 +462,8 @@ function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
     );
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const fav = sim.pHome >= 0.5 ? { n: sim.home, p: sim.pHome } : { n: sim.away, p: 1 - sim.pHome };
+  // Pile ou face (même règle que la fiche) : favori sous 60 %, ou outsider en hausse.
+  const flip = shown(fav.p) < T_FLIP || sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up';
   return (
     <span className="pill-group">
       {sim.cat && (
@@ -469,7 +471,7 @@ function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
           <Cat size={13} weight="fill" />
         </span>
       )}
-      <span className="conf-pill sim">
+      <span className={`conf-pill sim${flip ? ' flip' : ''}`}>
         <TrendUp size={13} weight="bold" /> {fav.n.split(' ').at(-1)} {pct0(fav.p)}
       </span>
     </span>
