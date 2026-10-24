@@ -26,6 +26,7 @@ interface State {
   recent: Array<{ date: string; res: number; minutes?: number }>; // res : gagné - attendu (Elo)
   retiredAt?: string; // dernier abandon (en perdant)
   tourney?: { tid: string; minutes: number; sets: number; matches: number };
+  info?: { name: string; ioc: string; hand: string; ht?: number; age?: number; ageAt: string; rank?: number };
 }
 
 /** Ce qu'on sait d'un joueur juste avant un match. */
@@ -46,6 +47,8 @@ export interface Snapshot {
   form10: number; // somme (gagné - attendu) sur les 10 derniers matchs
   retired30: boolean; // a abandonné un match dans les 30 jours
   surfaceSwitch: boolean; // dernier match sur une autre surface
+  age?: number;
+  rank?: number;
 }
 
 const SURFS: Surface[] = ['Hard', 'Clay', 'Grass'];
@@ -92,6 +95,8 @@ export class Ratings {
       form10: s.recent.slice(-10).reduce((a, r) => a + r.res, 0),
       retired30: !!s.retiredAt && day(m.date) - day(s.retiredAt) <= 30,
       surfaceSwitch: !!s.last && s.last.surface !== sf,
+      age: s.info?.age != null ? s.info.age + (day(m.date) - day(s.info.ageAt)) / 365.25 : undefined,
+      rank: s.info?.rank,
     };
   }
 
@@ -135,6 +140,8 @@ export class Ratings {
       S.last = { date: m.date, surface: sf, minutes: m.minutes, tid: m.tid };
     }
     if (m.retired) L.retiredAt = m.date;
+    for (const [S, x] of [[W, m.w], [L, m.l]] as Array<[State, Side]>)
+      S.info = { name: x.name, ioc: x.ioc, hand: x.hand, ht: x.ht ?? S.info?.ht, age: x.age ?? S.info?.age, ageAt: x.age != null ? m.date : (S.info?.ageAt ?? m.date), rank: x.rank ?? S.info?.rank };
   }
 }
 

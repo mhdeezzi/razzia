@@ -11,13 +11,19 @@ import { MatchPage } from './match.tsx';
 import { BilanPage } from './bilan.tsx';
 import { SchedulePage } from './schedule.tsx';
 import { TopBar } from './topbar.tsx';
+import { TennisMatchPage, TennisSchedulePage } from './tennis.tsx';
 import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
 
 function App() {
   const { path, search } = useLocation();
   const m = path.match(/^\/match\/(\d{4}-\d{2}-\d{2})\/([A-Z]{3})-([A-Z]{3})\/?$/);
+  const t = path.match(/^\/tennis\/match\/(\d{4}-\d{2}-\d{2})\/(\d+)\/?$/);
   const page = m ? (
     <MatchPage key={path} date={m[1]} away={m[2]} home={m[3]} />
+  ) : t ? (
+    <TennisMatchPage key={path} day={t[1]} id={t[2]} />
+  ) : path === '/tennis' ? (
+    <TennisSchedulePage />
   ) : path === '/simulations' ? (
     <SimsPage />
   ) : path === '/methode' ? (
@@ -28,7 +34,7 @@ function App() {
     <SchedulePage day={search.get('jour')} />
   );
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : 'Razzia | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : 'Razzia | Simulations NBA';
   }, [path]);
   return (
     <>

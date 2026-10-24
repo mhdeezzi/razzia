@@ -1,11 +1,13 @@
 // Historique des matchs ATP au format Sackmann (circuit principal, Challengers et qualifications) : lecture et mise en
-// forme commune. Les fichiers viennent de la copie publique des données Sackmann (GitHub), en cache dans
-// data/cache/tennis/sackmann.
+// forme commune. Deux sources au même format : la copie publique des données Sackmann (2015 à mai 2026) et
+// TennisMyLife (2026 à jour, tournois de la semaine). Les joueurs sont reconnus par leur nom complet, écrit pareil chez
+// Sackmann, TennisMyLife et Pinnacle.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export type Surface = 'Hard' | 'Clay' | 'Grass';
 export interface Serve { svpt: number; firstIn: number; firstWon: number; secondWon: number; svGms: number; bpSaved: number; bpFaced: number; ace: number; df: number }
+/** Un joueur dans un match ; `id` : nom complet normalisé (voir nameKey). */
 export interface Side { id: string; name: string; ioc: string; hand: string; ht?: number; age?: number; rank?: number; pts?: number; entry: string; seed?: number; serve?: Serve }
 export interface Match {
   key: string; // tournoi + numéro du match
@@ -15,6 +17,7 @@ export interface Match {
   level: string; // G Grand Chelem, M Masters 1000, A ATP 250/500, F Finales, O JO, C Challenger
   qual: boolean;
   surface: Surface;
+  indoor?: boolean;
   bo: 3 | 5;
   round: string;
   w: Side;
@@ -43,6 +46,10 @@ function csv(file: string): Array<Record<string, string>> {
 }
 const num = (s: string) => (s === '' || s == null ? undefined : Number(s));
 
+/** Identifiant d'un joueur : nom complet sans accents ni ponctuation (« Felix Auger-Aliassime » -> « felix auger aliassime »). */
+export const nameKey = (name: string) =>
+  (name ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
+
 export function loadPlayers(dir: string): Map<string, Player> {
   const out = new Map<string, Player>();
   for (const p of csv(join(dir, 'atp_players.csv')))
@@ -69,32 +76,45 @@ export function parseScore(score: string): { wSets: number; lSets: number; retir
 
 /** Matchs des années demandées (circuit principal, et Challengers + qualifications si présents), dans l'ordre. */
 export function loadMatches(dir: string, from: number, to: number, opts: { challengers?: boolean } = {}): Match[] {
-  const out: Match[] = [];
   const files: string[] = [];
   for (let y = from; y <= to; y++) {
-    files.push(`atp_matches_${y}.csv`);
-    if (opts.challengers !== false) files.push(`atp_matches_qual_chall_${y}.csv`);
+    files.push(join(dir, `atp_matches_${y}.csv`));
+    if (opts.challengers !== false) files.push(join(dir, `atp_matches_qual_chall_${y}.csv`));
   }
+  return sortMatches(readFiles(files));
+}
+
+/** Niveau de tournoi commun : TennisMyLife écrit « 250 » et « 500 » là où Sackmann écrit « A ». */
+const LEVEL: Record<string, string> = { '250': 'A', '500': 'A' };
+
+/** Lit des fichiers au format Sackmann ou TennisMyLife (même colonnes, plus « indoor » chez TennisMyLife). */
+export function readFiles(files: string[]): Match[] {
+  const out: Match[] = [];
   for (const f of files) {
-    if (!existsSync(join(dir, f))) continue;
-    for (const r of csv(join(dir, f))) {
-      if (!['G', 'M', 'A', 'F', 'O', 'C'].includes(r.tourney_level) || !r.winner_id || !r.loser_id) continue;
+    if (!existsSync(f)) continue;
+    for (const r of csv(f)) {
+      r.tourney_level = LEVEL[r.tourney_level] ?? r.tourney_level;
+      if (!['G', 'M', 'A', 'F', 'O', 'C'].includes(r.tourney_level) || !r.winner_name || !r.loser_name) continue;
       const surface: Surface = r.surface === 'Clay' ? 'Clay' : r.surface === 'Grass' ? 'Grass' : 'Hard';
       const d = r.tourney_date;
       const start = Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8));
       const offset = (r.tourney_level === 'G' ? ROUND_DAY_SLAM : ROUND_DAY)[r.round] ?? 3;
       const sc = parseScore(r.score);
       const side = (p: 'winner' | 'loser', s: 'w' | 'l'): Side => ({
-        id: r[`${p}_id`], name: r[`${p}_name`], ioc: r[`${p}_ioc`], hand: r[`${p}_hand`], ht: num(r[`${p}_ht`]), age: num(r[`${p}_age`]),
+        id: nameKey(r[`${p}_name`]), name: r[`${p}_name`], ioc: r[`${p}_ioc`], hand: r[`${p}_hand`], ht: num(r[`${p}_ht`]), age: num(r[`${p}_age`]),
         rank: num(r[`${p}_rank`]), pts: num(r[`${p}_rank_points`]), entry: r[`${p}_entry`], seed: num(r[`${p}_seed`]),
         serve: r[`${s}_svpt`] ? { svpt: +r[`${s}_svpt`], firstIn: +r[`${s}_1stIn`], firstWon: +r[`${s}_1stWon`], secondWon: +r[`${s}_2ndWon`], svGms: +r[`${s}_SvGms`], bpSaved: +r[`${s}_bpSaved`], bpFaced: +r[`${s}_bpFaced`], ace: +r[`${s}_ace`], df: +r[`${s}_df`] } : undefined,
       });
       out.push({
         key: `${r.tourney_id}-${r.match_num}`, date: new Date(start + offset * 86_400_000).toISOString().slice(0, 10), tid: r.tourney_id, tourney: r.tourney_name,
-        level: r.tourney_level, qual: r.round.startsWith('Q'), surface, bo: r.best_of === '5' ? 5 : 3, round: r.round,
+        level: r.tourney_level, qual: r.round.startsWith('Q'), surface, indoor: r.indoor ? r.indoor === 'I' : undefined, bo: r.best_of === '5' ? 5 : 3, round: r.round,
         w: side('winner', 'w'), l: side('loser', 'l'), score: r.score, minutes: num(r.minutes), ...sc,
       });
     }
   }
+  return out;
+}
+
+export function sortMatches(out: Match[]): Match[] {
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.tid.localeCompare(b.tid) || (ROUND_ORDER[a.round] ?? 5) - (ROUND_ORDER[b.round] ?? 5));
 }

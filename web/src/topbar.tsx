@@ -3,6 +3,7 @@ import { Basketball, ChartLineUp, ClockCounterClockwise, Info, SoccerBall, Targe
 import { Link } from './ui.tsx';
 
 export function TopBar({ path }: { path: string }) {
+  const tennis = path.startsWith('/tennis');
   const links = [
     { href: '/simulations', label: 'Simulations', icon: <ClockCounterClockwise size={18} />, on: path === '/simulations' },
     { href: '/bilan', label: 'Bilan', icon: <Target size={18} />, on: path === '/bilan' },
@@ -16,7 +17,7 @@ export function TopBar({ path }: { path: string }) {
           <span className="word">Razzia</span>
         </Link>
         <nav className="sports" aria-label="Sports">
-          <Link href="/" className="sport is-on" aria-current={path === '/' ? 'page' : undefined} title="Programme NBA">
+          <Link href="/" className={`sport${tennis ? '' : ' is-on'}`} aria-current={path === '/' ? 'page' : undefined} title="Programme NBA">
             <Basketball size={19} />
             <span className="lbl">Basketball</span>
           </Link>
@@ -24,10 +25,10 @@ export function TopBar({ path }: { path: string }) {
             <SoccerBall size={19} />
             <span className="lbl">Football</span>
           </button>
-          <button className="sport" disabled title="Tennis : bientôt" aria-label="Tennis, bientôt">
+          <Link href="/tennis" className={`sport${tennis ? ' is-on' : ''}`} aria-current={path === '/tennis' ? 'page' : undefined} title="Programme ATP">
             <TennisBall size={19} />
             <span className="lbl">Tennis</span>
-          </button>
+          </Link>
         </nav>
         <div className="top-right">
           {links.map((l) => (
