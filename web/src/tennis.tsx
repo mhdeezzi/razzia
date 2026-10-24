@@ -1,7 +1,7 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowLeft, ArrowSquareOut, CaretRight, Scales, ShieldCheck, Sparkle, WarningCircle, X } from '@phosphor-icons/react';
+import { ArrowClockwise, ArrowLeft, ArrowSquareOut, CaretRight, Cat, Scales, ShieldCheck, Sparkle, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { Empty, Link, Ring } from './ui.tsx';
 import { PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, T_FLIP, T_SURE } from './tennispicks.ts';
@@ -11,6 +11,7 @@ import { shown } from './picks.ts';
 export interface TennisPlayer {
   name: string; ioc?: string; hand?: string; ht?: number; age?: number; rank?: number; matches: number; elo: number; serve: number; ret: number;
   daysOff: number; tourneyMinutes: number; played14: number; layoff: boolean; photo?: string; photoAlt?: string; atp?: string;
+  form10?: number; trend?: 'up' | 'down';
   surfaceSeason: { won: number; lost: number };
   form: Array<{ date: string; tourney: string; round: string; surface: string; opponent: string; won: boolean; score: string }>;
 }
@@ -22,10 +23,12 @@ export interface TennisResult {
   market: { pHome?: number; pHomeOpen?: number; odds?: Odds; oddsOpen?: Odds; moves?: Array<{ at: string; ml: [number, number] }> };
   sim: { n: number; pA: number; pB: number; win: number; firstSet: number; scores: Record<string, number>; atLeast1: [number, number]; atLeast2: [number, number]; straight: [number, number]; tiebreak: number; games: { mean: number; p10: number; p50: number; p90: number } };
   h2h: Array<{ date: string; tourney: string; round: string; surface: string; won: boolean; score: string }>;
+  h2hCount?: { home: number; away: number; since: string };
+  blackCat?: { victim: 'home' | 'away'; lost: number; n: number; since: string; text: string };
   meta: { builtAt: string; matchesUsed: number; n: number };
 }
 interface SlateMatch { id: string; day: string; league: string; start: string; home: string; away: string; odds?: Odds; oddsOpen?: Odds }
-interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string }
+interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string; cat?: string; trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' } }
 interface PlayerCard { atp?: string; ioc?: string; rank?: number; age?: number; wiki?: string | null }
 type State = { status: 'loading' } | { status: 'none' } | { status: 'queued' | 'running'; startedAt?: string; url?: string } | { status: 'done'; result: TennisResult } | { status: 'failed'; error?: string; url?: string };
 
@@ -398,13 +401,14 @@ function TennisResults({ r, onRelaunch, busy }: { r: TennisResult; onRelaunch: (
           {r.indoor ? ' (salle)' : ''} · {r.bestOf === 5 ? '3 sets gagnants' : '2 sets gagnants'} · {new Date(r.start).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
         </span>
         <button className="btn btn-ghost" onClick={onRelaunch} disabled={busy}>
-          {busy ? <span className="spin" /> : <Sparkle size={16} />} Relancer
+          {busy ? <span className="spin" /> : <ArrowClockwise size={16} />} Relancer
         </button>
       </div>
       <TennisVerdict r={r} />
       <Section title="Pronostics par catégorie" tag="issue la plus fréquente">
         <PickTabs cats={cats} n={r.sim.n} />
       </Section>
+      <TennisSignals r={r} />
       <Section title="Score en sets" tag={`${r.sim.n.toLocaleString('fr-FR')} matchs simulés`}>
         <SetScores r={r} />
       </Section>
@@ -440,6 +444,45 @@ function TennisResults({ r, onRelaunch, busy }: { r: TennisResult; onRelaunch: (
         Données jusqu'au {new Date(r.meta.builtAt).toLocaleDateString('fr-FR')} : {r.meta.matchesUsed.toLocaleString('fr-FR')} matchs ATP, Challengers et qualifications (TennisMyLife),
         cotes Pinnacle. Probabilité Razzia : moitié moteur, moitié marché. Les probabilités décrivent le modèle, pas une certitude. Jouer comporte des risques.
       </p>
+    </div>
+  );
+}
+
+/** Signaux du match, comme au basket : chat noir (confrontations), joueurs en hausse ou en baisse (forme). */
+function TennisSignals({ r }: { r: TennisResult }) {
+  const cat = r.blackCat;
+  const moves = [r.home, r.away].filter((p) => p.trend);
+  if (!cat && !moves.length) return null;
+  const n1 = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(1).replace('.', ',')}`;
+  return (
+    <div className="signals">
+      {cat && (
+        <div className="signal signal-cat">
+          <span className="signal-icon">
+            <Cat size={20} weight="fill" />
+          </span>
+          <div>
+            <p className="signal-title">Chat noir pour {r[cat.victim].name}</p>
+            <p>{cat.text}</p>
+          </div>
+        </div>
+      )}
+      {moves.map((p) => {
+        const wins = p.form.filter((m) => m.won).length;
+        return (
+          <div key={p.name} className={`signal ${p.trend === 'up' ? 'signal-up' : 'signal-down'}`}>
+            <span className="signal-icon">{p.trend === 'up' ? <TrendUp size={20} weight="bold" /> : <TrendDown size={20} weight="bold" />}</span>
+            <div>
+              <p className="signal-title">
+                <Avatar name={p.name} photo={p.photo} alt={p.photoAlt} size="sm" /> {p.name} {p.trend === 'up' ? 'en hausse' : 'en baisse'}
+              </p>
+              <p>
+                {wins} victoire{wins > 1 ? 's' : ''} sur ses {p.form.length} derniers matchs, soit {n1(p.form10 ?? 0)} par rapport à ce qu'annonçait son niveau face à ces adversaires.
+              </p>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

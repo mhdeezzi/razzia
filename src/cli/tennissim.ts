@@ -56,14 +56,27 @@ async function simMatch(id: string, day: string) {
   }
   const ctx = { date: day, surface, tid: current };
   const A = R.snapshot(nameKey(fiche.home), ctx), B = R.snapshot(nameKey(fiche.away), ctx);
-  const eng = engineProb(R, A, B, surface, bestOf);
+  // Matchs joués par un joueur jusqu'au jour du match, sans ce tournoi à partir du tour joué.
+  const played = (k: string) =>
+    history.filter((m) => (m.w.id === k || m.l.id === k) && m.date <= day && !(m.tid === current && (ROUND_ORDER[m.round] ?? 0) >= (ROUND_ORDER[round] ?? 99)));
+  // Confrontations des 6 dernières années (forfaits exclus).
+  const key = { home: nameKey(fiche.home), away: nameKey(fiche.away) };
+  const since = `${+day.slice(0, 4) - 6}${day.slice(4)}`;
+  const meets = played(key.home).filter((m) => (m.w.id === key.away || m.l.id === key.away) && m.date >= since && !m.walkover);
+  const hw = meets.filter((m) => m.w.id === key.home).length, aw = meets.length - hw;
+  const eng = engineProb(R, A, B, surface, bestOf, { a: hw, b: aw });
   const pMarket = noVig(fiche.last?.ml), pOpen = noVig(fiche.first?.ml);
   const p = blend(eng.p, pMarket);
   const sim = simulate({ pA: R.servePoint(A, B, surface), pB: R.servePoint(B, A, surface), bestOf, target: p, n, seed: Number(id) % 100_000 });
 
+  // Chat noir : au moins 4 confrontations en 6 ans, dont 75 % ou plus gagnées par le même, avec 3 victoires d'avance.
+  // Sur 2024-2025, le dominant a gagné 74 % de ces matchs quand le marché en attendait 69 % (127 matchs).
+  const blackCat = meets.length >= 4 && Math.max(hw, aw) >= 0.75 * meets.length && Math.abs(hw - aw) >= 3
+    ? { victim: hw > aw ? 'away' : 'home', lost: Math.max(hw, aw), n: meets.length, since: meets[0].date.slice(0, 4),
+        text: `${hw > aw ? fiche.away : fiche.home} a perdu ${Math.max(hw, aw)} de ses ${meets.length} matchs contre ${hw > aw ? fiche.home : fiche.away} depuis ${meets[0].date.slice(0, 4)}.` }
+    : undefined;
+
   // Ce qu'on affiche sur chaque joueur : forme, confrontations, saison sur la surface, fatigue.
-  const key = { home: nameKey(fiche.home), away: nameKey(fiche.away) };
-  const played = (k: string) => history.filter((m) => (m.w.id === k || m.l.id === k) && m.date <= day && !(m.tid === current && (ROUND_ORDER[m.round] ?? 0) >= (ROUND_ORDER[round] ?? 99)));
   const line = (m: Match, k: string) => ({ date: m.date, tourney: m.tourney, round: m.round, surface: m.surface, opponent: m.w.id === k ? m.l.name : m.w.name, won: m.w.id === k, score: m.score });
   const player = (name: string, k: string, s: Snapshot) => {
     const games = played(k);
@@ -75,6 +88,10 @@ async function simMatch(id: string, day: string) {
       daysOff: s.daysOff, tourneyMinutes: s.tourneyMinutes, played14: s.played14, layoff: s.daysOff > 45 && s.daysOff < 999,
       surfaceSeason: { won: season.filter((m) => m.w.id === k).length, lost: season.filter((m) => m.l.id === k).length },
       form: games.slice(-10).reverse().map((m) => line(m, k)),
+      // Forme (momentum) : victoires des 10 derniers matchs moins celles qu'annonçait le niveau des deux joueurs.
+      // En hausse à +2 ou plus, en baisse à -2 ou moins (un joueur sur dix de chaque côté).
+      form10: +s.form10.toFixed(2),
+      trend: games.length >= 6 && s.form10 >= 2 ? 'up' : games.length >= 6 && s.form10 <= -2 ? 'down' : undefined,
     };
   };
   // Photo officielle ATP (chargée par le navigateur), Wikipédia en secours.
@@ -92,6 +109,8 @@ async function simMatch(id: string, day: string) {
     market: { pHome: pMarket, pHomeOpen: pOpen, odds: fiche.last, oddsOpen: fiche.first, moves: fiche.moves },
     sim: { ...sim, gamesLadder: sim.gamesLadder.filter((x) => x.pACover > 0.03 && x.pACover < 0.97) },
     h2h,
+    h2hCount: { home: hw, away: aw, since },
+    blackCat,
     meta: { builtAt: new Date().toISOString(), matchesUsed: history.length, n },
   };
   writeFileSync(join(out, `${id}.json`), JSON.stringify(result));
