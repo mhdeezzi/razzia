@@ -889,17 +889,10 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .split-bar span:first-child, .duel-bar .a:not(.dim), .pbar.away span, .t-sets-bar .h, .t-why-bar.h span { box-shadow: var(--blue-glow); }
 .split-bar span:last-child, .duel-bar .h:not(.dim), .pbar.home span, .t-sets-bar .a, .t-why-bar.a span { box-shadow: var(--rose-glow); }
 
-/* Téléphone : pages dans une barre d'onglets en bas (pouce), en-tête allégé, chiffres qui ne se coupent plus. */
+/* Téléphone : liens de pages masqués pour l'instant (place à trouver), chiffres qui ne se coupent plus. */
 @media (max-width: 720px) {
-  body { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .top-right { display: none; }
   .sports { margin-left: auto; }
-  .top-right { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; margin: 0; gap: 4px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-    padding: 6px 10px calc(6px + env(safe-area-inset-bottom)); background: rgba(6, 6, 6, 0.9); -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); border-top: 1px solid var(--line); }
-  .top-link { flex-direction: column; justify-content: center; gap: 3px; height: 52px; padding: 0; border-radius: 12px; font-size: 11px; font-weight: 500; color: #8a8a8a; -webkit-tap-highlight-color: transparent; }
-  .top-link .lbl { display: inline; }
-  .top-link svg { width: 22px; height: 22px; }
-  .top-link.is-on { background: none; color: #fff; font-weight: 600; }
-  .top-link.is-on svg { color: #4d8eff; }
   /* Fiche : score médian sur toute la largeur, sans retour à la ligne. */
   .verdict-side > div:first-child { grid-column: 1 / -1; }
   .verdict-side dd { white-space: nowrap; }
