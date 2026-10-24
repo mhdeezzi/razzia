@@ -23,7 +23,7 @@ function App() {
   ) : t ? (
     <TennisMatchPage key={path} day={t[1]} id={t[2]} />
   ) : path === '/tennis' ? (
-    <TennisSchedulePage />
+    <TennisSchedulePage day={search.get('jour')} />
   ) : path === '/tennis/bilan' ? (
     <TennisBilanPage />
   ) : path === '/simulations' ? (
