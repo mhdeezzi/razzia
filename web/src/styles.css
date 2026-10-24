@@ -32,8 +32,10 @@
   --cta: linear-gradient(90deg, #2c5aee, #5148d6); /* boutons de simulation : le bleu d'origine, préféré au bleu clair */
   --bar: linear-gradient(90deg, #4d8eff, #7fb3ff);
   /* Barres de résultats : bleu ciel vers bleu vif, rouge vers rose. */
-  --blue-grad: linear-gradient(90deg, #2b98c4, #2a86cc 30%, #2b6fd6 65%, #2a58d4);
-  --rose-grad: linear-gradient(90deg, #c4203f, #c0204f 30%, #bb2463 65%, #b42a78);
+  --blue-grad: linear-gradient(90deg, #27c8f5, #2aa2ff 35%, #3478ff 70%, #3d5cff);
+  --blue-glow: 0 0 10px rgba(52, 140, 255, 0.65), 0 0 2px rgba(120, 200, 255, 0.9);
+  --rose-grad: linear-gradient(90deg, #ff2448, #ff2a62 35%, #f5307f 70%, #e83a9e);
+  --rose-glow: 0 0 10px rgba(255, 50, 110, 0.6), 0 0 2px rgba(255, 140, 180, 0.9);
   --r-hero: 28px;
   --r-card: 20px;
   --r-ctl: 12px;
@@ -286,14 +288,14 @@ a.row:hover .mark { transform: scale(1.06); }
 .tab-big.is-on { background: var(--panel-3); color: #fff; border-color: rgba(255, 255, 255, 0.24); }
 @property --beam { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 /* Onglet Simulation : bouton blanc, lueur bleu foncé qui fait le tour. */
-.tab-big.glow { color: #0b0b0b; border: 3px solid transparent; animation: beam 4.5s linear infinite;
+.tab-big.glow { color: #0b0b0b; border: 2px solid transparent; animation: beam 4.5s linear infinite;
   background: linear-gradient(#e9e9e9, #e9e9e9) padding-box,
-    conic-gradient(from var(--beam), transparent 0 55%, rgba(26, 63, 196, 0.7) 75%, #0f2a9c 90%, transparent 100%) border-box,
+    conic-gradient(from var(--beam), transparent 0 70%, rgba(44, 90, 238, 0.6) 84%, #1a3fc4 92%, transparent 100%) border-box,
     linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)) border-box; }
 .tab-big.glow.is-on { background: linear-gradient(#fff, #fff) padding-box,
-    conic-gradient(from var(--beam), transparent 0 55%, rgba(26, 63, 196, 0.8) 75%, #0f2a9c 90%, transparent 100%) border-box,
-    linear-gradient(#d9dce6, #d9dce6) border-box; box-shadow: 0 12px 28px -14px rgba(26, 63, 196, 0.8); }
-.tab-big.glow { padding: 12px 24px; } /* bord de 3px : même taille que « Aperçu » */
+    conic-gradient(from var(--beam), transparent 0 70%, rgba(44, 90, 238, 0.7) 84%, #1a3fc4 92%, transparent 100%) border-box,
+    linear-gradient(#fff, #fff) border-box; box-shadow: 0 12px 28px -14px rgba(44, 90, 238, 0.7); }
+.tab-big.glow { padding: 13px 25px; } /* bord de 2px : même taille que « Aperçu » */
 .tab-big.glow .dot { background: #1a3fc4; box-shadow: 0 0 0 3px rgba(26, 63, 196, 0.2); }
 
 @keyframes beam { to { --beam: 360deg; } }
@@ -570,7 +572,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .duel-top .v.lead { color: var(--text); }
 .duel-top .v:last-child { text-align: right; }
 .duel-top .k { text-align: center; font: 500 12.5px var(--sans); letter-spacing: 0; color: var(--text-3); }
-.duel-bar { position: relative; height: 8px; border-radius: 0; background: var(--panel-3); display: flex; overflow: hidden; }
+.duel-bar { position: relative; height: 8px; border-radius: 0; background: var(--panel-3); display: flex; }
 .duel-bar span { height: 100%; animation: grow 1s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
 .duel-bar .a { position: relative; background: var(--blue-grad); transform-origin: right; }
 .duel-bar .h { background: var(--rose-grad); transform-origin: left; }
@@ -606,7 +608,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .profile-row .pv { font-size: 14px; color: var(--text); }
 .profile-row .pv small { font-size: 12px; color: var(--text-3); }
 .profile-row .right { text-align: right; }
-.pbar { height: 8px; border-radius: 0; background: var(--panel-3); display: flex; overflow: hidden; }
+.pbar { height: 8px; border-radius: 0; background: var(--panel-3); display: flex; }
 .pbar span { height: 100%; border-radius: 0; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms + 120ms); }
 .pbar.away { justify-content: flex-end; }
 .pbar.away span { background: var(--blue-grad); transform-origin: right; }
@@ -746,7 +748,7 @@ a.row:hover .mark { transform: scale(1.06); }
   .hero-grid { gap: 8px; margin-top: 22px; }
   .hero-date { letter-spacing: 0.2em; margin-top: 22px; font-size: 11px; }
   .tab-big { padding: 11px 18px; font-size: 15px; }
-  .tab-big.glow { padding: 9px 16px; }
+  .tab-big.glow { padding: 10px 17px; }
   .aside { grid-template-columns: 1fr; }
   .info3 { grid-template-columns: 1fr; gap: 14px; }
   .launch, .progress { padding: 28px 20px; }
@@ -827,7 +829,7 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .t-sets { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .t-sets li { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; align-items: center; gap: 12px; font-size: 14px; }
 .t-sets-who b { margin-left: 4px; }
-.t-sets-bar { height: 8px; border-radius: 0; background: var(--panel-4); overflow: hidden; }
+.t-sets-bar { height: 8px; border-radius: 0; background: var(--panel-4); }
 .t-sets-bar span { display: block; height: 100%; border-radius: 0; transform-origin: left; animation: grow 0.9s var(--ease) both; }
 .t-sets-bar .h, .t-why-bar.h span { background: var(--blue-grad); }
 .t-sets-bar .a, .t-why-bar.a span { background: var(--rose-grad); }
@@ -842,7 +844,7 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .t-duel-row > :last-child { text-align: right; }
 .t-why { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 10px; }
 .t-why li { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 150px; align-items: center; gap: 12px; font-size: 14px; }
-.t-why-bar { height: 6px; border-radius: 0; background: var(--panel-4); overflow: hidden; }
+.t-why-bar { height: 6px; border-radius: 0; background: var(--panel-4); }
 .t-why-bar span { display: block; height: 100%; border-radius: 0; transform-origin: left; animation: grow 0.9s var(--ease) both; }
 .t-why li > :last-child { text-align: right; }
 .t-forms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
@@ -874,3 +876,7 @@ a.row:hover .t-ava { transform: scale(1.06); }
   .t-why li .t-why-bar { display: none; }
   .t-duel-row { font-size: 13px; }
 }
+
+/* Barres de résultats : effet néon (lueur de la couleur autour de la partie remplie). */
+.split-bar span:first-child, .duel-bar .a:not(.dim), .pbar.away span, .t-sets-bar .h, .t-why-bar.h span { box-shadow: var(--blue-glow); }
+.split-bar span:last-child, .duel-bar .h:not(.dim), .pbar.home span, .t-sets-bar .a, .t-why-bar.a span { box-shadow: var(--rose-glow); }
