@@ -10,7 +10,7 @@ if (!dir) throw new Error('Usage : node src/cli/bilan.ts <dossier sims>');
 
 const decimal = (a: number) => (a > 0 ? 1 + a / 100 : 1 + 100 / -a);
 const VALUE = 0.04; // écart moteur / marché à partir duquel Razzia signale une valeur
-const HEDGE_FIRST = 0.65; // favori à 65 % ou moins : le vainqueur est déconseillé, c'est le handicap qui compte
+const HEDGE_FIRST = 0.66; // favori sous 66 % (pile ou face) : le vainqueur est déconseillé, c'est le handicap qui compte
 const SAFE_COVER = 0.8; // handicap « plus sûr » : la ligne la plus exigeante qui passe dans 80 % des simulations
 const MIN_ODDS = 1.15; // handicap « plus sûr » proposé seulement si sa cote juste dépasse 1,15
 
@@ -28,7 +28,7 @@ const erf = (x: number) => {
  */
 function ladder(s: any): Rung[] {
   const lad: Rung[] = [...(s.spreadLadder ?? [])].sort((a: Rung, b: Rung) => a.line - b.line);
-  const mean: number | undefined = s.margin?.mean, sd: number | undefined = s.margin?.sd;
+  const mean: number | undefined = s.margin?.mean != null ? s.margin.mean + (s.market?.capShift ?? 0) : undefined, sd: number | undefined = s.margin?.sd;
   if (!lad.length || mean == null || !(sd! > 0)) return lad;
   const cdf = (line: number) => 0.5 * (1 + erf((mean + line) / sd! / Math.SQRT2));
   const lo: Rung[] = [], hi: Rung[] = [];
@@ -37,7 +37,7 @@ function ladder(s: any): Rung[] {
   return [...lo, ...lad, ...hi];
 }
 /**
- * Pronostic retenu, celui que la fiche met en avant : le vainqueur, ou pour un favori à 65 % ou moins (pourcentage
+ * Pronostic retenu, celui que la fiche met en avant : le vainqueur, ou pour un favori sous 66 % (pourcentage
  * affiché, une décimale) le handicap « plus sûr » (le favori avec des points d'avance, à 80 % des simulations).
  */
 function pickOf(s: any, home: string, away: string, hs: number, as: number): Pick {
@@ -45,7 +45,7 @@ function pickOf(s: any, home: string, away: string, hs: number, as: number): Pic
   const fav = p >= 0.5 ? 'home' : 'away';
   const winP = Math.max(p, 1 - p);
   const favMargin = fav === 'home' ? hs - as : as - hs;
-  if (Math.round(winP * 1000) / 1000 <= HEDGE_FIRST) {
+  if (Math.round(winP * 1000) / 1000 < HEDGE_FIRST) {
     const cover = (x: { pHomeCover: number }) => (fav === 'home' ? x.pHomeCover : 1 - x.pHomeCover);
     const h = ladder(s)
       .filter((x) => (fav === 'home' ? x.line : -x.line) > 0 && cover(x) >= SAFE_COVER && cover(x) > winP && cover(x) <= 1 / MIN_ODDS)
@@ -128,7 +128,7 @@ const out = {
   games: rows.length,
   brier: { model: brier('pModel'), blend: brier('pBlend'), book: brier('pBook'), close: brier('pClose') },
   accuracy: { model: hit('pModel'), blend: hit('pBlend'), book: hit('pBook'), pick: rows.length ? rows.filter((x) => x.pick.won).length / rows.length : undefined },
-  // Favoris à 65 % ou moins comptés comme leur handicap « plus sûr » (le pronostic affiché à la place du vainqueur).
+  // Favoris sous 66 % comptés comme leur handicap « plus sûr » (le pronostic affiché à la place du vainqueur).
   handicaps: { n: rows.filter((x) => x.pick.kind === 'handicap').length, won: rows.filter((x) => x.pick.kind === 'handicap' && x.pick.won).length },
   value: {
     n: vals.length,

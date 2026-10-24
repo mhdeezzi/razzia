@@ -28,12 +28,12 @@ const STD_PRICE = -110; // prix standard quand la cote du handicap ou du total n
 /** En dessous de cette cote, un pari ne rapporte presque rien : le handicap « plus sûr » n'est pas proposé. */
 export const MIN_ODDS = 1.15;
 /**
- * Favori à 65 % ou moins : le vainqueur ne passe que 59 à 62 % du temps (deux saisons), le handicap « plus sûr » 81 %.
- * Le handicap passe devant, le vainqueur est déconseillé, et c'est le handicap qui compte au bilan.
+ * Favori sous 66 % (65,9 % compris) : pile ou face, le handicap « plus sûr » passe devant, le vainqueur est déconseillé,
+ * et c'est le handicap qui compte au bilan. Avec le plafond au marché, deux saisons : 531 -> 475 ratés (80,7 %).
  */
-export const HEDGE_FIRST = 0.65;
-/** Favori sous 60 % : pile ou face. */
-export const FLIP = 0.6;
+export const HEDGE_FIRST = 0.66;
+/** Favori sous 66 % : pile ou face. */
+export const FLIP = 0.66;
 /** Handicap « plus sûr » : la ligne la plus exigeante qui passe dans au moins 80 % des simulations. */
 export const SAFE_COVER = 0.8;
 /** Probabilité arrondie comme à l'écran (une décimale), pour que les seuils suivent le pourcentage affiché. */
@@ -52,7 +52,8 @@ const erf = (x: number) => {
 export function ladder(r: Result): Result['spreadLadder'] {
   const lad = [...r.spreadLadder].sort((a, b) => a.line - b.line);
   if (!lad.length || !(r.margin?.sd > 0)) return lad;
-  const cdf = (line: number) => 0.5 * (1 + erf((r.margin.mean + line) / r.margin.sd / Math.SQRT2));
+  const mean = r.margin.mean + (r.market?.capShift ?? 0); // plafond au marché : lignes déjà décalées d'autant
+  const cdf = (line: number) => 0.5 * (1 + erf((mean + line) / r.margin.sd / Math.SQRT2));
   const lo: Result['spreadLadder'] = [], hi: Result['spreadLadder'] = [];
   for (let k = 1, c = lad[0].pHomeCover; k <= 13; k++) lo.unshift({ line: lad[0].line - k, pHomeCover: (c = Math.min(c, cdf(lad[0].line - k))) });
   for (let k = 1, c = lad.at(-1)!.pHomeCover; k <= 13; k++) hi.push({ line: lad.at(-1)!.line + k, pHomeCover: (c = Math.max(c, cdf(lad.at(-1)!.line + k))) });
@@ -110,11 +111,11 @@ export function buildCategories(r: Result, g: Game): Category[] {
     });
   }
   // Une seule solution : celle qui passe le plus souvent. Un seul point, sur l'onglet en deuxième position : bleu sur le
-  // handicap (plus sûr que le vainqueur), rouge sur le vainqueur d'un favori à 65 % ou moins (le handicap passe devant).
+  // handicap (plus sûr que le vainqueur), rouge sur le vainqueur d'un favori sous 66 % (le handicap passe devant).
   const best = spreads.sort((a, b) => b.p - a.p)[0];
-  const hedgeFirst = !!best && shown(winP) <= HEDGE_FIRST;
+  const hedgeFirst = !!best && shown(winP) < HEDGE_FIRST;
   if (best) cats.push({ id: 'spread', label: 'Handicap', items: [hedgeFirst ? best : { ...best, safe: 'Safe' }], good: !hedgeFirst });
-  // Favori à 65 % ou moins : parier sur le vainqueur est déconseillé ; le handicap passe en premier.
+  // Favori sous 66 % : parier sur le vainqueur est déconseillé ; le handicap passe en premier.
   if (hedgeFirst) {
     const win = cats.shift()!;
     win.warn = true;

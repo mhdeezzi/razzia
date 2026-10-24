@@ -48,7 +48,7 @@ export function BilanPage() {
               <span className="caps">Bon pronostic</span>
               <b className="mono">{b.accuracy.pick != null ? pct(b.accuracy.pick) : b.accuracy.blend != null ? pct(b.accuracy.blend) : b.accuracy.model != null ? pct(b.accuracy.model) : '-'}</b>
               <small>
-                {b.handicaps ? `${b.handicaps.n} favoris à 65 % ou moins comptés en handicap (${b.handicaps.won} passés), ` : ''}vainqueur seul{' '}
+                {b.handicaps ? `${b.handicaps.n} favoris sous 66 % comptés en handicap (${b.handicaps.won} passés), ` : ''}vainqueur seul{' '}
                 {b.accuracy.blend != null ? pct(b.accuracy.blend) : b.accuracy.model != null ? pct(b.accuracy.model) : '-'}, marché {b.accuracy.book != null ? pct(b.accuracy.book) : '-'}
               </small>
             </div>

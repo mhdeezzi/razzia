@@ -358,6 +358,7 @@ export interface Summary {
     pHomeML?: number;
     bookHome?: number;
     blendedHome?: number;
+    capShift?: number; // plafond au marché : décalage en points des lignes de handicap (déjà appliqué à spreadLadder)
     mlHome?: number; // cotes américaines au moment de la simulation (bilan : valeur de clôture, rendement)
     mlAway?: number;
     bookHomeOpen?: number; // marché sans marge à l'ouverture
@@ -533,6 +534,19 @@ export function summarize(m: GameModel, b: Batch): Summary {
         open = ow * (lg(mk.pHomeOpen ?? mk.pHomeNoVig) - lg(calibrated(m, c / n)));
       }
       market.blendedHome = 1 / (1 + Math.exp(-(w * lg(calibrated(m, homeWins / n)) + (1 - w) * lg(mk.pHomeNoVig) + move + open)));
+      // Jamais plus sûr que le marché sur le même favori ; un favori différent reste permis (défier le marché). Deux
+      // saisons : 531 -> 486 ratés. Les lignes de handicap suivent : marges décalées d'autant de points (0,121 logit/point).
+      const raw = market.blendedHome, book = mk.pHomeNoVig;
+      if ((raw >= 0.5) === (book >= 0.5) && Math.abs(raw - 0.5) > Math.abs(book - 0.5)) {
+        const shift = (lg(book) - lg(raw)) / 0.121;
+        market.blendedHome = book;
+        market.capShift = shift;
+        for (const r of spreadLadder) {
+          let c = 0;
+          for (let i = 0; i < n; i++) if (margin[i] + shift + r.line > 0) c++;
+          r.pHomeCover = c / n;
+        }
+      }
       // Cote d'ouverture gardée aussi pour mesurer la valeur de clôture.
       if (mk.pHomeOpen != null) market.bookHomeOpen = mk.pHomeOpen;
     }
