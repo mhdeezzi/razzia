@@ -46,7 +46,7 @@ const nba: Badge[] = [
   },
   {
     icon: <Cat size={20} weight="fill" />, tone: 'signal-cat', title: 'Chat noir',
-    text: "Une équipe qui perd contre l'autre même quand elle est favorite (au moins 3 défaites en étant favorite sur deux ans, 70 % ou plus, bien sous l'écart attendu). Rare. Dans le programme : la pastille du résultat est entourée d'un trait blanc.",
+    text: "Une équipe qui perd contre l'autre même quand elle est favorite (au moins 3 défaites en étant favorite sur deux ans, 70 % ou plus, bien sous l'écart attendu). Rare.",
   },
   {
     icon: <ChartLineUp size={20} weight="bold" />, tone: 'signal-up', title: 'En pleine montée',
@@ -77,7 +77,7 @@ const tennis: Badge[] = [
   },
   {
     icon: <Cat size={20} weight="fill" />, tone: 'signal-cat', title: 'Chat noir',
-    text: "Au moins 4 confrontations en 6 ans, dont 75 % ou plus gagnées par le même joueur, avec 3 victoires d'avance. Dans le programme : la pastille du résultat est entourée d'un trait blanc.",
+    text: "Au moins 4 confrontations en 6 ans, dont 75 % ou plus gagnées par le même joueur, avec 3 victoires d'avance.",
   },
   {
     icon: <ChartLineUp size={20} weight="bold" />, tone: 'signal-up', title: 'En hausse',
