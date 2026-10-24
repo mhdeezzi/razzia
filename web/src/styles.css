@@ -437,7 +437,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .ring-sm svg { inset: 10px; }
 
 .split { margin-top: 22px; max-width: 520px; }
-.split-bar { display: flex; gap: 4px; height: 8px; }
+.split-bar { display: flex; gap: 4px; height: 5px; }
 .split-bar span { border-radius: 0; transform-origin: left; animation: grow 1s var(--ease) both; }
 .split-bar span:first-child { background: var(--blue-grad); }
 .split-bar span:last-child { background: var(--rose-grad); transform-origin: right; }
@@ -488,7 +488,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .oc-title { font-size: 13px; color: var(--text-2); }
 .oc-freq { display: grid; grid-template-columns: 1fr 64px; align-items: center; gap: 12px; }
 .oc-freq .mono { text-align: right; }
-.oc-bar span { display: block; height: 6px; border-radius: 4px; background: var(--bar); transform-origin: left; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms + 0.1s); }
+.oc-bar span { display: block; height: 5px; border-radius: 0; background: var(--blue-grad); box-shadow: var(--blue-glow); transform-origin: left; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms + 0.1s); }
 .oc-odds { text-align: right; color: var(--text-2); }
 
 /* En feu ce soir : même cadre que les autres sections, une case par joueur (photo, seuil du gros match, chance, raisons).
@@ -578,7 +578,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .duel-top .v.lead { color: var(--text); }
 .duel-top .v:last-child { text-align: right; }
 .duel-top .k { text-align: center; font: 500 12.5px var(--sans); letter-spacing: 0; color: var(--text-3); }
-.duel-bar { position: relative; height: 8px; border-radius: 0; background: var(--panel-3); display: flex; }
+.duel-bar { position: relative; height: 5px; border-radius: 0; background: var(--panel-3); display: flex; }
 .duel-bar span { height: 100%; animation: grow 1s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
 .duel-bar .a { position: relative; background: var(--blue-grad); transform-origin: right; }
 .duel-bar .h { background: var(--rose-grad); transform-origin: left; }
@@ -614,7 +614,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .profile-row .pv { font-size: 14px; color: var(--text); }
 .profile-row .pv small { font-size: 12px; color: var(--text-3); }
 .profile-row .right { text-align: right; }
-.pbar { height: 8px; border-radius: 0; background: var(--panel-3); display: flex; }
+.pbar { height: 5px; border-radius: 0; background: var(--panel-3); display: flex; }
 .pbar span { height: 100%; border-radius: 0; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms + 120ms); }
 .pbar.away { justify-content: flex-end; }
 .pbar.away span { background: var(--blue-grad); transform-origin: right; }
@@ -639,9 +639,9 @@ a.row:hover .mark { transform: scale(1.06); }
 .ladder td { padding: 6px 0; font-size: 14px; }
 .ladder td:nth-child(2) { text-align: right; padding-right: 14px; width: 74px; }
 .ladder-bar { width: 45%; }
-.ladder-bar span { display: block; height: 6px; border-radius: 4px; background: var(--panel-4); transform-origin: left; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.ladder-bar span { display: block; height: 5px; border-radius: 0; background: var(--panel-4); transform-origin: left; animation: grow 0.9s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
 .ladder tr.is-market td:first-child { color: var(--text); font-weight: 600; }
-.ladder tr.is-market .ladder-bar span { background: var(--bar); }
+.ladder tr.is-market .ladder-bar span { background: var(--blue-grad); box-shadow: var(--blue-glow); }
 
 .scroll-x { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
 .grid-table { font-size: 14px; }
@@ -835,7 +835,7 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .t-sets { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .t-sets li { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; align-items: center; gap: 12px; font-size: 14px; }
 .t-sets-who b { margin-left: 4px; }
-.t-sets-bar { height: 8px; border-radius: 0; background: var(--panel-4); }
+.t-sets-bar { height: 5px; border-radius: 0; background: var(--panel-4); }
 .t-sets-bar span { display: block; height: 100%; border-radius: 0; transform-origin: left; animation: grow 0.9s var(--ease) both; }
 .t-sets-bar .h, .t-why-bar.h span { background: var(--blue-grad); }
 .t-sets-bar .a, .t-why-bar.a span { background: var(--rose-grad); }
@@ -850,7 +850,7 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .t-duel-row > :last-child { text-align: right; }
 .t-why { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 10px; }
 .t-why li { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 150px; align-items: center; gap: 12px; font-size: 14px; }
-.t-why-bar { height: 6px; border-radius: 0; background: var(--panel-4); }
+.t-why-bar { height: 4px; border-radius: 0; background: var(--panel-4); }
 .t-why-bar span { display: block; height: 100%; border-radius: 0; transform-origin: left; animation: grow 0.9s var(--ease) both; }
 .t-why li > :last-child { text-align: right; }
 .t-forms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
