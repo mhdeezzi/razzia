@@ -32,10 +32,10 @@
   --cta: linear-gradient(90deg, #2c5aee, #5148d6); /* boutons de simulation : le bleu d'origine, préféré au bleu clair */
   --bar: linear-gradient(90deg, #4d8eff, #7fb3ff);
   /* Barres de résultats : bleu ciel vers bleu vif, rouge vers rose. */
-  --blue-grad: linear-gradient(90deg, #27c8f5, #2aa2ff 35%, #3478ff 70%, #3d5cff);
-  --blue-glow: 0 0 10px rgba(52, 140, 255, 0.65), 0 0 2px rgba(120, 200, 255, 0.9);
-  --rose-grad: linear-gradient(90deg, #ff2448, #ff2a62 35%, #f5307f 70%, #e83a9e);
-  --rose-glow: 0 0 10px rgba(255, 50, 110, 0.6), 0 0 2px rgba(255, 140, 180, 0.9);
+  --blue-grad: linear-gradient(90deg, #1898c4, #1b7ad8 35%, #2256dc 70%, #2a3ec8);
+  --blue-glow: 0 0 10px rgba(34, 100, 230, 0.55), 0 0 2px rgba(60, 150, 230, 0.8);
+  --rose-grad: linear-gradient(90deg, #d0183a, #c8184e 35%, #bc1d68 70%, #a8247f);
+  --rose-glow: 0 0 10px rgba(210, 30, 80, 0.5), 0 0 2px rgba(230, 80, 130, 0.8);
   --r-hero: 28px;
   --r-card: 20px;
   --r-ctl: 12px;
