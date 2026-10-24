@@ -194,8 +194,6 @@ a.row:active { transform: scale(0.995); }
 .wait-dot { width: 6px; height: 6px; border-radius: 9px; background: var(--text-3); }
 .spin-xs { width: 11px; height: 11px; border-width: 1.6px; }
 .pill-group { display: inline-flex; align-items: center; gap: 6px; }
-/* Chat noir : plus de logo dans le programme, la pastille du résultat est entourée d'un trait blanc, à 8 px. */
-.pill-group.has-cat .conf-pill { outline: 2px solid #e9ebef; outline-offset: 8px; }
 
 /* Signaux du match sous le verdict. */
 .signals { display: grid; gap: 10px; animation: rise 0.6s var(--ease) both; }
