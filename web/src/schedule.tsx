@@ -4,6 +4,7 @@ import { CalendarBlank, CaretRight, Cat, Check, ListBullets, SquaresFour, TrendU
 import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
 import { Empty, Link, ProgressLine, Segmented, TeamMark } from './ui.tsx';
+import { flipP } from './picks.ts';
 
 type Status = 'pre' | 'in' | 'post';
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -219,7 +220,7 @@ function SimPill({ g, sim, run }: { g: Game; sim?: SimEntry; run?: ItemState }) 
           <Cat size={13} weight="fill" />
         </span>
       )}
-      <span className="conf-pill sim">
+      <span className={`conf-pill sim${flipP(Math.max(sim.pHome, sim.pAway), sim.gp) ? ' flip' : ''}`}>
         <TrendUp size={13} weight="bold" /> {home ? g.home.tri : g.away.tri} {pct0(Math.max(sim.pHome, sim.pAway))}
       </span>
     </span>

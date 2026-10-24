@@ -41,7 +41,9 @@ export const EARLY_FLIP = 0.7;
 export const gamesPlayed = (r: Result) =>
   Math.min(r.gamesPlayed?.home ?? r.momentum?.home?.nCur ?? 99, r.gamesPlayed?.away ?? r.momentum?.away?.nCur ?? 99);
 /** Pile ou face : favori sous 66 %, ou sous 70 % en tout début de saison. */
-export const isFlip = (r: Result, p: number) => shown(p) < FLIP || (gamesPlayed(r) < EARLY_GAMES && shown(p) < EARLY_FLIP);
+export const isFlip = (r: Result, p: number) => flipP(p, gamesPlayed(r));
+/** Même règle à partir du seul pourcentage du favori et des matchs joués (programme). */
+export const flipP = (p: number, gp = 99) => shown(p) < FLIP || (gp < EARLY_GAMES && shown(p) < EARLY_FLIP);
 /** Handicap « plus sûr » : la ligne la plus exigeante qui passe dans au moins 80 % des simulations. */
 export const SAFE_COVER = 0.8;
 /** Probabilité arrondie comme à l'écran (une décimale), pour que les seuils suivent le pourcentage affiché. */

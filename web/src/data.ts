@@ -126,6 +126,7 @@ export interface SimEntry {
   pAway: number;
   at: string;
   cat?: string; // équipe victime d'un chat noir dans ce match
+  gp?: number; // matchs joués par l'équipe qui en a le moins
 }
 let sims: Promise<Map<string, SimEntry>> | undefined;
 /** `bust` contourne le cache du CDN (20 s) : sert juste après une publication. */
