@@ -178,6 +178,7 @@ a.row:active { transform: scale(0.995); }
 .signal-down .signal-icon { background: var(--rose-soft); color: var(--rose); }
 .signal-tight .signal-icon { background: var(--panel-4); color: var(--text-2); }
 .signal-home .signal-icon { background: rgba(245, 181, 74, 0.14); color: var(--home); }
+.signal-goal .signal-icon { background: rgba(77, 142, 255, 0.16); color: var(--blue); }
 a.row:hover .conf-pill.go { border-color: var(--text); background: var(--text); color: var(--bg); }
 .row-caret { color: var(--text-3); transition: transform 0.3s var(--ease), color 0.2s; }
 a.row:hover .row-caret { transform: translateX(4px); color: var(--text); }
@@ -781,6 +782,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .t-trend.up { color: var(--green); }
 .t-trend.down { color: var(--rose); }
 .t-home { display: inline-flex; margin-left: 6px; vertical-align: -1px; color: var(--home); }
+.t-goal { display: inline-flex; margin-left: 6px; vertical-align: -1px; color: var(--blue); }
 /* Cartes (grille) : noms courts, photos à la taille des logos NBA. */
 .t-card .card-vs { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
 .t-card .card-team { min-width: 0; }

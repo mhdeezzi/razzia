@@ -20,6 +20,7 @@ const cache = 'data/cache/tennis';
 const history = await loadHistory(join(cache, 'tml'));
 const ROUND: Record<string, string> = { R1: 'R64', R2: 'R32', R3: 'R16', R4: 'R16', '1/8': 'R16', QF: 'QF', SF: 'SF', F: 'F', Final: 'F' };
 const SLAM: Record<string, string> = { 'French Open': 'Roland Garros', 'Roland Garros': 'Roland Garros', 'Australian Open': 'Australian Open', Wimbledon: 'Wimbledon', 'US Open': 'US Open' };
+const v = (x?: number) => (x == null || Number.isNaN(x) ? 0 : x);
 const noVig = (o?: [number, number]) => (o ? (1 / o[0]) / (1 / o[0] + 1 / o[1]) : undefined);
 mkdirSync(out, { recursive: true });
 let failed = 0;
@@ -41,7 +42,8 @@ async function simMatch(id: string, day: string) {
   const [lname, roundRaw = ''] = String(fiche.league).replace(/^ATP\s+/, '').split(' - ');
   const tname = SLAM[lname] ?? lname;
   const same = (m: Match) => nameKey(m.tourney).includes(nameKey(tname)) || nameKey(tname).includes(nameKey(m.tourney));
-  const edition = [...history].reverse().find((m) => same(m) && !m.qual);
+  // Les cotes ne couvrent que le circuit principal : son tournoi d'abord, un Challenger du même nom seulement à défaut.
+  const edition = [...history].reverse().find((m) => same(m) && !m.qual && m.level !== 'C') ?? [...history].reverse().find((m) => same(m) && !m.qual);
   const surface: Surface = edition?.surface ?? 'Hard';
   const bestOf: 3 | 5 = SLAM[lname] ? 5 : (edition?.bo ?? 3);
   const current = edition && Date.parse(day) - Date.parse(edition.date) < 20 * 86_400_000 ? edition.tid : `${day}-${nameKey(tname)}`;
@@ -92,6 +94,9 @@ async function simMatch(id: string, day: string) {
       // En hausse à +2 ou plus, en baisse à -2 ou moins (un joueur sur dix de chaque côté).
       form10: +s.form10.toFixed(2),
       trend: games.length >= 6 && s.form10 >= 2 ? 'up' : games.length >= 6 && s.form10 <= -2 ? 'down' : undefined,
+      // Objectif Masters : top 20 en ATP 250 / 500 après le 10 octobre (course au Masters de fin d'année). Sur 2024-2025,
+      // ces favoris ont gagné 82 % de leurs matchs quand le marché leur en donnait 72 % (72 matchs, les deux saisons).
+      goal: v(s.rank) > 0 && s.rank! <= 20 && edition?.level === 'A' && day.slice(5) >= '10-10' ? true : undefined,
     };
   };
   // Photo officielle ATP (chargée par le navigateur), Wikipédia en secours.

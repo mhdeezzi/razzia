@@ -17,7 +17,8 @@ for (const f of existsSync(join(dir, 'sims')) ? readdirSync(join(dir, 'sims')) :
   // Badges du programme : victime d'un chat noir, joueurs en hausse ou en baisse.
   const cat = s.blackCat ? s[s.blackCat.victim].name : undefined;
   const trend = { home: s.home.trend, away: s.away.trend };
-  out.push({ id: s.id, day: s.day, start: s.start, tourney: s.tourney, round: s.round, home: s.home.name, away: s.away.name, pHome: s.pHome, at, cat, trend });
+  const goal = s.home.goal || s.away.goal ? { home: s.home.goal, away: s.away.goal } : undefined;
+  out.push({ id: s.id, day: s.day, start: s.start, tourney: s.tourney, round: s.round, home: s.home.name, away: s.away.name, pHome: s.pHome, at, cat, trend, goal });
 }
 out.sort((a, b) => b.at.localeCompare(a.at));
 writeFileSync(file, JSON.stringify(out));
