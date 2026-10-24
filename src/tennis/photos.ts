@@ -1,5 +1,6 @@
-// Photos des joueurs : l'image Wikidata (P18) de la page Wikipédia du joueur, en vignette Wikimedia Commons. Gardées en
-// cache (data/cache/tennis/photos.json) : une recherche par joueur.
+// Photos des joueurs : la photo officielle ATP (de face, fond uni), chargée par le navigateur d'après le code ATP du
+// joueur ; à défaut, l'image Wikidata (P18) de sa page Wikipédia, en vignette Wikimedia Commons, gardée en cache
+// (photos.json) : une recherche par joueur.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -13,9 +14,12 @@ const get = async (url: string) => {
   }
 };
 
-/** Vignette carrée du joueur (300 px) ou undefined. Cherche « Nom (tennis) » puis « Nom ». */
-export async function photoOf(name: string, cacheDir: string): Promise<string | undefined> {
-  const file = join(cacheDir, 'photos.json');
+/** Photo officielle ATP d'après le code du joueur (« S0AG » pour Jannik Sinner). */
+export const atpHeadshot = (code: string) => `https://www.atptour.com/-/media/alias/player-headshot/${code.toLowerCase()}`;
+
+/** Vignette Wikipédia du joueur (300 px) ou undefined. Cherche « Nom (tennis) » puis « Nom ». */
+export async function photoOf(name: string, cacheDir: string, cacheFile = 'photos.json'): Promise<string | undefined> {
+  const file = join(cacheDir, cacheFile);
   const cache: Record<string, string | null> = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
   if (name in cache) return cache[name] ?? undefined;
   let url: string | undefined;

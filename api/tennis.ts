@@ -1,6 +1,6 @@
 // Tennis (ATP) : programme d'après les cotes Pinnacle notées (branche cotes-tennis), simulations à la demande via GitHub
 // Actions (workflow simulate-tennis.yml) et la branche resultats.
-//   GET  /api/tennis?slate=1             -> {matches: [...], sims: [...]} : matchs à venir (cotes) et déjà simulés
+//   GET  /api/tennis?slate=1             -> {matches, sims, players} : matchs à venir (cotes), déjà simulés, fiche des joueurs
 //   POST /api/tennis {id, day}           -> lance une simulation, renvoie {status:'queued', req}
 //   GET  /api/tennis?id=&day=[&req=]     -> {status:'done', result} | {status:'queued'|'running'|'failed'|'none'}
 // Variables Vercel : GH_TOKEN (comme /api/sim), GH_REPO (optionnel).
@@ -36,8 +36,8 @@ export async function GET(request: Request): Promise<Response> {
       const days = Array.from({ length: 8 }, (_, i) => new Date(Date.now() + (i - 1) * 86_400_000).toISOString().slice(0, 10));
       const files = await Promise.all(days.map(async (d) => { const r = await raw(`atp/${d}.json`, 'cotes-tennis'); return r.ok ? [d, await r.json()] as const : undefined; }));
       const matches = files.flatMap((f) => (f ? Object.values(f[1] as Record<string, any>).map((m) => ({ id: String(m.id), day: f[0], league: m.league, start: m.start, home: m.home, away: m.away, odds: m.last, oddsOpen: m.first })) : []));
-      const s = await raw('tennis/index.json', 'resultats');
-      return Response.json({ matches, sims: s.ok ? await s.json() : [] }, { headers: { 'Cache-Control': 'public, s-maxage=60' } });
+      const [s, p] = await Promise.all([raw('tennis/index.json', 'resultats'), raw('players.json', 'cotes-tennis')]);
+      return Response.json({ matches, sims: s.ok ? await s.json() : [], players: p.ok ? await p.json() : {} }, { headers: { 'Cache-Control': 'public, s-maxage=60' } });
     }
     const id = q.get('id'), day = q.get('day'), req = q.get('req');
     if (!okId(id) || !okDay(day)) return bad('Paramètres invalides');

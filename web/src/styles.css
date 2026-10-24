@@ -756,13 +756,17 @@ a.row:hover .mark { transform: scale(1.06); }
 @media (max-width: 640px) { .bilan-row { grid-template-columns: 56px minmax(0, 1fr) !important; } .bilan-row > :nth-child(3) { display: none; } }
 
 /* Tennis : photos des joueurs, programme, score en sets, duel, raisons du moteur, forme. */
-.t-ava { display: inline-grid; place-items: center; flex: none; border-radius: 50%; overflow: hidden; background: var(--panel-4); color: var(--text-2); font: 700 12px var(--sans); box-shadow: inset 0 0 0 1px var(--line-2); }
+.t-ava { display: inline-grid; place-items: center; flex: none; border-radius: 50%; overflow: hidden; background: var(--panel-4); color: var(--text-2); font: 700 12px var(--sans); box-shadow: inset 0 0 0 1px var(--line-2); transition: transform 0.3s var(--spring); }
 .t-ava img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; }
 .t-ava-sm { width: 28px; height: 28px; font-size: 10px; }
 .t-ava-md { width: 52px; height: 52px; }
 .t-ava-lg { width: 72px; height: 72px; font-size: 16px; }
 .t-row { grid-template-columns: 92px minmax(0, 1fr) 150px 150px 24px; }
-.t-players { display: grid; gap: 4px; min-width: 0; }
+.t-ava-row { width: 44px; height: 44px; font-size: 12px; }
+.t-row .vs-team > span { min-width: 0; }
+.t-row .vs-name { display: block; }
+.t-sm { display: none; }
+a.row:hover .t-ava { transform: scale(1.06); }
 .t-sets { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .t-sets li { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; align-items: center; gap: 12px; font-size: 14px; }
 .t-sets-who b { margin-left: 4px; }
@@ -792,7 +796,10 @@ a.row:hover .mark { transform: scale(1.06); }
 .t-res.w { color: var(--green); background: rgba(61, 220, 151, 0.12); }
 .t-res.l { color: var(--rose); background: var(--rose-soft); }
 @media (max-width: 720px) {
-  .t-row { grid-template-columns: 66px minmax(0, 1fr) auto; }
+  .t-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .t-ava-row { width: 38px; height: 38px; }
+  .t-lg { display: none; }
+  .t-sm { display: inline; }
   .t-forms { grid-template-columns: minmax(0, 1fr); }
   .t-sets li { grid-template-columns: 110px minmax(0, 1fr) 56px; }
   .t-why li { grid-template-columns: minmax(0, 1fr) 110px; }

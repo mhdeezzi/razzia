@@ -8,7 +8,7 @@ import { nameKey, ROUND_ORDER, type Match, type Surface } from '../tennis/histor
 import { Ratings, type Snapshot } from '../tennis/ratings.ts';
 import { blend, engineProb, MARKET_WEIGHT } from '../tennis/engine.ts';
 import { simulate } from '../tennis/sim.ts';
-import { photoOf } from '../tennis/photos.ts';
+import { atpHeadshot, photoOf } from '../tennis/photos.ts';
 
 const arg = (k: string, d?: string) => { const i = process.argv.indexOf(`--${k}`); return i >= 0 ? process.argv[i + 1] : d; };
 const id = arg('id')!, day = arg('day')!, cotes = arg('cotes', 'cotes-tennis')!, out = arg('out', 'out/tennis')!, n = Number(arg('n', '5000'));
@@ -54,18 +54,23 @@ const player = (name: string, k: string, s: Snapshot) => {
   const st = R.S.get(k);
   const season = games.filter((m) => m.date.slice(0, 4) === day.slice(0, 4) && m.surface === surface && !m.qual);
   return {
-    name, ioc: st?.info?.ioc, hand: st?.info?.hand, ht: st?.info?.ht, age: s.age, rank: s.rank, matches: s.n,
+    name, atp: st?.info?.atp, ioc: st?.info?.ioc, hand: st?.info?.hand, ht: st?.info?.ht, age: s.age, rank: s.rank, matches: s.n,
     elo: Math.round((s.elo + s.eloSurf) / 2), serve: s.serve, ret: s.ret,
     daysOff: s.daysOff, tourneyMinutes: s.tourneyMinutes, played14: s.played14, layoff: s.daysOff > 45 && s.daysOff < 999,
     surfaceSeason: { won: season.filter((m) => m.w.id === k).length, lost: season.filter((m) => m.l.id === k).length },
     form: games.slice(-10).reverse().map((m) => line(m, k)),
   };
 };
+// Photo officielle ATP (chargée par le navigateur), Wikipédia en secours.
+const photos = async (name: string, k: string) => {
+  const atp = R.S.get(k)?.info?.atp;
+  return { photo: atp ? atpHeadshot(atp) : undefined, photoAlt: await photoOf(name, cache) };
+};
 const h2h = history.filter((m) => (m.w.id === key.home && m.l.id === key.away) || (m.w.id === key.away && m.l.id === key.home)).slice(-6).reverse().map((m) => ({ ...line(m, key.home) }));
 const result = {
   sport: 'tennis', id, day, start: fiche.start, league: fiche.league, tourney: tname, round, surface, indoor: edition?.indoor, bestOf,
-  home: { ...player(fiche.home, key.home, A), photo: await photoOf(fiche.home, cache) },
-  away: { ...player(fiche.away, key.away, B), photo: await photoOf(fiche.away, cache) },
+  home: { ...player(fiche.home, key.home, A), ...(await photos(fiche.home, key.home)) },
+  away: { ...player(fiche.away, key.away, B), ...(await photos(fiche.away, key.away)) },
   pHome: p, pAway: 1 - p,
   engine: { pHome: eng.p, elo: eng.elo, point: eng.point, factors: eng.factors.map((f) => ({ ...f, z: +f.z.toFixed(4) })), marketWeight: MARKET_WEIGHT },
   market: { pHome: pMarket, pHomeOpen: pOpen, odds: fiche.last, oddsOpen: fiche.first, moves: fiche.moves },
