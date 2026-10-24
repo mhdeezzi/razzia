@@ -75,7 +75,7 @@ input, textarea { caret-color: #5b9bff; }
 .topbar-in { max-width: 1280px; margin: 0 auto; height: 76px; padding: 0 24px; display: flex; align-items: center; gap: 44px; }
 .brand { display: inline-flex; align-items: center; gap: 9px; font: 800 22px var(--sans); letter-spacing: -0.05em; color: #fff; transition: opacity 0.2s, transform 0.12s ease-out; }
 .brand:active { transform: scale(0.97); }
-/* Logo : la Terre de nuit en fond, RAZZIA en lettres gothiques rouges (découpées de l'affiche) par-dessus. */
+/* Logo : la Terre de nuit en fond, RAZZIA en lettres gothiques rouge sombre (découpées de l'affiche) par-dessus. */
 .logo { display: inline-grid; place-items: center; width: 150px; height: 46px; border-radius: 11px; background: #05070d center / cover no-repeat; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 6px 18px rgba(0, 0, 0, 0.5); }
 .logo img { height: 36px; width: auto; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85)); }
 .sports { display: flex; align-items: center; gap: 6px; }
