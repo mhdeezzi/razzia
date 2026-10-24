@@ -222,7 +222,7 @@ a.row:active { transform: scale(0.995); }
 .badge-sec h2 { margin-bottom: 12px; }
 .badge-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .badge-sure .signal-icon { background: rgba(61, 220, 151, 0.11); color: var(--m-green); }
-.badge-flip .signal-icon { background: rgba(255, 196, 92, 0.11); color: var(--m-amber); }
+.badge-flip .signal-icon { background: rgba(249, 153, 2, 0.1); color: var(--b-orange); }
 .badge-market .signal-icon { background: rgba(229, 72, 77, 0.11); color: var(--m-rose); }
 .badge-fire .signal-icon { background: rgba(255, 107, 61, 0.12); color: var(--m-fire); }
 .badge-info .signal-icon { background: var(--panel-4); color: var(--text-2); }
@@ -562,8 +562,9 @@ a.row:hover .mark { transform: scale(1.06); }
 .conf-badge-title { color: var(--text); font: 600 14px var(--ui); margin-bottom: 2px; }
 .conf-badge.sure { border-color: rgba(61, 220, 151, 0.34); background: rgba(61, 220, 151, 0.06); }
 .conf-badge.sure svg, .conf-badge.sure .conf-badge-title { color: var(--m-green); }
-.conf-badge.flip { border-color: rgba(255, 196, 92, 0.34); background: rgba(255, 196, 92, 0.06); }
-.conf-badge.flip svg, .conf-badge.flip .conf-badge-title { color: var(--m-amber); }
+/* Pile ou face : même orange que la pastille du programme, en contour seul. */
+.conf-badge.flip { border-color: var(--b-orange); background: none; }
+.conf-badge.flip svg, .conf-badge.flip .conf-badge-title { color: var(--b-orange); }
 .conf-badge.disagree { border-color: rgba(229, 72, 77, 0.34); background: rgba(229, 72, 77, 0.06); }
 .conf-badge.disagree svg, .conf-badge.disagree .conf-badge-title { color: var(--m-rose); }
 .conf-badge + .conf-badge { margin-top: 8px; }
