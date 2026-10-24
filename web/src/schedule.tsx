@@ -1,6 +1,6 @@
 // Programme : les matchs des 7 prochains jours (heure de New York), en liste ou en grille, filtrés par statut.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { CalendarBlank, CaretRight, Cat, Check, ListBullets, SquaresFour, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
+import { CalendarBlank, CaretRight, Check, Fire, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
 import { Empty, Link, ProgressLine, Segmented, TeamMark, Wordmark } from './ui.tsx';
@@ -148,7 +148,7 @@ export function SchedulePage({ day }: { day: string | null }) {
                 <span>Heure</span>
                 <span className="c">Match</span>
                 <span className="c">Cotes</span>
-                <span className="c c-total">Total</span>
+                <span className="c c-total">Forme</span>
                 <span className="c">Simulation</span>
                 <span />
               </div>
@@ -218,15 +218,53 @@ function SimPill({ g, sim, run }: { g: Game; sim?: SimEntry; run?: ItemState }) 
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const home = sim.pHome >= sim.pAway;
   return (
-    <span className="pill-group">
-      {sim.cat && (
-        <span className="cat-mini" title={`Chat noir pour ${sim.cat}`} aria-label={`Chat noir pour ${sim.cat}`}>
-          <Cat size={13} weight="fill" />
-        </span>
-      )}
+    <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
       <span className={`conf-pill sim${flipP(Math.max(sim.pHome, sim.pAway), sim.gp ?? recordGames(g)) ? ' flip' : ''}`}>
         <TrendUp size={13} weight="bold" /> {home ? g.home.tri : g.away.tri} {pct0(Math.max(sim.pHome, sim.pAway))}
       </span>
+    </span>
+  );
+}
+
+/** Forme, sans texte : l'équipe en pleine montée ou en baisse (logo + flèche en diagonale), sinon le joueur le plus
+ *  chaud (photo + flamme). Vide tant que le match n'est pas simulé. */
+function FormMark({ g, sim }: { g: Game; sim?: SimEntry }) {
+  const t = sim?.trend;
+  const sides = t ? (['away', 'home'] as const).filter((k) => t[k]) : [];
+  if (t && sides.length)
+    return (
+      <span className={`forme${sides.length === 2 ? ' duo' : ''}`} title={sides.map((k) => `${g[k].name} ${t[k] === 'up' ? 'en pleine montée' : 'en baisse'}`).join(' · ')}>
+        {sides.map((k) => (
+          <span key={k} className={`forme-item ${t[k]}`}>
+            <TeamMark team={g[k]} size="sm" />
+            <span className="forme-chip">{t[k] === 'up' ? <TrendUp size={10} weight="bold" /> : <TrendDown size={10} weight="bold" />}</span>
+          </span>
+        ))}
+      </span>
+    );
+  if (sim?.hot) {
+    const team = sim.hot.side === 0 ? g.home : g.away;
+    return (
+      <span className="forme" title={`${sim.hot.name} en feu ce soir`}>
+        <span className="forme-item hot">
+          <HotFace id={sim.hot.id} team={team} />
+          <span className="forme-chip">
+            <Fire size={10} weight="fill" />
+          </span>
+        </span>
+      </span>
+    );
+  }
+  return <span className="forme-none">-</span>;
+}
+
+function HotFace({ id, team }: { id: number; team: Game['home'] }) {
+  const [failed, setFailed] = useState(false);
+  return failed ? (
+    <TeamMark team={team} size="sm" />
+  ) : (
+    <span className="forme-face">
+      <img src={`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
     </span>
   );
 }
@@ -257,7 +295,9 @@ function Row({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i: 
         </div>
       </div>
       <span className="cell-odds">{o?.mlAway != null ? `${odds(o.mlAway)} / ${odds(o.mlHome)}` : '-'}</span>
-      <span className="cell-total">{o?.total != null ? line(o.total) : '-'}</span>
+      <span className="cell-total">
+        <FormMark g={g} sim={sim} />
+      </span>
       <span style={{ textAlign: 'center' }}>
         <SimPill g={g} sim={sim} run={run} />
       </span>
