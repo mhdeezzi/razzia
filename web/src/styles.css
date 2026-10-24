@@ -32,8 +32,8 @@
   --cta: linear-gradient(90deg, #2c5aee, #5148d6); /* boutons de simulation : le bleu d'origine, préféré au bleu clair */
   --bar: linear-gradient(90deg, #4d8eff, #7fb3ff);
   /* Barres de résultats : bleu ciel vers bleu vif, rouge vers rose. */
-  --blue-grad: linear-gradient(90deg, #52bad7, #4cabd9 20%, #449bde 45%, #3d8bde 68%, #3e77e0);
-  --rose-grad: linear-gradient(90deg, #d53a5a, #d03861 22%, #d1396a 45%, #cf3b79 68%, #cd3f87);
+  --blue-grad: linear-gradient(90deg, #2b98c4, #2a86cc 30%, #2b6fd6 65%, #2a58d4);
+  --rose-grad: linear-gradient(90deg, #c4203f, #c0204f 30%, #bb2463 65%, #b42a78);
   --r-hero: 28px;
   --r-card: 20px;
   --r-ctl: 12px;
@@ -286,14 +286,14 @@ a.row:hover .mark { transform: scale(1.06); }
 .tab-big.is-on { background: var(--panel-3); color: #fff; border-color: rgba(255, 255, 255, 0.24); }
 @property --beam { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 /* Onglet Simulation : bouton blanc, lueur bleu foncé qui fait le tour. */
-.tab-big.glow { color: #0b0b0b; border: 2px solid transparent; animation: beam 4.5s linear infinite;
+.tab-big.glow { color: #0b0b0b; border: 3px solid transparent; animation: beam 4.5s linear infinite;
   background: linear-gradient(#e9e9e9, #e9e9e9) padding-box,
-    conic-gradient(from var(--beam), transparent 0 70%, rgba(44, 90, 238, 0.6) 84%, #1a3fc4 92%, transparent 100%) border-box,
+    conic-gradient(from var(--beam), transparent 0 55%, rgba(26, 63, 196, 0.7) 75%, #0f2a9c 90%, transparent 100%) border-box,
     linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)) border-box; }
 .tab-big.glow.is-on { background: linear-gradient(#fff, #fff) padding-box,
-    conic-gradient(from var(--beam), transparent 0 70%, rgba(44, 90, 238, 0.7) 84%, #1a3fc4 92%, transparent 100%) border-box,
-    linear-gradient(#fff, #fff) border-box; box-shadow: 0 12px 28px -14px rgba(44, 90, 238, 0.7); }
-.tab-big.glow { padding: 13px 25px; } /* bord de 2px : même taille que « Aperçu » */
+    conic-gradient(from var(--beam), transparent 0 55%, rgba(26, 63, 196, 0.8) 75%, #0f2a9c 90%, transparent 100%) border-box,
+    linear-gradient(#d9dce6, #d9dce6) border-box; box-shadow: 0 12px 28px -14px rgba(26, 63, 196, 0.8); }
+.tab-big.glow { padding: 12px 24px; } /* bord de 3px : même taille que « Aperçu » */
 .tab-big.glow .dot { background: #1a3fc4; box-shadow: 0 0 0 3px rgba(26, 63, 196, 0.2); }
 
 @keyframes beam { to { --beam: 360deg; } }
@@ -746,7 +746,7 @@ a.row:hover .mark { transform: scale(1.06); }
   .hero-grid { gap: 8px; margin-top: 22px; }
   .hero-date { letter-spacing: 0.2em; margin-top: 22px; font-size: 11px; }
   .tab-big { padding: 11px 18px; font-size: 15px; }
-  .tab-big.glow { padding: 10px 17px; }
+  .tab-big.glow { padding: 9px 16px; }
   .aside { grid-template-columns: 1fr; }
   .info3 { grid-template-columns: 1fr; gap: 14px; }
   .launch, .progress { padding: 28px 20px; }
