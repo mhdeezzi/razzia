@@ -816,10 +816,6 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
         </div>
       </div>
       <dl className="verdict-side">
-        <div className="vs-wide">
-          <dt>Score le plus probable</dt>
-          <dd>{topScore(r)}</dd>
-        </div>
         {book != null && (
           <div>
             <dt>Marché sans marge</dt>
@@ -829,25 +825,12 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
           </div>
         )}
         <div>
-          <dt>Jeux (médiane)</dt>
-          <dd>
-            {r.sim.games.p50} <span className="muted small">({r.sim.games.p10}-{r.sim.games.p90})</span>
-          </dd>
-        </div>
-        <div>
           <dt>{dog.name.split(' ').at(-1)} prend un set</dt>
           <dd>{pct(r.sim.atLeast1[1 - i])}</dd>
         </div>
       </dl>
     </section>
   );
-}
-
-function topScore(r: TennisResult): string {
-  const [k] = Object.entries(r.sim.scores).sort((a, b) => b[1] - a[1])[0] ?? [''];
-  if (!k) return '-';
-  const [a, b] = k.split('-').map(Number);
-  return a > b ? `${r.home.name.split(' ').at(-1)} ${a}-${b}` : `${r.away.name.split(' ').at(-1)} ${b}-${a}`;
 }
 
 function SetScores({ r }: { r: TennisResult }) {
