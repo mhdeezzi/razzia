@@ -1,5 +1,5 @@
 # Cotes Pinnacle des matchs ATP (circuit principal) notées toutes les 3 heures : première cote vue (ouverture), dernière,
-# et changements de la cote du vainqueur ; plus la fiche courte des joueurs à l'affiche (code ATP pour la photo, pays,
+# et changements de la cote du vainqueur ; matchs programmés par ESPN pas encore cotés (fiches sans cote) ; plus la fiche courte des joueurs à l'affiche (code ATP pour la photo, pays,
 # classement). Poussées sur la branche cotes-tennis, que le moteur tennis et le programme lisent.
 name: Cotes tennis
 on:
@@ -29,6 +29,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git fetch origin cotes-tennis; then git worktree add -B cotes-tennis ../cotes FETCH_HEAD; else git worktree add --orphan -b cotes-tennis ../cotes; fi
           node src/cli/tennisodds.ts ../cotes
+          node src/cli/tennisfixtures.ts ../cotes || echo "calendrier ESPN non mis à jour"
           node src/cli/tennisplayers.ts ../cotes || echo "fiches joueurs non mises à jour"
           git -C ../cotes add -A
           git -C ../cotes diff --cached --quiet && exit 0

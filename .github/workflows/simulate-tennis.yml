@@ -7,7 +7,7 @@ run-name: "Tennis ${{ inputs.id }} ${{ inputs.day }} · ${{ inputs.request_id }}
 on:
   workflow_dispatch:
     inputs:
-      id: { description: 'Identifiant Pinnacle du match, ou plusieurs séparés par des virgules', required: true }
+      id: { description: 'Identifiant du match (Pinnacle, ou ESPN pour un match pas encore coté), ou plusieurs séparés par des virgules', required: true }
       day: { description: 'Jour du match (AAAA-MM-JJ, UTC) : fichier de cotes ; un seul, ou un par match (virgules)', required: true }
       request_id: { description: "Identifiant de la demande (suivi depuis l'app)", required: false, default: manuel }
 concurrency: { group: "tennis-${{ inputs.id }}", cancel-in-progress: false }
@@ -30,8 +30,13 @@ jobs:
           path: data/cache/tennis
           key: tennis-cache-${{ github.run_id }}
           restore-keys: tennis-cache-
+      # Cotes relues juste avant de simuler (la collecte planifiée passe parfois avec des heures de retard), et matchs
+      # du calendrier ESPN pas encore cotés : simulés avec le moteur seul.
       - name: Cotes du jour
-        run: git fetch origin cotes-tennis && git worktree add ../cotes FETCH_HEAD
+        run: |
+          git fetch origin cotes-tennis && git worktree add ../cotes FETCH_HEAD
+          node src/cli/tennisodds.ts ../cotes || echo "cotes Pinnacle non relues"
+          node src/cli/tennisfixtures.ts ../cotes || echo "calendrier ESPN non relu"
       - id: sim
         continue-on-error: true
         run: node src/cli/tennissim.ts --id "$ID" --day "$DAY" --cotes ../cotes --out out/tennis
