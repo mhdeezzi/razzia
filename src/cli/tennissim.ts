@@ -11,7 +11,7 @@ import { nameKey, ROUND_ORDER, type Match, type Surface } from '../tennis/histor
 import { Ratings, type Snapshot } from '../tennis/ratings.ts';
 import { blend, engineProb, MARKET_WEIGHT } from '../tennis/engine.ts';
 import { simulate } from '../tennis/sim.ts';
-import { espnFixtures, leagueOf, type Fixture } from '../tennis/espn.ts';
+import { espnFixtures, leagueOf, pairKey, type Fixture } from '../tennis/espn.ts';
 import { atpHeadshot, photoOf } from '../tennis/photos.ts';
 
 const arg = (k: string, d?: string) => { const i = process.argv.indexOf(`--${k}`); return i >= 0 ? process.argv[i + 1] : d; };
@@ -41,7 +41,10 @@ async function fromEspn(id: string) {
   const f = [...(await (espnCache ??= espnFixtures())).values()].find((x) => x.ids.includes(id));
   if (!f) return undefined;
   const priced = readdirSync(join(cotes, 'atp')).flatMap((n) => Object.values(JSON.parse(readFileSync(join(cotes, 'atp', n), 'utf8'))) as any[]).filter((m) => m.last?.ml);
-  console.log(`Match ${id} : fiche reprise du calendrier ESPN (${f.home} - ${f.away})`);
+  // Même match coté par Pinnacle (même paire de joueurs, à 2 jours près) : on prend sa fiche, avec la cote.
+  const twin = priced.find((m) => pairKey(m.home, m.away) === pairKey(f.home, f.away) && Math.abs(Date.parse(m.start) - Date.parse(f.start)) < 2 * 86_400_000);
+  console.log(`Match ${id} : fiche reprise du calendrier ESPN (${f.home} - ${f.away})${twin ? `, cote Pinnacle ${twin.id}` : ', sans cote'}`);
+  if (twin) return { ...twin, id: Number(id), pinnacle: twin.id };
   return { id: Number(id), source: 'espn', league: leagueOf(f, priced), start: f.start, home: f.home, away: f.away, first: {}, last: {}, moves: [] };
 }
 
@@ -56,8 +59,14 @@ async function simMatch(id: string, day: string) {
   const tname = SLAM[lname] ?? lname;
   const same = (m: Match) => nameKey(m.tourney).includes(nameKey(tname)) || nameKey(tname).includes(nameKey(m.tourney));
   // Les cotes ne couvrent que le circuit principal : son tournoi d'abord, un Challenger du même nom seulement à défaut.
-  const edition = [...history].reverse().find((m) => same(m) && !m.qual && m.level !== 'C') ?? [...history].reverse().find((m) => same(m) && !m.qual);
-  const surface: Surface = edition?.surface ?? 'Hard';
+  // Même tournoi = même ville à la même période de l'année (à 30 jours près) : Lyon en mai (terre) n'est pas Lyon en
+  // octobre (salle). Sans édition connue, la surface la plus jouée sur le circuit ces 10 derniers jours, sinon dur.
+  const doy = (d: string) => (Date.parse(d) - Date.parse(`${d.slice(0, 4)}-01-01`)) / 86_400_000;
+  const season = (m: Match) => { const x = Math.abs(doy(m.date) - doy(day)); return Math.min(x, 365 - x) <= 30; };
+  const edition = [...history].reverse().find((m) => same(m) && season(m) && !m.qual && m.level !== 'C') ?? [...history].reverse().find((m) => same(m) && season(m) && !m.qual);
+  const recent = history.filter((m) => m.date <= day && Date.parse(day) - Date.parse(m.date) <= 10 * 86_400_000 && !m.qual);
+  const bySurface = recent.reduce((c, m) => c.set(m.surface, (c.get(m.surface) ?? 0) + 1), new Map<Surface, number>());
+  const surface: Surface = edition?.surface ?? [...bySurface].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Hard';
   const bestOf: 3 | 5 = SLAM[lname] ? 5 : (edition?.bo ?? 3);
   const current = edition && Date.parse(day) - Date.parse(edition.date) < 20 * 86_400_000 ? edition.tid : `${day}-${nameKey(tname)}`;
   const round = ROUND[roundRaw.trim()] ?? roundRaw.trim();

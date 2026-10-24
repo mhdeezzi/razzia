@@ -22,11 +22,12 @@ const at = new Date().toISOString();
 let added = 0;
 for (const f of fixtures) {
   const day = f.start.slice(0, 10), data = load(day), pk = pairKey(f.home, f.away);
-  if (Object.values(data).some((m: any) => m.source !== 'espn' && m.last?.ml && pairKey(m.home, m.away) === pk)) continue; // déjà coté par Pinnacle
-  // Une fiche par identifiant ESPN vu pour ce match : l'app peut envoyer l'un ou l'autre.
+  // Une fiche par identifiant ESPN vu pour ce match (l'app peut envoyer l'un ou l'autre) ; si Pinnacle cote déjà le
+  // match, la fiche ESPN reprend sa cote et son nom de tournoi (la boucle suivante relie aussi les fiches plus anciennes).
+  const twin: any = Object.values(data).find((m: any) => m.source !== 'espn' && m.last?.ml && pairKey(m.home, m.away) === pk);
   for (const id of f.ids) {
     if (data[id]) { Object.assign(data[id], { start: f.start, home: f.home, away: f.away }); continue; }
-    data[id] = { id: Number(id), source: 'espn', league: leagueOf(f, priced as any), start: f.start, home: f.home, away: f.away, first: { at }, last: { at }, moves: [] };
+    data[id] = { id: Number(id), source: 'espn', league: twin?.league ?? leagueOf(f, priced as any), start: f.start, home: f.home, away: f.away, first: { at }, last: { at }, moves: [] };
     added++;
   }
 }
@@ -34,11 +35,13 @@ for (const f of fixtures) {
 let linked = 0;
 for (const data of files.values())
   for (const m of Object.values(data) as any[]) {
-    if (m.source !== 'espn' || m.last?.ml) continue;
+    if (m.source !== 'espn') continue;
     const twin: any = Object.values(data).find((x: any) => x.source !== 'espn' && x.last?.ml && pairKey(x.home, x.away) === pairKey(m.home, m.away));
-    if (twin) { m.first = twin.first; m.last = twin.last; m.moves = twin.moves; m.pinnacle = twin.id; linked++; }
+    // Cote Pinnacle recopiée à chaque passage (elle bouge) ; le nom de tournoi Pinnacle sert au moteur (surface, format).
+    // Joueurs dans l'ordre de Pinnacle : la cote [domicile, extérieur] suit cet ordre.
+    if (twin) { Object.assign(m, { league: twin.league, start: twin.start, home: twin.home, away: twin.away, first: twin.first, last: twin.last, moves: twin.moves, pinnacle: twin.id }); linked++; }
   }
 mkdirSync(dir, { recursive: true });
 for (const [day, data] of files) if (Object.keys(data).length) writeFileSync(join(dir, `${day}.json`), JSON.stringify(data));
-console.log(`calendrier ESPN : ${fixtures.length} matchs programmés, ${added} fiches sans cote ajoutées, ${linked} reliées à une cote Pinnacle`);
+console.log(`calendrier ESPN : ${fixtures.length} matchs programmés, ${added} fiches ajoutées, ${linked} reliées à une cote Pinnacle`);
 for (const f of fixtures) console.log(`  ${f.start} ${f.event} ${f.round} ${f.home} - ${f.away} : ${f.ids.join(', ')}`);
