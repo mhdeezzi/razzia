@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { ArrowLeft, CalendarBlank, CaretRight, Cat, ChartLineDown, ChartLineUp, CoinVertical, HouseLine, ListBullets, Mountains, ShieldCheck, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
 import { Empty, Link, ProgressLine, Ring, Segmented, SimProgress, Wordmark } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
-import { buildTennisCategories, favOf, flipOf, T_FLIP, T_SURE } from './tennispicks.ts';
+import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
 
 // ——— Données ———
@@ -30,7 +30,7 @@ export interface TennisResult {
 type Live = { state: 'pre' | 'in' | 'post'; detail?: string; home: Array<{ g: number; tb?: number; w?: boolean }>; away: Array<{ g: number; tb?: number; w?: boolean }>; winner?: 'home' | 'away' };
 // noOdds : match pas encore coté par Pinnacle (calendrier ESPN) : simulé avec le moteur seul.
 interface SlateMatch { id: string; day: string; league: string; start: string; home: string; away: string; odds?: Odds; oddsOpen?: Odds; live?: Live; noOdds?: boolean }
-interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string; cat?: string; trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' }; goal?: { home?: boolean; away?: boolean } }
+interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string; cat?: string; trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' }; goal?: { home?: boolean; away?: boolean }; flip?: boolean }
 interface PlayerCard { atp?: string; ioc?: string; rank?: number; age?: number; wiki?: string | null }
 type State = { status: 'loading' } | { status: 'none' } | { status: 'queued' | 'running'; startedAt?: string; url?: string } | { status: 'done'; result: TennisResult } | { status: 'failed'; error?: string; url?: string };
 
@@ -473,8 +473,10 @@ function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
     );
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const fav = sim.pHome >= 0.5 ? { n: sim.home, p: sim.pHome } : { n: sim.away, p: 1 - sim.pHome };
-  // Pile ou face (même règle que la fiche) : favori sous 60 %, ou outsider en hausse.
-  const flip = shown(fav.p) < T_FLIP || sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up';
+  // Pile ou face : calculé avec la règle de la fiche lors de la publication (index) ; pour une simulation indexée avant,
+  // la même règle sans la ligne de sets (favori à 80 % ou moins, ou outsider en hausse).
+  const dog = sim.pHome >= 0.5 ? sim.away : sim.home;
+  const flip = sim.flip ?? (sim.cat !== dog && (shown(fav.p) <= T_HEDGE_FIRST || sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up'));
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
       <span className={`conf-pill sim${flip ? ' flip' : ''}`}>
@@ -806,7 +808,12 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
             <div>
               <p className="conf-badge-title">Pile ou face</p>
               <p>
-                {flip === 'dogUp' ? `${dog.name} est en hausse : avec un outsider dans cette forme, le favori perd plus souvent que prévu.` : `${fav.name} reste favori, mais d'un rien : match imprévisible.`} Plus sûr : <b>{fav.name} gagne au moins un set</b> ({pct(sets)} des simulations).
+                {flip === 'dogUp'
+                  ? `${dog.name} est en hausse : avec un outsider dans cette forme, le favori perd plus souvent que prévu.`
+                  : flip === 'close'
+                    ? `${fav.name} reste favori, mais d'un rien : match imprévisible.`
+                    : `${fav.name} est favori, mais pas assez pour jouer sa victoire seule.`}{' '}
+                Plus sûr : <b>{fav.name} gagne au moins un set</b> ({pct(sets)} des simulations).
               </p>
             </div>
           </div>
@@ -1014,7 +1021,7 @@ export function TennisBilanPage() {
               <span className="caps">Hors pile ou face</span>
               <b className="mono">{rateTxt(b.tiers.advised)}</b>
               <small>
-                {b.tiers.advised.n} matchs ; pile ou face (favori sous 60 % ou outsider en hausse) : {rateTxt(b.tiers.flip)} sur {b.tiers.flip.n}
+                {b.tiers.advised.n} matchs ; pile ou face (favori à 80 % ou moins, ou outsider en hausse : « Un set » conseillé) : {rateTxt(b.tiers.flip)} sur {b.tiers.flip.n}
               </small>
             </div>
           </section>

@@ -7,7 +7,7 @@ import type { TennisResult } from './tennis.tsx';
 
 /** Favori à 80 % ou moins : « Un set » passe devant, le vainqueur est déconseillé (et c'est « Un set » qui compte au bilan). */
 export const T_HEDGE_FIRST = 0.8;
-/** Favori sous 60 % : pile ou face. */
+/** Favori sous 60 % : match serré (texte du badge « Pile ou face »). */
 export const T_FLIP = 0.6;
 /** Favori à 80 % ou plus : Razzia assuré. */
 export const T_SURE = 0.8;
@@ -21,14 +21,30 @@ export function favOf(r: TennisResult): { side: 'home' | 'away'; p: number } {
   return r.pHome >= 0.5 ? { side: 'home', p: r.pHome } : { side: 'away', p: 1 - r.pHome };
 }
 
+/** Outsider en hausse (forme sur 10 matchs) : le favori a gagné 4 points de moins qu'annoncé sur 2024-2025. */
+const dogUpOf = (r: TennisResult) => r[favOf(r).side === 'home' ? 'away' : 'home'].trend === 'up';
+
+/** Ligne de sets la plus sûre qui paie encore 1,15 et passe plus souvent que la victoire (outsider en hausse : même sous 1,15). */
+function setsLine(r: TennisResult) {
+  const { side, p: winP } = favOf(r);
+  const i = side === 'home' ? 0 : 1;
+  const lines = r.bestOf === 5
+    ? [{ need: 1, label: 'Un set', c: r.sim.atLeast1[i], line: 2.5 }, { need: 2, label: 'Deux sets', c: r.sim.atLeast2[i], line: 1.5 }]
+    : [{ need: 1, label: 'Un set', c: r.sim.atLeast1[i], line: 1.5 }];
+  return lines.filter((x) => (dogUpOf(r) || x.c <= 1 / MIN_ODDS) && x.c > winP).sort((a, b) => b.c - a.c)[0];
+}
+
 /**
- * Pile ou face : favori sous 60 %, ou outsider en hausse (forme sur 10 matchs). Avec un outsider en hausse, le favori a
- * gagné 4 points de moins qu'annoncé sur 2024-2025 ; passer ces matchs en « Un set » rapporte 0,6 point de réussite.
+ * Pile ou face : exactement quand la fiche déconseille le vainqueur et met la ligne de sets devant (favori à 80 % ou
+ * moins, ou outsider en hausse), sauf si l'outsider est la victime d'un chat noir du favori : on garde alors la victoire
+ * du favori. Le programme, la fiche et le bilan suivent cette seule règle.
+ * Raison affichée : outsider en hausse, match serré (favori sous 60 %), ou favori trop juste pour jouer sa victoire seule.
  */
-export function flipOf(r: TennisResult): 'close' | 'dogUp' | undefined {
-  const { side, p } = favOf(r);
-  if (r[side === 'home' ? 'away' : 'home'].trend === 'up') return 'dogUp';
-  return shown(p) < T_FLIP ? 'close' : undefined;
+export function flipOf(r: TennisResult): 'dogUp' | 'close' | 'hedge' | undefined {
+  const dogUp = dogUpOf(r);
+  if (r.blackCat && r.blackCat.victim !== favOf(r).side) return undefined;
+  if (!setsLine(r) || !(dogUp || shown(favOf(r).p) <= T_HEDGE_FIRST)) return undefined;
+  return dogUp ? 'dogUp' : shown(favOf(r).p) < T_FLIP ? 'close' : 'hedge';
 }
 
 export function buildTennisCategories(r: TennisResult): Category[] {
@@ -50,13 +66,7 @@ export function buildTennisCategories(r: TennisResult): Category[] {
     text: `${fav.name} gagne ${Math.round(winP * r.sim.n).toLocaleString('fr-FR')} des ${r.sim.n.toLocaleString('fr-FR')} matchs simulés${top ? `. Score le plus fréquent : ${scoreTxt(top[0])} (${pct(top[1])})` : ''}.`,
   };
 
-  // Ligne de sets la plus sûre qui paie encore 1,15 et passe plus souvent que la victoire.
-  const lines = r.bestOf === 5
-    ? [{ need: 1, label: 'Un set', c: r.sim.atLeast1[i], line: 2.5 }, { need: 2, label: 'Deux sets', c: r.sim.atLeast2[i], line: 1.5 }]
-    : [{ need: 1, label: 'Un set', c: r.sim.atLeast1[i], line: 1.5 }];
-  // Outsider en hausse : « Un set » passe devant même si sa cote est sous 1,15.
-  const dogUp = flipOf(r) === 'dogUp';
-  const L = lines.filter((x) => (dogUp || x.c <= 1 / MIN_ODDS) && x.c > winP).sort((a, b) => b.c - a.c)[0];
+  const L = setsLine(r);
   const sets: Outcome | undefined = L && {
     id: 'sets', title: `${fav.name} gagne au moins ${L.need === 1 ? 'un set' : 'deux sets'}`, p: L.c, fair: 1 / L.c, ...setOdds(L.line),
     text: `Plus sûr que la victoire : ${fav.name} gagne le match, ou perd en prenant au moins ${L.need === 1 ? 'un set' : 'deux sets'} à ${dog.name}. Passe dans ${pct(L.c)} des simulations.`,
@@ -67,8 +77,7 @@ export function buildTennisCategories(r: TennisResult): Category[] {
     text: `${fav.name} gagne sans perdre de set dans ${pct(r.sim.straight[i])} des simulations : cote plus haute, risque plus grand.`,
   };
 
-  const hedgeFirst = !!sets && (dogUp || shown(winP) <= T_HEDGE_FIRST);
-  if (hedgeFirst)
+  if (flipOf(r))
     return [
       { id: 'sets', label: L!.label, items: [sets!] },
       { id: 'win', label: 'Vainqueur', items: [{ ...win, warn: 'Déconseillé' }], warn: true },

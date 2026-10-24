@@ -73,7 +73,7 @@ const tennis: Badge[] = [
   },
   {
     icon: <CoinVertical size={20} weight="bold" />, tone: 'badge-flip', title: 'Pile ou face',
-    text: "Favori sous 60 %, ou outsider en hausse (le favori perdait alors plus souvent que prévu). « Un set » passe devant, le vainqueur est déconseillé.",
+    text: "Favori à 80 % ou moins, ou outsider en hausse (le favori perdait alors plus souvent que prévu) : « Un set » passe devant, le vainqueur est déconseillé. Sauf quand l'outsider est le chat noir du favori : on garde sa victoire.",
   },
   {
     icon: <Cat size={20} weight="fill" />, tone: 'signal-cat', title: 'Chat noir',
