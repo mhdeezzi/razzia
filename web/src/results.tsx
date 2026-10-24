@@ -161,7 +161,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
   const pick = useMemo(() => buildCategories(r, g)[0]?.items[0], [r, g]);
   return (
     <section className={`verdict verdict-${c.tier}`}>
-      <Ring value={pFav} format={pctInt} label="Victoire" extra={<PickOdds o={pick} />} />
+      <Ring value={pFav} format={pctInt} label="Victoire" />
       <div>
         <span className="caps">Favori Razzia</span>
         <p className="verdict-team">
@@ -171,6 +171,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
           Probabilité de victoire <b className="num">{pct(pFav)}</b>
 .
         </p>
+        <PickOdds o={pick} />
         <ConfidenceBadge c={c} g={g} />
         <MarketBadge c={c} g={g} />
         {c.tier !== 'flip' && c.hedge && (
@@ -269,7 +270,7 @@ export function PickTabs({ cats, n }: { cats: Category[]; n: number }) {
 
 const dec = (v: number) => v.toFixed(2).replace('.', ',');
 
-/** Sous le rond : la cote du pronostic mis en avant (bookmaker, sinon cote juste). */
+/** Sous « Probabilité de victoire » : la cote du pronostic mis en avant (bookmaker, sinon cote juste). */
 export function PickOdds({ o }: { o?: Outcome }) {
   const v = o?.odds ?? o?.fair;
   if (!o || v == null) return null;

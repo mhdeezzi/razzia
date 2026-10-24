@@ -770,7 +770,7 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
   const sets = r.sim.atLeast1[i];
   return (
     <section className={`verdict verdict-${tier}`}>
-      <Ring value={p} format={pct0} label="Victoire" extra={<PickOdds o={pick} />} />
+      <Ring value={p} format={pct0} label="Victoire" />
       <div>
         <span className="caps">Favori Razzia</span>
         <p className="verdict-team">
@@ -779,6 +779,7 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
         <p className="verdict-sub">
           Probabilité de victoire <b className="num">{pct(p)}</b>.
         </p>
+        <PickOdds o={pick} />
         {tier === 'sure' && (
           <div className="conf-badge sure">
             <ShieldCheck size={20} weight="fill" />
