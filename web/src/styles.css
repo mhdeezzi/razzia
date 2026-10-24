@@ -51,9 +51,10 @@
   /* Badges et menus : police ronde et simple, fond plein, texte foncé (façon bouton Vercel). */
   --ui: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
   --ink: #0a0a0a;
-  /* Fonds pleins des badges : orange du bouton Vercel, et le même en bleu (même saturation, même clarté). */
-  --b-orange: #f99902;
-  --b-blue: #0267f9;
+  /* Badges : bleu de l'océan foncé de la carte du monde (#1d416c), à peine éclairci pour rester lisible ;
+     orange aussi sombre que ce bleu (même clarté, même saturation). */
+  --b-orange: #a07022;
+  --b-blue: #2a5590;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --spring: cubic-bezier(0.22, 1, 0.36, 1); /* sans rebond : la DA reste sobre */
   color-scheme: dark;
@@ -196,7 +197,7 @@ a.row:active { transform: scale(0.995); }
 .conf-pill.sim.flip { color: var(--b-orange); box-shadow: inset 0 0 0 1px var(--b-orange); }
 .conf-pill.go { color: #ededed; background: none; box-shadow: inset 0 0 0 1px #ededed; }
 .conf-pill.wait { color: var(--text-2); }
-.conf-pill.run { color: #dbe6ff; background: rgba(2, 103, 249, 0.25); }
+.conf-pill.run { color: #dbe6ff; background: rgba(42, 85, 144, 0.35); }
 .conf-pill.fail { color: var(--m-rose); background: none; box-shadow: inset 0 0 0 1px var(--m-rose); }
 .wait-dot { width: 6px; height: 6px; border-radius: 9px; background: var(--text-3); }
 .spin-xs { width: 11px; height: 11px; border-width: 1.6px; }
@@ -222,7 +223,7 @@ a.row:active { transform: scale(0.995); }
 .badge-sec h2 { margin-bottom: 12px; }
 .badge-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .badge-sure .signal-icon { background: rgba(61, 220, 151, 0.11); color: var(--m-green); }
-.badge-flip .signal-icon { background: rgba(249, 153, 2, 0.1); color: var(--b-orange); }
+.badge-flip .signal-icon { background: rgba(160, 112, 34, 0.14); color: var(--b-orange); }
 .badge-market .signal-icon { background: rgba(229, 72, 77, 0.11); color: var(--m-rose); }
 .badge-fire .signal-icon { background: rgba(255, 107, 61, 0.12); color: var(--m-fire); }
 .badge-info .signal-icon { background: var(--panel-4); color: var(--text-2); }
