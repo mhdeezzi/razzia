@@ -1,7 +1,7 @@
 // « En feu ce soir » : les joueurs dont les 5 000 simulations annoncent un gros match, et pourquoi.
 // Et l'avertissement quand la simulation précède l'annonce des compositions officielles.
 import { useState, type CSSProperties } from 'react';
-import { ArrowClockwise, Fire, Info } from '@phosphor-icons/react';
+import { ArrowClockwise, Fire, Info, Star } from '@phosphor-icons/react';
 import { n1, pct0, type Game, type Result } from './data.ts';
 import { TeamMark } from './ui.tsx';
 
@@ -37,10 +37,12 @@ function Face({ p, team }: { p: Player; team: Game['home'] }) {
 
 /** « En feu ce soir » : les joueurs que les simulations voient le plus souvent faire un gros match, et pourquoi. */
 export function HotStrip({ r, g }: { r: Result; g: Game }) {
+  // Les quatre plus chauds, rangés par chance de gros match : 1 en haut à gauche, 2 en haut à droite, 3 et 4 dessous.
   const hot = r.players
     .filter((p) => p.heat && p.heat.pBig >= 0.1)
     .sort((a, b) => b.heat!.index - a.heat!.index)
-    .slice(0, 4);
+    .slice(0, 4)
+    .sort((a, b) => b.heat!.pBig - a.heat!.pBig);
   if (!hot.length) return null;
   return (
     <section className="section" aria-label="Joueurs en feu">
@@ -56,6 +58,7 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
           const team = p.side === 0 ? g.home : g.away;
           return (
             <li key={p.id} className="feu-card" style={{ '--i': i } as CSSProperties}>
+              {i < 2 && hot.length > 2 && <Star className="feu-star" size={18} weight="fill" aria-label="Parmi les deux plus grosses chances" />}
               <div className="feu-who">
                 <Face p={p} team={team} />
                 <div>

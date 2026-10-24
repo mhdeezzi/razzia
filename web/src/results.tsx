@@ -55,7 +55,7 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
 }
 
 // Niveaux de confiance, mesurés sur toute la saison 2025-26 (1 230 matchs) : à 77 % ou plus (un match sur quatre), le
-// moteur voit juste 84,6 % du temps. Sous 60 % (deux saisons), le favori ne gagne que 59 % du temps : pile ou face.
+// moteur voit juste 84,6 % du temps. Sous 66 % (65,9 % compris) : pile ou face, le handicap passe devant.
 const SURE = 0.77;
 // Gros désaccord avec le marché en début de saison (octobre-novembre) : le marché voit l'autre équipe favorite, avec au
 // moins 20 points d'écart. Saison 2025-26 : le moteur n'a eu raison que 5 fois sur 10 sur ces matchs. Le favori ne change pas.
