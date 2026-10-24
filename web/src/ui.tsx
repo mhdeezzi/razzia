@@ -136,7 +136,7 @@ export function CountUp({ value, format, duration = 1100 }: { value: number; for
 }
 
 /** Anneau de probabilité (0 à 1) qui se remplit à l'affichage. */
-export function Ring({ value, tone = 'blue', label, format, extra }: { value: number; tone?: 'blue' | 'rose'; label?: string; format: (v: number) => string; extra?: ReactNode }) {
+export function Ring({ value, tone = 'blue', label, format }: { value: number; tone?: 'blue' | 'rose'; label?: string; format: (v: number) => string }) {
   const r = 44;
   const c = 2 * Math.PI * r;
   const [shown, setShown] = useState(reduced() ? value : 0);
@@ -164,7 +164,6 @@ export function Ring({ value, tone = 'blue', label, format, extra }: { value: nu
         </span>
       </div>
       {label && <figcaption>{label}</figcaption>}
-      {extra}
     </figure>
   );
 }
