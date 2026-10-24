@@ -156,10 +156,13 @@ a.row:active { transform: scale(0.995); }
 .pill-group { display: inline-flex; align-items: center; gap: 6px; }
 /* Chat noir : noir et blanc, volontairement hors de la palette (rare, doit sauter aux yeux). */
 .cat-mini { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #f2f4f7; color: #050607; box-shadow: 0 0 0 1px #f2f4f7; }
-/* Programme ATP : le chat se pose entre les colonnes Cotes et Simulation, sans décaler la pastille. */
+/* Programme ATP : petit chat collé à gauche de la pastille, séparé par une mini barre blanche, sans la décaler. */
+.t-row .cat-mini { width: 18px; height: 18px; }
+.t-row .cat-mini svg { width: 11px; height: 11px; }
 @media (min-width: 721px) {
-  .t-row > :nth-child(4) { position: relative; }
-  .t-row > :nth-child(4) .cat-mini { position: absolute; left: -7px; top: 50%; transform: translate(-50%, -50%); }
+  .t-row .pill-group { position: relative; }
+  .t-row .pill-group .cat-mini { position: absolute; right: calc(100% + 18px); top: 50%; transform: translateY(-50%); }
+  .t-row .pill-group .cat-mini::after { content: ''; position: absolute; left: calc(100% + 8px); top: 50%; width: 2px; height: 14px; border-radius: 1px; background: #f2f4f7; transform: translateY(-50%); }
 }
 
 /* Signaux du match sous le verdict. */
