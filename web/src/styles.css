@@ -1,7 +1,7 @@
 /* Razzia : DA calquée sur Betix. Noir pur, cartes presque noires à filet clair, pastilles et boutons en pilule,
    libellés de section en capitales espacées, chiffres en chasse fixe (heures, cotes, dates, scores de données).
    Couleurs : dégradé bleu vers indigo = action principale ; bleu = côté « value », équipe extérieure dans les duels ;
-   rose = côté « risqué », équipe à domicile ; vert = écart positif ; rouge = direct ; orange = en feu.
+   rouge (rose) = côté « risqué », équipe à domicile ; vert = écart positif ; rouge = direct ; orange = en feu.
    Bordure animée : une ligne fine de 1 px qui fait le tour de l'élément, jamais un halo flou.
    Angles : bandeaux 28px, cartes 20px, contrôles 12px, pastilles et onglets en pilule. */
 :root {
@@ -22,32 +22,38 @@
   --blue: #3d8bff;
   --cyan: #35d0f2;
   --accent: #4d8eff;
-  --rose: #ff4f7b;
+  --rose: #e5484d;
   --green: #3ddc97;
   --live: #ff3d3d;
   --fire: #ff6b3d; /* « En feu ce soir » */
   --home: #f5b54a; /* tennis : joueur à domicile */
   /* Couleurs des badges (vives). */
   --m-green: #3ddc97;
-  --m-rose: #ff4f7b;
+  --m-rose: #e5484d;
   --m-blue: #3d8bff;
   --m-amber: #ffc45c;
   --m-home: #f5b54a;
   --m-fire: #ff6b3d;
   --blue-soft: rgba(61, 139, 255, 0.14);
-  --rose-soft: rgba(255, 79, 123, 0.14);
+  --rose-soft: rgba(229, 72, 77, 0.14);
   --cta: linear-gradient(90deg, #2c5aee, #5148d6); /* boutons de simulation : le bleu d'origine, préféré au bleu clair */
   --bar: linear-gradient(90deg, #4d8eff, #7fb3ff);
   /* Barres de résultats : bleu ciel vers bleu vif, rouge vers rose. */
   --blue-grad: linear-gradient(90deg, #1898c4, #1b7ad8 35%, #2256dc 70%, #2a3ec8);
   --blue-glow: 0 0 10px rgba(34, 100, 230, 0.55), 0 0 2px rgba(60, 150, 230, 0.8);
-  --rose-grad: linear-gradient(90deg, #d0183a, #c8184e 35%, #bc1d68 70%, #a8247f);
-  --rose-glow: 0 0 10px rgba(210, 30, 80, 0.5), 0 0 2px rgba(230, 80, 130, 0.8);
+  --rose-grad: linear-gradient(90deg, #a51d24, #c42b30 50%, #d93d3d);
+  --rose-glow: 0 0 6px rgba(200, 40, 40, 0.3);
   --r-hero: 28px;
   --r-card: 20px;
   --r-ctl: 12px;
   --sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
   --mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Badges et menus : police ronde et simple, fond plein, texte foncé (façon bouton Vercel). */
+  --ui: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --ink: #0a0a0a;
+  /* Fonds pleins des badges : orange du bouton Vercel, et le même en bleu (même saturation, même clarté). */
+  --b-orange: #f99902;
+  --b-blue: #0267f9;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --spring: cubic-bezier(0.22, 1, 0.36, 1); /* sans rebond : la DA reste sobre */
   color-scheme: dark;
@@ -94,14 +100,14 @@ input, textarea { caret-color: #5b9bff; }
 .logo img { height: 36px; width: auto; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85)); }
 .sports { display: flex; align-items: center; gap: 6px; }
 .sport { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 18px; border: 0; border-radius: 12px; background: none;
-  font: 600 15.5px var(--sans); letter-spacing: -0.01em; color: #8c8c8c; cursor: pointer; white-space: nowrap; transition: color 0.2s, background-color 0.2s, transform 0.12s ease-out; }
+  font: 500 15.5px var(--ui); letter-spacing: -0.01em; color: #8c8c8c; cursor: pointer; white-space: nowrap; transition: color 0.2s, background-color 0.2s, transform 0.12s ease-out; }
 .sport:active:not(:disabled) { transform: scale(0.96); }
-.sport.is-on { background: var(--panel-4); color: #fff; }
+.sport.is-on { background: #ededed; color: var(--ink); }
 .sport:disabled { color: #4f4f4f; cursor: default; }
 .top-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
-.top-link { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 10px; font: 500 15px var(--sans); color: #9a9a9a; white-space: nowrap; transition: color 0.2s, background-color 0.2s, transform 0.12s ease-out; }
+.top-link { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 10px; font: 500 15px var(--ui); color: #9a9a9a; white-space: nowrap; transition: color 0.2s, background-color 0.2s, transform 0.12s ease-out; }
 .top-link:active { transform: scale(0.96); }
-.top-link.is-on { color: #fff; font-weight: 600; background: var(--panel-3); }
+.top-link.is-on { color: var(--ink); background: #ededed; }
 @media (hover: hover) and (pointer: fine) { .sport:hover:not(:disabled):not(.is-on), .top-link:hover:not(.is-on) { color: #fff; } }
 
 /* Pages */
@@ -141,7 +147,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 0 24px 72px; }
 .league-card { border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--panel); padding: 6px 16px 14px; }
 .league-top { display: flex; align-items: center; gap: 10px; padding: 16px 6px 16px; }
 .league-top h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
-.badge-n { font: 600 11px var(--mono); color: var(--text-2); background: var(--panel-3); border-radius: 999px; padding: 2px 8px; }
+.badge-n { font: 500 12px var(--ui); font-variant-numeric: tabular-nums; color: var(--text-2); background: var(--panel-3); border-radius: 6px; padding: 2px 7px; }
 .league-top .muted { margin-left: auto; font-size: 13px; }
 .thead, .row { display: grid; grid-template-columns: 92px minmax(0, 1fr) 150px 92px 150px 24px; align-items: center; gap: 14px; }
 .thead { padding: 14px 14px; border-radius: 12px; background: #101010; }
@@ -155,8 +161,8 @@ a.row:hover { background: #0b0b0b; }
 a.row:active { transform: scale(0.995); }
 .row-time { display: grid; gap: 5px; justify-items: start; }
 .row-time .t { font: 700 16px var(--mono); letter-spacing: -0.02em; }
-.pill-tag { white-space: nowrap; font: 800 10.5px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 7px; border-radius: 6px; color: #8fbcff; background: rgba(77, 142, 255, 0.13); }
-.pill-tag.live { color: #ff8a8a; background: rgba(255, 61, 61, 0.14); display: inline-flex; align-items: center; gap: 5px; }
+.pill-tag { white-space: nowrap; font: 450 12.5px/17px var(--ui); letter-spacing: -0.005em; padding: 2px 8px; border-radius: 6px; color: #e6e6e6; background: var(--panel-4); }
+.pill-tag.live { color: var(--ink); background: var(--m-rose); display: inline-flex; align-items: center; gap: 5px; }
 .pill-tag.final { color: var(--text-2); background: var(--panel-3); }
 .vs-line { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 14px; }
 .vs-team { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -183,14 +189,15 @@ a.row:active { transform: scale(0.995); }
 .forme-item.down .forme-chip { color: var(--m-rose); }
 .forme-item.hot .forme-chip { color: var(--m-fire); }
 .forme-none { color: var(--text-3); }
-.conf-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line-3); font: 600 12px var(--mono); letter-spacing: -0.01em; color: var(--text-2); white-space: nowrap; transition: border-color 0.2s, color 0.2s, background-color 0.2s; }
-.conf-pill.sim { color: #a9cbff; border-color: rgba(77, 142, 255, 0.5); }
+/* Pastilles du programme : fond plein, coins arrondis, texte foncé (façon bouton Vercel). */
+.conf-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 6px; font: 450 13px/18px var(--ui); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--text-2); background: var(--panel-3); white-space: nowrap; transition: color 0.2s, background-color 0.2s; }
+.conf-pill.sim { color: var(--ink); background: var(--b-blue); }
 /* Match pile ou face : même ambre que le badge « Pile ou face » de la fiche. */
-.conf-pill.sim.flip { color: #ffc45c; border-color: rgba(255, 196, 92, 0.5); }
-.conf-pill.go { font-family: var(--sans); font-weight: 700; color: var(--text); background: var(--panel-3); border-color: var(--line-3); }
+.conf-pill.sim.flip { color: var(--ink); background: var(--b-orange); }
+.conf-pill.go { color: var(--ink); background: #ededed; }
 .conf-pill.wait { color: var(--text-2); }
-.conf-pill.run { color: #a9cbff; border-color: rgba(77, 142, 255, 0.5); background: rgba(77, 142, 255, 0.1); }
-.conf-pill.fail { color: var(--rose); border-color: rgba(255, 79, 123, 0.35); background: var(--rose-soft); }
+.conf-pill.run { color: #dbe6ff; background: rgba(2, 103, 249, 0.25); }
+.conf-pill.fail { color: var(--ink); background: var(--m-rose); }
 .wait-dot { width: 6px; height: 6px; border-radius: 9px; background: var(--text-3); }
 .spin-xs { width: 11px; height: 11px; border-width: 1.6px; }
 .pill-group { display: inline-flex; align-items: center; gap: 6px; }
@@ -205,7 +212,7 @@ a.row:active { transform: scale(0.995); }
 .signal-cat .signal-title { color: #f2f4f7; }
 .signal-cat .signal-icon { background: #f2f4f7; color: #050607; box-shadow: 0 0 0 1px #f2f4f7; }
 .signal-up .signal-icon { background: rgba(61, 220, 151, 0.11); color: var(--m-green); }
-.signal-down .signal-icon { background: rgba(255, 79, 123, 0.11); color: var(--m-rose); }
+.signal-down .signal-icon { background: rgba(229, 72, 77, 0.11); color: var(--m-rose); }
 .signal-tight .signal-icon { background: var(--panel-4); color: var(--text-2); }
 .signal-home .signal-icon { background: rgba(245, 181, 74, 0.11); color: var(--m-home); }
 .signal-goal .signal-icon { background: rgba(77, 142, 255, 0.12); color: var(--m-blue); }
@@ -216,7 +223,7 @@ a.row:active { transform: scale(0.995); }
 .badge-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .badge-sure .signal-icon { background: rgba(61, 220, 151, 0.11); color: var(--m-green); }
 .badge-flip .signal-icon { background: rgba(255, 196, 92, 0.11); color: var(--m-amber); }
-.badge-market .signal-icon { background: rgba(255, 79, 123, 0.11); color: var(--m-rose); }
+.badge-market .signal-icon { background: rgba(229, 72, 77, 0.11); color: var(--m-rose); }
 .badge-fire .signal-icon { background: rgba(255, 107, 61, 0.12); color: var(--m-fire); }
 .badge-info .signal-icon { background: var(--panel-4); color: var(--text-2); }
 .badge-dot { width: 10px; height: 10px; border-radius: 50%; }
@@ -280,19 +287,18 @@ a.row:hover .mark { transform: scale(1.06); }
 
 /* Onglets segmentés : curseur glissant */
 .seg { position: relative; display: inline-flex; padding: 4px; gap: 2px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line-2); isolation: isolate; }
-.seg button { position: relative; z-index: 1; border: 0; background: transparent; padding: 7px 16px; border-radius: 9px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-2); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; transition: color 0.25s, transform 0.15s var(--spring); }
+.seg button { position: relative; z-index: 1; border: 0; background: transparent; padding: 7px 16px; border-radius: 8px; cursor: pointer; font: 500 14px var(--ui); color: var(--text-2); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; transition: color 0.25s, transform 0.15s var(--spring); }
 .seg button:hover:not(.is-on):not(:disabled) { color: var(--text); }
 .seg button:active:not(:disabled) { transform: scale(0.96); transition-duration: 0.1s; }
 .seg button:disabled { opacity: 0.4; cursor: default; }
-.seg-thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 0; border-radius: 9px; background: var(--panel-4); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
+.seg-thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 0; border-radius: 8px; background: #ededed; }
 .seg.is-ready .seg-thumb { transition: transform 0.42s var(--spring), width 0.42s var(--spring); }
-.seg-light .seg-thumb { background: var(--panel-4); }
-.seg-light button.is-on { color: #fff; font-weight: 600; }
-.seg-blue .seg-thumb { background: rgba(77, 142, 255, 0.24); box-shadow: inset 0 0 0 1px rgba(77, 142, 255, 0.4); }
-.seg-blue button.is-on { color: #dbe6ff; font-weight: 600; }
-.seg-dark button.is-on { color: var(--text); font-weight: 600; }
+.seg-light button.is-on { color: var(--ink); }
+.seg-blue .seg-thumb { background: var(--b-blue); }
+.seg-blue button.is-on { color: var(--ink); }
+.seg-dark button.is-on { color: var(--ink); }
 .seg-lg { padding: 6px; }
-.seg-lg button { padding: 13px 26px; font-size: 17px; font-weight: 600; }
+.seg-lg button { padding: 13px 26px; font-size: 17px; }
 
 /* Fiche de match : bandeau (Betix) */
 .hero { position: relative; border: 1px solid var(--line-2); border-radius: 32px; padding: 40px 32px 36px; overflow: hidden; margin-bottom: 22px; background: var(--bg); }
@@ -312,7 +318,7 @@ a.row:hover .mark { transform: scale(1.06); }
 
 .tabs-row { display: flex; gap: 10px; align-items: center; margin-bottom: 22px; }
 .tab-ai { position: relative; }
-.tab-big { position: relative; isolation: isolate; display: inline-flex; align-items: center; gap: 10px; padding: 14px 26px; border-radius: 14px; font-size: 16.5px; font-weight: 700; letter-spacing: -0.01em; cursor: pointer;
+.tab-big { position: relative; isolation: isolate; display: inline-flex; align-items: center; gap: 10px; padding: 14px 26px; border-radius: 14px; font: 500 16.5px var(--ui); letter-spacing: -0.01em; cursor: pointer;
   border: 1px solid var(--line-2); background: var(--panel); color: var(--text-2);
   transition: background-color 0.25s, color 0.25s, transform 0.1s ease-out, box-shadow 0.3s, border-color 0.25s; }
 .tab-big:hover { color: var(--text); border-color: var(--line-3); }
@@ -379,7 +385,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .launch-facts div { display: grid; }
 .launch-facts b { font: 600 21px var(--mono); letter-spacing: -0.03em; }
 .launch-facts span { font: 700 10.5px var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); margin-top: 2px; }
-.alert { display: flex; gap: 12px; align-items: flex-start; width: 100%; padding: 14px 16px; border-radius: var(--r-ctl); background: rgba(255, 79, 123, 0.1); border: 1px solid rgba(255, 79, 123, 0.25); color: var(--rose); }
+.alert { display: flex; gap: 12px; align-items: flex-start; width: 100%; padding: 14px 16px; border-radius: var(--r-ctl); background: rgba(229, 72, 77, 0.1); border: 1px solid rgba(229, 72, 77, 0.25); color: var(--rose); }
 .alert p:first-child { color: var(--text); font-weight: 600; }
 .alert a { color: var(--text-2); text-decoration: underline; }
 
@@ -455,7 +461,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .ring { margin: 0; display: grid; justify-items: center; gap: 14px; }
 .ring-disc { position: relative; width: 168px; height: 168px; border-radius: 999px; display: grid; place-items: center; background: #000; box-shadow: inset 0 0 0 1px var(--line); }
 .ring-blue { --c: #2272e0; --ca: #1898c4; --cb: #2a3ec8; --glow: rgba(34, 100, 230, 0.45); --glow-2: rgba(34, 100, 230, 0.22); }
-.ring-rose { --c: #c81a52; --ca: #d0183a; --cb: #a8247f; --glow: rgba(210, 30, 80, 0.4); --glow-2: rgba(210, 30, 80, 0.2); }
+.ring-rose { --c: #c42b30; --ca: #a51d24; --cb: #d93d3d; --glow: rgba(200, 40, 40, 0.3); --glow-2: rgba(200, 40, 40, 0.15); }
 .ring svg { position: absolute; inset: 14px; transform: rotate(-90deg); overflow: visible; }
 .ring-track { fill: none; stroke: #e9ecf1; stroke-width: 7; opacity: 0.9; }
 .ring-stop-a { stop-color: var(--ca); }
@@ -494,14 +500,14 @@ a.row:hover .mark { transform: scale(1.06); }
 .tab-dot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--live); }
 .tab-dot.good { background: var(--accent); }
 .pick-warn.safe { color: var(--accent); border-color: rgba(77, 142, 255, 0.5); background: rgba(77, 142, 255, 0.12); }
-.pick-risky { --pglow: rgba(255, 79, 123, 0.1); }
+.pick-risky { --pglow: rgba(229, 72, 77, 0.1); }
 .pick-tags { display: flex; align-items: center; gap: 10px; }
 .kind { display: inline-flex; align-items: center; gap: 7px; font: 800 11px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 9px; border-radius: 6px; }
 .kind::before { content: ''; width: 6px; height: 6px; border-radius: 9px; background: currentColor; }
 .kind-value { color: #8fbcff; background: rgba(77, 142, 255, 0.16); }
-.kind-risky { color: #ff7d9c; background: var(--rose-soft); }
+.kind-risky { color: #f0787b; background: var(--rose-soft); }
 .pick h4 { margin: 14px 0 14px; font-size: clamp(26px, 3.4vw, 46px); font-weight: 800; letter-spacing: -0.04em; line-height: 1.02; }
-.odds-pill { display: inline-flex; gap: 10px; font: 600 14px var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--text-2); padding: 8px 16px; border-radius: 12px; border: 1px solid var(--line-2); background: #111; }
+.odds-pill { display: inline-flex; gap: 10px; font: 500 14px var(--ui); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--text-2); padding: 8px 16px; border-radius: 12px; border: 1px solid var(--line-2); background: #111; }
 .odds-pill b { color: var(--text); }
 .pick p { margin-top: 16px; color: var(--text-2); font-size: 16px; line-height: 1.6; max-width: 62ch; }
 .pick-stats { display: flex; gap: 24px; margin-top: 18px; flex-wrap: wrap; }
@@ -553,12 +559,12 @@ a.row:hover .mark { transform: scale(1.06); }
 /* Niveau de confiance sous le favori : « Razzia assuré » ou « Pile ou face ». */
 .conf-badge { display: flex; gap: 12px; align-items: flex-start; margin-top: 16px; padding: 12px 14px; border-radius: 14px; font-size: 13.5px; color: var(--text-2); border: 1px solid var(--line-2); background: var(--panel); }
 .conf-badge svg { flex: none; margin-top: 1px; }
-.conf-badge-title { color: var(--text); font-weight: 700; margin-bottom: 2px; }
+.conf-badge-title { color: var(--text); font: 600 14px var(--ui); margin-bottom: 2px; }
 .conf-badge.sure { border-color: rgba(61, 220, 151, 0.34); background: rgba(61, 220, 151, 0.06); }
 .conf-badge.sure svg, .conf-badge.sure .conf-badge-title { color: var(--m-green); }
 .conf-badge.flip { border-color: rgba(255, 196, 92, 0.34); background: rgba(255, 196, 92, 0.06); }
 .conf-badge.flip svg, .conf-badge.flip .conf-badge-title { color: var(--m-amber); }
-.conf-badge.disagree { border-color: rgba(255, 79, 123, 0.34); background: rgba(255, 79, 123, 0.06); }
+.conf-badge.disagree { border-color: rgba(229, 72, 77, 0.34); background: rgba(229, 72, 77, 0.06); }
 .conf-badge.disagree svg, .conf-badge.disagree .conf-badge-title { color: var(--m-rose); }
 .conf-badge + .conf-badge { margin-top: 8px; }
 .hedge-line { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 13.5px; color: var(--text-2); }
@@ -693,11 +699,11 @@ a.row:hover .mark { transform: scale(1.06); }
 .stat { line-height: 1.25; }
 .stat .rng { display: block; font-size: 11px; color: var(--text-3); }
 .pl-name { margin-right: 8px; }
-.tag { font: 500 12.5px var(--sans); color: var(--text-3); border: 1px solid var(--line-2); border-radius: 999px; padding: 1px 7px; margin-right: 4px; letter-spacing: 0; }
-.tag-warn { color: var(--m-amber); border-color: rgba(255, 196, 92, 0.32); }
+.tag { font: 500 12.5px var(--ui); color: var(--text-2); background: var(--panel-3); border-radius: 6px; padding: 1px 7px; margin-right: 4px; letter-spacing: 0; }
+.tag-warn { color: var(--ink); background: var(--b-orange); }
 .lean { font: 500 12.5px var(--sans); letter-spacing: 0; padding: 3px 8px; border-radius: 6px; }
 .lean-over { background: var(--blue-soft); color: #8db8ff; }
-.lean-under { background: var(--rose-soft); color: #ff8aa6; }
+.lean-under { background: var(--rose-soft); color: #f0787b; }
 .pips { display: inline-flex; gap: 3px; vertical-align: middle; }
 .pips i { width: 5px; height: 14px; border-radius: 1.5px; background: var(--panel-4); }
 .pips-blue i.on { background: var(--blue); }

@@ -1,7 +1,7 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowLeft, CalendarBlank, CaretRight, Cat, ChartLineDown, ChartLineUp, CoinVertical, HouseLine, ListBullets, Mountains, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
+import { ArrowLeft, CalendarBlank, CaretRight, Cat, ChartLineDown, ChartLineUp, CoinVertical, HouseLine, ListBullets, Mountains, ShieldCheck, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
 import { Empty, Link, ProgressLine, Ring, Segmented, SimProgress, Wordmark } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_FLIP, T_SURE } from './tennispicks.ts';
@@ -604,7 +604,7 @@ export function TennisMatchPage({ day, id }: { day: string; id: string }) {
             sets et les jeux.
           </p>
           <button className="btn btn-primary btn-blue btn-lg" onClick={launch} disabled={busy}>
-            {busy ? <span className="spin" /> : <Sparkle size={18} weight="fill" />} {busy ? 'Lancement' : 'Lancer la simulation'}
+            {busy && <span className="spin" />}{busy ? 'Lancement' : 'Lancer la simulation'}
           </button>
         </section>
       )}

@@ -1,6 +1,6 @@
 // Fiche de match : bandeau, onglets Aperçu / Simulation, lancement et suivi de la simulation.
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { ArrowLeft, ArrowSquareOut, Basketball, Check, Clock, FirstAidKit, MapPin, Sparkle, WarningCircle } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowSquareOut, Basketball, Check, Clock, FirstAidKit, MapPin, WarningCircle } from '@phosphor-icons/react';
 import {
   dayLong, line, listSims, loadProgramme, odds, pending, simKey, simStatus, startSim, teamColor, timeLocal,
   type Game, type Injury, type Programme, type SimState,
@@ -95,7 +95,7 @@ function Match({ g, injuries }: { g: Game; injuries: Record<string, Injury[]> })
           Aperçu
         </button>
         <button role="tab" aria-selected={current === 'sim'} className={`tab-big glow${current === 'sim' ? ' is-on' : ''}`} onClick={() => setTab('sim')}>
-          <Sparkle size={18} weight="fill" /> Simulation
+          Simulation
           {(s === 'queued' || s === 'running') && <span className="dot" aria-label="en cours" />}
         </button>
       </div>
@@ -179,7 +179,7 @@ function Overview({ g, injuries, sim, onSim, busy }: { g: Game; injuries: Record
             </p>
           </div>
           <button className="btn btn-primary btn-lg" onClick={onSim} disabled={busy}>
-            {busy ? <span className="spin" /> : <Sparkle size={18} weight="fill" />} {done || running ? 'Voir la simulation' : 'Lancer la simulation'}
+            {busy && <span className="spin" />}{done || running ? 'Voir la simulation' : 'Lancer la simulation'}
           </button>
         </section>
       )}
@@ -357,7 +357,7 @@ function SimPanel({ g, state, busy, launch, since }: { g: Game } & ReturnType<ty
         </div>
       </div>
       <button className="btn btn-primary btn-blue btn-lg" onClick={launch} disabled={busy || g.state === 'post'}>
-        {busy ? <span className="spin" /> : <Sparkle size={18} weight="fill" />} {busy ? 'Lancement' : 'Lancer la simulation'}
+        {busy && <span className="spin" />}{busy ? 'Lancement' : 'Lancer la simulation'}
       </button>
       {g.state === 'post' && <p className="small muted">Match terminé.</p>}
     </section>
