@@ -1,6 +1,6 @@
 // Historique ATP en direct (GitHub Actions) : fichiers TennisMyLife de 2015 à aujourd'hui (circuit principal,
-// Challengers, qualifications, tournois de la semaine), au format Sackmann mais datés au jour du match. Les années passées sont téléchargées une
-// fois ; l'année en cours et la semaine sont relues si elles ont plus de 3 heures.
+// Challengers, qualifications, tournois de la semaine), au format Sackmann mais datés au jour du match. Les années
+// passées sont téléchargées une fois ; l'année en cours et la semaine sont relues si elles ont plus de 3 heures.
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readFiles, sortMatches, type Match } from './history.ts';
