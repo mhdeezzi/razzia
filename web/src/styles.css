@@ -434,7 +434,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .ring, .ring .ring-num { font-family: 'Host Grotesk Variable', ui-sans-serif, system-ui, sans-serif; }
 .ring-num { position: relative; font-size: 34px; font-weight: 700; color: var(--c); letter-spacing: -0.05em; }
 .ring figcaption { font: 500 12px 'Host Grotesk Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: 0; color: var(--text-3); }
-.ring-odds { margin: -6px 0 0; font: 800 38px var(--sans); letter-spacing: -0.02em; line-height: 1; color: #fff; text-align: center; white-space: nowrap; }
+.ring-odds { margin: -6px 0 0; font: 800 26px 'Archivo Variable', var(--sans); font-stretch: 125%; letter-spacing: 0.01em; line-height: 1; color: #fff; text-align: center; white-space: nowrap; }
 .ring-odds b { font-weight: 800; font-variant-numeric: tabular-nums; }
 .ring-sm .ring-disc { width: 132px; height: 132px; }
 .ring-sm .ring-num { font-size: 26px; }
