@@ -23,17 +23,17 @@
   --cyan: #35d0f2;
   --accent: #4d8eff;
   --rose: #e5484d;
-  --green: #3ddc97;
+  --green: #2a9262;
   --live: #ff3d3d;
-  --fire: #ff6b3d; /* « En feu ce soir » */
-  --home: #f5b54a; /* tennis : joueur à domicile */
-  /* Couleurs des badges (vives). */
-  --m-green: #3ddc97;
-  --m-rose: #e5484d;
-  --m-blue: #3d8bff;
-  --m-amber: #ffc45c;
-  --m-home: #f5b54a;
-  --m-fire: #ff6b3d;
+  --fire: #924a2a; /* « En feu ce soir » */
+  --home: #92782a; /* tennis : joueur à domicile */
+  /* Couleurs des badges : toutes à la clarté et à la saturation du bleu océan (--b-blue), chacune dans sa teinte. */
+  --m-green: #2a9262;
+  --m-rose: #922a2e;
+  --m-blue: var(--b-blue);
+  --m-amber: var(--b-orange);
+  --m-home: #92782a;
+  --m-fire: #924a2a;
   --blue-soft: rgba(61, 139, 255, 0.14);
   --rose-soft: rgba(229, 72, 77, 0.14);
   --cta: linear-gradient(90deg, #2c5aee, #5148d6); /* boutons de simulation : le bleu d'origine, préféré au bleu clair */
@@ -54,7 +54,7 @@
   /* Badges : bleu de l'océan foncé de la carte du monde (#1d416c), à peine éclairci pour rester lisible ;
      orange aussi sombre que ce bleu (même clarté, même saturation). */
   --b-orange: #a07022;
-  --b-blue: #2a5590;
+  --b-blue: #2a5692;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --spring: cubic-bezier(0.22, 1, 0.36, 1); /* sans rebond : la DA reste sobre */
   color-scheme: dark;
@@ -212,20 +212,20 @@ a.row:active { transform: scale(0.995); }
 .signal-cat { background: #050607; border-color: #f2f4f7; color: var(--text-2); }
 .signal-cat .signal-title { color: #f2f4f7; }
 .signal-cat .signal-icon { background: #f2f4f7; color: #050607; box-shadow: 0 0 0 1px #f2f4f7; }
-.signal-up .signal-icon { background: rgba(61, 220, 151, 0.11); color: var(--m-green); }
-.signal-down .signal-icon { background: rgba(229, 72, 77, 0.11); color: var(--m-rose); }
+.signal-up .signal-icon { background: rgba(42, 146, 98, 0.14); color: var(--m-green); }
+.signal-down .signal-icon { background: rgba(146, 42, 46, 0.16); color: var(--m-rose); }
 .signal-tight .signal-icon { background: var(--panel-4); color: var(--text-2); }
-.signal-home .signal-icon { background: rgba(245, 181, 74, 0.11); color: var(--m-home); }
-.signal-goal .signal-icon { background: rgba(77, 142, 255, 0.12); color: var(--m-blue); }
-.signal-surface .signal-icon { background: rgba(61, 220, 151, 0.11); color: var(--m-green); }
+.signal-home .signal-icon { background: rgba(146, 120, 42, 0.14); color: var(--m-home); }
+.signal-goal .signal-icon { background: rgba(42, 86, 146, 0.16); color: var(--m-blue); }
+.signal-surface .signal-icon { background: rgba(42, 146, 98, 0.14); color: var(--m-green); }
 /* Page Badges. */
 .badge-sec { margin-bottom: 28px; }
 .badge-sec h2 { margin-bottom: 12px; }
 .badge-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.badge-sure .signal-icon { background: rgba(61, 220, 151, 0.11); color: var(--m-green); }
+.badge-sure .signal-icon { background: rgba(42, 146, 98, 0.14); color: var(--m-green); }
 .badge-flip .signal-icon { background: rgba(160, 112, 34, 0.14); color: var(--b-orange); }
-.badge-market .signal-icon { background: rgba(229, 72, 77, 0.11); color: var(--m-rose); }
-.badge-fire .signal-icon { background: rgba(255, 107, 61, 0.12); color: var(--m-fire); }
+.badge-market .signal-icon { background: rgba(146, 42, 46, 0.16); color: var(--m-rose); }
+.badge-fire .signal-icon { background: rgba(146, 74, 42, 0.16); color: var(--m-fire); }
 .badge-info .signal-icon { background: var(--panel-4); color: var(--text-2); }
 .badge-dot { width: 10px; height: 10px; border-radius: 50%; }
 .badge-dot.safe { background: var(--m-blue); }
@@ -561,12 +561,12 @@ a.row:hover .mark { transform: scale(1.06); }
 .conf-badge { display: flex; gap: 12px; align-items: flex-start; margin-top: 16px; padding: 12px 14px; border-radius: 14px; font-size: 13.5px; color: var(--text-2); border: 1px solid var(--line-2); background: var(--panel); }
 .conf-badge svg { flex: none; margin-top: 1px; }
 .conf-badge-title { color: var(--text); font: 600 14px var(--ui); margin-bottom: 2px; }
-.conf-badge.sure { border-color: rgba(61, 220, 151, 0.34); background: rgba(61, 220, 151, 0.06); }
+.conf-badge.sure { border-color: var(--m-green); background: none; }
 .conf-badge.sure svg, .conf-badge.sure .conf-badge-title { color: var(--m-green); }
 /* Pile ou face : même orange que la pastille du programme, en contour seul. */
 .conf-badge.flip { border-color: var(--b-orange); background: none; }
 .conf-badge.flip svg, .conf-badge.flip .conf-badge-title { color: var(--b-orange); }
-.conf-badge.disagree { border-color: rgba(229, 72, 77, 0.34); background: rgba(229, 72, 77, 0.06); }
+.conf-badge.disagree { border-color: var(--m-rose); background: none; }
 .conf-badge.disagree svg, .conf-badge.disagree .conf-badge-title { color: var(--m-rose); }
 .conf-badge + .conf-badge { margin-top: 8px; }
 .hedge-line { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 13.5px; color: var(--text-2); }
@@ -907,7 +907,7 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .t-bl-fav, .t-bl-pick { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .t-bl-pick .t-lg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
 .t-res { font: 700 11px var(--sans); padding: 3px 7px; border-radius: 6px; text-align: center; min-width: 22px; }
-.t-res.w { color: var(--green); background: rgba(61, 220, 151, 0.12); }
+.t-res.w { color: var(--green); background: rgba(42, 146, 98, 0.14); }
 .t-res.l { color: var(--rose); background: var(--rose-soft); }
 @media (max-width: 720px) {
   /* Téléphone : la pastille de simulation passe sous les joueurs, les noms gardent la largeur. */
