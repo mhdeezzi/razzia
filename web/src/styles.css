@@ -50,7 +50,10 @@
   --mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
   /* Badges et menus : police ronde et simple, fond plein, texte foncé (façon bouton Vercel). */
   --ui: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
-  --ink: #0b0b0b;
+  --ink: #0a0a0a;
+  /* Fonds pleins des badges : orange du bouton Vercel, et le même en bleu (même saturation, même clarté). */
+  --b-orange: #f99902;
+  --b-blue: #0267f9;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --spring: cubic-bezier(0.22, 1, 0.36, 1); /* sans rebond : la DA reste sobre */
   color-scheme: dark;
@@ -158,7 +161,7 @@ a.row:hover { background: #0b0b0b; }
 a.row:active { transform: scale(0.995); }
 .row-time { display: grid; gap: 5px; justify-items: start; }
 .row-time .t { font: 700 16px var(--mono); letter-spacing: -0.02em; }
-.pill-tag { white-space: nowrap; font: 500 12.5px var(--ui); letter-spacing: -0.005em; padding: 3px 9px; border-radius: 7px; color: #e6e6e6; background: var(--panel-4); }
+.pill-tag { white-space: nowrap; font: 450 12.5px/17px var(--ui); letter-spacing: -0.005em; padding: 2px 8px; border-radius: 6px; color: #e6e6e6; background: var(--panel-4); }
 .pill-tag.live { color: var(--ink); background: var(--m-rose); display: inline-flex; align-items: center; gap: 5px; }
 .pill-tag.final { color: var(--text-2); background: var(--panel-3); }
 .vs-line { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 14px; }
@@ -187,13 +190,13 @@ a.row:active { transform: scale(0.995); }
 .forme-item.hot .forme-chip { color: var(--m-fire); }
 .forme-none { color: var(--text-3); }
 /* Pastilles du programme : fond plein, coins arrondis, texte foncé (façon bouton Vercel). */
-.conf-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font: 500 13px var(--ui); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--text-2); background: var(--panel-3); white-space: nowrap; transition: color 0.2s, background-color 0.2s; }
-.conf-pill.sim { color: var(--ink); background: var(--m-blue); }
+.conf-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 6px; font: 450 13px/18px var(--ui); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; color: var(--text-2); background: var(--panel-3); white-space: nowrap; transition: color 0.2s, background-color 0.2s; }
+.conf-pill.sim { color: var(--ink); background: var(--b-blue); }
 /* Match pile ou face : même ambre que le badge « Pile ou face » de la fiche. */
-.conf-pill.sim.flip { color: var(--ink); background: var(--m-amber); }
+.conf-pill.sim.flip { color: var(--ink); background: var(--b-orange); }
 .conf-pill.go { color: var(--ink); background: #ededed; }
 .conf-pill.wait { color: var(--text-2); }
-.conf-pill.run { color: #dbe6ff; background: rgba(61, 139, 255, 0.22); }
+.conf-pill.run { color: #dbe6ff; background: rgba(2, 103, 249, 0.25); }
 .conf-pill.fail { color: var(--ink); background: var(--m-rose); }
 .wait-dot { width: 6px; height: 6px; border-radius: 9px; background: var(--text-3); }
 .spin-xs { width: 11px; height: 11px; border-width: 1.6px; }
@@ -291,7 +294,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .seg-thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 0; border-radius: 8px; background: #ededed; }
 .seg.is-ready .seg-thumb { transition: transform 0.42s var(--spring), width 0.42s var(--spring); }
 .seg-light button.is-on { color: var(--ink); }
-.seg-blue .seg-thumb { background: var(--m-blue); }
+.seg-blue .seg-thumb { background: var(--b-blue); }
 .seg-blue button.is-on { color: var(--ink); }
 .seg-dark button.is-on { color: var(--ink); }
 .seg-lg { padding: 6px; }
@@ -697,7 +700,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .stat .rng { display: block; font-size: 11px; color: var(--text-3); }
 .pl-name { margin-right: 8px; }
 .tag { font: 500 12.5px var(--ui); color: var(--text-2); background: var(--panel-3); border-radius: 6px; padding: 1px 7px; margin-right: 4px; letter-spacing: 0; }
-.tag-warn { color: var(--ink); background: var(--m-amber); }
+.tag-warn { color: var(--ink); background: var(--b-orange); }
 .lean { font: 500 12.5px var(--sans); letter-spacing: 0; padding: 3px 8px; border-radius: 6px; }
 .lean-over { background: var(--blue-soft); color: #8db8ff; }
 .lean-under { background: var(--rose-soft); color: #f0787b; }
