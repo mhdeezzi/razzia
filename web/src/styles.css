@@ -897,7 +897,7 @@ a.row:hover .t-ava { transform: scale(1.06); }
   .top-right { display: none; }
   .sports { margin-left: auto; }
   /* Fiche : score médian sur toute la largeur, sans retour à la ligne. */
-  .verdict-side > div:first-child { grid-column: 1 / -1; }
+  .verdict-side > .vs-wide { grid-column: 1 / -1; }
   .verdict-side dd { white-space: nowrap; }
   .hero-rec { white-space: nowrap; font-size: 12px; }
   /* Tableaux : plus serrés, « Titulaire » devient un petit T. */

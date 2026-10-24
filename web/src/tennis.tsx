@@ -816,7 +816,7 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
         </div>
       </div>
       <dl className="verdict-side">
-        <div>
+        <div className="vs-wide">
           <dt>Score le plus probable</dt>
           <dd>{topScore(r)}</dd>
         </div>
