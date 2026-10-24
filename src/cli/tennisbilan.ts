@@ -13,7 +13,6 @@ if (!dir) throw new Error('Usage : node src/cli/tennisbilan.ts <dossier tennis>'
 
 // Mêmes seuils que la fiche (web/src/tennispicks.ts).
 const T_HEDGE_FIRST = 0.8; // favori à 80 % ou moins : « Un set » passe devant, c'est lui qui compte
-const T_FLIP = 0.6; // favori sous 60 % : pile ou face
 const T_SURE = 0.8; // favori à 80 % ou plus : Razzia assuré
 const MIN_ODDS = 1.15; // ligne de sets proposée seulement si sa cote juste dépasse 1,15
 const shown = (p: number) => Math.round(p * 1000) / 1000;
@@ -36,7 +35,9 @@ function pickOf(s: any, favWon: boolean, favSets: number): Pick {
   const fav = s[side].name as string;
   const lines = s.bestOf === 5 ? [{ need: 1, c: s.sim.atLeast1[i] }, { need: 2, c: s.sim.atLeast2[i] }] : [{ need: 1, c: s.sim.atLeast1[i] }];
   const L = lines.filter((x) => (dogUp(s) || x.c <= 1 / MIN_ODDS) && x.c > winP).sort((a, b) => b.c - a.c)[0];
-  if (L && (dogUp(s) || shown(winP) <= T_HEDGE_FIRST))
+  // Outsider victime d'un chat noir du favori : on garde la victoire du favori.
+  const catFav = s.blackCat && s.blackCat.victim !== side;
+  if (L && !catFav && (dogUp(s) || shown(winP) <= T_HEDGE_FIRST))
     return { kind: 'sets', need: L.need, label: `${fav} au moins ${L.need === 1 ? 'un set' : 'deux sets'}`, won: favWon || favSets >= L.need };
   return { kind: 'vainqueur', label: fav, won: favWon };
 }
@@ -72,7 +73,8 @@ for (const f of existsSync(simsDir) ? readdirSync(simsDir) : []) {
   rows.push({
     id: s.id, day: s.day, start: s.start, tourney: s.tourney, round: s.round, home: s.home.name, away: s.away.name,
     pHome: s.pHome, pMarket: s.market?.pHome, homeWon, score: homeWon ? m.score : m.score.split(' ').map((x) => x.replace(/^(\d+)-(\d+)/, '$2-$1')).join(' '),
-    tier: dogUp(s) || shown(winP) < T_FLIP ? 'flip' : shown(winP) >= T_SURE ? 'sure' : 'mid',
+    // Pile ou face : exactement quand la fiche met la ligne de sets devant le vainqueur.
+    tier: pickOf(s, favWon, favSets).kind === 'sets' ? 'flip' : shown(winP) >= T_SURE ? 'sure' : 'mid',
     pick: pickOf(s, favWon, favSets),
   });
 }

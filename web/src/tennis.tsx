@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { ArrowLeft, CalendarBlank, CaretRight, Cat, ChartLineDown, ChartLineUp, CoinVertical, HouseLine, ListBullets, Mountains, ShieldCheck, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
 import { Empty, Link, ProgressLine, Ring, Segmented, SimProgress, Wordmark } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
-import { buildTennisCategories, favOf, flipOf, T_FLIP, T_SURE } from './tennispicks.ts';
+import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
 
 // ——— Données ———
@@ -28,9 +28,9 @@ export interface TennisResult {
   meta: { builtAt: string; matchesUsed: number; n: number };
 }
 type Live = { state: 'pre' | 'in' | 'post'; detail?: string; home: Array<{ g: number; tb?: number; w?: boolean }>; away: Array<{ g: number; tb?: number; w?: boolean }>; winner?: 'home' | 'away' };
-// noOdds : match du calendrier ESPN que Pinnacle n'a pas encore coté (affiché, pas encore simulable).
+// noOdds : match pas encore coté par Pinnacle (calendrier ESPN) : simulé avec le moteur seul.
 interface SlateMatch { id: string; day: string; league: string; start: string; home: string; away: string; odds?: Odds; oddsOpen?: Odds; live?: Live; noOdds?: boolean }
-interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string; cat?: string; trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' }; goal?: { home?: boolean; away?: boolean } }
+interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string; cat?: string; trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' }; goal?: { home?: boolean; away?: boolean }; flip?: boolean }
 interface PlayerCard { atp?: string; ioc?: string; rank?: number; age?: number; wiki?: string | null }
 type State = { status: 'loading' } | { status: 'none' } | { status: 'queued' | 'running'; startedAt?: string; url?: string } | { status: 'done'; result: TennisResult } | { status: 'failed'; error?: string; url?: string };
 
@@ -257,7 +257,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
   const shown = dayMatches.filter((m) => stateOf(m) === status);
   const groups = [...shown.reduce((g, m) => g.set(tourneyOf(m.league), [...(g.get(tourneyOf(m.league)) ?? []), m]), new Map<string, SlateMatch[]>())];
   // À simuler : les matchs à venir pas encore simulés (une fois la journée faite, le bouton disparaît).
-  const todo = dayMatches.filter((m) => stateOf(m) === 'pre' && !m.noOdds && !sims.has(String(m.id)));
+  const todo = dayMatches.filter((m) => stateOf(m) === 'pre' && !sims.has(String(m.id)));
   const inRun = (id: string) => busy && run!.ids.includes(id);
 
   return (
@@ -464,8 +464,7 @@ function Who({ m, side, players, sim, align, size = 'row' }: { m: SlateMatch; si
 }
 
 /** Pastille de simulation, comme au basket : chat noir, favori et son pourcentage ; « Calcul » pendant la journée. */
-function TennisSimPill({ sim, running, noOdds }: { sim?: SimIndex; running: boolean; noOdds?: boolean }) {
-  if (noOdds) return <span className="conf-pill wait">Cote à venir</span>;
+function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
   if (running)
     return (
       <span className="conf-pill run">
@@ -474,8 +473,10 @@ function TennisSimPill({ sim, running, noOdds }: { sim?: SimIndex; running: bool
     );
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const fav = sim.pHome >= 0.5 ? { n: sim.home, p: sim.pHome } : { n: sim.away, p: 1 - sim.pHome };
-  // Pile ou face (même règle que la fiche) : favori sous 60 %, ou outsider en hausse.
-  const flip = shown(fav.p) < T_FLIP || sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up';
+  // Pile ou face : calculé avec la règle de la fiche lors de la publication (index) ; pour une simulation indexée avant,
+  // la même règle sans la ligne de sets (favori à 80 % ou moins, ou outsider en hausse).
+  const dog = sim.pHome >= 0.5 ? sim.away : sim.home;
+  const flip = sim.flip ?? (sim.cat !== dog && (shown(fav.p) <= T_HEDGE_FIRST || sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up'));
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
       <span className={`conf-pill sim${flip ? ' flip' : ''}`}>
@@ -487,26 +488,26 @@ function TennisSimPill({ sim, running, noOdds }: { sim?: SimIndex; running: bool
 
 function TennisRow({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimIndex; players?: Record<string, PlayerCard>; running: boolean; i: number }) {
   return (
-    <MatchLink m={m} className="row t-row" i={i}>
+    <Link href={`/tennis/match/${m.day}/${m.id}`} className="row t-row" style={{ '--i': i } as CSSProperties}>
       <TimeCell m={m} />
       <div className="vs-line">
         <Who m={m} side="home" players={players} sim={sim} align="away" />
         <span className="vs-at">vs</span>
         <Who m={m} side="away" players={players} sim={sim} />
       </div>
-      <span className="cell-odds">{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : '-'}</span>
+      <span className="cell-odds">{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : <span className="muted small">Sans cote</span>}</span>
       <span style={{ textAlign: 'center' }}>
-        <TennisSimPill sim={sim} running={running} noOdds={m.noOdds} />
+        <TennisSimPill sim={sim} running={running} />
       </span>
-      {m.noOdds ? <span /> : <CaretRight size={16} className="row-caret" />}
-    </MatchLink>
+      <CaretRight size={16} className="row-caret" />
+    </Link>
   );
 }
 
 function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimIndex; players?: Record<string, PlayerCard>; running: boolean; i: number }) {
   const st = stateOf(m);
   return (
-    <MatchLink m={m} className="card t-card" i={i}>
+    <Link href={`/tennis/match/${m.day}/${m.id}`} className="card t-card" style={{ '--i': i } as CSSProperties}>
       <div className="card-top">
         <span className="mono strong">{st === 'pre' || !m.live ? timeLocal(m.start) : `${setsWon(m.live, 'home')}-${setsWon(m.live, 'away')}`}</span>
         <span className="muted small">{tourneyOf(m.league)}</span>
@@ -518,17 +519,10 @@ function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimI
       </div>
       <div className="card-foot">
         <span>{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : 'Cotes à venir'}</span>
-        <TennisSimPill sim={sim} running={running} noOdds={m.noOdds} />
+        <TennisSimPill sim={sim} running={running} />
       </div>
-    </MatchLink>
+    </Link>
   );
-}
-
-/** Lien vers la fiche ; un match sans cote n'a pas encore de fiche (pas de simulation possible). */
-function MatchLink({ m, className, i, children }: { m: SlateMatch; className: string; i: number; children: ReactNode }) {
-  const style = { '--i': i } as CSSProperties;
-  if (m.noOdds) return <div className={`${className} is-static`} style={style}>{children}</div>;
-  return <Link href={`/tennis/match/${m.day}/${m.id}`} className={className} style={style}>{children}</Link>;
 }
 
 // ——— Fiche de match ———
@@ -814,7 +808,12 @@ function TennisVerdict({ r, pick }: { r: TennisResult; pick?: Outcome }) {
             <div>
               <p className="conf-badge-title">Pile ou face</p>
               <p>
-                {flip === 'dogUp' ? `${dog.name} est en hausse : avec un outsider dans cette forme, le favori perd plus souvent que prévu.` : `${fav.name} reste favori, mais d'un rien : match imprévisible.`} Plus sûr : <b>{fav.name} gagne au moins un set</b> ({pct(sets)} des simulations).
+                {flip === 'dogUp'
+                  ? `${dog.name} est en hausse : avec un outsider dans cette forme, le favori perd plus souvent que prévu.`
+                  : flip === 'close'
+                    ? `${fav.name} reste favori, mais d'un rien : match imprévisible.`
+                    : `${fav.name} est favori, mais pas assez pour jouer sa victoire seule.`}{' '}
+                Plus sûr : <b>{fav.name} gagne au moins un set</b> ({pct(sets)} des simulations).
               </p>
             </div>
           </div>
@@ -1022,7 +1021,7 @@ export function TennisBilanPage() {
               <span className="caps">Hors pile ou face</span>
               <b className="mono">{rateTxt(b.tiers.advised)}</b>
               <small>
-                {b.tiers.advised.n} matchs ; pile ou face (favori sous 60 % ou outsider en hausse) : {rateTxt(b.tiers.flip)} sur {b.tiers.flip.n}
+                {b.tiers.advised.n} matchs ; pile ou face (favori à 80 % ou moins, ou outsider en hausse : « Un set » conseillé) : {rateTxt(b.tiers.flip)} sur {b.tiers.flip.n}
               </small>
             </div>
           </section>

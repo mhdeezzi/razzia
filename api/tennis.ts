@@ -27,7 +27,7 @@ const okId = (id: unknown) => /^\d{5,14}$/.test(String(id ?? ''));
 const okDay = (d: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? ''));
 
 // Tableaux ATP d'ESPN (simple messieurs) : scores des tournois en cours et de la veille, et matchs programmés des
-// 6 prochains jours (ceux que Pinnacle n'a pas encore cotés s'affichent avec « Cote à venir »).
+// 6 prochains jours (ceux que Pinnacle n'a pas encore cotés s'affichent sans cote, simulables avec le moteur seul).
 const key = (n: string) => (n ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
 interface Live { state: 'pre' | 'in' | 'post'; detail?: string; players: Array<{ key: string; winner: boolean; sets: Array<{ g: number; tb?: number; w?: boolean }> }> }
 interface Planned { id: string; event: string; round: string; start: string; home: string; away: string }
@@ -96,8 +96,21 @@ export async function GET(request: Request): Promise<Response> {
         if (!h || !a) return undefined;
         return { state: l.state, detail: l.detail, home: h.sets, away: a.sets, winner: h.winner ? 'home' : a.winner ? 'away' : undefined };
       };
-      const matches: any[] = files.flatMap((f) => (f ? Object.values(f[1] as Record<string, any>).map((m) => ({ id: String(m.id), day: f[0], league: m.league, start: m.start, home: m.home, away: m.away, odds: m.last, oddsOpen: m.first, live: score(m.home, m.away) })) : []));
-      // Matchs programmés sans cote Pinnacle : nom de tournoi repris des fiches cotées du même tournoi quand il y en a.
+      // Un match relevé d'abord sur ESPN (fiche sans cote, peut-être déjà simulée sous cet identifiant) puis coté par
+      // Pinnacle : on garde la fiche ESPN, avec la cote Pinnacle.
+      for (const f of files) {
+        if (!f) continue;
+        const list = Object.values(f[1] as Record<string, any>);
+        for (const m of list.filter((x) => x.source === 'espn')) {
+          const twin = list.find((x) => x.source !== 'espn' && x.last?.ml && [key(x.home), key(x.away)].sort().join('|') === [key(m.home), key(m.away)].sort().join('|'));
+          if (!twin) continue;
+          if (!m.last?.ml) Object.assign(m, { first: twin.first, last: twin.last, moves: twin.moves });
+          delete (f[1] as Record<string, any>)[twin.id];
+        }
+      }
+      const matches: any[] = files.flatMap((f) => (f ? Object.values(f[1] as Record<string, any>).map((m) => ({ id: String(m.id), day: f[0], league: m.league, start: m.start, home: m.home, away: m.away, odds: m.last, oddsOpen: m.first, live: score(m.home, m.away), noOdds: !m.last?.ml })) : []));
+      // Matchs programmés pas encore relevés par la collecte (fiche sans cote) : nom de tournoi repris des fiches cotées du
+      // même tournoi quand il y en a ; simulés avec le moteur seul (tennisfixtures.ts crée la fiche avant la simulation).
       const seen = new Set(matches.map((m) => [key(m.home), key(m.away)].sort().join('|')));
       const tourney = new Map<string, string>();
       for (const m of planned) {
