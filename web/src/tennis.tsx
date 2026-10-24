@@ -1,7 +1,7 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowClockwise, ArrowLeft, ArrowSquareOut, CalendarBlank, CaretRight, Cat, House, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
+import { ArrowClockwise, ArrowLeft, ArrowSquareOut, CalendarBlank, CaretRight, Cat, Flag, House, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { Empty, Link, Ring, Segmented } from './ui.tsx';
 import { PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_SURE } from './tennispicks.ts';
@@ -10,7 +10,7 @@ import { buildTennisCategories, favOf, flipOf, T_SURE } from './tennispicks.ts';
 export interface TennisPlayer {
   name: string; ioc?: string; hand?: string; ht?: number; age?: number; rank?: number; matches: number; elo: number; serve: number; ret: number;
   daysOff: number; tourneyMinutes: number; played14: number; layoff: boolean; photo?: string; photoAlt?: string; atp?: string;
-  form10?: number; trend?: 'up' | 'down';
+  form10?: number; trend?: 'up' | 'down'; goal?: boolean;
   surfaceSeason: { won: number; lost: number };
   form: Array<{ date: string; tourney: string; round: string; surface: string; opponent: string; won: boolean; score: string }>;
 }
@@ -28,7 +28,7 @@ export interface TennisResult {
 }
 type Live = { state: 'pre' | 'in' | 'post'; detail?: string; home: Array<{ g: number; tb?: number; w?: boolean }>; away: Array<{ g: number; tb?: number; w?: boolean }>; winner?: 'home' | 'away' };
 interface SlateMatch { id: string; day: string; league: string; start: string; home: string; away: string; odds?: Odds; oddsOpen?: Odds; live?: Live }
-interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string; cat?: string; trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' } }
+interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string; cat?: string; trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' }; goal?: { home?: boolean; away?: boolean } }
 interface PlayerCard { atp?: string; ioc?: string; rank?: number; age?: number; wiki?: string | null }
 type State = { status: 'loading' } | { status: 'none' } | { status: 'queued' | 'running'; startedAt?: string; url?: string } | { status: 'done'; result: TennisResult } | { status: 'failed'; error?: string; url?: string };
 
@@ -424,6 +424,11 @@ function Who({ m, side, players, sim, align, size = 'row' }: { m: SlateMatch; si
             {trend === 'up' ? <TrendUp size={13} weight="bold" /> : <TrendDown size={13} weight="bold" />}
           </span>
         )}
+        {sim?.goal?.[side] && (
+          <span className="t-goal" title="Objectif Masters" aria-label="Objectif Masters">
+            <Flag size={13} weight="fill" />
+          </span>
+        )}
         {atHome(m.league, c?.ioc) && (
           <span className="t-home" title="À domicile" aria-label="À domicile">
             <House size={13} weight="fill" />
@@ -678,7 +683,8 @@ function TennisSignals({ r }: { r: TennisResult }) {
   const cat = r.blackCat;
   const moves = [r.home, r.away].filter((p) => p.trend);
   const home = [r.home, r.away].filter((p) => atHome(r.league, p.ioc));
-  if (!cat && !moves.length && !home.length) return null;
+  const goal = [r.home, r.away].filter((p) => p.goal);
+  if (!cat && !moves.length && !home.length && !goal.length) return null;
   return (
     <div className="signals">
       {cat && (
@@ -701,10 +707,30 @@ function TennisSignals({ r }: { r: TennisResult }) {
             <p className="signal-title">
               <Avatar name={p.name} photo={p.photo} alt={p.photoAlt} size="sm" /> {p.name} à domicile
             </p>
-            <p>Il joue devant son public. À savoir : sur 2024-2025, les joueurs à domicile ont gagné 45 % de leurs matchs quand le marché leur en donnait 48 %. Le public pousse, mais les cotes en tiennent déjà compte, et même un peu trop.</p>
+            <p>
+              Il joue devant son public. À savoir : le marché surcote les joueurs à domicile (45 % de victoires pour 48 % annoncés sur 2024-2025), et encore plus quand ils sont en hausse : outsider à domicile en forme, le favori d'en face a gagné 3 à 10 points de plus que prévu selon la saison.
+            </p>
           </div>
         </div>
       ))}
+      {goal.length > 0 && (
+        <div className="signal signal-goal">
+          <span className="signal-icon">
+            <Flag size={20} weight="fill" />
+          </span>
+          <div>
+            <p className="signal-title">
+              {goal.map((p) => (
+                <Avatar key={p.name} name={p.name} photo={p.photo} alt={p.photoAlt} size="sm" />
+              ))}{' '}
+              {goal.map((p) => p.name).join(' et ')} : objectif Masters
+            </p>
+            <p>
+              {goal.length > 1 ? `Classés ${goal.map((p) => `${p.rank}e`).join(' et ')}, ils jouent` : `Classé ${goal[0].rank}e, il joue`} la course au Masters de fin d'année : chaque match compte. Sur 2024-2025, les top 20 favoris en ATP 250 et 500 après le 10 octobre ont gagné 82 % de leurs matchs quand le marché leur en donnait 72 % (72 matchs, les deux saisons dans le même sens).
+            </p>
+          </div>
+        </div>
+      )}
       {moves.map((p) => {
         const wins = p.form.filter((m) => m.won).length;
         return (
