@@ -87,8 +87,12 @@ export function loadMatches(dir: string, from: number, to: number, opts: { chall
 /** Niveau de tournoi commun : TennisMyLife écrit « 250 » et « 500 » là où Sackmann écrit « A ». */
 const LEVEL: Record<string, string> = { '250': 'A', '500': 'A' };
 
-/** Lit des fichiers au format Sackmann ou TennisMyLife (même colonnes, plus « indoor » chez TennisMyLife). */
-export function readFiles(files: string[]): Match[] {
+/**
+ * Lit des fichiers au format Sackmann ou TennisMyLife (mêmes colonnes, plus « indoor » chez TennisMyLife).
+ * `matchDates` : la date de chaque ligne est déjà celle du match (TennisMyLife) ; sinon c'est le début du tournoi
+ * (Sackmann) et on ajoute les jours habituels selon le tour.
+ */
+export function readFiles(files: string[], matchDates = false): Match[] {
   const out: Match[] = [];
   for (const f of files) {
     if (!existsSync(f)) continue;
@@ -98,7 +102,7 @@ export function readFiles(files: string[]): Match[] {
       const surface: Surface = r.surface === 'Clay' ? 'Clay' : r.surface === 'Grass' ? 'Grass' : 'Hard';
       const d = r.tourney_date;
       const start = Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8));
-      const offset = (r.tourney_level === 'G' ? ROUND_DAY_SLAM : ROUND_DAY)[r.round] ?? 3;
+      const offset = matchDates ? 0 : ((r.tourney_level === 'G' ? ROUND_DAY_SLAM : ROUND_DAY)[r.round] ?? 3);
       const sc = parseScore(r.score);
       const side = (p: 'winner' | 'loser', s: 'w' | 'l'): Side => ({
         id: nameKey(r[`${p}_name`]), name: r[`${p}_name`], ioc: r[`${p}_ioc`], hand: r[`${p}_hand`], ht: num(r[`${p}_ht`]), age: num(r[`${p}_age`]),
