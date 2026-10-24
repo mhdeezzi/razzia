@@ -593,7 +593,7 @@ export function TennisMatchPage({ day, id }: { day: string; id: string }) {
             Point par point : service et retour de chaque joueur sur cette surface, forme du jour, jeux décisifs. Il en sort la victoire, « Un set », le score en
             sets et les jeux.
           </p>
-          <button className="btn btn-primary btn-lg" onClick={launch} disabled={busy}>
+          <button className="btn btn-primary btn-blue btn-lg" onClick={launch} disabled={busy}>
             {busy ? <span className="spin" /> : <Sparkle size={18} weight="fill" />} {busy ? 'Lancement' : 'Lancer la simulation'}
           </button>
         </section>

@@ -1,17 +1,13 @@
 // Barre du haut façon Betix : bandeau noir plat, logo, pastilles de sport, liens de pages à droite.
-import { Basketball, ClockCounterClockwise, SealCheck, Info, SoccerBall, Target, TennisBall } from '@phosphor-icons/react';
+import { Basketball, Info, SoccerBall, TennisBall } from '@phosphor-icons/react';
 import { Link } from './ui.tsx';
 import fond from './assets/razzia-fond.webp';
 import lettres from './assets/razzia-lettres.png';
 
 export function TopBar({ path }: { path: string }) {
   const tennis = path.startsWith('/tennis');
-  const links = [
-    { href: '/simulations', label: 'Simulations', icon: <ClockCounterClockwise size={18} />, on: path === '/simulations' },
-    { href: tennis ? '/tennis/bilan' : '/bilan', label: 'Bilan', icon: <Target size={18} />, on: path === '/bilan' || path === '/tennis/bilan' },
-    { href: '/badges', label: 'Badges', icon: <SealCheck size={18} />, on: path === '/badges' },
-    { href: '/methode', label: 'Méthode', icon: <Info size={18} />, on: path === '/methode' },
-  ];
+  // Simulations, Bilan et Badges restent accessibles par leur adresse ; seule Méthode est dans la barre.
+  const links = [{ href: '/methode', label: 'Méthode', icon: <Info size={18} />, on: path === '/methode' }];
   return (
     <header className="topbar">
       <div className="topbar-in">
