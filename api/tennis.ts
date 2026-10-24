@@ -26,13 +26,26 @@ const bad = (msg: string, status = 400) => Response.json({ error: msg }, { statu
 const okId = (id: unknown) => /^\d{5,14}$/.test(String(id ?? ''));
 const okDay = (d: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? ''));
 
-// Scores ATP d'ESPN (simple messieurs) : chaque tournoi en cours avec tout son tableau, plus ceux finis la veille.
+// Tableaux ATP d'ESPN (simple messieurs) : scores des tournois en cours et de la veille, et matchs programmés des
+// 6 prochains jours (ceux que Pinnacle n'a pas encore cotés s'affichent avec « Cote à venir »).
 const key = (n: string) => (n ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
 interface Live { state: 'pre' | 'in' | 'post'; detail?: string; players: Array<{ key: string; winner: boolean; sets: Array<{ g: number; tb?: number; w?: boolean }> }> }
-async function espnScores(): Promise<Map<string, Live>> {
-  const out = new Map<string, Live>();
-  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10).replaceAll('-', '');
-  await Promise.all(['', `?dates=${yesterday}`].map(async (q) => {
+interface Planned { id: string; event: string; round: string; start: string; home: string; away: string }
+// Tour ESPN -> code des fiches Pinnacle (« ATP Paris - R16 ») ; qualifications ignorées, comme pour les cotes.
+function roundCode(name = ''): string | undefined {
+  if (/qualif/i.test(name)) return undefined;
+  if (/semi/i.test(name)) return 'SF';
+  if (/quarter/i.test(name)) return 'QF';
+  if (/^final/i.test(name)) return 'F';
+  const of = name.match(/round of (\d+)/i);
+  if (of) return `R${of[1]}`;
+  const n = name.match(/round (\d)/i);
+  return n ? `R${n[1]}` : '';
+}
+async function espn(): Promise<{ live: Map<string, Live>; planned: Planned[] }> {
+  const live = new Map<string, Live>(), planned = new Map<string, Planned>();
+  const ymd = (i: number) => new Date(Date.now() + i * 86_400_000).toISOString().slice(0, 10).replaceAll('-', '');
+  await Promise.all(['', ...[-1, 1, 2, 3, 4, 5, 6].map((i) => `?dates=${ymd(i)}`)].map(async (q) => {
     try {
       const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard${q}`, { signal: AbortSignal.timeout(8000) });
       if (!r.ok) return;
@@ -42,17 +55,23 @@ async function espnScores(): Promise<Map<string, Live>> {
           for (const c of g.competitions ?? []) {
             const ps = (c.competitors ?? []).filter((p: any) => p.athlete?.displayName && p.athlete.displayName !== 'TBD');
             if (ps.length !== 2) continue;
-            out.set(ps.map((p: any) => key(p.athlete.displayName)).sort().join('|'), {
-              state: c.status?.type?.state ?? 'pre', detail: c.status?.type?.shortDetail,
+            const pair = ps.map((p: any) => key(p.athlete.displayName)).sort().join('|');
+            const state = c.status?.type?.state ?? 'pre';
+            live.set(pair, {
+              state, detail: c.status?.type?.shortDetail,
               players: ps.map((p: any) => ({ key: key(p.athlete.displayName), winner: !!p.winner, sets: (p.linescores ?? []).map((l: any) => ({ g: l.value, tb: l.tiebreak, w: l.winner })) })),
             });
+            const round = roundCode(c.round?.displayName);
+            const start = c.startDate ?? c.date;
+            if (state === 'pre' && round !== undefined && /^\d{5,14}$/.test(String(c.id)) && start)
+              planned.set(pair, { id: String(c.id), event: ev.shortName ?? ev.name ?? '', round, start, home: ps[0].athlete.displayName, away: ps[1].athlete.displayName });
           }
         }
     } catch {
       /* ESPN indisponible : l'app déduit l'état de l'heure du match */
     }
   }));
-  return out;
+  return { live, planned: [...planned.values()] };
 }
 
 async function findRun(req: string): Promise<any | undefined> {
@@ -68,7 +87,7 @@ export async function GET(request: Request): Promise<Response> {
       // Fichiers de cotes d'hier à dans 6 jours (UTC) : un par jour de match.
       const days = Array.from({ length: 8 }, (_, i) => new Date(Date.now() + (i - 1) * 86_400_000).toISOString().slice(0, 10));
       const files = await Promise.all(days.map(async (d) => { const r = await raw(`atp/${d}.json`, 'cotes-tennis'); return r.ok ? [d, await r.json()] as const : undefined; }));
-      const [s, p, live] = await Promise.all([raw('tennis/index.json', 'resultats'), raw('players.json', 'cotes-tennis'), espnScores()]);
+      const [s, p, { live, planned }] = await Promise.all([raw('tennis/index.json', 'resultats'), raw('players.json', 'cotes-tennis'), espn()]);
       // Score vu du joueur « domicile » de la fiche de cotes : jeux de chacun par set, vainqueur.
       const score = (home: string, away: string) => {
         const l = live.get([key(home), key(away)].sort().join('|'));
@@ -77,7 +96,21 @@ export async function GET(request: Request): Promise<Response> {
         if (!h || !a) return undefined;
         return { state: l.state, detail: l.detail, home: h.sets, away: a.sets, winner: h.winner ? 'home' : a.winner ? 'away' : undefined };
       };
-      const matches = files.flatMap((f) => (f ? Object.values(f[1] as Record<string, any>).map((m) => ({ id: String(m.id), day: f[0], league: m.league, start: m.start, home: m.home, away: m.away, odds: m.last, oddsOpen: m.first, live: score(m.home, m.away) })) : []));
+      const matches: any[] = files.flatMap((f) => (f ? Object.values(f[1] as Record<string, any>).map((m) => ({ id: String(m.id), day: f[0], league: m.league, start: m.start, home: m.home, away: m.away, odds: m.last, oddsOpen: m.first, live: score(m.home, m.away) })) : []));
+      // Matchs programmés sans cote Pinnacle : nom de tournoi repris des fiches cotées du même tournoi quand il y en a.
+      const seen = new Set(matches.map((m) => [key(m.home), key(m.away)].sort().join('|')));
+      const tourney = new Map<string, string>();
+      for (const m of planned) {
+        const twin = matches.find((x) => [key(x.home), key(x.away)].some((k) => k === key(m.home) || k === key(m.away)) && Math.abs(Date.parse(x.start) - Date.parse(m.start)) < 7 * 86_400_000);
+        if (twin && !tourney.has(m.event)) tourney.set(m.event, twin.league.split(' - ')[0]);
+      }
+      const last = days.at(-1)!;
+      for (const m of planned) {
+        const day = m.start.slice(0, 10);
+        if (seen.has([key(m.home), key(m.away)].sort().join('|')) || day < days[0] || day > last) continue;
+        const league = `${tourney.get(m.event) ?? `ATP ${m.event}`}${m.round ? ` - ${m.round}` : ''}`;
+        matches.push({ id: m.id, day, league, start: m.start, home: m.home, away: m.away, noOdds: true });
+      }
       return Response.json({ matches, sims: s.ok ? await s.json() : [], players: p.ok ? await p.json() : {} }, { headers: { 'Cache-Control': 'public, s-maxage=60' } });
     }
     if (q.get('bilan')) {

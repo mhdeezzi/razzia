@@ -242,6 +242,8 @@ a.row:hover .mark { transform: scale(1.06); }
   transition: border-color 0.25s, transform 0.3s var(--ease), box-shadow 0.3s; animation: rise 0.5s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
 
 .card:hover { border-color: var(--line-3); transform: translateY(-2px); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7); }
+.is-static { cursor: default; }
+.card.is-static:hover { border-color: var(--line-2); transform: none; box-shadow: none; }
 
 .card:active { transform: translateY(-1px) scale(0.99); }
 .card-top { display: flex; justify-content: space-between; align-items: center; }

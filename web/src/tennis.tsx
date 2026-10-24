@@ -28,7 +28,8 @@ export interface TennisResult {
   meta: { builtAt: string; matchesUsed: number; n: number };
 }
 type Live = { state: 'pre' | 'in' | 'post'; detail?: string; home: Array<{ g: number; tb?: number; w?: boolean }>; away: Array<{ g: number; tb?: number; w?: boolean }>; winner?: 'home' | 'away' };
-interface SlateMatch { id: string; day: string; league: string; start: string; home: string; away: string; odds?: Odds; oddsOpen?: Odds; live?: Live }
+// noOdds : match du calendrier ESPN que Pinnacle n'a pas encore coté (affiché, pas encore simulable).
+interface SlateMatch { id: string; day: string; league: string; start: string; home: string; away: string; odds?: Odds; oddsOpen?: Odds; live?: Live; noOdds?: boolean }
 interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string; cat?: string; trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' }; goal?: { home?: boolean; away?: boolean } }
 interface PlayerCard { atp?: string; ioc?: string; rank?: number; age?: number; wiki?: string | null }
 type State = { status: 'loading' } | { status: 'none' } | { status: 'queued' | 'running'; startedAt?: string; url?: string } | { status: 'done'; result: TennisResult } | { status: 'failed'; error?: string; url?: string };
@@ -256,7 +257,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
   const shown = dayMatches.filter((m) => stateOf(m) === status);
   const groups = [...shown.reduce((g, m) => g.set(tourneyOf(m.league), [...(g.get(tourneyOf(m.league)) ?? []), m]), new Map<string, SlateMatch[]>())];
   // À simuler : les matchs à venir pas encore simulés (une fois la journée faite, le bouton disparaît).
-  const todo = dayMatches.filter((m) => stateOf(m) === 'pre' && !sims.has(String(m.id)));
+  const todo = dayMatches.filter((m) => stateOf(m) === 'pre' && !m.noOdds && !sims.has(String(m.id)));
   const inRun = (id: string) => busy && run!.ids.includes(id);
 
   return (
@@ -463,7 +464,8 @@ function Who({ m, side, players, sim, align, size = 'row' }: { m: SlateMatch; si
 }
 
 /** Pastille de simulation, comme au basket : chat noir, favori et son pourcentage ; « Calcul » pendant la journée. */
-function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
+function TennisSimPill({ sim, running, noOdds }: { sim?: SimIndex; running: boolean; noOdds?: boolean }) {
+  if (noOdds) return <span className="conf-pill wait">Cote à venir</span>;
   if (running)
     return (
       <span className="conf-pill run">
@@ -485,7 +487,7 @@ function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
 
 function TennisRow({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimIndex; players?: Record<string, PlayerCard>; running: boolean; i: number }) {
   return (
-    <Link href={`/tennis/match/${m.day}/${m.id}`} className="row t-row" style={{ '--i': i } as CSSProperties}>
+    <MatchLink m={m} className="row t-row" i={i}>
       <TimeCell m={m} />
       <div className="vs-line">
         <Who m={m} side="home" players={players} sim={sim} align="away" />
@@ -494,17 +496,17 @@ function TennisRow({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimIn
       </div>
       <span className="cell-odds">{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : '-'}</span>
       <span style={{ textAlign: 'center' }}>
-        <TennisSimPill sim={sim} running={running} />
+        <TennisSimPill sim={sim} running={running} noOdds={m.noOdds} />
       </span>
-      <CaretRight size={16} className="row-caret" />
-    </Link>
+      {m.noOdds ? <span /> : <CaretRight size={16} className="row-caret" />}
+    </MatchLink>
   );
 }
 
 function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimIndex; players?: Record<string, PlayerCard>; running: boolean; i: number }) {
   const st = stateOf(m);
   return (
-    <Link href={`/tennis/match/${m.day}/${m.id}`} className="card t-card" style={{ '--i': i } as CSSProperties}>
+    <MatchLink m={m} className="card t-card" i={i}>
       <div className="card-top">
         <span className="mono strong">{st === 'pre' || !m.live ? timeLocal(m.start) : `${setsWon(m.live, 'home')}-${setsWon(m.live, 'away')}`}</span>
         <span className="muted small">{tourneyOf(m.league)}</span>
@@ -516,10 +518,17 @@ function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimI
       </div>
       <div className="card-foot">
         <span>{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : 'Cotes à venir'}</span>
-        <TennisSimPill sim={sim} running={running} />
+        <TennisSimPill sim={sim} running={running} noOdds={m.noOdds} />
       </div>
-    </Link>
+    </MatchLink>
   );
+}
+
+/** Lien vers la fiche ; un match sans cote n'a pas encore de fiche (pas de simulation possible). */
+function MatchLink({ m, className, i, children }: { m: SlateMatch; className: string; i: number; children: ReactNode }) {
+  const style = { '--i': i } as CSSProperties;
+  if (m.noOdds) return <div className={`${className} is-static`} style={style}>{children}</div>;
+  return <Link href={`/tennis/match/${m.day}/${m.id}`} className={className} style={style}>{children}</Link>;
 }
 
 // ——— Fiche de match ———
