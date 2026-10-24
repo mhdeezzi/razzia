@@ -423,19 +423,19 @@ a.row:hover .mark { transform: scale(1.06); }
 .delta.up { color: var(--green); }
 
 .ring { margin: 0; display: grid; justify-items: center; gap: 14px; }
-.ring-disc { position: relative; width: 168px; height: 168px; border-radius: 999px; display: grid; place-items: center; background: #000; box-shadow: inset 0 0 0 1px var(--line), 0 0 28px 2px var(--glow), 0 0 90px 10px var(--glow-2); }
+.ring-disc { position: relative; width: 168px; height: 168px; border-radius: 999px; display: grid; place-items: center; background: #000; box-shadow: inset 0 0 0 1px var(--line); }
 .ring-blue { --c: #2272e0; --ca: #1898c4; --cb: #2a3ec8; --glow: rgba(34, 100, 230, 0.45); --glow-2: rgba(34, 100, 230, 0.22); }
 .ring-rose { --c: #c81a52; --ca: #d0183a; --cb: #a8247f; --glow: rgba(210, 30, 80, 0.4); --glow-2: rgba(210, 30, 80, 0.2); }
 .ring svg { position: absolute; inset: 14px; transform: rotate(-90deg); overflow: visible; }
 .ring-track { fill: none; stroke: #e9ecf1; stroke-width: 7; opacity: 0.9; }
 .ring-stop-a { stop-color: var(--ca); }
 .ring-stop-b { stop-color: var(--cb); }
-.ring-val { fill: none; stroke-width: 7.5; stroke-linecap: round; transition: stroke-dashoffset 1.3s var(--ease); filter: drop-shadow(0 0 6px var(--c)); }
+.ring-val { fill: none; stroke-width: 7.5; stroke-linecap: round; transition: stroke-dashoffset 1.3s var(--ease); filter: drop-shadow(0 0 3px var(--c)); }
 .ring, .ring .ring-num { font-family: 'Host Grotesk Variable', ui-sans-serif, system-ui, sans-serif; }
 .ring-num { position: relative; font-size: 34px; font-weight: 700; color: var(--c); letter-spacing: -0.05em; }
 .ring figcaption { font: 500 12px 'Host Grotesk Variable', ui-sans-serif, system-ui, sans-serif; letter-spacing: 0; color: var(--text-3); }
-.ring-odds { margin: -6px 0 0; font: 700 23px var(--sans); letter-spacing: -0.01em; color: #fff; text-align: center; white-space: nowrap; }
-.ring-odds b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ring-odds { margin: -6px 0 0; font: 800 38px var(--sans); letter-spacing: -0.02em; line-height: 1; color: #fff; text-align: center; white-space: nowrap; }
+.ring-odds b { font-weight: 800; font-variant-numeric: tabular-nums; }
 .ring-sm .ring-disc { width: 132px; height: 132px; }
 .ring-sm .ring-num { font-size: 26px; }
 .ring-sm svg { inset: 10px; }
