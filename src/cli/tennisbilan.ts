@@ -1,6 +1,7 @@
 // Bilan des simulations tennis publiées : pour chaque match terminé (résultats TennisMyLife), le pronostic mis en avant
-// par la fiche (vainqueur, ou « Un set » / « Deux sets » pour un favori à 75 % ou moins) et son résultat, par niveau de
-// confiance (Razzia assuré, entre les deux, pile ou face), face au marché. Abandons et forfaits ne comptent pas.
+// par la fiche (vainqueur, ou « Un set » / « Deux sets » pour un favori à 80 % ou moins ou face à un outsider en hausse)
+// et son résultat, par niveau de confiance (Razzia assuré, entre les deux, pile ou face), face au marché. Abandons et
+// forfaits ne comptent pas.
 //   node src/cli/tennisbilan.ts <dossier tennis de la branche resultats>   -> écrit <dossier>/bilan.json
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -11,7 +12,7 @@ const dir = process.argv[2];
 if (!dir) throw new Error('Usage : node src/cli/tennisbilan.ts <dossier tennis>');
 
 // Mêmes seuils que la fiche (web/src/tennispicks.ts).
-const T_HEDGE_FIRST = 0.75; // favori à 75 % ou moins : « Un set » passe devant, c'est lui qui compte
+const T_HEDGE_FIRST = 0.8; // favori à 80 % ou moins : « Un set » passe devant, c'est lui qui compte
 const T_FLIP = 0.6; // favori sous 60 % : pile ou face
 const T_SURE = 0.8; // favori à 80 % ou plus : Razzia assuré
 const MIN_ODDS = 1.15; // ligne de sets proposée seulement si sa cote juste dépasse 1,15
@@ -24,15 +25,18 @@ interface Row {
   pHome: number; pMarket?: number; homeWon: boolean; score: string; tier: Tier; pick: Pick;
 }
 
-/** Pronostic mis en avant par la fiche : la ligne de sets la plus sûre (si favori à 75 % ou moins), sinon le vainqueur. */
+/** Outsider en hausse (forme sur 10 matchs) : le match passe en pile ou face, « Un set » devant même sous 1,15. */
+const dogUp = (s: any) => s[s.pHome >= 0.5 ? 'away' : 'home'].trend === 'up';
+
+/** Pronostic mis en avant par la fiche : la ligne de sets la plus sûre (favori à 80 % ou moins, ou outsider en hausse), sinon le vainqueur. */
 function pickOf(s: any, favWon: boolean, favSets: number): Pick {
   const side = s.pHome >= 0.5 ? 'home' : 'away';
   const winP = Math.max(s.pHome, 1 - s.pHome);
   const i = side === 'home' ? 0 : 1;
   const fav = s[side].name as string;
   const lines = s.bestOf === 5 ? [{ need: 1, c: s.sim.atLeast1[i] }, { need: 2, c: s.sim.atLeast2[i] }] : [{ need: 1, c: s.sim.atLeast1[i] }];
-  const L = lines.filter((x) => x.c <= 1 / MIN_ODDS && x.c > winP).sort((a, b) => b.c - a.c)[0];
-  if (L && shown(winP) <= T_HEDGE_FIRST)
+  const L = lines.filter((x) => (dogUp(s) || x.c <= 1 / MIN_ODDS) && x.c > winP).sort((a, b) => b.c - a.c)[0];
+  if (L && (dogUp(s) || shown(winP) <= T_HEDGE_FIRST))
     return { kind: 'sets', need: L.need, label: `${fav} au moins ${L.need === 1 ? 'un set' : 'deux sets'}`, won: favWon || favSets >= L.need };
   return { kind: 'vainqueur', label: fav, won: favWon };
 }
@@ -68,7 +72,7 @@ for (const f of existsSync(simsDir) ? readdirSync(simsDir) : []) {
   rows.push({
     id: s.id, day: s.day, start: s.start, tourney: s.tourney, round: s.round, home: s.home.name, away: s.away.name,
     pHome: s.pHome, pMarket: s.market?.pHome, homeWon, score: homeWon ? m.score : m.score.split(' ').map((x) => x.replace(/^(\d+)-(\d+)/, '$2-$1')).join(' '),
-    tier: shown(winP) >= T_SURE ? 'sure' : shown(winP) < T_FLIP ? 'flip' : 'mid',
+    tier: dogUp(s) || shown(winP) < T_FLIP ? 'flip' : shown(winP) >= T_SURE ? 'sure' : 'mid',
     pick: pickOf(s, favWon, favSets),
   });
 }

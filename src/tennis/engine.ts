@@ -48,7 +48,14 @@ export function engineProb(R: Ratings, a: Snapshot, b: Snapshot, surface: Surfac
   return { p: Sg(factors.reduce((s, f) => s + f.z, 0)), elo, point, factors };
 }
 
-/** Probabilité Razzia : moteur et marché sans marge mélangés en logit (le moteur seul s'il n'y a pas de cote). */
+/**
+ * Probabilité Razzia : moteur et marché sans marge mélangés en logit (le moteur seul s'il n'y a pas de cote). Jamais plus
+ * sûr que le marché sur le même favori ; un favori différent du marché reste permis (défier le marché). 2024-2025,
+ * pronostics de la fiche : 80,2 % sans plafond, 80,8 % avec.
+ */
 export function blend(pEngine: number, pMarket?: number): number {
-  return pMarket == null ? pEngine : Sg((1 - MARKET_WEIGHT) * Lg(pEngine) + MARKET_WEIGHT * Lg(pMarket));
+  if (pMarket == null) return pEngine;
+  const p = Sg((1 - MARKET_WEIGHT) * Lg(pEngine) + MARKET_WEIGHT * Lg(pMarket));
+  if ((p >= 0.5) !== (pMarket >= 0.5)) return p;
+  return p >= 0.5 ? Math.min(p, pMarket) : Math.max(p, pMarket);
 }

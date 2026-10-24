@@ -1,11 +1,10 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowClockwise, ArrowLeft, ArrowSquareOut, CalendarBlank, CaretRight, Cat, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
+import { ArrowClockwise, ArrowLeft, ArrowSquareOut, CalendarBlank, CaretRight, Cat, House, ListBullets, Scales, ShieldCheck, Sparkle, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { Empty, Link, Ring, Segmented } from './ui.tsx';
 import { PickTabs } from './results.tsx';
-import { buildTennisCategories, favOf, T_FLIP, T_SURE } from './tennispicks.ts';
-import { shown } from './picks.ts';
+import { buildTennisCategories, favOf, flipOf, T_SURE } from './tennispicks.ts';
 
 // ——— Données ———
 export interface TennisPlayer {
@@ -53,6 +52,23 @@ const ROUND_FR: Record<string, string> = { F: 'Finale', SF: 'Demi-finale', QF: '
 const ROUND_SHORT: Record<string, string> = { F: 'Finale', SF: 'Demi', QF: 'Quart', R16: '8e', R32: '16e', R64: '32e', R128: '64e', R4: '8e' };
 /** « Nikoloz Basilashvili » -> « N. Basilashvili » (téléphone). */
 const short = (n: string) => { const [first, ...rest] = n.split(' '); return rest.length ? `${first[0]}. ${rest.join(' ')}` : n; };
+// Pays de chaque tournoi (code CIO, comme le pays des joueurs) : un joueur de ce pays joue à domicile.
+const COUNTRY: Record<string, string> = {
+  'Australian Open': 'AUS', 'French Open': 'FRA', 'Roland Garros': 'FRA', Wimbledon: 'GBR', 'US Open': 'USA',
+  "'s-Hertogenbosch": 'NED', Acapulco: 'MEX', Adelaide: 'AUS', Almaty: 'KAZ', Antwerp: 'BEL', Astana: 'KAZ', Athens: 'GRE', Atlanta: 'USA',
+  Auckland: 'NZL', 'Banja Luka': 'BIH', Barcelona: 'ESP', Basel: 'SUI', Bastad: 'SWE', Beijing: 'CHN', Belgrade: 'SRB', Bogota: 'COL',
+  Brisbane: 'AUS', Brussels: 'BEL', Bucharest: 'ROU', 'Buenos Aires': 'ARG', Canada: 'CAN', Chengdu: 'CHN', Cincinnati: 'USA',
+  Cordoba: 'ARG', Dallas: 'USA', 'Delray Beach': 'USA', Doha: 'QAT', Dubai: 'UAE', Eastbourne: 'GBR', Estoril: 'POR', Florence: 'ITA',
+  Geneva: 'SUI', Gijon: 'ESP', Gstaad: 'SUI', Halle: 'GER', Hamburg: 'GER', Hangzhou: 'CHN', 'Hong Kong': 'HKG', Houston: 'USA',
+  'Indian Wells': 'USA', Kitzbuhel: 'AUT', London: 'GBR', 'Los Cabos': 'MEX', Lyon: 'FRA', Madrid: 'ESP', Mallorca: 'ESP',
+  Marrakech: 'MAR', Marseille: 'FRA', Melbourne: 'AUS', Metz: 'FRA', Miami: 'USA', 'Monte Carlo': 'MON', Montpellier: 'FRA',
+  Montreal: 'CAN', Munich: 'GER', Naples: 'ITA', 'New York': 'USA', Newport: 'USA', Paris: 'FRA', Pune: 'IND', 'Queens Club': 'GBR',
+  'Rio de Janeiro': 'BRA', Rome: 'ITA', Rotterdam: 'NED', Santiago: 'CHI', Seoul: 'KOR', Shanghai: 'CHN', Sofia: 'BUL',
+  Stockholm: 'SWE', Stuttgart: 'GER', Sydney: 'AUS', 'Tel Aviv': 'ISR', Tokyo: 'JPN', Toronto: 'CAN', Turin: 'ITA', Umag: 'CRO',
+  Vienna: 'AUT', Washington: 'USA', 'Winston-Salem': 'USA',
+};
+/** Le joueur joue-t-il dans son pays ? */
+const atHome = (league: string, ioc?: string) => !!ioc && COUNTRY[tourneyOf(league)] === ioc;
 const initials = (n: string) => n.split(' ').map((x) => x[0]).slice(0, 2).join('');
 
 /** Photo officielle ATP d'après le code du joueur. */
@@ -408,6 +424,11 @@ function Who({ m, side, players, sim, align, size = 'row' }: { m: SlateMatch; si
             {trend === 'up' ? <TrendUp size={13} weight="bold" /> : <TrendDown size={13} weight="bold" />}
           </span>
         )}
+        {atHome(m.league, c?.ioc) && (
+          <span className="t-home" title="À domicile" aria-label="À domicile">
+            <House size={13} weight="fill" />
+          </span>
+        )}
       </span>
       <span className="vs-rec">{subLine(m, side, c)}</span>
     </span>
@@ -656,7 +677,8 @@ function TennisResults({ r, onRelaunch, busy }: { r: TennisResult; onRelaunch: (
 function TennisSignals({ r }: { r: TennisResult }) {
   const cat = r.blackCat;
   const moves = [r.home, r.away].filter((p) => p.trend);
-  if (!cat && !moves.length) return null;
+  const home = [r.home, r.away].filter((p) => atHome(r.league, p.ioc));
+  if (!cat && !moves.length && !home.length) return null;
   return (
     <div className="signals">
       {cat && (
@@ -670,6 +692,19 @@ function TennisSignals({ r }: { r: TennisResult }) {
           </div>
         </div>
       )}
+      {home.map((p) => (
+        <div key={`home-${p.name}`} className="signal signal-home">
+          <span className="signal-icon">
+            <House size={20} weight="fill" />
+          </span>
+          <div>
+            <p className="signal-title">
+              <Avatar name={p.name} photo={p.photo} alt={p.photoAlt} size="sm" /> {p.name} à domicile
+            </p>
+            <p>Il joue devant son public. À savoir : sur 2024-2025, les joueurs à domicile ont gagné 45 % de leurs matchs quand le marché leur en donnait 48 %. Le public pousse, mais les cotes en tiennent déjà compte, et même un peu trop.</p>
+          </div>
+        </div>
+      ))}
       {moves.map((p) => {
         const wins = p.form.filter((m) => m.won).length;
         return (
@@ -695,7 +730,8 @@ function TennisVerdict({ r }: { r: TennisResult }) {
   const fav = r[side], dog = r[side === 'home' ? 'away' : 'home'];
   const i = side === 'home' ? 0 : 1;
   const book = r.market.pHome != null ? (side === 'home' ? r.market.pHome : 1 - r.market.pHome) : undefined;
-  const tier = p >= T_SURE ? 'sure' : shown(p) < T_FLIP ? 'flip' : 'normal';
+  const flip = flipOf(r);
+  const tier = flip ? 'flip' : p >= T_SURE ? 'sure' : 'normal';
   const sets = r.sim.atLeast1[i];
   return (
     <section className={`verdict verdict-${tier}`}>
@@ -723,7 +759,7 @@ function TennisVerdict({ r }: { r: TennisResult }) {
             <div>
               <p className="conf-badge-title">Pile ou face</p>
               <p>
-                {fav.name} reste favori, mais d'un rien : match imprévisible. Plus sûr : <b>{fav.name} gagne au moins un set</b> ({pct(sets)} des simulations).
+                {flip === 'dogUp' ? `${dog.name} est en hausse : avec un outsider dans cette forme, le favori perd plus souvent que prévu.` : `${fav.name} reste favori, mais d'un rien : match imprévisible.`} Plus sûr : <b>{fav.name} gagne au moins un set</b> ({pct(sets)} des simulations).
               </p>
             </div>
           </div>
@@ -948,12 +984,12 @@ export function TennisBilanPage() {
               <span className="caps">Hors pile ou face</span>
               <b className="mono">{rateTxt(b.tiers.advised)}</b>
               <small>
-                {b.tiers.advised.n} matchs ; pile ou face (favori sous 60 %) : {rateTxt(b.tiers.flip)} sur {b.tiers.flip.n}
+                {b.tiers.advised.n} matchs ; pile ou face (favori sous 60 % ou outsider en hausse) : {rateTxt(b.tiers.flip)} sur {b.tiers.flip.n}
               </small>
             </div>
           </section>
           <p className="note" style={{ margin: '12px 0 18px' }}>
-            Le pronostic compté est celui que la fiche met en avant : le vainqueur, ou « Un set » quand le favori est à 75 % ou moins. Une simulation lancée après le début du match ne compte pas.
+            Le pronostic compté est celui que la fiche met en avant : le vainqueur, ou « Un set » quand le favori est à 80 % ou moins ou que l'outsider est en hausse. Une simulation lancée après le début du match ne compte pas.
           </p>
           <section className="league-card">
             <ol className="rows">
