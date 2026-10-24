@@ -1,5 +1,5 @@
 // Briques partagées : navigation, pastille d'équipe, onglets à curseur glissant, anneau de probabilité, compteur animé.
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { teamColor, teamLogo, type Team } from './data.ts';
 
 export function navigate(to: string): void {
@@ -140,6 +140,7 @@ export function Ring({ value, tone = 'blue', label, format, extra }: { value: nu
   const r = 44;
   const c = 2 * Math.PI * r;
   const [shown, setShown] = useState(reduced() ? value : 0);
+  const grad = `ring-grad-${useId().replace(/:/g, '')}`;
   useEffect(() => {
     const t = requestAnimationFrame(() => setShown(value));
     return () => cancelAnimationFrame(t);
@@ -148,8 +149,15 @@ export function Ring({ value, tone = 'blue', label, format, extra }: { value: nu
     <figure className={`ring ring-${tone}`}>
       <div className="ring-disc">
         <svg viewBox="0 0 100 100" aria-hidden="true">
+          {/* Même dégradé que les lignes de résultats. */}
+          <defs>
+            <linearGradient id={grad} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" className="ring-stop-a" />
+              <stop offset="1" className="ring-stop-b" />
+            </linearGradient>
+          </defs>
           <circle cx="50" cy="50" r={r} className="ring-track" />
-          <circle cx="50" cy="50" r={r} className="ring-val" strokeDasharray={c} strokeDashoffset={c * (1 - shown)} />
+          <circle cx="50" cy="50" r={r} className="ring-val" stroke={`url(#${grad})`} strokeDasharray={c} strokeDashoffset={c * (1 - shown)} />
         </svg>
         <span className="ring-num mono">
           <CountUp value={value} format={format} />
