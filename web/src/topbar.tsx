@@ -1,4 +1,4 @@
-// Barre du haut façon Betix : bandeau noir plat, logo, pastilles de sport, liens de pages à droite.
+// Barre du haut façon Betix : bandeau noir plat, logo, pastilles de sport, lien Méthode à droite.
 import { Basketball, Info, SoccerBall, TennisBall } from '@phosphor-icons/react';
 import { Link } from './ui.tsx';
 import fond from './assets/razzia-fond.webp';
