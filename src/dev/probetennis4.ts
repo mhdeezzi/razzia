@@ -10,7 +10,7 @@ for (const u of links.filter((l) => /chall|futures|qual/i.test(l)).slice(0, 6)) 
   const d = lines.slice(1).map((l) => l.split(',')[di]).sort();
   console.log(`${r.status} ${lines.length - 1} lignes ${d[0]} -> ${d.at(-1)}  ${u}`);
 }
-const wd = await fetch('https://www.wikidata.org/wiki/Special:EntityData/Q20828476.json', { headers: UA, signal: AbortSignal.timeout(15_000) });
+const wd = await fetch('https://www.wikidata.org/wiki/Special:EntityData/Q72091.json', { headers: UA, signal: AbortSignal.timeout(15_000) });
 const j: any = wd.ok ? await wd.json() : undefined;
 const ent: any = j ? Object.values(j.entities)[0] : undefined;
 console.log('Wikidata', wd.status, ent?.labels?.en?.value, ent?.claims?.P18?.[0]?.mainsnak?.datavalue?.value);
