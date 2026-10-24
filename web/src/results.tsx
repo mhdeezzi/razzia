@@ -275,7 +275,7 @@ export function PickOdds({ o }: { o?: Outcome }) {
   if (!o || v == null) return null;
   return (
     <p className="ring-odds">
-      {o.odds != null ? 'Cote' : 'Cote juste'} <b>{dec(v)}</b>
+      <b>{dec(v)}</b>
     </p>
   );
 }
