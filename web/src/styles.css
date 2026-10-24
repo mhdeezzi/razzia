@@ -726,7 +726,7 @@ a.row:hover .mark { transform: scale(1.06); }
   .match-grid { grid-template-columns: 1fr; }
   .aside { position: static; grid-template-columns: 1fr 1fr; }
   .verdict { grid-template-columns: auto 1fr; }
-  .verdict-side { grid-column: 1 / -1; padding-left: 0; border-left: 0; border-top: 1px solid var(--line); padding-top: 20px; grid-template-columns: repeat(3, 1fr); }
+  .verdict-side { grid-column: 1 / -1; padding-left: 0; border-left: 0; padding-top: 4px; grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 720px) {
