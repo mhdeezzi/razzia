@@ -84,7 +84,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
   cats.push({
     id: 'win', label: 'Vainqueur',
     items: [{
-      id: 'win', title: `Victoire ${deTeam(g[winSide].name)}`, p: winP,
+      id: 'win', title: `Victoire ${deTeam(g[winSide].name)}`, p: winP, fair: 1 / winP,
       odds: (homeWins ? o.mlHome : o.mlAway) != null ? decimal((homeWins ? o.mlHome : o.mlAway)!) : undefined,
       implied: ml ? (homeWins ? ml[0] : ml[1]) : undefined,
       text: `${g[winSide].city} ${g[winSide].name} gagne ${Math.round(winP * 5000).toLocaleString('fr-FR')} des 5 000 matchs simulés. Score médian : ${g.away.tri} ${Math.round(r.awayPts.p50)}, ${g.home.tri} ${Math.round(r.homePts.p50)}. Prolongation dans ${pct(r.pOT)} des cas.`,
@@ -102,7 +102,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
     const margin = fav === 'home' ? r.margin.mean : -r.margin.mean;
     if (pFav > winP)
       spreads.push({
-        id: 'spread', title: `${g[fav].name} ${l > 0 ? '+' : ''}${line(l)}`, p: pFav,
+        id: 'spread', title: `${g[fav].name} ${l > 0 ? '+' : ''}${line(l)}`, p: pFav, fair: 1 / pFav,
         odds: price != null ? decimal(price) : undefined, implied: fav === 'home' ? sp[0] : sp[1],
         text: `Écart moyen simulé : ${signed(margin)} pour ${g[fav].name}. Dans 80 % des matchs, l'écart final va de ${signed(fav === 'home' ? r.margin.p10 : -r.margin.p90)} à ${signed(fav === 'home' ? r.margin.p90 : -r.margin.p10)}.`,
       });
