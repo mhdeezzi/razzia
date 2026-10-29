@@ -1,6 +1,6 @@
 // Briques partagées : navigation, pastille d'équipe, onglets à curseur glissant, anneau de probabilité, compteur animé.
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from 'react';
-import { CalendarBlank, Check, CircleHalf, SealCheck } from '@phosphor-icons/react';
+import { CalendarBlank, Check, Coin, SealCheck } from '@phosphor-icons/react';
 import { teamColor, teamLogo, type Team } from './data.ts';
 
 export function navigate(to: string): void {
@@ -236,9 +236,9 @@ export function Callout({ tone, icon, title, tag, children }: { tone: string; ic
   );
 }
 
-/** Repère du badge de simulation du programme : demi-cercle « Pile ou face », sceau « Razzia assuré », sinon un point. */
+/** Repère du badge de simulation du programme : pièce « Pile ou face », sceau « Razzia assuré », sinon un point. */
 export function PillMark({ tier }: { tier: string }) {
-  if (tier === 'flip') return <CircleHalf size={14} weight="fill" className="pill-ic" />;
+  if (tier === 'flip') return <Coin size={14} weight="fill" className="pill-ic" />;
   if (tier === 'sure') return <SealCheck size={14} weight="fill" className="pill-ic" />;
   return <i className="pill-dot" />;
 }

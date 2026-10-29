@@ -1,7 +1,7 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowLeft, CaretRight, Cat, CircleHalf, HouseLine, HouseSimple, ListBullets, Mountains, SealCheck, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
+import { ArrowLeft, CaretRight, Cat, Coin, HouseLine, HouseSimple, ListBullets, Mountains, SealCheck, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
 import { Callout, Empty, Link, PageHero, PillMark, ProgressLine, Ring, SaferBet, Segmented, SimProgress } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
@@ -792,7 +792,7 @@ function TennisVerdict({ r, win }: { r: TennisResult; win?: Outcome }) {
           </Callout>
         )}
         {tier === 'flip' && (
-          <Callout tone="badge-flip" icon={<CircleHalf size={18} weight="fill" />} title="Pile ou face" tag="Match imprévisible">
+          <Callout tone="badge-flip" icon={<Coin size={18} weight="fill" />} title="Pile ou face" tag="Match imprévisible">
             <p>
               {flip === 'dogUp'
                 ? `${dog.name} est en hausse : avec un outsider dans cette forme, le favori perd plus souvent que prévu.`

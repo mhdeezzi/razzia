@@ -1,8 +1,8 @@
 // Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowsLeftRight, CircleHalf, SealCheck } from '@phosphor-icons/react';
-import { line, n1, pct, pct0, teamColor, type Game, type Result } from './data.ts';
+import { ArrowsLeftRight, Coin, SealCheck } from '@phosphor-icons/react';
+import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
 import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
@@ -95,7 +95,7 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
     );
   if (c.tier === 'flip')
     return (
-      <Callout tone="badge-flip" icon={<CircleHalf size={18} weight="fill" />} title="Pile ou face" tag="Match imprévisible">
+      <Callout tone="badge-flip" icon={<Coin size={18} weight="fill" />} title="Pile ou face" tag="Match imprévisible">
         <p>
           {c.early && c.p >= 0.66
             ? `Début de saison : moins de 5 matchs joués, les équipes repartent de zéro. ${g[c.side].name} reste favori, mais rien n'est sûr.`
@@ -142,8 +142,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
   const pH = r.market?.blendedHome ?? r.pHome;
   const win = useMemo(() => buildCategories(r, g).flatMap((c) => c.items).find((o) => o.id === 'win'), [r, g]);
   return (
-    // Filet de couleur aux couleurs des deux équipes (favori en tête), comme le bandeau du match.
-    <section className={`verdict verdict-${c.tier} rim`} style={{ '--r1': teamColor(fav), '--r2': teamColor(g[c.side === 'home' ? 'away' : 'home']) } as CSSProperties}>
+    <section className={`verdict verdict-${c.tier}`}>
       <div className="verdict-ring">
         {win?.warn && <span className="odds-warn">{win.warn}</span>}
         <Ring value={pFav} format={pctInt} label="Victoire" />

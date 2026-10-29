@@ -1,6 +1,6 @@
 // Programme : les matchs des 7 prochains jours (heure de New York), en liste ou en grille, filtrés par statut.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { CaretRight, Check, Fire, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
+import { CaretRight, Check, Flame, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, teamColor, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
 import { Empty, Link, PageHero, PillMark, ProgressLine, Segmented, TeamMark } from './ui.tsx';
@@ -240,7 +240,7 @@ function FormMark({ g, sim }: { g: Game; sim?: SimEntry }) {
         <span className="forme-item hot">
           <HotFace id={sim.hot.id} team={team} />
           <span className="forme-chip">
-            <Fire size={13} weight="fill" />
+            <Flame size={13} weight="fill" />
           </span>
         </span>
       </span>

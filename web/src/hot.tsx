@@ -1,7 +1,7 @@
 // « En feu ce soir » : les joueurs dont les 5 000 simulations annoncent un gros match, et pourquoi.
 // Et l'avertissement quand la simulation précède l'annonce des compositions officielles.
 import { useState, type CSSProperties } from 'react';
-import { ArrowClockwise, Fire, Info } from '@phosphor-icons/react';
+import { ArrowClockwise, Flame, Info } from '@phosphor-icons/react';
 import { n1, pct0, teamColor, type Game, type Result } from './data.ts';
 import { TeamMark } from './ui.tsx';
 
@@ -37,7 +37,7 @@ function Face({ p, team }: { p: Player; team: Game['home'] }) {
 
 /**
  * « En feu ce soir » : les joueurs que les simulations voient le plus souvent faire un gros match, et pourquoi.
- * Carte noire à filet aux couleurs de l'équipe ; seuil du gros match en grand, jauge de la chance, raisons en pilules.
+ * Carte noire au contour neutre, lueur discrète de la couleur de l'équipe ; seuil du gros match en grand, jauge de la chance, raisons en pilules.
  */
 export function HotStrip({ r, g }: { r: Result; g: Game }) {
   // Les quatre plus chauds, rangés par chance de gros match : 1 en haut à gauche, 2 en haut à droite, 3 et 4 dessous.
@@ -54,7 +54,7 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
       <div className="section-head">
         <h3 className="feu-title">
           <span className="feu-badge">
-            <Fire size={14} weight="fill" />
+            <Flame size={14} weight="fill" />
           </span>
           En feu ce soir
         </h3>
@@ -65,7 +65,7 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
           const h = p.heat!;
           const team = p.side === 0 ? g.home : g.away;
           return (
-            <li key={p.id} className="feu-card rim" style={{ '--i': i, '--r1': teamColor(team), '--r2': 'var(--c-fire)', '--tc': teamColor(team) } as CSSProperties}>
+            <li key={p.id} className="feu-card" style={{ '--i': i, '--tc': teamColor(team) } as CSSProperties}>
               <div className="feu-who">
                 <Face p={p} team={team} />
                 <div className="feu-id">
@@ -73,7 +73,7 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
                   <p className="feu-team">{team.name}</p>
                 </div>
                 <span className="feu-p">
-                  <Fire size={13} weight="fill" /> {pct0(h.pBig)}
+                  <Flame size={13} weight="fill" /> {pct0(h.pBig)}
                 </span>
               </div>
               <div className="feu-bet">
