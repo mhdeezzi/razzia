@@ -1,9 +1,9 @@
 // Programme : les matchs des 7 prochains jours (heure de New York), en liste ou en grille, filtrés par statut.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { CalendarBlank, CaretRight, Check, Fire, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
+import { CaretRight, Check, Fire, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
-import { Empty, Link, ProgressLine, Segmented, TeamMark, Wordmark } from './ui.tsx';
+import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
 import { flipP } from './picks.ts';
 
 type Status = 'pre' | 'in' | 'post';
@@ -67,19 +67,7 @@ export function SchedulePage({ day }: { day: string | null }) {
 
   return (
     <div className="page">
-      <Wordmark />
-      <header className="dash-head">
-        <div>
-          <h1>Programme NBA</h1>
-          {current && (
-            <p className="dash-meta">
-              <CalendarBlank size={16} /> <span>{cap(dayLong(current))}</span>
-              <span className="count">
-                {dayGames.length} match{dayGames.length > 1 ? 's' : ''}
-              </span>
-            </p>
-          )}
-        </div>
+      <PageHero sport="nba" title="Programme NBA" day={current ? cap(dayLong(current)) : undefined} count={current ? dayGames.length : undefined}>
         <Segmented<View>
           tone="dark"
           ariaLabel="Affichage"
@@ -90,7 +78,7 @@ export function SchedulePage({ day }: { day: string | null }) {
             { value: 'liste', label: <><ListBullets size={16} /> Liste</> },
           ]}
         />
-      </header>
+      </PageHero>
 
       {error && (
         <Empty title="Le programme n'a pas pu être chargé.">

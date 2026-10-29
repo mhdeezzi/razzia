@@ -1,8 +1,7 @@
 // Briques partagées : navigation, pastille d'équipe, onglets à curseur glissant, anneau de probabilité, compteur animé.
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
-import { Check } from '@phosphor-icons/react';
+import { CalendarBlank, Check } from '@phosphor-icons/react';
 import { teamColor, teamLogo, type Team } from './data.ts';
-import lettres from './assets/razzia-lettres.png';
 
 export function navigate(to: string): void {
   history.pushState(null, '', to);
@@ -200,9 +199,74 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   );
 }
 
-/** RAZZIA en lettres gothiques rouges (celles du logo), en tête des programmes. */
-export function Wordmark() {
-  return <img className="wordmark" src={lettres} alt="Razzia" />;
+/**
+ * En-tête des programmes façon affiche RAZZIA : fond couleur à grain (lumière qui fuit sur la pellicule), petites
+ * mentions en haut, titre très gras et serré, accroche en dessous ; date, nombre de matchs et affichage en pied.
+ */
+export function PageHero({ sport, title, day, count, children }: { sport: 'nba' | 'atp'; title: string; day?: string; count?: number; children?: ReactNode }) {
+  const [first, ...rest] = title.split(' ');
+  return (
+    <header className={`hero-banner grain grain-${sport}`}>
+      <div className="hb-top" aria-hidden="true">
+        <span className="hb-label">
+          RAZZIA
+          <br />© {new Date().getFullYear()} RAZZIA
+        </span>
+        <span className="hb-label hb-right">{sport === 'nba' ? 'NBA' : 'ATP'} · 5 000 simulations par match</span>
+      </div>
+      <h1 className="hb-title">
+        <span>{first}</span> <span className="hb-title-2">{rest.join(' ')}</span>
+      </h1>
+      <p className="hb-tag">sports analysis specialist</p>
+      <div className="hb-foot">
+        {day && (
+          <p className="dash-meta">
+            <CalendarBlank size={16} weight="bold" /> <span>{day}</span>
+            {count != null && (
+              <span className="count">
+                {count} match{count > 1 ? 's' : ''}
+              </span>
+            )}
+          </p>
+        )}
+        {children}
+      </div>
+    </header>
+  );
+}
+
+/** Petite courbe (valeurs de 0 à 1) avec aire en dégradé et ligne des 50 % : réussite au fil des matchs. */
+export function Sparkline({ values, label }: { values: number[]; label: string }) {
+  const id = `spark-${useId().replace(/:/g, '')}`;
+  if (values.length < 2) return null;
+  const lo = Math.min(0.4, ...values), hi = Math.max(0.9, ...values);
+  const pts = values.map((v, i) => [(100 * i) / (values.length - 1), 40 - (36 * (v - lo)) / (hi - lo) - 2] as const);
+  const d = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
+  const mid = 40 - (36 * (0.5 - lo)) / (hi - lo) - 2;
+  return (
+    <svg className="spark" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label={label}>
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="var(--brand)" stopOpacity="0.32" />
+          <stop offset="1" stopColor="var(--brand)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <line className="spark-mid" x1="0" x2="100" y1={mid} y2={mid} />
+      <path d={`${d} L100,40 L0,40 Z`} fill={`url(#${id})`} />
+      <path className="spark-line" d={d} />
+    </svg>
+  );
+}
+
+/** Points en matrice qui ondulent depuis le centre : « ça calcule ». */
+export function DotMatrix() {
+  return (
+    <span className="dotmatrix" aria-hidden="true">
+      {Array.from({ length: 9 }, (_, i) => (
+        <i key={i} style={{ '--d': `${[2, 1, 2, 1, 0, 1, 2, 1, 2][i] * 130}ms` } as CSSProperties} />
+      ))}
+    </span>
+  );
 }
 
 /** Suivi animé d'une simulation (basket et tennis) : chronomètre, barre qui défile, étapes estimées. */
@@ -219,8 +283,9 @@ export function SimProgress({ queued, start, title, steps, prep, note }: { queue
   return (
     <section className="progress" aria-live="polite">
       <div className="progress-top">
-        <div>
-          <h2>{title}</h2>
+        <div className="pg-title">
+          <DotMatrix />
+          <h2 className="shimmer-text">{title}</h2>
         </div>
         <span className="clock">
           {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
@@ -231,7 +296,7 @@ export function SimProgress({ queued, start, title, steps, prep, note }: { queue
         {steps.map((label, i) => (
           <li key={label} className={i < at ? 'is-done' : i === at ? 'is-now' : ''}>
             <span className="ic">{i < at ? <Check size={14} weight="bold" /> : i + 1}</span>
-            {label}
+            <span className={i === at ? 'shimmer-text' : undefined}>{label}</span>
           </li>
         ))}
       </ol>

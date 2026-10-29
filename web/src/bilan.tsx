@@ -1,7 +1,7 @@
 // Bilan des simulations publiées : justesse (moteur, moteur + marché, marché) et valeur de clôture des écarts signalés.
 // La valeur de clôture dit si le marché a donné raison à Razzia : la cote a bougé dans son sens avant le match.
 import { useEffect, useState } from 'react';
-import { Empty, Link } from './ui.tsx';
+import { Empty, Link, Sparkline } from './ui.tsx';
 import { pct } from './data.ts';
 
 interface Bilan {
@@ -17,6 +17,15 @@ interface Bilan {
     value?: { side: 'home' | 'away'; edge: number; clv?: number; odds?: number; won: boolean; profit?: number };
   }>;
   error?: string;
+}
+
+/** Réussite cumulée, du plus ancien au plus récent match : pronostic mis en avant, sinon bon vainqueur. */
+function runningHit(rows: Bilan['rows']): number[] {
+  let won = 0;
+  return [...rows].sort((a, b) => a.date.localeCompare(b.date)).map((r, i) => {
+    won += (r.pick ? r.pick.won : ((r.pBlend ?? r.pModel) >= 0.5) === r.homeWon) ? 1 : 0;
+    return won / (i + 1);
+  });
 }
 
 const f4 = (v?: number) => (v == null ? '-' : v.toFixed(3).replace('.', ','));
@@ -47,6 +56,7 @@ export function BilanPage() {
             <div>
               <span className="caps">Bon pronostic</span>
               <b className="mono">{b.accuracy.pick != null ? pct(b.accuracy.pick) : b.accuracy.blend != null ? pct(b.accuracy.blend) : b.accuracy.model != null ? pct(b.accuracy.model) : '-'}</b>
+              <Sparkline values={runningHit(b.rows)} label="Réussite cumulée au fil des matchs" />
               <small>
                 {b.handicaps ? `${b.handicaps.n} favoris sous 66 % comptés en handicap (${b.handicaps.won} passés), ` : ''}vainqueur seul{' '}
                 {b.accuracy.blend != null ? pct(b.accuracy.blend) : b.accuracy.model != null ? pct(b.accuracy.model) : '-'}, marché {b.accuracy.book != null ? pct(b.accuracy.book) : '-'}

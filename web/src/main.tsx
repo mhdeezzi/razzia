@@ -1,11 +1,10 @@
 // Point d'entrée : en-tête, routes (programme, fiche de match, simulations), pied de page.
 import { StrictMode, useEffect, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/plus-jakarta-sans';
-import '@fontsource-variable/host-grotesk'; // police d'origine des cercles de probabilité
-import '@fontsource-variable/jetbrains-mono';
-import '@fontsource-variable/archivo/wdth.css'; // police large de la cote sous le rond
-import '@fontsource-variable/geist'; // badges et menus, façon bouton Vercel
+import '@fontsource-variable/geist'; // texte, menus et badges
+import '@fontsource-variable/geist-mono'; // heures, cotes, scores
+import '@fontsource-variable/archivo/wdth.css'; // titres très gras et serrés de l'affiche RAZZIA, cote sous le rond
+import '@fontsource-variable/host-grotesk'; // chiffres des cercles de probabilité
 import { CaretRight } from '@phosphor-icons/react';
 import './styles.css';
 import { listSims, loadProgramme, matchPath, type Programme, type SimEntry } from './data.ts';
@@ -16,6 +15,11 @@ import { SchedulePage } from './schedule.tsx';
 import { TopBar } from './topbar.tsx';
 import { TennisBilanPage, TennisMatchPage, TennisSchedulePage } from './tennis.tsx';
 import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
+import { AccountPage, PricingPage } from './billing.tsx';
+import logo from './assets/razzia-logo.webp';
+
+// Abonnement et compte : pages prêtes, activées seulement par VITE_BILLING=1 au build (pas encore en ligne).
+const BILLING = import.meta.env.VITE_BILLING === '1';
 
 function App() {
   const { path, search } = useLocation();
@@ -37,21 +41,32 @@ function App() {
     <BilanPage />
   ) : path === '/badges' ? (
     <BadgesPage />
+  ) : BILLING && path === '/abonnement' ? (
+    <PricingPage />
+  ) : BILLING && path === '/compte' ? (
+    <AccountPage />
   ) : (
     <SchedulePage day={search.get('jour')} />
   );
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : path === '/badges' ? 'Badges | Razzia' : 'Razzia | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : path === '/badges' ? 'Badges | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : BILLING && path === '/compte' ? 'Compte | Razzia' : 'Razzia | Simulations NBA';
   }, [path]);
   return (
     <>
       <TopBar path={path} />
       <main>{page}</main>
       <footer className="foot">
-        <p>
-          <b>Razzia</b> analyse les matchs, il ne prend pas de paris.
-        </p>
-        <p>Jouer comporte des risques : endettement, dépendance. Appelez le 09 74 75 13 13 (appel non surtaxé).</p>
+        <div className="foot-brand">
+          <img src={logo} alt="Razzia" width={1200} height={645} />
+          <p className="foot-tag">sports analysis specialist</p>
+        </div>
+        <div className="foot-text">
+          <p>
+            <b>Razzia</b> analyse les matchs, il ne prend pas de paris.
+          </p>
+          <p>Jouer comporte des risques : endettement, dépendance. Appelez le 09 74 75 13 13 (appel non surtaxé).</p>
+          <p className="foot-legal">© {new Date().getFullYear()} RAZZIA</p>
+        </div>
       </footer>
     </>
   );
@@ -150,6 +165,17 @@ function MethodPage() {
       </p>
     </div>
   );
+}
+
+// Verre liquide : un reflet suit le pointeur sur le bouton survolé (ordinateur seulement, rien au doigt).
+if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+  addEventListener('pointermove', (e) => {
+    const el = (e.target as Element | null)?.closest?.<HTMLElement>('.glass, .btn-primary, .tab-big, .btn-soiree, .sport, .conf-pill.go');
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+    el.style.setProperty('--my', `${e.clientY - r.top}px`);
+  }, { passive: true });
 }
 
 createRoot(document.getElementById('root')!).render(

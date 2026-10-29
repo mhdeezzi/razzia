@@ -1,8 +1,8 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowLeft, CalendarBlank, CaretRight, Cat, ChartLineDown, ChartLineUp, CoinVertical, HouseLine, ListBullets, Mountains, ShieldCheck, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
-import { Empty, Link, ProgressLine, Ring, Segmented, SimProgress, Wordmark } from './ui.tsx';
+import { ArrowLeft, CaretRight, Cat, ChartLineDown, ChartLineUp, CoinVertical, HouseLine, ListBullets, Mountains, ShieldCheck, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
+import { Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgress } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
@@ -262,17 +262,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
 
   return (
     <div className="page">
-      <Wordmark />
-      <header className="dash-head">
-        <div>
-          <h1>Programme ATP</h1>
-          <p className="dash-meta">
-            <CalendarBlank size={16} /> <span>{cap(dayLongOf(current))}</span>
-            <span className="count">
-              {dayMatches.length} match{dayMatches.length > 1 ? 's' : ''}
-            </span>
-          </p>
-        </div>
+      <PageHero sport="atp" title="Programme ATP" day={cap(dayLongOf(current))} count={dayMatches.length}>
         <Segmented<View>
           tone="dark"
           ariaLabel="Affichage"
@@ -283,7 +273,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
             { value: 'liste', label: <><ListBullets size={16} /> Liste</> },
           ]}
         />
-      </header>
+      </PageHero>
 
       {error && (
         <Empty title="Le programme n'a pas pu être chargé.">
@@ -783,7 +773,10 @@ function TennisVerdict({ r, win }: { r: TennisResult; win?: Outcome }) {
   const sets = r.sim.atLeast1[i];
   return (
     <section className={`verdict verdict-${tier}`}>
-      <Ring value={p} format={pct0} label="Victoire" />
+      <div className="verdict-ring">
+        {win?.warn && <span className="odds-warn">{win.warn}</span>}
+        <Ring value={p} format={pct0} label="Victoire" />
+      </div>
       <div>
         <span className="caps">Favori Razzia</span>
         <p className="verdict-team">

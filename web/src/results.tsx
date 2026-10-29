@@ -159,7 +159,10 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
   const win = useMemo(() => buildCategories(r, g).flatMap((c) => c.items).find((o) => o.id === 'win'), [r, g]);
   return (
     <section className={`verdict verdict-${c.tier}`}>
-      <Ring value={pFav} format={pctInt} label="Victoire" />
+      <div className="verdict-ring">
+        {win?.warn && <span className="odds-warn">{win.warn}</span>}
+        <Ring value={pFav} format={pctInt} label="Victoire" />
+      </div>
       <div>
         <span className="caps">Favori Razzia</span>
         <p className="verdict-team">
@@ -262,14 +265,13 @@ export function PickTabs({ cats, n }: { cats: Category[]; n: number }) {
 const dec = (v: number) => v.toFixed(2).replace('.', ',');
 
 /** Sous « Probabilité de victoire » : la cote du pronostic mis en avant (bookmaker, sinon cote juste). */
-/** Cote du vainqueur sous la probabilité (cote juste du moteur sans cote du marché), avec « Déconseillé » quand un pari plus sûr passe devant. */
+/** Cote du vainqueur sous la probabilité (cote juste du moteur sans cote du marché). */
 export function PickOdds({ o }: { o?: Outcome }) {
   const v = o?.odds ?? o?.fair;
   if (!o || v == null) return null;
   return (
     <p className="ring-odds">
       Cote <b>{dec(v)}</b>
-      {o.warn && <span className="odds-warn">{o.warn}</span>}
     </p>
   );
 }
