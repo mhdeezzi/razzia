@@ -114,84 +114,43 @@ input, textarea { caret-color: var(--brand); }
 .caps { font: 600 11px var(--sans); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
 .slash { font: 600 11px var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
 
-/* ——— Verre liquide ———
-   Corps translucide et flou, filet éclairé depuis le haut à gauche, reflet doux en haut et sous le pointeur, ombres
-   empilées. Au survol le verre gonfle un peu ; à l'appui il s'écrase sans rebond. Sur Safari et Firefox comme sur
-   Chrome : verre dépoli (pas de réfraction SVG, qui ne marche que sur Chrome). */
-.glass, .btn-primary, .btn-ghost, .tab-big, .btn-soiree, .conf-pill.go, .seg-thumb, .sport-thumb {
-  --g-rgb: 255 255 255;
-  --g-a: 0.07;
+/* ——— Boutons façon amicro.dev ———
+   Fond mat légèrement clair, sans verre ni reflet : voile blanc à 8 %, filet clair en haut, texte gris clair.
+   Survol : voile à 12 %, texte blanc, léger grossissement ; appui : petit écrasement. Coins entre carré et rond.
+   Principal : vert de marque mat. Choisi dans un sélecteur : pastille claire (#ededed), texte noir. */
+.glass, .btn-primary, .btn-ghost, .tab-big, .btn-soiree, .conf-pill.go {
   position: relative;
-  isolation: isolate;
   border: 0;
   border-radius: 12px;
-  color: #fff;
-  background-color: rgb(var(--g-rgb) / var(--g-a));
-  -webkit-backdrop-filter: blur(16px) saturate(170%);
-  backdrop-filter: blur(16px) saturate(170%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.26),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.35),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    inset 0 10px 18px -12px rgba(255, 255, 255, 0.2),
-    0 1px 2px rgba(0, 0, 0, 0.45),
-    0 10px 24px -12px rgba(0, 0, 0, 0.75);
-  transition: transform 0.18s var(--ease), background-color 0.2s var(--ease), box-shadow 0.2s var(--ease), color 0.2s var(--ease), opacity 0.2s;
-}
-/* Filet du verre, éclairé depuis le haut à gauche. */
-.glass::before, .btn-primary::before, .btn-ghost::before, .tab-big::before, .btn-soiree::before, .conf-pill.go::before, .seg-thumb::before, .sport-thumb::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  pointer-events: none;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.07) 36%, rgba(255, 255, 255, 0) 60%, rgba(255, 255, 255, 0.2));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-}
-/* Reflet : lueur en haut, et sous le pointeur (position mise à jour par main.tsx). */
-.glass::after, .btn-primary::after, .btn-ghost::after, .tab-big::after, .btn-soiree::after, .conf-pill.go::after, .seg-thumb::after, .sport-thumb::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  pointer-events: none;
-  background:
-    radial-gradient(140px circle at var(--mx, 28%) var(--my, -20%), rgba(255, 255, 255, 0.16), transparent 62%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 55%);
+  color: #e5e5e5;
+  background-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: transform 0.18s var(--ease), background-color 0.2s var(--ease), color 0.2s var(--ease), opacity 0.2s;
 }
 @media (hover: hover) and (pointer: fine) {
   .glass:hover:not(:disabled), .btn-primary:hover:not(:disabled), .btn-ghost:hover:not(:disabled), .tab-big:hover, .btn-soiree:not(:disabled):hover, a.row:hover .conf-pill.go {
-    --g-a: 0.12;
-    transform: scale(1.025);
+    background-color: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    transform: scale(1.03);
   }
 }
 .glass:active:not(:disabled), .btn-primary:active:not(:disabled), .btn-ghost:active:not(:disabled), .tab-big:active, .btn-soiree:not(:disabled):active {
-  transform: scale(1.015, 0.95);
+  transform: scale(0.96);
   transition-duration: 0.1s;
 }
-/* Verre teinté du vert de marque : actions principales. */
+/* Principal : vert de marque mat. */
 .glass-brand, .btn-primary, .tab-big.is-on {
-  --g-rgb: var(--brand-rgb);
-  --g-a: 0.62;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.4),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.3),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-    inset 0 10px 18px -10px rgba(255, 255, 255, 0.35),
-    0 1px 2px rgba(0, 0, 0, 0.45),
-    0 14px 32px -12px rgba(var(--brand-rgb) / 0.6);
+  background-color: #23a26b;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 @media (hover: hover) and (pointer: fine) {
-  .glass-brand:hover:not(:disabled), .btn-primary:hover:not(:disabled), .tab-big.is-on:hover { --g-a: 0.74; }
+  .glass-brand:hover:not(:disabled), .btn-primary:hover:not(:disabled), .tab-big.is-on:hover { background-color: #29b277; color: #fff; }
 }
-/* Verre clair : élément choisi (onglet, sport, curseur des sélecteurs). */
-.seg-thumb, .sport-thumb { --g-a: 0.15; }
+/* Curseur des sélecteurs : pastille claire, texte noir. */
+.seg-thumb { background: #ededed; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+/* Curseur des sports (îlot noir) : pastille mate à peine plus claire. */
+.sport-thumb { background: #1c1c1f; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
 
 /* ——— Fond couleur lisse ———
    Taches de couleur douces qui dérivent lentement sur du noir, voile sombre en bas pour le texte ; pas de grain.
@@ -227,20 +186,20 @@ input, textarea { caret-color: var(--brand); }
 .brand { display: inline-flex; align-items: center; flex: none; transition: opacity 0.2s, transform 0.15s var(--ease); }
 .brand:active { transform: scale(0.97); }
 .logo { display: block; height: 40px; width: auto; filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.5)); }
-.sports { position: relative; isolation: isolate; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: rgba(0, 0, 0, 0.35); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), inset 0 1px 3px rgba(0, 0, 0, 0.5); }
+.sports { position: relative; isolation: isolate; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: #000; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
 .sport-thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; border-radius: 10px; pointer-events: none; }
 .sport { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border: 0; border-radius: 10px; background: none;
-  font: 500 14.5px var(--sans); letter-spacing: -0.01em; color: #8b8b91; cursor: pointer; white-space: nowrap; transition: color 0.2s var(--ease), transform 0.15s var(--ease); }
-.sport:active:not(:disabled) { transform: scale(0.96); }
+  font: 500 14.5px var(--sans); letter-spacing: -0.01em; color: rgba(255, 255, 255, 0.55); cursor: pointer; white-space: nowrap; transition: color 0.15s var(--ease), background-color 0.15s var(--ease), transform 0.15s var(--ease); }
+.sport:active:not(:disabled) { transform: scale(0.94); }
 .sport.is-on { color: #fff; font-weight: 600; }
 .sport:disabled { color: #4b4b50; cursor: default; }
 .top-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .top-link { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; font: 500 14.5px var(--sans); color: #d6d6da; white-space: nowrap; }
 .top-link.is-on { --g-a: 0.16; color: #fff; }
 .top-account { padding: 0 14px 0 12px; }
-@media (hover: hover) and (pointer: fine) { .sport:hover:not(:disabled):not(.is-on) { color: #fff; } }
+@media (hover: hover) and (pointer: fine) { .sport:hover:not(:disabled):not(.is-on) { color: #fff; background-color: rgba(255, 255, 255, 0.06); } }
 /* Curseurs (sports, onglets) : glissé court et léger vers le choix, sans rebond. */
-.sport-thumb, .seg.is-ready .seg-thumb { transition: left 0.2s var(--ease), right 0.2s var(--ease); }
+.sport-thumb, .seg.is-ready .seg-thumb { transition: left 0.24s cubic-bezier(0.32, 1.15, 0.6, 1), right 0.24s cubic-bezier(0.32, 1.15, 0.6, 1); }
 
 /* Pages */
 main { max-width: 1280px; margin: 0 auto; padding: 0 24px 72px; }
@@ -427,17 +386,16 @@ a.row:hover .mark { transform: scale(1.06); }
 
 /* Sélecteurs : rail de verre sombre en creux, curseur de verre clair qui glisse vers l'option choisie. */
 .seg { position: relative; display: inline-flex; padding: 4px; gap: 2px; border-radius: 12px; isolation: isolate;
-  background: rgba(255, 255, 255, 0.035); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), inset 0 1px 3px rgba(0, 0, 0, 0.45); }
-.mesh .seg { background: rgba(0, 0, 0, 0.22); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), inset 0 1px 3px rgba(0, 0, 0, 0.35); }
-.seg button { position: relative; z-index: 1; border: 0; background: transparent; padding: 7px 16px; border-radius: 9px; cursor: pointer; font: 500 14px var(--sans); color: #8e8e94; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; transition: color 0.2s var(--ease), transform 0.15s var(--ease); }
-.mesh .seg button { color: rgba(255, 255, 255, 0.72); }
-.seg button:hover:not(.is-on):not(:disabled) { color: var(--text); }
+  background: #121214; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 24px rgba(0, 0, 0, 0.5); }
+.mesh .seg { background: rgba(18, 18, 20, 0.82); }
+.seg button { position: relative; z-index: 1; border: 0; background: transparent; padding: 7px 16px; border-radius: 9px; cursor: pointer; font: 500 14px var(--sans); color: #a3a3a3; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; transition: color 0.2s var(--ease), transform 0.15s var(--ease); }
+.mesh .seg button { color: #b5b5b8; }
+.seg button:hover:not(.is-on):not(:disabled) { color: #fff; }
 .seg button:active:not(:disabled) { transform: scale(0.96); transition-duration: 0.1s; }
 .seg button:disabled { opacity: 0.4; cursor: default; }
-.seg button.is-on { color: #fff; font-weight: 600; }
+.seg button.is-on { color: #08080a; font-weight: 600; }
+.seg button.is-on .muted, .seg button.is-on .mono { color: inherit; }
 .seg-thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; border-radius: 9px; pointer-events: none; }
-.seg-blue .seg-thumb { --g-rgb: var(--brand-rgb); --g-a: 0.5; }
 .seg-lg { padding: 6px; border-radius: 14px; }
 .seg-lg .seg-thumb { top: 6px; bottom: 6px; border-radius: 10px; }
 .seg-lg button { border-radius: 10px; }
@@ -466,6 +424,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .tab-ai { position: relative; }
 .tab-big { display: inline-flex; align-items: center; gap: 10px; padding: 13px 26px; border-radius: 14px; font: 600 16px var(--sans); letter-spacing: -0.01em; cursor: pointer; color: var(--text-2); }
 .tab-big.is-on { color: #fff; }
+.tab-big:not(.is-on) { color: #bdbdc2; }
 .tab-big .dot { width: 7px; height: 7px; border-radius: 9px; background: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.22); animation: pulse-w 1.6s infinite; }
 .tab-panel { animation: rise 0.25s var(--ease) both; }
 
