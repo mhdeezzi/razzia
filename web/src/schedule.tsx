@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CaretRight, Check, Flame, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, teamColor, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
-import { Empty, glow, Link, PageHero, PillMark, ProgressLine, Segmented, TeamMark } from './ui.tsx';
-import { flipP, SURE } from './picks.ts';
+import { Empty, glow, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
+import { flipP } from './picks.ts';
 
 type Status = 'pre' | 'in' | 'post';
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -206,12 +206,12 @@ function SimPill({ g, sim, run }: { g: Game; sim?: SimEntry; run?: ItemState }) 
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const home = sim.pHome >= sim.pAway;
   const p = Math.max(sim.pHome, sim.pAway);
-  // Même badge que la fiche : demi-cercle ambre « Pile ou face », sceau vert « Razzia assuré », point bleu sinon.
-  const tier = flipP(p, sim.gp ?? recordGames(g)) ? 'flip' : p >= SURE ? 'sure' : '';
+  // Bouton mat, texte de la couleur du pari : ambre « Pile ou face », bleu sinon.
+  const tier = flipP(p, sim.gp ?? recordGames(g)) ? 'flip' : '';
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
       <span className={`conf-pill sim ${tier}`}>
-        <PillMark tier={tier} /> {home ? g.home.tri : g.away.tri} <b>{pct0(p)}</b>
+        {home ? g.home.tri : g.away.tri} <b>{pct0(p)}</b>
       </span>
     </span>
   );

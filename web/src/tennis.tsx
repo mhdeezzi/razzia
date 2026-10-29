@@ -2,7 +2,7 @@
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowLeft, CaretRight, Cat, HouseLine, HouseSimple, ListBullets, Mountains, Scales, ShieldCheck, SquaresFour, TennisBall, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
-import { Callout, Empty, Link, PageHero, PillMark, ProgressLine, Ring, Segmented, SimProgress } from './ui.tsx';
+import { Callout, Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgress } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
@@ -469,8 +469,8 @@ function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
   const flip = sim.flip ?? (sim.cat !== dog && (shown(fav.p) <= T_HEDGE_FIRST || sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up'));
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
-      <span className={`conf-pill sim ${flip ? 'flip' : fav.p >= T_SURE ? 'sure' : ''}`}>
-        <PillMark tier={flip ? 'flip' : fav.p >= T_SURE ? 'sure' : ''} /> {fav.n.split(' ').at(-1)} <b>{pct0(fav.p)}</b>
+      <span className={`conf-pill sim${flip ? ' flip' : ''}`}>
+        {fav.n.split(' ').at(-1)} <b>{pct0(fav.p)}</b>
       </span>
     </span>
   );
