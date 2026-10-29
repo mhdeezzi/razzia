@@ -303,13 +303,11 @@ export function Sparkline({ values, label }: { values: number[]; label: string }
   );
 }
 
-/** Points en matrice qui ondulent depuis le centre : « ça calcule ». */
-export function DotMatrix() {
+/** Radar qui balaie (façon amicro) : un faisceau tourne autour d'un point, « ça calcule ». */
+export function RadarSweep() {
   return (
-    <span className="dotmatrix" aria-hidden="true">
-      {Array.from({ length: 9 }, (_, i) => (
-        <i key={i} style={{ '--d': `${[2, 1, 2, 1, 0, 1, 2, 1, 2][i] * 130}ms` } as CSSProperties} />
-      ))}
+    <span className="radar" aria-hidden="true">
+      <i />
     </span>
   );
 }
@@ -329,7 +327,7 @@ export function SimProgress({ queued, start, title, steps, prep, note }: { queue
     <section className="progress" aria-live="polite">
       <div className="progress-top">
         <div className="pg-title">
-          <DotMatrix />
+          <RadarSweep />
           <h2 className="shimmer-text">{title}</h2>
         </div>
         <span className="clock">

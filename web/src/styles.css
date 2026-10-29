@@ -290,16 +290,16 @@ a.row:active { transform: scale(0.995); }
 /* Badges du programme : pas de fond, contour et texte de la teinte (bleu simulé, vert assuré, ambre pile ou face, rouge
    échec), icône ou point, pourcentage en chiffres à chasse fixe. */
 .conf-pill { --c: #8e8e93; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 10px; font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; white-space: nowrap;
-  color: var(--c); background-color: rgba(255, 255, 255, 0.08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transition: background-color 0.2s var(--ease), transform 0.15s var(--ease); }
+  color: var(--c); background-color: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition: background-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.15s var(--ease); }
 .conf-pill b { font: 600 13px var(--mono); letter-spacing: -0.03em; color: inherit; }
 .conf-pill.wait .wait-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
-/* Badge de simulation : bouton mat comme les autres, texte de la couleur du pari (ambre pile ou face, bleu sinon). */
+/* Badge de simulation : texte blanc pile ou face, bleu sinon. */
 .conf-pill.sim { --c: #5b95f0; }
-.conf-pill.sim.flip { --c: var(--c-amber); }
+.conf-pill.sim.flip { --c: #f4f4f2; }
 .conf-pill.sim > svg { color: var(--c); }
 .conf-pill.fail { --c: var(--c-red); }
-@media (hover: hover) and (pointer: fine) { a.row:hover .conf-pill.sim, a.card:hover .conf-pill.sim { background-color: rgba(255, 255, 255, 0.12); } }
+@media (hover: hover) and (pointer: fine) { a.row:hover .conf-pill.sim, a.card:hover .conf-pill.sim { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); } }
 /* « Simuler » : petit bouton de verre. */
 .conf-pill.go { height: 28px; padding: 0 14px; border-radius: 8px; font-weight: 600; color: #fff; }
 .conf-pill.wait { --c: #8e8e93; color: var(--text-2); }
@@ -487,10 +487,10 @@ a.row:hover .mark { transform: scale(1.06); }
 .steps li.is-now { color: var(--text); font-weight: 600; }
 .steps li.is-now .ic { box-shadow: inset 0 0 0 1px var(--brand); color: #c8f5df; animation: pulse-g 1.6s infinite; }
 .progress a { color: var(--text-2); text-decoration: underline; }
-/* Matrice de 3 x 3 points : l'onde part du centre. */
-.dotmatrix { display: inline-grid; grid-template-columns: repeat(3, 6px); gap: 4px; flex: none; }
-.dotmatrix i { width: 6px; height: 6px; border-radius: 9px; background: var(--brand); opacity: 0.25; animation: dm 1.2s var(--ease) infinite; animation-delay: var(--d, 0ms); }
-@keyframes dm { 0%, 100% { opacity: 0.22; transform: scale(0.8); } 35% { opacity: 1; transform: scale(1.1); } }
+/* Radar : disque sombre, faisceau dégradé qui tourne, point blanc au centre. */
+.radar { position: relative; flex: none; width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: #0b0b0d; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.radar::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0deg, transparent 250deg, rgba(255, 255, 255, 0.06) 290deg, rgba(255, 255, 255, 0.55) 358deg, transparent 360deg); animation: rot 1.6s linear infinite; }
+.radar i { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.7); }
 /* Texte qui scintille : un reflet clair balaie le texte. */
 .shimmer-text { background-image: linear-gradient(90deg, currentColor 0%, currentColor 38%, #fff 50%, currentColor 62%, currentColor 100%); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: shimmer-t 1.8s linear infinite; }
 /* « Calcul » : un reflet balaie la pastille. */
@@ -863,7 +863,7 @@ a.row:hover .mark { transform: scale(1.06); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
-  .mesh::before, .dotmatrix i, .shimmer-text { animation: none !important; }
+  .mesh::before, .shimmer-text { animation: none !important; }
 }
 /* Moins de transparence demandée : verre plein. */
 @media (prefers-reduced-transparency: reduce) {
