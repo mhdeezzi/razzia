@@ -12,6 +12,8 @@ export interface Outcome {
   safe?: string; // étiquette bleue (« Safe ») : plus sûr que le vainqueur
   implied?: number; // probabilité de la cote, marge retirée
   text?: string;
+  // Qui porte le pari : logo de l'équipe (basket) ou photo du joueur (tennis), à gauche du titre.
+  who?: { tri?: string; color?: string; logo?: string; name?: string; photo?: string; alt?: string };
 }
 
 export interface Category {
@@ -86,7 +88,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
   cats.push({
     id: 'win', label: 'Vainqueur',
     items: [{
-      id: 'win', title: `Victoire ${deTeam(g[winSide].name)}`, p: winP, fair: 1 / winP,
+      id: 'win', title: `Victoire ${deTeam(g[winSide].name)}`, who: g[winSide], p: winP, fair: 1 / winP,
       odds: (homeWins ? o.mlHome : o.mlAway) != null ? decimal((homeWins ? o.mlHome : o.mlAway)!) : undefined,
       implied: ml ? (homeWins ? ml[0] : ml[1]) : undefined,
       text: `${g[winSide].city} ${g[winSide].name} gagne ${Math.round(winP * 5000).toLocaleString('fr-FR')} des 5 000 matchs simulés. Score médian : ${g.away.tri} ${Math.round(r.awayPts.p50)}, ${g.home.tri} ${Math.round(r.homePts.p50)}. Prolongation dans ${pct(r.pOT)} des cas.`,
@@ -104,7 +106,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
     const margin = fav === 'home' ? r.margin.mean : -r.margin.mean;
     if (pFav > winP)
       spreads.push({
-        id: 'spread', title: `${g[fav].name} ${l > 0 ? '+' : ''}${line(l)}`, p: pFav, fair: 1 / pFav,
+        id: 'spread', title: `${g[fav].name} ${l > 0 ? '+' : ''}${line(l)}`, who: g[fav], p: pFav, fair: 1 / pFav,
         odds: price != null ? decimal(price) : undefined, implied: fav === 'home' ? sp[0] : sp[1],
         text: `Écart moyen simulé : ${signed(margin)} pour ${g[fav].name}. Dans 80 % des matchs, l'écart final va de ${signed(fav === 'home' ? r.margin.p10 : -r.margin.p90)} à ${signed(fav === 'home' ? r.margin.p90 : -r.margin.p10)}.`,
       });
@@ -118,7 +120,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
   if (hedge) {
     const l = fav === 'home' ? hedge.line : -hedge.line;
     spreads.push({
-      id: 'hedge', title: `${g[fav].name} +${line(l)}`, p: cover(hedge), fair: 1 / cover(hedge),
+      id: 'hedge', title: `${g[fav].name} +${line(l)}`, who: g[fav], p: cover(hedge), fair: 1 / cover(hedge),
       text: `Plus sûr que le simple vainqueur : ${g[fav].name} gagne, ou perd de ${Math.floor(l)} points au plus. Passe dans ${pct(cover(hedge))} des simulations ; intéressant si la cote proposée dépasse la cote juste.`,
     });
   }
