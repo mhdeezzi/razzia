@@ -188,7 +188,7 @@ export function AccountPage() {
     );
   return (
     <div className="page">
-      <div className="auth grain grain-auth">
+      <div className="auth mesh mesh-auth">
         <form className="auth-card panel" onSubmit={submit}>
           <UserCircle size={34} weight="light" className="auth-icon" />
           <h1>{mode === 'in' ? 'Connexion' : 'Créer un compte'}</h1>

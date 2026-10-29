@@ -4,7 +4,7 @@ import { CaretRight, Check, Fire, ListBullets, SquaresFour, TrendDown, TrendUp, 
 import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
 import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
-import { flipP } from './picks.ts';
+import { flipP, SURE } from './picks.ts';
 
 type Status = 'pre' | 'in' | 'post';
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -205,10 +205,13 @@ function SimPill({ g, sim, run }: { g: Game; sim?: SimEntry; run?: ItemState }) 
     );
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const home = sim.pHome >= sim.pAway;
+  const p = Math.max(sim.pHome, sim.pAway);
+  // Même teinte que la fiche : ambre « Pile ou face », vert « Razzia assuré », blanc sinon.
+  const tier = flipP(p, sim.gp ?? recordGames(g)) ? ' flip' : p >= SURE ? ' sure' : '';
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
-      <span className={`conf-pill sim${flipP(Math.max(sim.pHome, sim.pAway), sim.gp ?? recordGames(g)) ? ' flip' : ''}`}>
-        <TrendUp size={13} weight="bold" /> {home ? g.home.tri : g.away.tri} {pct0(Math.max(sim.pHome, sim.pAway))}
+      <span className={`conf-pill sim${tier}`}>
+        <i className="pill-dot" /> {home ? g.home.tri : g.away.tri} <b>{pct0(p)}</b>
       </span>
     </span>
   );
@@ -225,7 +228,7 @@ function FormMark({ g, sim }: { g: Game; sim?: SimEntry }) {
         {sides.map((k) => (
           <span key={k} className={`forme-item ${t[k]}`}>
             <TeamMark team={g[k]} size="sm" />
-            <span className="forme-chip">{t[k] === 'up' ? <TrendUp size={10} weight="bold" /> : <TrendDown size={10} weight="bold" />}</span>
+            <span className="forme-chip">{t[k] === 'up' ? <TrendUp size={13} weight="bold" /> : <TrendDown size={13} weight="bold" />}</span>
           </span>
         ))}
       </span>
@@ -237,7 +240,7 @@ function FormMark({ g, sim }: { g: Game; sim?: SimEntry }) {
         <span className="forme-item hot">
           <HotFace id={sim.hot.id} team={team} />
           <span className="forme-chip">
-            <Fire size={10} weight="bold" />
+            <Fire size={13} weight="fill" />
           </span>
         </span>
       </span>
