@@ -167,17 +167,6 @@ function MethodPage() {
   );
 }
 
-// Verre liquide : un reflet suit le pointeur sur le bouton survolé (ordinateur seulement, rien au doigt).
-if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
-  addEventListener('pointermove', (e) => {
-    const el = (e.target as Element | null)?.closest?.<HTMLElement>('.glass, .btn-primary, .tab-big, .btn-soiree, .sport, .conf-pill.go');
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    el.style.setProperty('--mx', `${e.clientX - r.left}px`);
-    el.style.setProperty('--my', `${e.clientY - r.top}px`);
-  }, { passive: true });
-}
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
