@@ -7,3 +7,11 @@ declare module '*.png' {
   const src: string;
   export default src;
 }
+
+// Variables de build Vite (VITE_*), lues par import.meta.env.
+interface ImportMetaEnv {
+  readonly VITE_BILLING?: string;
+}
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
