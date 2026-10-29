@@ -36,12 +36,6 @@ export function TypicalGame({ t, g }: { t: Typical; g: Game }) {
         <span>
           Simulation n° <b className="mono">{(t.index + 1).toLocaleString('fr-FR')}</b> sur {t.n.toLocaleString('fr-FR')}
         </span>
-        <span>
-          <b className="mono">{t.leadChanges}</b> changement{t.leadChanges > 1 ? 's' : ''} de leader
-        </span>
-        <span>
-          Plus grosse avance : {g.home.tri} <b className="mono">+{t.largestLead[0]}</b>, {g.away.tri} <b className="mono">+{t.largestLead[1]}</b>
-        </span>
       </div>
 
       <Flow t={t} g={g} />
@@ -103,7 +97,38 @@ export function TypicalGame({ t, g }: { t: Typical; g: Game }) {
   );
 }
 
-/** Écart au score au fil du match : au-dessus de l'axe, l'équipe à domicile mène ; en dessous, l'équipe extérieure. */
+/** Courbe lisse qui passe par chaque point sans dépasser (cubique monotone, Fritsch-Carlson). */
+function smoothPath(p: Array<[number, number]>): string {
+  const n = p.length;
+  if (n < 3) return p.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join('');
+  const dx = p.slice(1).map((q, i) => q[0] - p[i][0]);
+  const sl = p.slice(1).map((q, i) => (dx[i] ? (q[1] - p[i][1]) / dx[i] : 0));
+  const m = p.map((_, i) => (i === 0 ? sl[0] : i === n - 1 ? sl[n - 2] : sl[i - 1] * sl[i] <= 0 ? 0 : (sl[i - 1] + sl[i]) / 2));
+  for (let i = 0; i < n - 1; i++) {
+    if (!sl[i]) {
+      m[i] = 0;
+      m[i + 1] = 0;
+      continue;
+    }
+    const a = m[i] / sl[i], b = m[i + 1] / sl[i], h = Math.hypot(a, b);
+    if (h > 3) {
+      m[i] = (3 * a * sl[i]) / h;
+      m[i + 1] = (3 * b * sl[i]) / h;
+    }
+  }
+  let d = `M${p[0][0].toFixed(1)},${p[0][1].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i] / 3;
+    d += `C${(p[i][0] + h).toFixed(1)},${(p[i][1] + m[i] * h).toFixed(1)} ${(p[i + 1][0] - h).toFixed(1)},${(p[i + 1][1] - m[i + 1] * h).toFixed(1)} ${p[i + 1][0].toFixed(1)},${p[i + 1][1].toFixed(1)}`;
+  }
+  return d;
+}
+
+/**
+ * Écart au score au fil du match, façon carte de chiffres : en tête, la plus grosse avance de chaque équipe et les
+ * changements de leader ; courbe lisse (au-dessus de l'axe, l'équipe à domicile mène en rouge ; en dessous,
+ * l'extérieur en bleu), aire en dégradé, point lumineux qui suit le pointeur avec le score du moment.
+ */
 function Flow({ t, g }: { t: Typical; g: Game }) {
   const W = 1000;
   const H = 220;
@@ -111,12 +136,14 @@ function Flow({ t, g }: { t: Typical; g: Game }) {
   const end = pts.length ? pts[pts.length - 1].t : REG;
   const maxAbs = Math.max(10, ...pts.map((p) => Math.abs(p.h - p.a)));
   const x = (s: number) => (s / end) * W;
-  const y = (m: number) => H / 2 - (m / maxAbs) * (H / 2 - 12);
-  const d = useMemo(() => pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.h - p.a).toFixed(1)}`).join(''), [pts]);
+  const y = (m: number) => H / 2 - (m / maxAbs) * (H / 2 - 14);
+  const d = useMemo(() => smoothPath(pts.map((p) => [x(p.t), y(p.h - p.a)])), [pts]);
   const area = `${d}L${W},${H / 2}L0,${H / 2}Z`;
-  const ref = useRef<SVGSVGElement>(null);
+  // Chiffres du match complet (le déroulé dessiné est échantillonné).
+  const kpi = { home: t.largestLead[0], away: t.largestLead[1], changes: t.leadChanges };
+  const ref = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number>();
-  const onMove = (e: PointerEvent<SVGSVGElement>) => {
+  const onMove = (e: PointerEvent<HTMLDivElement>) => {
     const r = ref.current!.getBoundingClientRect();
     const s = ((e.clientX - r.left) / r.width) * end;
     let best = 0;
@@ -124,52 +151,70 @@ function Flow({ t, g }: { t: Typical; g: Game }) {
     setHover(best);
   };
   const h = hover != null ? pts[hover] : undefined;
+  const hm = h ? h.h - h.a : 0;
   const marks = [720, 1440, 2160, ...(end > REG ? [REG] : [])];
   return (
     <figure className="flow">
-      <div className="flow-legend">
-        <span>
-          <i className="sw sw-home" /> {g.home.name} mène
-        </span>
-        <span>
-          <i className="sw sw-away" /> {g.away.name} mène
-        </span>
-        {h && (
-          <span className="flow-tip mono">
-            {clockAt(h.t)} | {g.away.tri} {h.a} - {h.h} {g.home.tri}
-            {h.wp != null && ` | ${g.home.tri} ${pct0(h.wp)}`}
+      <div className="flow-kpis">
+        <div className="flow-kpi away">
+          <span>
+            <i className="sw sw-away" /> Plus grosse avance {g.away.tri}
           </span>
+          <b className="mono">{kpi.away ? `+${kpi.away}` : '-'}</b>
+        </div>
+        <div className="flow-kpi home">
+          <span>
+            <i className="sw sw-home" /> Plus grosse avance {g.home.tri}
+          </span>
+          <b className="mono">{kpi.home ? `+${kpi.home}` : '-'}</b>
+        </div>
+        <div className="flow-kpi">
+          <span>Changements de leader</span>
+          <b className="mono">{kpi.changes}</b>
+        </div>
+      </div>
+      <div ref={ref} className="flow-chart" onPointerMove={onMove} onPointerLeave={() => setHover(undefined)}>
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Écart au score pendant le match typique">
+          <defs>
+            <clipPath id="fl-top">
+              <rect x="0" y="0" width={W} height={H / 2} />
+            </clipPath>
+            <clipPath id="fl-bot">
+              <rect x="0" y={H / 2} width={W} height={H / 2} />
+            </clipPath>
+            <linearGradient id="fl-gh" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="var(--rose)" stopOpacity="0.5" />
+              <stop offset="1" stopColor="var(--rose)" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="fl-ga" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0" stopColor="var(--blue)" stopOpacity="0.5" />
+              <stop offset="1" stopColor="var(--blue)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {marks.map((m) => (
+            <line key={m} x1={x(m)} x2={x(m)} y1="0" y2={H} className="flow-grid" />
+          ))}
+          <line x1="0" x2={W} y1={H / 2} y2={H / 2} className="flow-axis" />
+          <g className="flow-draw">
+            <path d={area} fill="url(#fl-gh)" clipPath="url(#fl-top)" />
+            <path d={area} fill="url(#fl-ga)" clipPath="url(#fl-bot)" />
+            <path d={d} className="flow-line home" clipPath="url(#fl-top)" />
+            <path d={d} className="flow-line away" clipPath="url(#fl-bot)" />
+          </g>
+          {h && <line x1={x(h.t)} x2={x(h.t)} y1="0" y2={H} className="flow-cursor" />}
+        </svg>
+        <span className="flow-side top">{g.home.name} mène</span>
+        <span className="flow-side bot">{g.away.name} mène</span>
+        {h && (
+          <>
+            <span className={`flow-dot ${hm > 0 ? 'home' : hm < 0 ? 'away' : ''}`} style={{ left: `${(100 * x(h.t)) / W}%`, top: `${(100 * y(hm)) / H}%` }} />
+            <span className={`flow-tip mono${x(h.t) > W * 0.7 ? ' left' : ''}`} style={{ left: `${(100 * x(h.t)) / W}%` }}>
+              <b>{clockAt(h.t)}</b> {g.away.tri} {h.a} - {h.h} {g.home.tri}
+              {h.wp != null && <small> · {g.home.tri} {pct0(h.wp)}</small>}
+            </span>
+          </>
         )}
       </div>
-      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" onPointerMove={onMove} onPointerLeave={() => setHover(undefined)} role="img" aria-label="Écart au score pendant le match typique">
-        <defs>
-          <clipPath id="fl-top">
-            <rect x="0" y="0" width={W} height={H / 2} />
-          </clipPath>
-          <clipPath id="fl-bot">
-            <rect x="0" y={H / 2} width={W} height={H / 2} />
-          </clipPath>
-          <linearGradient id="fl-gh" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="var(--rose)" stopOpacity="0.55" />
-            <stop offset="1" stopColor="var(--rose)" stopOpacity="0.04" />
-          </linearGradient>
-          <linearGradient id="fl-ga" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0" stopColor="var(--blue)" stopOpacity="0.55" />
-            <stop offset="1" stopColor="var(--blue)" stopOpacity="0.04" />
-          </linearGradient>
-        </defs>
-        {marks.map((m) => (
-          <line key={m} x1={x(m)} x2={x(m)} y1="0" y2={H} className="flow-grid" />
-        ))}
-        <line x1="0" x2={W} y1={H / 2} y2={H / 2} className="flow-axis" />
-        <g className="flow-draw">
-          <path d={area} fill="url(#fl-gh)" clipPath="url(#fl-top)" />
-          <path d={area} fill="url(#fl-ga)" clipPath="url(#fl-bot)" />
-          <path d={d} className="flow-line" clipPath="url(#fl-top)" style={{ stroke: 'var(--rose)' }} />
-          <path d={d} className="flow-line" clipPath="url(#fl-bot)" style={{ stroke: 'var(--blue)' }} />
-        </g>
-        {h && <line x1={x(h.t)} x2={x(h.t)} y1="0" y2={H} className="flow-cursor" />}
-      </svg>
       <div className="flow-axis-labels mono">
         {['Q1', 'Q2', 'Q3', 'Q4', ...(end > REG ? ['Prol.'] : [])].map((q) => (
           <span key={q}>{q}</span>

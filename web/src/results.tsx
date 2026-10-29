@@ -1,7 +1,7 @@
 // Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowsLeftRight, CircleHalf, SealCheck } from '@phosphor-icons/react';
+import { ArrowsLeftRight, Coin, SealCheck } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
 import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
@@ -95,7 +95,7 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
     );
   if (c.tier === 'flip')
     return (
-      <Callout tone="badge-flip" icon={<CircleHalf size={18} weight="fill" />} title="Pile ou face" tag="Match imprévisible">
+      <Callout tone="badge-flip" icon={<Coin size={18} weight="fill" />} title="Pile ou face" tag="Match imprévisible">
         <p>
           {c.early && c.p >= 0.66
             ? `Début de saison : moins de 5 matchs joués, les équipes repartent de zéro. ${g[c.side].name} reste favori, mais rien n'est sûr.`
@@ -145,7 +145,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
     <section className={`verdict verdict-${c.tier}`}>
       <div className="verdict-ring">
         {win?.warn && <span className="odds-warn">{win.warn}</span>}
-        <Ring value={pFav} format={pctInt} label="Victoire" tone={c.tier === 'normal' ? 'neutral' : c.tier} />
+        <Ring value={pFav} format={pctInt} label="Victoire" />
       </div>
       <div>
         <span className="caps">Favori Razzia</span>
@@ -261,7 +261,7 @@ function OutcomeCard({ o, n }: { o: Outcome; n: number }) {
     <article className="pick">
       {o.warn && <span className="pick-warn">{o.warn}</span>}
       {!o.warn && o.safe && <span className="pick-warn safe">{o.safe}</span>}
-      <Ring value={o.p} format={pctInt} label="Fréquence" tone={o.warn ? 'muted' : o.safe ? 'sure' : 'neutral'} />
+      <Ring value={o.p} format={pctInt} label="Fréquence" />
       <div>
         <h4>{o.title}</h4>
         {o.odds != null && (

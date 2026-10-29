@@ -1,6 +1,6 @@
 // Signaux du match : chat noir (confrontations récentes), momentum des équipes. Le match serré est signalé par le
 // badge « Pile ou face » du verdict.
-import { Cat, ChartLineDown, ChartLineUp } from '@phosphor-icons/react';
+import { Cat, TrendDown, TrendUp } from '@phosphor-icons/react';
 import { type Game, type Result } from './data.ts';
 import { TeamMark } from './ui.tsx';
 
@@ -30,7 +30,7 @@ export function Signals({ r, g }: { r: Result; g: Game }) {
       )}
       {moves.map(({ team, m }) => (
         <div key={team.tri} className={`signal ${m!.delta > 0 ? 'signal-up' : 'signal-down'}`}>
-          <span className="signal-icon">{m!.delta > 0 ? <ChartLineUp size={18} weight="bold" /> : <ChartLineDown size={18} weight="bold" />}</span>
+          <span className="signal-icon">{m!.delta > 0 ? <TrendUp size={18} weight="bold" /> : <TrendDown size={18} weight="bold" />}</span>
           <div>
             <p className="signal-title">
               <TeamMark team={team} size="sm" /> {team.name} {m!.delta > 0 ? 'en pleine montée' : 'en baisse'}
