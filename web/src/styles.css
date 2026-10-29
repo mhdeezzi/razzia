@@ -257,9 +257,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 0 24px 72px; }
 .row { padding: 16px 14px; border-bottom: 1px solid var(--line); border-radius: 14px; position: relative; transition: background-color 0.2s var(--ease), transform 0.15s var(--ease); animation: rise 0.28s var(--ease) both; animation-delay: calc(min(var(--i, 0), 6) * 30ms); }
 .rows li:last-child .row { border-bottom: 0; }
 a.row:hover { background-color: rgba(255, 255, 255, 0.035); }
-/* Petite lumière très légère en haut à droite : couleur de l'équipe à domicile sur chaque ligne, couleur de l'en-tête
-   sur l'encadré du programme. Le fond reste noir. */
-.row.lit { background-image: radial-gradient(34% 190% at 100% 0%, color-mix(in srgb, var(--glow) 6%, transparent), transparent 80%); }
+/* Liste : une seule petite lumière très légère, en haut à droite de l'encadré du programme. Le fond reste noir. */
 .league-card.lit { --glow: #2f7fe0; background: radial-gradient(34% 300px at 100% 0%, color-mix(in srgb, var(--glow) 11%, transparent), transparent 72%), #000; }
 .league-card.lit-atp { --glow: #2aa873; }
 a.row:active { transform: scale(0.995); }
