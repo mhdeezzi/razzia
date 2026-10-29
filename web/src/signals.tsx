@@ -18,7 +18,7 @@ export function Signals({ r, g }: { r: Result; g: Game }) {
       {cat && victim && (
         <div className="signal signal-cat">
           <span className="signal-icon">
-            <Cat size={20} weight="fill" />
+            <Cat size={18} weight="fill" />
           </span>
           <div>
             <p className="signal-title">
@@ -30,7 +30,7 @@ export function Signals({ r, g }: { r: Result; g: Game }) {
       )}
       {moves.map(({ team, m }) => (
         <div key={team.tri} className={`signal ${m!.delta > 0 ? 'signal-up' : 'signal-down'}`}>
-          <span className="signal-icon">{m!.delta > 0 ? <ChartLineUp size={20} weight="bold" /> : <ChartLineDown size={20} weight="bold" />}</span>
+          <span className="signal-icon">{m!.delta > 0 ? <ChartLineUp size={18} weight="bold" /> : <ChartLineDown size={18} weight="bold" />}</span>
           <div>
             <p className="signal-title">
               <TeamMark team={team} size="sm" /> {team.name} {m!.delta > 0 ? 'en pleine montée' : 'en baisse'}

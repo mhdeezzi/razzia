@@ -45,6 +45,8 @@ export const isFlip = (r: Result, p: number) => flipP(p, gamesPlayed(r));
 /** Même règle à partir du seul pourcentage du favori et des matchs joués (programme). */
 export const flipP = (p: number, gp = 99) => shown(p) < FLIP || (gp < EARLY_GAMES && shown(p) < EARLY_FLIP);
 /** Handicap « plus sûr » : la ligne la plus exigeante qui passe dans au moins 80 % des simulations. */
+// « Razzia assuré » : à 77 % ou plus (un match sur quatre), le moteur a vu juste 84,6 % du temps sur la saison 2025-26.
+export const SURE = 0.77;
 export const SAFE_COVER = 0.8;
 /** Probabilité arrondie comme à l'écran (une décimale), pour que les seuils suivent le pourcentage affiché. */
 export const shown = (p: number) => Math.round(p * 1000) / 1000;

@@ -117,7 +117,7 @@ function Hero({ g }: { g: Game }) {
     </div>
   );
   return (
-    <header className="hero grain grain-teams" style={{ '--away': teamColor(g.away), '--home': teamColor(g.home) } as CSSProperties}>
+    <header className="hero mesh mesh-teams" style={{ '--away': teamColor(g.away), '--home': teamColor(g.home) } as CSSProperties}>
       <div className="hero-meta">
         <span>
           <Basketball size={15} /> NBA

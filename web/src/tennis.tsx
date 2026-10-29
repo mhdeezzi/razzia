@@ -1,8 +1,8 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowLeft, CaretRight, Cat, ChartLineDown, ChartLineUp, CoinVertical, HouseLine, ListBullets, Mountains, ShieldCheck, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
-import { Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgress } from './ui.tsx';
+import { ArrowLeft, CaretRight, Cat, ChartLineDown, ChartLineUp, CircleHalf, HouseLine, ListBullets, Mountains, SealCheck, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
+import { Callout, Empty, Link, PageHero, ProgressLine, Ring, SaferBet, Segmented, SimProgress } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
@@ -469,8 +469,8 @@ function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
   const flip = sim.flip ?? (sim.cat !== dog && (shown(fav.p) <= T_HEDGE_FIRST || sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up'));
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
-      <span className={`conf-pill sim${flip ? ' flip' : ''}`}>
-        <TrendUp size={13} weight="bold" /> {fav.n.split(' ').at(-1)} {pct0(fav.p)}
+      <span className={`conf-pill sim${flip ? ' flip' : fav.p >= T_SURE ? ' sure' : ''}`}>
+        <i className="pill-dot" /> {fav.n.split(' ').at(-1)} <b>{pct0(fav.p)}</b>
       </span>
     </span>
   );
@@ -687,7 +687,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {cat && (
         <div className="signal signal-cat">
           <span className="signal-icon">
-            <Cat size={20} weight="fill" />
+            <Cat size={18} weight="fill" />
           </span>
           <div>
             <p className="signal-title">Chat noir pour {r[cat.victim].name}</p>
@@ -698,7 +698,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {home.map((p) => (
         <div key={`home-${p.name}`} className="signal signal-home">
           <span className="signal-icon">
-            <HouseLine size={20} weight="bold" />
+            <HouseLine size={18} weight="bold" />
           </span>
           <div>
             <p className="signal-title">
@@ -713,7 +713,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {goal.length > 0 && (
         <div className="signal signal-goal">
           <span className="signal-icon">
-            <Trophy size={20} weight="bold" />
+            <Trophy size={18} weight="bold" />
           </span>
           <div>
             <p className="signal-title">
@@ -731,7 +731,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {surf && (
         <div className="signal signal-surface">
           <span className="signal-icon">
-            <Mountains size={20} weight="bold" />
+            <Mountains size={18} weight="bold" />
           </span>
           <div>
             <p className="signal-title">
@@ -747,7 +747,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
         const wins = p.form.filter((m) => m.won).length;
         return (
           <div key={p.name} className={`signal ${p.trend === 'up' ? 'signal-up' : 'signal-down'}`}>
-            <span className="signal-icon">{p.trend === 'up' ? <ChartLineUp size={20} weight="bold" /> : <ChartLineDown size={20} weight="bold" />}</span>
+            <span className="signal-icon">{p.trend === 'up' ? <ChartLineUp size={18} weight="bold" /> : <ChartLineDown size={18} weight="bold" />}</span>
             <div>
               <p className="signal-title">
                 <Avatar name={p.name} photo={p.photo} alt={p.photoAlt} size="sm" /> {p.name} {p.trend === 'up' ? 'en hausse' : 'en baisse'}
@@ -775,7 +775,7 @@ function TennisVerdict({ r, win }: { r: TennisResult; win?: Outcome }) {
     <section className={`verdict verdict-${tier}`}>
       <div className="verdict-ring">
         {win?.warn && <span className="odds-warn">{win.warn}</span>}
-        <Ring value={p} format={pct0} label="Victoire" />
+        <Ring value={p} format={pct0} label="Victoire" tone={tier === 'normal' ? 'neutral' : tier} />
       </div>
       <div>
         <span className="caps">Favori Razzia</span>
@@ -787,40 +787,32 @@ function TennisVerdict({ r, win }: { r: TennisResult; win?: Outcome }) {
         </p>
         <PickOdds o={win} />
         {tier === 'sure' && (
-          <div className="conf-badge sure">
-            <ShieldCheck size={20} weight="bold" />
-            <div>
-              <p className="conf-badge-title">Razzia assuré</p>
-              <p>Quand Razzia est aussi sûr, le favori a gagné 88 % du temps sur 2024 et 2025 (un match sur six).</p>
-            </div>
-          </div>
+          <Callout tone="badge-sure" icon={<SealCheck size={18} weight="fill" />} title="Razzia assuré" tag="88 % de réussite">
+            <p>Quand Razzia est aussi sûr, le favori a gagné 88 % du temps sur 2024 et 2025 (un match sur six).</p>
+          </Callout>
         )}
         {tier === 'flip' && (
-          <div className="conf-badge flip">
-            <CoinVertical size={20} weight="bold" />
-            <div>
-              <p className="conf-badge-title">Pile ou face</p>
-              <p>
-                {flip === 'dogUp'
-                  ? `${dog.name} est en hausse : avec un outsider dans cette forme, le favori perd plus souvent que prévu.`
-                  : flip === 'close'
-                    ? `${fav.name} reste favori, mais d'un rien : match imprévisible.`
-                    : `${fav.name} est favori, mais pas assez pour jouer sa victoire seule.`}{' '}
-                Plus sûr : <b>{fav.name} gagne au moins un set</b> ({pct(sets)} des simulations).
-              </p>
-            </div>
-          </div>
+          <Callout tone="badge-flip" icon={<CircleHalf size={18} weight="fill" />} title="Pile ou face" tag="Match imprévisible">
+            <p>
+              {flip === 'dogUp'
+                ? `${dog.name} est en hausse : avec un outsider dans cette forme, le favori perd plus souvent que prévu.`
+                : flip === 'close'
+                  ? `${fav.name} reste favori, mais d'un rien.`
+                  : `${fav.name} est favori, mais pas assez pour jouer sa victoire seule.`}
+            </p>
+            <SaferBet title={`${fav.name} gagne au moins un set`} p={pct(sets)} />
+          </Callout>
         )}
         <div className="split" role="img" aria-label={`${r.home.name} ${pct(r.pHome)}, ${r.away.name} ${pct(r.pAway)}`}>
           <div className="split-bar">
-            <span style={{ flexGrow: r.pHome }} />
-            <span style={{ flexGrow: r.pAway }} />
+            <span className={side === 'home' ? 'is-fav' : ''} style={{ flexGrow: r.pHome }} />
+            <span className={side === 'away' ? 'is-fav' : ''} style={{ flexGrow: r.pAway }} />
           </div>
           <div className="split-legend">
-            <span>
+            <span className={side === 'home' ? 'is-fav' : ''}>
               {r.home.name.split(' ').at(-1)} {pct(r.pHome)}
             </span>
-            <span>
+            <span className={side === 'away' ? 'is-fav' : ''}>
               {pct(r.pAway)} {r.away.name.split(' ').at(-1)}
             </span>
           </div>

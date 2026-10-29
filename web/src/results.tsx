@@ -1,13 +1,13 @@
 // Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowsSplit, CoinVertical, Scales, ShieldCheck } from '@phosphor-icons/react';
+import { ArrowsLeftRight, CircleHalf, SealCheck } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
-import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, type Category, type Outcome } from './picks.ts';
+import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
-import { Ring, Segmented, TeamMark } from './ui.tsx';
+import { Callout, Ring, SaferBet, Segmented, TeamMark } from './ui.tsx';
 import { HotStrip, LineupNotice } from './hot.tsx';
 
 type Dist = Result['margin'];
@@ -54,7 +54,6 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
 
 // Niveaux de confiance, mesurés sur toute la saison 2025-26 (1 230 matchs) : à 77 % ou plus (un match sur quatre), le
 // moteur voit juste 84,6 % du temps. Sous 66 % (65,9 % compris) : pile ou face, le handicap passe devant.
-const SURE = 0.77;
 // Gros désaccord avec le marché en début de saison (octobre-novembre) : le marché voit l'autre équipe favorite, avec au
 // moins 20 points d'écart. Saison 2025-26 : le moteur n'a eu raison que 5 fois sur 10 sur ces matchs. Le favori ne change pas.
 const DISAGREE = 0.2;
@@ -90,32 +89,21 @@ function confidenceOf(r: Result, g: Game): Confidence {
 function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
   if (c.tier === 'sure')
     return (
-      <div className="conf-badge sure">
-        <ShieldCheck size={20} weight="bold" />
-        <div>
-          <p className="conf-badge-title">Razzia assuré</p>
-          <p>Quand le moteur est aussi sûr de lui, il a vu juste 85 % du temps sur la saison passée (un match sur quatre).</p>
-        </div>
-      </div>
+      <Callout tone="badge-sure" icon={<SealCheck size={18} weight="fill" />} title="Razzia assuré" tag="85 % de réussite">
+        <p>Quand le moteur est aussi sûr de lui, il a vu juste 85 % du temps sur la saison passée (un match sur quatre).</p>
+      </Callout>
     );
   if (c.tier === 'flip')
     return (
-      <div className="conf-badge flip">
-        <CoinVertical size={20} weight="bold" />
-        <div>
-          <p className="conf-badge-title">Pile ou face</p>
-          <p>
-            {c.early && c.p >= 0.66 ? `Début de saison : moins de 5 matchs joués, les équipes repartent de zéro. ${g[c.side].name} reste favori, mais rien n'est sûr.` : `${g[c.side].name} reste favori, mais d'un rien : match imprévisible.`}
-            {c.hedge ? (
-              <>
-                {' '}Plus sûr : <b>{c.hedge.title}</b> (passe dans {pct(c.hedge.p)} des simulations).
-              </>
-            ) : (
-              ' Mieux vaut passer ce match.'
-            )}
-          </p>
-        </div>
-      </div>
+      <Callout tone="badge-flip" icon={<CircleHalf size={18} weight="fill" />} title="Pile ou face" tag="Match imprévisible">
+        <p>
+          {c.early && c.p >= 0.66
+            ? `Début de saison : moins de 5 matchs joués, les équipes repartent de zéro. ${g[c.side].name} reste favori, mais rien n'est sûr.`
+            : `${g[c.side].name} reste favori, mais d'un rien.`}
+          {!c.hedge && ' Mieux vaut passer ce match.'}
+        </p>
+        {c.hedge && <SaferBet title={c.hedge.title} p={pct(c.hedge.p)} />}
+      </Callout>
     );
   return null;
 }
@@ -124,16 +112,12 @@ function MarketBadge({ c, g }: { c: Confidence; g: Game }) {
   if (!c.disagree || c.book == null) return null;
   const other = g[c.side === 'home' ? 'away' : 'home'];
   return (
-    <div className="conf-badge disagree">
-      <ArrowsSplit size={20} weight="bold" />
-      <div>
-        <p className="conf-badge-title">Désaccord avec le marché</p>
-        <p>
-          Le marché voit <b>{other.name}</b> favori ({pct(1 - c.book)}). En début de saison, sur des écarts aussi grands, le moteur
-          n'a eu raison que 5 fois sur 10 la saison passée : prudence.
-        </p>
-      </div>
-    </div>
+    <Callout tone="badge-market" icon={<ArrowsLeftRight size={18} weight="bold" />} title="Désaccord avec le marché" tag="Prudence">
+      <p>
+        Le marché voit <b>{other.name}</b> favori ({pct(1 - c.book)}). En début de saison, sur des écarts aussi grands, le moteur
+        n'a eu raison que 5 fois sur 10 la saison passée.
+      </p>
+    </Callout>
   );
 }
 
@@ -161,7 +145,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
     <section className={`verdict verdict-${c.tier}`}>
       <div className="verdict-ring">
         {win?.warn && <span className="odds-warn">{win.warn}</span>}
-        <Ring value={pFav} format={pctInt} label="Victoire" />
+        <Ring value={pFav} format={pctInt} label="Victoire" tone={c.tier === 'normal' ? 'neutral' : c.tier} />
       </div>
       <div>
         <span className="caps">Favori Razzia</span>
@@ -177,23 +161,19 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
         <MarketBadge c={c} g={g} />
         {c.tier !== 'flip' && c.hedge && (
           // Fin de match serrée : le favori avec des points d'avance couvre aussi une défaite de peu.
-          <p className="hedge-line">
-            <Scales size={16} weight="bold" />
-            <span>
-              Plus sûr : <b>{c.hedge.title}</b>, passe dans {pct(c.hedge.p)} des simulations (couvre une défaite de peu).
-            </span>
-          </p>
+          <SaferBet title={c.hedge.title} p={pct(c.hedge.p)} note="couvre une défaite de peu" />
         )}
         <div className="split" role="img" aria-label={`${g.away.tri} ${pct(1 - pH)}, ${g.home.tri} ${pct(pH)}`}>
+          {/* Le favori en clair, l'autre équipe éteinte : même lecture que le cercle. */}
           <div className="split-bar">
-            <span style={{ flexGrow: 1 - pH }} />
-            <span style={{ flexGrow: pH }} />
+            <span className={c.side === 'away' ? 'is-fav' : ''} style={{ flexGrow: 1 - pH }} />
+            <span className={c.side === 'home' ? 'is-fav' : ''} style={{ flexGrow: pH }} />
           </div>
           <div className="split-legend">
-            <span>
+            <span className={c.side === 'away' ? 'is-fav' : ''}>
               {g.away.tri} {pct(1 - pH)}
             </span>
-            <span>
+            <span className={c.side === 'home' ? 'is-fav' : ''}>
               {pct(pH)} {g.home.tri}
             </span>
           </div>
@@ -281,7 +261,7 @@ function OutcomeCard({ o, n }: { o: Outcome; n: number }) {
     <article className="pick">
       {o.warn && <span className="pick-warn">{o.warn}</span>}
       {!o.warn && o.safe && <span className="pick-warn safe">{o.safe}</span>}
-      <Ring value={o.p} format={pctInt} label="Fréquence" />
+      <Ring value={o.p} format={pctInt} label="Fréquence" tone={o.warn ? 'muted' : o.safe ? 'sure' : 'neutral'} />
       <div>
         <h4>{o.title}</h4>
         {o.odds != null && (

@@ -136,8 +136,11 @@ export function CountUp({ value, format, duration = 1100 }: { value: number; for
   return <span ref={ref}>{format(0)}</span>;
 }
 
-/** Anneau de probabilité (0 à 1) qui se remplit à l'affichage. */
-export function Ring({ value, tone = 'blue', label, format }: { value: number; tone?: 'blue' | 'rose'; label?: string; format: (v: number) => string }) {
+/**
+ * Anneau de probabilité (0 à 1) qui se remplit à l'affichage. Teinte du niveau de confiance, comme les badges :
+ * blanc par défaut, vert « Razzia assuré », ambre « Pile ou face », éteint quand le pari est déconseillé.
+ */
+export function Ring({ value, tone = 'neutral', label, format }: { value: number; tone?: 'neutral' | 'sure' | 'flip' | 'muted'; label?: string; format: (v: number) => string }) {
   const r = 44;
   const c = 2 * Math.PI * r;
   const [shown, setShown] = useState(reduced() ? value : 0);
@@ -190,6 +193,38 @@ export function Pips({ n, of = 5, tone = 'blue' }: { n: number; of?: number; ton
   );
 }
 
+/**
+ * Encart de la fiche (niveau de confiance, signaux, page Badges) : pastille d'icône teintée, titre et étiquette, texte.
+ * La teinte vient de la classe `tone` (badge-sure, badge-flip, signal-up…).
+ */
+export function Callout({ tone, icon, title, tag, children }: { tone: string; icon: ReactNode; title: ReactNode; tag?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className={`signal ${tone}`}>
+      <span className="signal-icon">{icon}</span>
+      <div>
+        <p className="signal-title">
+          {title}
+          {tag && <span className="signal-tag">{tag}</span>}
+        </p>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Ligne « Plus sûr » sous un encart : le pari de repli et la part des simulations où il passe. */
+export function SaferBet({ title, p, note }: { title: ReactNode; p: string; note?: string }) {
+  return (
+    <p className="safer">
+      <span className="safer-k">Plus sûr</span>
+      <b>{title}</b>
+      <span className="safer-v">
+        {p} des simulations{note ? ` · ${note}` : ''}
+      </span>
+    </p>
+  );
+}
+
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="empty">
@@ -199,20 +234,29 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   );
 }
 
+/** Saison en cours : NBA d'octobre à juin (« 2026-27 »), ATP sur l'année civile. */
+function season(sport: 'nba' | 'atp'): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  if (sport === 'atp') return String(y);
+  const start = d.getMonth() >= 8 ? y : y - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
 /**
- * En-tête des programmes façon affiche RAZZIA : fond couleur à grain (lumière qui fuit sur la pellicule), petites
- * mentions en haut, titre très gras et serré, accroche en dessous ; date, nombre de matchs et affichage en pied.
+ * En-tête des programmes façon affiche RAZZIA : dégradé de couleurs lisse, petites mentions en haut, titre très gras
+ * et serré, accroche en dessous ; date, nombre de matchs et affichage en pied.
  */
 export function PageHero({ sport, title, day, count, children }: { sport: 'nba' | 'atp'; title: string; day?: string; count?: number; children?: ReactNode }) {
   const [first, ...rest] = title.split(' ');
   return (
-    <header className={`hero-banner grain grain-${sport}`}>
+    <header className={`hero-banner mesh mesh-${sport}`}>
       <div className="hb-top" aria-hidden="true">
-        <span className="hb-label">
-          RAZZIA
-          <br />© {new Date().getFullYear()} RAZZIA
+        <span className="hb-label">RAZZIA · Saison {season(sport)}</span>
+        <span className="hb-label hb-right">
+          {sport === 'nba' ? 'NBA' : 'ATP'}
+          <span className="hb-more"> · 5 000 simulations par match</span>
         </span>
-        <span className="hb-label hb-right">{sport === 'nba' ? 'NBA' : 'ATP'} · 5 000 simulations par match</span>
       </div>
       <h1 className="hb-title">
         <span>{first}</span> <span className="hb-title-2">{rest.join(' ')}</span>
