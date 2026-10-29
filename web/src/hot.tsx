@@ -3,7 +3,7 @@
 import { useState, type CSSProperties } from 'react';
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { n1, pct0, teamColor, type Game, type Result } from './data.ts';
-import { glow, TeamMark } from './ui.tsx';
+import { TeamMark } from './ui.tsx';
 
 type Player = Result['players'][number];
 
@@ -37,7 +37,7 @@ function Face({ p, team }: { p: Player; team: Game['home'] }) {
 
 /**
  * « En feu ce soir » : les joueurs que les simulations voient le plus souvent faire un gros match, et pourquoi.
- * Carte noire au contour neutre, petite lumière de la couleur de l'équipe en haut à droite ; la chance en grand chiffre, barre fine, raisons en texte.
+ * Une seule petite lumière orange en haut à droite de la section ; cartes noires au contour neutre ; la chance en grand chiffre, barre fine, raisons en texte.
  */
 export function HotStrip({ r, g }: { r: Result; g: Game }) {
   // Les quatre plus chauds, rangés par chance de gros match : 1 en haut à gauche, 2 en haut à droite, 3 et 4 dessous.
@@ -50,7 +50,7 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
   // Jauge : pleine à la plus forte chance du match, pour comparer les joueurs entre eux.
   const top = hot[0].heat!.pBig;
   return (
-    <section className="section" aria-label="Joueurs en feu">
+    <section className="section feu-sec" aria-label="Joueurs en feu">
       <div className="section-head">
         <h3>En feu ce soir</h3>
         <span className="slash">chance de gros match</span>
@@ -60,7 +60,7 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
           const h = p.heat!;
           const team = p.side === 0 ? g.home : g.away;
           return (
-            <li key={p.id} className="feu-card" style={{ '--i': i, '--tc': teamColor(team), '--glow': glow(teamColor(team)) } as CSSProperties}>
+            <li key={p.id} className="feu-card" style={{ '--i': i, '--tc': teamColor(team) } as CSSProperties}>
               <div className="feu-who">
                 <Face p={p} team={team} />
                 <div className="feu-id">
