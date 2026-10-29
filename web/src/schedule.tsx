@@ -1,9 +1,9 @@
 // Programme : les matchs des 7 prochains jours (heure de New York), en liste ou en grille, filtrés par statut.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CaretRight, Check, Fire, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
-import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
+import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, teamColor, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
-import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
+import { Empty, Link, PageHero, PillMark, ProgressLine, Segmented, TeamMark } from './ui.tsx';
 import { flipP, SURE } from './picks.ts';
 
 type Status = 'pre' | 'in' | 'post';
@@ -206,12 +206,12 @@ function SimPill({ g, sim, run }: { g: Game; sim?: SimEntry; run?: ItemState }) 
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const home = sim.pHome >= sim.pAway;
   const p = Math.max(sim.pHome, sim.pAway);
-  // Même teinte que la fiche : ambre « Pile ou face », vert « Razzia assuré », blanc sinon.
-  const tier = flipP(p, sim.gp ?? recordGames(g)) ? ' flip' : p >= SURE ? ' sure' : '';
+  // Même badge que la fiche : demi-cercle ambre « Pile ou face », sceau vert « Razzia assuré », point bleu sinon.
+  const tier = flipP(p, sim.gp ?? recordGames(g)) ? 'flip' : p >= SURE ? 'sure' : '';
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
-      <span className={`conf-pill sim${tier}`}>
-        <i className="pill-dot" /> {home ? g.home.tri : g.away.tri} <b>{pct0(p)}</b>
+      <span className={`conf-pill sim ${tier}`}>
+        <PillMark tier={tier} /> {home ? g.home.tri : g.away.tri} <b>{pct0(p)}</b>
       </span>
     </span>
   );
@@ -307,7 +307,7 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
     </div>
   );
   return (
-    <Link href={matchPath(g)} className="card" style={{ '--i': i } as CSSProperties}>
+    <Link href={matchPath(g)} className="card" style={{ '--i': i, '--away': teamColor(g.away), '--home': teamColor(g.home) } as CSSProperties}>
       <div className="card-top">
         <span className="mono strong">{g.state === 'pre' ? timeLocal(g.start) : g.detail}</span>
         <TimeTag g={g} />

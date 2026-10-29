@@ -1,6 +1,6 @@
 // Page « Badges » : ce que veut dire chaque badge de l'app, basket et tennis, avec ce qu'il a donné sur les saisons passées.
 import type { ReactNode } from 'react';
-import { ArrowsLeftRight, Cat, ChartLineDown, ChartLineUp, CircleHalf, ClipboardText, Fire, HouseLine, Mountains, SealCheck, Trophy } from '@phosphor-icons/react';
+import { ArrowsLeftRight, Cat, CircleHalf, ClipboardText, Fire, HouseSimple, Mountains, SealCheck, TrendDown, TrendUp, Trophy } from '@phosphor-icons/react';
 
 interface Badge { icon: ReactNode; tone: string; title: string; text: ReactNode }
 
@@ -49,19 +49,19 @@ const nba: Badge[] = [
     text: "Une équipe qui perd contre l'autre même quand elle est favorite (au moins 3 défaites en étant favorite sur deux ans, 70 % ou plus, bien sous l'écart attendu). Rare.",
   },
   {
-    icon: <ChartLineUp size={18} weight="bold" />, tone: 'signal-up', title: 'En pleine montée',
+    icon: <TrendUp size={18} weight="bold" />, tone: 'signal-up', title: 'En pleine montée',
     text: "L'équipe joue nettement mieux sur ses 15 derniers matchs que les saisons d'avant (au moins 4 points d'écart par match de mieux).",
   },
   {
-    icon: <ChartLineDown size={18} weight="bold" />, tone: 'signal-down', title: 'En baisse',
+    icon: <TrendDown size={18} weight="bold" />, tone: 'signal-down', title: 'En baisse',
     text: "L'inverse : au moins 4 points d'écart par match de moins sur les 15 derniers matchs.",
   },
   {
-    icon: <Fire size={18} weight="bold" />, tone: 'badge-fire', title: 'En feu ce soir',
+    icon: <Fire size={18} weight="fill" />, tone: 'badge-fire', title: 'En feu ce soir',
     text: 'Les joueurs que les simulations voient le plus souvent faire un gros match, rangés par chance de réussir, avec les raisons (forme, défense adverse, minutes…).',
   },
   {
-    icon: <ClipboardText size={18} weight="bold" />, tone: 'badge-lineup', title: 'Compositions non officielles',
+    icon: <ClipboardText size={18} weight="fill" />, tone: 'badge-lineup', title: 'Compositions non officielles',
     text: "La simulation a été faite avant l'annonce des cinq de départ (environ 30 minutes avant le match) : à relancer avec les compos.",
   },
 ];
@@ -80,23 +80,23 @@ const tennis: Badge[] = [
     text: "Au moins 4 confrontations en 6 ans, dont 75 % ou plus gagnées par le même joueur, avec 3 victoires d'avance.",
   },
   {
-    icon: <ChartLineUp size={18} weight="bold" />, tone: 'signal-up', title: 'En hausse',
+    icon: <TrendUp size={18} weight="bold" />, tone: 'signal-up', title: 'En hausse',
     text: "Au moins 2 victoires de plus que ce qu'annonçait son niveau sur ses 10 derniers matchs (un joueur sur dix). Flèche verte à côté du nom dans le programme.",
   },
   {
-    icon: <ChartLineDown size={18} weight="bold" />, tone: 'signal-down', title: 'En baisse',
+    icon: <TrendDown size={18} weight="bold" />, tone: 'signal-down', title: 'En baisse',
     text: "Au moins 2 victoires de moins qu'attendu sur ses 10 derniers matchs. Flèche rouge à côté du nom.",
   },
   {
-    icon: <HouseLine size={18} weight="bold" />, tone: 'signal-home', title: 'À domicile',
+    icon: <HouseSimple size={18} weight="fill" />, tone: 'signal-home', title: 'À domicile',
     text: "Il joue dans son pays, devant son public. À savoir : le marché surcote déjà les joueurs à domicile, encore plus quand ils sont en hausse. Petite maison à côté du nom.",
   },
   {
-    icon: <Trophy size={18} weight="bold" />, tone: 'signal-goal', title: 'Objectif Masters',
+    icon: <Trophy size={18} weight="fill" />, tone: 'signal-goal', title: 'Objectif Masters',
     text: "Un top 20 en ATP 250 ou 500 après le 10 octobre : la course au Masters de fin d'année. Ces favoris ont gagné 82 % de leurs matchs quand le marché en annonçait 72 %. Petit trophée à côté du nom.",
   },
   {
-    icon: <Mountains size={18} weight="bold" />, tone: 'signal-surface', title: 'Sa surface',
+    icon: <Mountains size={18} weight="fill" />, tone: 'signal-surface', title: 'Sa surface',
     text: "Il joue nettement mieux sur la surface du jour que d'habitude (au moins 60 points d'Elo de mieux que son adversaire). Le marché et le moteur en tiennent déjà compte.",
   },
 ];

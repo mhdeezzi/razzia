@@ -2,7 +2,7 @@
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowsLeftRight, CircleHalf, SealCheck } from '@phosphor-icons/react';
-import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
+import { line, n1, pct, pct0, teamColor, type Game, type Result } from './data.ts';
 import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
@@ -142,10 +142,11 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
   const pH = r.market?.blendedHome ?? r.pHome;
   const win = useMemo(() => buildCategories(r, g).flatMap((c) => c.items).find((o) => o.id === 'win'), [r, g]);
   return (
-    <section className={`verdict verdict-${c.tier}`}>
+    // Filet de couleur aux couleurs des deux équipes (favori en tête), comme le bandeau du match.
+    <section className={`verdict verdict-${c.tier} rim`} style={{ '--r1': teamColor(fav), '--r2': teamColor(g[c.side === 'home' ? 'away' : 'home']) } as CSSProperties}>
       <div className="verdict-ring">
         {win?.warn && <span className="odds-warn">{win.warn}</span>}
-        <Ring value={pFav} format={pctInt} label="Victoire" tone={c.tier === 'normal' ? 'neutral' : c.tier} />
+        <Ring value={pFav} format={pctInt} label="Victoire" />
       </div>
       <div>
         <span className="caps">Favori Razzia</span>
@@ -261,7 +262,7 @@ function OutcomeCard({ o, n }: { o: Outcome; n: number }) {
     <article className="pick">
       {o.warn && <span className="pick-warn">{o.warn}</span>}
       {!o.warn && o.safe && <span className="pick-warn safe">{o.safe}</span>}
-      <Ring value={o.p} format={pctInt} label="Fréquence" tone={o.warn ? 'muted' : o.safe ? 'sure' : 'neutral'} />
+      <Ring value={o.p} format={pctInt} label="Fréquence" />
       <div>
         <h4>{o.title}</h4>
         {o.odds != null && (

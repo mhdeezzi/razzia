@@ -1,6 +1,6 @@
 // Briques partagées : navigation, pastille d'équipe, onglets à curseur glissant, anneau de probabilité, compteur animé.
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
-import { CalendarBlank, Check } from '@phosphor-icons/react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from 'react';
+import { CalendarBlank, Check, CircleHalf, SealCheck } from '@phosphor-icons/react';
 import { teamColor, teamLogo, type Team } from './data.ts';
 
 export function navigate(to: string): void {
@@ -65,7 +65,44 @@ export interface SegOption<T> {
   disabled?: boolean;
 }
 
-/** Onglets segmentés : le curseur glisse vers l'onglet choisi. */
+/**
+ * Curseur qui glisse vers l'élément choisi (onglets, sports de la barre du haut), façon verre liquide : le bord avant
+ * part tout de suite, le bord arrière suit un peu après (le verre s'étire), et le verre gonfle pendant le trajet.
+ */
+export function useSlider(ref: RefObject<HTMLElement | null>, selector: string, key: unknown) {
+  const [pos, setPos] = useState<{ l: number; r: number }>();
+  const [dir, setDir] = useState('');
+  const [moving, setMoving] = useState(0);
+  const last = useRef<number>(undefined);
+  useLayoutEffect(() => {
+    const measure = (move: boolean) => {
+      const box = ref.current;
+      const el = box?.querySelector<HTMLElement>(selector);
+      if (!box || !el) return;
+      const l = el.offsetLeft;
+      if (move && last.current != null && l !== last.current) {
+        setDir(l > last.current ? 'to-right' : 'to-left');
+        setMoving((n) => n + 1);
+      }
+      last.current = l;
+      setPos({ l, r: box.clientWidth - l - el.offsetWidth });
+    };
+    measure(true);
+    const ro = new ResizeObserver(() => measure(false));
+    if (ref.current) ro.observe(ref.current);
+    return () => ro.disconnect();
+  }, [key, selector]);
+  const [lifted, setLifted] = useState(false);
+  useEffect(() => {
+    if (!moving) return;
+    setLifted(true);
+    const t = window.setTimeout(() => setLifted(false), 260);
+    return () => window.clearTimeout(t);
+  }, [moving]);
+  return { pos, cls: `${dir}${lifted ? ' is-moving' : ''}` };
+}
+
+/** Onglets segmentés : le curseur de verre glisse et s'étire vers l'onglet choisi. */
 export function Segmented<T extends string | number>({ options, value, onChange, tone = 'light', size = 'md', ariaLabel }: {
   options: SegOption<T>[];
   value: T;
@@ -75,24 +112,14 @@ export function Segmented<T extends string | number>({ options, value, onChange,
   ariaLabel?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [thumb, setThumb] = useState<{ x: number; w: number }>();
+  const { pos, cls } = useSlider(ref, `[data-v="${String(value)}"]`, `${String(value)}|${options.length}`);
   const [ready, setReady] = useState(false);
-  useLayoutEffect(() => {
-    const measure = () => {
-      const el = ref.current?.querySelector<HTMLElement>(`[data-v="${String(value)}"]`);
-      if (el) setThumb({ x: el.offsetLeft, w: el.offsetWidth });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (ref.current) ro.observe(ref.current);
-    return () => ro.disconnect();
-  }, [value, options.length]);
   useEffect(() => {
-    if (thumb && !ready) requestAnimationFrame(() => setReady(true));
-  }, [thumb, ready]);
+    if (pos && !ready) requestAnimationFrame(() => setReady(true));
+  }, [pos, ready]);
   return (
-    <div ref={ref} className={`seg seg-${tone} seg-${size}${ready ? ' is-ready' : ''}`} role="tablist" aria-label={ariaLabel}>
-      {thumb && <span className="seg-thumb" style={{ transform: `translateX(${thumb.x}px)`, width: thumb.w }} aria-hidden="true" />}
+    <div ref={ref} className={`seg seg-${tone} seg-${size}${ready ? ' is-ready' : ''} ${cls}`} role="tablist" aria-label={ariaLabel}>
+      {pos && <span className="seg-thumb" style={{ left: pos.l, right: pos.r }} aria-hidden="true" />}
       {options.map((o) => (
         <button
           key={String(o.value)}
@@ -136,11 +163,8 @@ export function CountUp({ value, format, duration = 1100 }: { value: number; for
   return <span ref={ref}>{format(0)}</span>;
 }
 
-/**
- * Anneau de probabilité (0 à 1) qui se remplit à l'affichage. Teinte du niveau de confiance, comme les badges :
- * blanc par défaut, vert « Razzia assuré », ambre « Pile ou face », éteint quand le pari est déconseillé.
- */
-export function Ring({ value, tone = 'neutral', label, format }: { value: number; tone?: 'neutral' | 'sure' | 'flip' | 'muted'; label?: string; format: (v: number) => string }) {
+/** Anneau de probabilité (0 à 1) qui se remplit à l'affichage : toujours bleu. */
+export function Ring({ value, tone = 'blue', label, format }: { value: number; tone?: 'blue' | 'rose'; label?: string; format: (v: number) => string }) {
   const r = 44;
   const c = 2 * Math.PI * r;
   const [shown, setShown] = useState(reduced() ? value : 0);
@@ -210,6 +234,13 @@ export function Callout({ tone, icon, title, tag, children }: { tone: string; ic
       </div>
     </div>
   );
+}
+
+/** Repère du badge de simulation du programme : demi-cercle « Pile ou face », sceau « Razzia assuré », sinon un point. */
+export function PillMark({ tier }: { tier: string }) {
+  if (tier === 'flip') return <CircleHalf size={14} weight="fill" className="pill-ic" />;
+  if (tier === 'sure') return <SealCheck size={14} weight="fill" className="pill-ic" />;
+  return <i className="pill-dot" />;
 }
 
 /** Ligne « Plus sûr » sous un encart : le pari de repli et la part des simulations où il passe. */

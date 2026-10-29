@@ -2,7 +2,7 @@
 // Et l'avertissement quand la simulation précède l'annonce des compositions officielles.
 import { useState, type CSSProperties } from 'react';
 import { ArrowClockwise, Fire, Info } from '@phosphor-icons/react';
-import { n1, pct0, type Game, type Result } from './data.ts';
+import { n1, pct0, teamColor, type Game, type Result } from './data.ts';
 import { TeamMark } from './ui.tsx';
 
 type Player = Result['players'][number];
@@ -35,7 +35,10 @@ function Face({ p, team }: { p: Player; team: Game['home'] }) {
   );
 }
 
-/** « En feu ce soir » : les joueurs que les simulations voient le plus souvent faire un gros match, et pourquoi. */
+/**
+ * « En feu ce soir » : les joueurs que les simulations voient le plus souvent faire un gros match, et pourquoi.
+ * Carte noire à filet aux couleurs de l'équipe ; seuil du gros match en grand, jauge de la chance, raisons en pilules.
+ */
 export function HotStrip({ r, g }: { r: Result; g: Game }) {
   // Les quatre plus chauds, rangés par chance de gros match : 1 en haut à gauche, 2 en haut à droite, 3 et 4 dessous.
   const hot = r.players
@@ -44,11 +47,16 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
     .slice(0, 4)
     .sort((a, b) => b.heat!.pBig - a.heat!.pBig);
   if (!hot.length) return null;
+  // Jauge : pleine à la plus forte chance du match, pour comparer les joueurs entre eux.
+  const top = hot[0].heat!.pBig;
   return (
     <section className="section" aria-label="Joueurs en feu">
       <div className="section-head">
         <h3 className="feu-title">
-          <Fire size={16} weight="bold" /> En feu ce soir
+          <span className="feu-badge">
+            <Fire size={14} weight="fill" />
+          </span>
+          En feu ce soir
         </h3>
         <span className="slash">chance de gros match</span>
       </div>
@@ -57,22 +65,25 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
           const h = p.heat!;
           const team = p.side === 0 ? g.home : g.away;
           return (
-            <li key={p.id} className="feu-card" style={{ '--i': i } as CSSProperties}>
+            <li key={p.id} className="feu-card rim" style={{ '--i': i, '--r1': teamColor(team), '--r2': 'var(--c-fire)', '--tc': teamColor(team) } as CSSProperties}>
               <div className="feu-who">
                 <Face p={p} team={team} />
-                <div>
+                <div className="feu-id">
                   <p className="feu-name">{p.name}</p>
                   <p className="feu-team">{team.name}</p>
                 </div>
+                <span className="feu-p">
+                  <Fire size={13} weight="fill" /> {pct0(h.pBig)}
+                </span>
               </div>
               <div className="feu-bet">
-                <div>
-                  <p className="feu-line">
-                    {h.threshold}+ <small>pts</small>
-                  </p>
-                  <p className="feu-base">{n1(h.base)} pts d'habitude</p>
-                </div>
-                <p className="feu-p num">{pct0(h.pBig)}</p>
+                <p className="feu-line">
+                  {h.threshold}+<small>pts</small>
+                </p>
+                <p className="feu-base">{n1(h.base)} pts d'habitude</p>
+              </div>
+              <div className="feu-meter" role="img" aria-label={`Chance de gros match : ${pct0(h.pBig)}`}>
+                <span style={{ width: `${Math.max(6, (100 * h.pBig) / top)}%` }} />
               </div>
               {h.reasons.length > 0 && (
                 <ul className="feu-why">
