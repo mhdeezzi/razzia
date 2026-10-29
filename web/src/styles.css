@@ -30,7 +30,7 @@
   --c-green: #3dd68c;
   --c-amber: #ffca16;
   --c-red: #e2232b;
-  --c-blue: #70b8ff;
+  --c-blue: #2272e0; /* le bleu des cercles */
   --c-gold: #f1c35b;
   --c-fire: #ff8b3e;
   /* Camps d'un match dans les graphiques : bleu vif (extérieur, ou favori), rouge vif (domicile). */
@@ -300,7 +300,7 @@ a.row:active { transform: scale(0.995); }
 .conf-pill b { font: 600 13px var(--mono); letter-spacing: -0.03em; color: inherit; }
 .conf-pill.wait .wait-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
 /* Badge de simulation : texte blanc pile ou face, bleu sinon. */
-.conf-pill.sim { --c: #5b95f0; }
+.conf-pill.sim { --c: var(--c-blue); }
 .conf-pill.sim.flip { --c: #f4f4f2; }
 .conf-pill.sim > svg { color: var(--c); }
 .conf-pill.fail { --c: var(--c-red); }
