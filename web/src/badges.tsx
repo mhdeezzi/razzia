@@ -1,6 +1,6 @@
 // Page « Badges » : ce que veut dire chaque badge de l'app, basket et tennis, avec ce qu'il a donné sur les saisons passées.
 import type { ReactNode } from 'react';
-import { ArrowsLeftRight, Cat, Coin, ClipboardText, Flame, HouseSimple, Mountains, SealCheck, TrendDown, TrendUp, Trophy } from '@phosphor-icons/react';
+import { ArrowsLeftRight, Cat, ClipboardText, Fire, HouseSimple, Mountains, Scales, ShieldCheck, TrendDown, TrendUp, Trophy } from '@phosphor-icons/react';
 
 interface Badge { icon: ReactNode; tone: string; title: string; text: ReactNode }
 
@@ -33,11 +33,11 @@ const common: Badge[] = [
 
 const nba: Badge[] = [
   {
-    icon: <SealCheck size={18} weight="fill" />, tone: 'badge-sure', title: 'Razzia assuré',
+    icon: <ShieldCheck size={19} weight="bold" />, tone: 'badge-sure', title: 'Razzia assuré',
     text: 'Favori à 77 % ou plus : le moteur a vu juste 85 % du temps sur la saison passée (un match sur quatre).',
   },
   {
-    icon: <Coin size={18} weight="fill" />, tone: 'badge-flip', title: 'Pile ou face',
+    icon: <Scales size={21} weight="thin" />, tone: 'badge-flip', title: 'Pile ou face',
     text: "Favori sous 66 %, ou sous 70 % quand une équipe a joué moins de 5 matchs (début de saison : tout repart de zéro). Le handicap « plus sûr » passe devant, le vainqueur est déconseillé.",
   },
   {
@@ -57,7 +57,7 @@ const nba: Badge[] = [
     text: "L'inverse : au moins 4 points d'écart par match de moins sur les 15 derniers matchs.",
   },
   {
-    icon: <Flame size={18} weight="fill" />, tone: 'badge-fire', title: 'En feu ce soir',
+    icon: <Fire size={19} />, tone: 'badge-fire', title: 'En feu ce soir',
     text: 'Les joueurs que les simulations voient le plus souvent faire un gros match, rangés par chance de réussir, avec les raisons (forme, défense adverse, minutes…).',
   },
   {
@@ -68,11 +68,11 @@ const nba: Badge[] = [
 
 const tennis: Badge[] = [
   {
-    icon: <SealCheck size={18} weight="fill" />, tone: 'badge-sure', title: 'Razzia assuré',
+    icon: <ShieldCheck size={19} weight="bold" />, tone: 'badge-sure', title: 'Razzia assuré',
     text: 'Favori à 80 % ou plus : il a gagné 88 % du temps sur 2024-2025.',
   },
   {
-    icon: <Coin size={18} weight="fill" />, tone: 'badge-flip', title: 'Pile ou face',
+    icon: <Scales size={21} weight="thin" />, tone: 'badge-flip', title: 'Pile ou face',
     text: "Favori à 80 % ou moins, ou outsider en hausse (le favori perdait alors plus souvent que prévu) : « Un set » passe devant, le vainqueur est déconseillé. Sauf quand l'outsider est le chat noir du favori : on garde sa victoire.",
   },
   {

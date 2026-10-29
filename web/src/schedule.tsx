@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CaretRight, Check, Flame, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, teamColor, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
-import { Empty, Link, PageHero, PillMark, ProgressLine, Segmented, TeamMark } from './ui.tsx';
+import { Empty, glow, Link, PageHero, PillMark, ProgressLine, Segmented, TeamMark } from './ui.tsx';
 import { flipP, SURE } from './picks.ts';
 
 type Status = 'pre' | 'in' | 'post';
@@ -126,7 +126,7 @@ export function SchedulePage({ day }: { day: string | null }) {
           {dayGames.length === 0 ? (
             <Empty title="Pas de match NBA ce soir-là." />
           ) : view === 'liste' ? (
-            <section className="league-card" key={`${current}-${status}`}>
+            <section className="league-card lit" key={`${current}-${status}`}>
               <div className="league-top">
                 <h2>NBA</h2>
                 <span className="badge-n">{games.length}</span>
@@ -263,7 +263,7 @@ function HotFace({ id, team }: { id: number; team: Game['home'] }) {
 function Row({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i: number }) {
   const o = g.odds;
   return (
-    <Link href={matchPath(g)} className="row" style={{ '--i': i } as CSSProperties}>
+    <Link href={matchPath(g)} className="row lit" style={{ '--i': i, '--glow': glow(teamColor(g.home)) } as CSSProperties}>
       <div className="row-time">
         <span className="t">{g.state === 'pre' ? timeLocal(g.start) : `${g.away.score ?? '-'}-${g.home.score ?? '-'}`}</span>
         <TimeTag g={g} />
@@ -307,7 +307,7 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
     </div>
   );
   return (
-    <Link href={matchPath(g)} className="card" style={{ '--i': i, '--away': teamColor(g.away), '--home': teamColor(g.home) } as CSSProperties}>
+    <Link href={matchPath(g)} className="card" style={{ '--i': i, '--glow': glow(teamColor(g.home)) } as CSSProperties}>
       <div className="card-top">
         <span className="mono strong">{g.state === 'pre' ? timeLocal(g.start) : g.detail}</span>
         <TimeTag g={g} />

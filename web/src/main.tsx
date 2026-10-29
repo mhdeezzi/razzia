@@ -18,7 +18,7 @@ import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
 import { AccountPage, PricingPage } from './billing.tsx';
 import logo from './assets/razzia-logo.webp';
 
-// Abonnement et compte : pages prêtes, activées seulement par VITE_BILLING=1 au build (pas encore en ligne).
+// Compte (connexion) en ligne, sans paiement branché ; abonnement prêt, activé seulement par VITE_BILLING=1 au build.
 const BILLING = import.meta.env.VITE_BILLING === '1';
 
 function App() {
@@ -43,13 +43,13 @@ function App() {
     <BadgesPage />
   ) : BILLING && path === '/abonnement' ? (
     <PricingPage />
-  ) : BILLING && path === '/compte' ? (
+  ) : path === '/compte' ? (
     <AccountPage />
   ) : (
     <SchedulePage day={search.get('jour')} />
   );
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : path === '/badges' ? 'Badges | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : BILLING && path === '/compte' ? 'Compte | Razzia' : 'Razzia | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : path === '/badges' ? 'Badges | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : 'Razzia | Simulations NBA';
   }, [path]);
   return (
     <>

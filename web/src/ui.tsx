@@ -1,6 +1,6 @@
 // Briques partagées : navigation, pastille d'équipe, onglets à curseur glissant, anneau de probabilité, compteur animé.
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from 'react';
-import { CalendarBlank, Check, Coin, SealCheck } from '@phosphor-icons/react';
+import { CalendarBlank, Check, Scales, ShieldCheck } from '@phosphor-icons/react';
 import { teamColor, teamLogo, type Team } from './data.ts';
 
 export function navigate(to: string): void {
@@ -65,41 +65,31 @@ export interface SegOption<T> {
   disabled?: boolean;
 }
 
-/**
- * Curseur qui glisse vers l'élément choisi (onglets, sports de la barre du haut), façon verre liquide : le bord avant
- * part tout de suite, le bord arrière suit un peu après (le verre s'étire), et le verre gonfle pendant le trajet.
- */
+/** Curseur qui glisse vers l'élément choisi (onglets, sports de la barre du haut) : position mesurée, glissé en CSS. */
 export function useSlider(ref: RefObject<HTMLElement | null>, selector: string, key: unknown) {
   const [pos, setPos] = useState<{ l: number; r: number }>();
-  const [dir, setDir] = useState('');
-  const [moving, setMoving] = useState(0);
-  const last = useRef<number>(undefined);
   useLayoutEffect(() => {
-    const measure = (move: boolean) => {
+    const measure = () => {
       const box = ref.current;
       const el = box?.querySelector<HTMLElement>(selector);
-      if (!box || !el) return;
-      const l = el.offsetLeft;
-      if (move && last.current != null && l !== last.current) {
-        setDir(l > last.current ? 'to-right' : 'to-left');
-        setMoving((n) => n + 1);
-      }
-      last.current = l;
-      setPos({ l, r: box.clientWidth - l - el.offsetWidth });
+      if (box && el) setPos({ l: el.offsetLeft, r: box.clientWidth - el.offsetLeft - el.offsetWidth });
     };
-    measure(true);
-    const ro = new ResizeObserver(() => measure(false));
+    measure();
+    const ro = new ResizeObserver(measure);
     if (ref.current) ro.observe(ref.current);
     return () => ro.disconnect();
   }, [key, selector]);
-  const [lifted, setLifted] = useState(false);
-  useEffect(() => {
-    if (!moving) return;
-    setLifted(true);
-    const t = window.setTimeout(() => setLifted(false), 260);
-    return () => window.clearTimeout(t);
-  }, [moving]);
-  return { pos, cls: `${dir}${lifted ? ' is-moving' : ''}` };
+  return pos;
+}
+
+/** Couleur d'équipe éclaircie pour une lueur visible sur le noir (un bleu marine reste bleu, un gris reste gris). */
+export function glow(hex: string): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  const s = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  const h = !d ? 0 : max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return `hsl(${Math.round(h * 60)} ${Math.round((s > 0.08 ? Math.max(s, 0.55) : s) * 100)}% ${Math.round(Math.max(l, 0.55) * 100)}%)`;
 }
 
 /** Onglets segmentés : le curseur de verre glisse et s'étire vers l'onglet choisi. */
@@ -112,13 +102,13 @@ export function Segmented<T extends string | number>({ options, value, onChange,
   ariaLabel?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const { pos, cls } = useSlider(ref, `[data-v="${String(value)}"]`, `${String(value)}|${options.length}`);
+  const pos = useSlider(ref, `[data-v="${String(value)}"]`, `${String(value)}|${options.length}`);
   const [ready, setReady] = useState(false);
   useEffect(() => {
     if (pos && !ready) requestAnimationFrame(() => setReady(true));
   }, [pos, ready]);
   return (
-    <div ref={ref} className={`seg seg-${tone} seg-${size}${ready ? ' is-ready' : ''} ${cls}`} role="tablist" aria-label={ariaLabel}>
+    <div ref={ref} className={`seg seg-${tone} seg-${size}${ready ? ' is-ready' : ''}`} role="tablist" aria-label={ariaLabel}>
       {pos && <span className="seg-thumb" style={{ left: pos.l, right: pos.r }} aria-hidden="true" />}
       {options.map((o) => (
         <button
@@ -236,24 +226,11 @@ export function Callout({ tone, icon, title, tag, children }: { tone: string; ic
   );
 }
 
-/** Repère du badge de simulation du programme : pièce « Pile ou face », sceau « Razzia assuré », sinon un point. */
+/** Repère du badge de simulation du programme : balance « Pile ou face », bouclier « Razzia assuré », sinon un point. */
 export function PillMark({ tier }: { tier: string }) {
-  if (tier === 'flip') return <Coin size={14} weight="fill" className="pill-ic" />;
-  if (tier === 'sure') return <SealCheck size={14} weight="fill" className="pill-ic" />;
+  if (tier === 'flip') return <Scales size={15} weight="light" className="pill-ic" />;
+  if (tier === 'sure') return <ShieldCheck size={14} weight="bold" className="pill-ic" />;
   return <i className="pill-dot" />;
-}
-
-/** Ligne « Plus sûr » sous un encart : le pari de repli et la part des simulations où il passe. */
-export function SaferBet({ title, p, note }: { title: ReactNode; p: string; note?: string }) {
-  return (
-    <p className="safer">
-      <span className="safer-k">Plus sûr</span>
-      <b>{title}</b>
-      <span className="safer-v">
-        {p} des simulations{note ? ` · ${note}` : ''}
-      </span>
-    </p>
-  );
 }
 
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {

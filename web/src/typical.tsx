@@ -127,7 +127,7 @@ function smoothPath(p: Array<[number, number]>): string {
 /**
  * Écart au score au fil du match, façon carte de chiffres : en tête, la plus grosse avance de chaque équipe et les
  * changements de leader ; courbe lisse (au-dessus de l'axe, l'équipe à domicile mène en rouge ; en dessous,
- * l'extérieur en bleu), aire en dégradé, point lumineux qui suit le pointeur avec le score du moment.
+ * l'extérieur en bleu), aire en dégradé, ligne qui suit le pointeur avec le score du moment.
  */
 function Flow({ t, g }: { t: Typical; g: Game }) {
   const W = 1000;
@@ -151,7 +151,6 @@ function Flow({ t, g }: { t: Typical; g: Game }) {
     setHover(best);
   };
   const h = hover != null ? pts[hover] : undefined;
-  const hm = h ? h.h - h.a : 0;
   const marks = [720, 1440, 2160, ...(end > REG ? [REG] : [])];
   return (
     <figure className="flow">
@@ -207,7 +206,6 @@ function Flow({ t, g }: { t: Typical; g: Game }) {
         <span className="flow-side bot">{g.away.name} mène</span>
         {h && (
           <>
-            <span className={`flow-dot ${hm > 0 ? 'home' : hm < 0 ? 'away' : ''}`} style={{ left: `${(100 * x(h.t)) / W}%`, top: `${(100 * y(hm)) / H}%` }} />
             <span className={`flow-tip mono${x(h.t) > W * 0.7 ? ' left' : ''}`} style={{ left: `${(100 * x(h.t)) / W}%` }}>
               <b>{clockAt(h.t)}</b> {g.away.tri} {h.a} - {h.h} {g.home.tri}
               {h.wp != null && <small> · {g.home.tri} {pct0(h.wp)}</small>}

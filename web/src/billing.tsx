@@ -7,6 +7,9 @@ import {
 } from '@phosphor-icons/react';
 import { Link, Segmented } from './ui.tsx';
 
+// La page Abonnement n'est en ligne qu'avec VITE_BILLING=1 : sans elle, pas de lien vers les formules.
+const PRICING = import.meta.env.VITE_BILLING === '1';
+
 type Period = 'mois' | 'an';
 interface Plan {
   id: string;
@@ -150,9 +153,11 @@ export function AccountPage() {
             </p>
             <p className="muted small">Prochain paiement le 1er décembre : 9,99 €</p>
             <div className="account-actions">
-              <Link href="/abonnement" className="btn glass">
-                Changer de formule
-              </Link>
+              {PRICING && (
+                <Link href="/abonnement" className="btn glass">
+                  Changer de formule
+                </Link>
+              )}
               <button className="btn btn-quiet">Résilier</button>
             </div>
           </section>
