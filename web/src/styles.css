@@ -26,12 +26,13 @@
   --brand-rgb: 47 181 124;
   --brand-ink: #062b1c;
   /* Teintes de signal : posées en petits points, icônes, cercles et barres, jamais en aplat. */
-  --c-green: #34b874;
-  --c-amber: #e0a03a;
-  --c-red: #e5534b;
-  --c-blue: #4a86e8;
-  --c-gold: #d8b04a;
-  --c-fire: #f07a3a;
+  /* Teintes des logos et petits badges : palette Radix pour fond sombre, rouge plus franc. */
+  --c-green: #3dd68c;
+  --c-amber: #ffca16;
+  --c-red: #ff5c61;
+  --c-blue: #70b8ff;
+  --c-gold: #f1c35b;
+  --c-fire: #ff8b3e;
   /* Camps d'un match dans les graphiques : bleu vif (extérieur, ou favori), rouge vif (domicile). */
   --blue: #3d8bff;
   --cyan: #35d0f2;
@@ -313,12 +314,12 @@ a.row:active { transform: scale(0.995); }
 .spin-xs { width: 11px; height: 11px; border-width: 1.6px; }
 .pill-group { display: inline-flex; align-items: center; gap: 6px; }
 
-/* Encarts : signaux du match, niveau de confiance de la fiche, page Badges. Tout en gris et blanc : carte noire au
-   contour neutre, icône fine grise dans un petit carré mat, titre blanc. */
+/* Encarts : signaux du match, niveau de confiance de la fiche, page Badges. Carte noire au contour neutre, petit carré
+   gris mat, dessin fin de la teinte du signal, titre blanc. */
 .signals { display: grid; gap: 10px; animation: rise 0.28s var(--ease) both; }
 .signal { --c: #8e8e93; position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 13px; align-items: start; padding: 14px 16px 15px 14px; border-radius: 18px; font-size: 13.5px; line-height: 1.5; color: var(--text-2); text-align: left;
   background: #000; box-shadow: inset 0 0 0 1px var(--surface-rim); }
-.signal-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: #e5e5e5; background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.signal-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--c); background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
 .signal-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 3px; color: var(--text); font: 600 14.5px/1.25 var(--sans); letter-spacing: -0.01em; }
 .signal-tag { margin-left: auto; display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 7px; font: 500 11.5px/1 var(--sans); letter-spacing: 0; white-space: nowrap;
   color: var(--c); background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 75%, transparent); }
@@ -591,13 +592,13 @@ a.row:hover .mark { transform: scale(1.06); }
 .pick-value { --pglow: rgba(61, 139, 255, 0.1); }
 .pick { position: relative; }
 /* « Déconseillé » et « Plus sûr » : pilules neutres à point rouge ou vert (au-dessus du cercle, dans le coin des cartes). */
-.pick-warn, .odds-warn { --c: #f0585a; display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: 8px; font: 500 12.5px/1 var(--sans); letter-spacing: -0.005em; white-space: nowrap;
+.pick-warn, .odds-warn { --c: var(--c-red); display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: 8px; font: 500 12.5px/1 var(--sans); letter-spacing: -0.005em; white-space: nowrap;
   color: var(--c); background: transparent; box-shadow: inset 0 0 0 1px var(--c); }
 .pick-warn::before, .odds-warn::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
 .pick-warn { position: absolute; top: 18px; right: 18px; }
 .pick-warn.safe { --c: var(--c-green); color: var(--c-green); }
 /* Point sur l'onglet : rouge déconseillé, vert plus sûr. */
-.tab-dot { --c: #f0585a; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+.tab-dot { --c: var(--c-red); position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
 .tab-dot.good { --c: var(--c-green); }
 .verdict-ring { display: grid; justify-items: center; gap: 12px; }
 /* « Déconseillé » du verdict : en haut à droite de la carte, comme sur les cartes de paris (au-dessus du cercle sur téléphone). */
