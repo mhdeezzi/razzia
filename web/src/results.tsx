@@ -44,6 +44,7 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
       <Section i={3} title="Joueurs" tag="projections">
         <Players r={r} g={g} />
       </Section>
+      <H2H r={r} g={g} />
       <p className="footnote">
         {r.meta ? `Données jusqu'au ${new Date(r.meta.dataThrough).toLocaleDateString('fr-FR')}, ${r.meta.gamesUsed.toLocaleString('fr-FR')} matchs analysés. ` : ''}
         Les probabilités décrivent le modèle, pas une certitude : à confronter aux annonces de dernière minute. Jouer comporte des risques.
@@ -201,6 +202,36 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
         </div>
       </dl>
     </section>
+  );
+}
+
+/** Confrontations des deux dernières saisons, comme au tennis : vainqueur, score, favori d'avant-match, date. */
+function H2H({ r, g }: { r: Result; g: Game }) {
+  const list = [...(r.h2h?.meetings ?? [])].sort((a, b) => b.date.localeCompare(a.date));
+  if (!list.length) return null;
+  const other = (tri: string) => (tri === g.home.tri ? g.away.tri : g.home.tri);
+  const name = (tri: string) => (tri === g.home.tri ? g.home.name : g.away.name);
+  const winOf = (m: (typeof list)[number]) => (m.hs > m.as ? m.homeTri : other(m.homeTri));
+  const homeWins = list.filter((m) => winOf(m) === g.home.tri).length;
+  return (
+    <Section i={3} title="Confrontations" tag={`${homeWins}-${list.length - homeWins} pour ${g.home.name}`}>
+      <ul className="t-list h2h-list">
+        {list.map((m) => {
+          const w = winOf(m);
+          const fav = m.expHome >= 0 ? m.homeTri : other(m.homeTri);
+          return (
+            <li key={m.date}>
+              <span className={`t-res ${w === g.home.tri ? 'w' : 'l'}`}>{name(w)}</span>
+              <span>
+                {other(m.homeTri)} @ {m.homeTri} <span className="mono">{m.as}-{m.hs}</span>
+              </span>
+              <span className="muted">{w === fav ? `favori : ${name(fav)}` : `surprise, favori : ${name(fav)}`}</span>
+              <span className="mono muted">{new Date(m.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
   );
 }
 

@@ -638,9 +638,10 @@ a.row:hover .mark { transform: scale(1.06); }
 
 /* En feu ce soir : carte noire par joueur, petite lumière de la couleur de l'équipe en haut à droite ; photo, nom,
    équipe et seuil ; la chance de gros match en grand chiffre blanc, une barre fine, les raisons en texte gris. */
+.feu-sec { background: radial-gradient(32% 260px at 100% 0%, rgba(255, 139, 62, 0.1), transparent 72%), #000 !important; }
 .feu { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .feu-card { --tc: #3a3d44; position: relative; border-radius: 20px; padding: 18px; display: grid; align-content: start; overflow: hidden;
-  background: radial-gradient(55% 60% at 100% 0%, color-mix(in srgb, var(--glow, var(--tc)) 14%, transparent), transparent 72%), #000 !important;
+  background: #000 !important;
   box-shadow: inset 0 0 0 1px var(--surface-rim) !important; animation: rise 0.28s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
 .feu-who { display: flex; align-items: center; gap: 12px; }
 .feu-id { min-width: 0; flex: 1; }
@@ -892,7 +893,9 @@ a.row:hover .mark { transform: scale(1.06); }
   .hero-name { font-size: 16px; }
   .mark-xl { width: 84px; height: 84px; }
   .sheet-bar { justify-content: stretch; margin-top: -10px; }
-  .btn-soiree { flex: 1; justify-content: center; }
+  /* Le bouton reste dans le cadre : texte sur deux lignes si besoin, un peu plus petit. */
+  .btn-soiree { flex: 1 1 100%; min-width: 0; max-width: 100%; justify-content: center; white-space: normal; text-align: center; height: auto; min-height: 44px; padding: 10px 14px; gap: 10px; font-size: 13.5px; line-height: 1.25; }
+  .btn-soiree .n { flex: none; white-space: nowrap; padding-left: 10px; font-size: 12px; }
   .sheet-hint { order: 2; width: 100%; text-align: center; }
   .batch { padding: 14px; }
   .batch-legend .muted { margin-left: 0; flex-basis: 100%; }
@@ -1033,6 +1036,8 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .t-res { font: 700 11px var(--sans); padding: 3px 7px; border-radius: 6px; text-align: center; min-width: 22px; }
 .t-res.w { color: #7fd6ac; background: rgba(48, 181, 124, 0.14); }
 .t-res.l { color: #eba7a3; background: var(--rose-soft); }
+.h2h-list li { grid-template-columns: 110px minmax(0, 1fr) auto auto; }
+.t-res { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 720px) {
   /* Téléphone : la pastille de simulation passe sous les joueurs, les noms gardent la largeur. */
   .t-row { grid-template-columns: auto minmax(0, 1fr); row-gap: 10px; }
