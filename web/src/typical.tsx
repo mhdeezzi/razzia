@@ -125,8 +125,7 @@ function smoothPath(p: Array<[number, number]>): string {
 }
 
 /**
- * Écart au score au fil du match, façon carte de chiffres : en tête, la plus grosse avance de chaque équipe et les
- * changements de leader ; courbe lisse (au-dessus de l'axe, l'équipe à domicile mène en rouge ; en dessous,
+ * Écart au score au fil du match : courbe lisse (au-dessus de l'axe, l'équipe à domicile mène en rouge ; en dessous,
  * l'extérieur en bleu), aire en dégradé, ligne qui suit le pointeur avec le score du moment.
  */
 function Flow({ t, g }: { t: Typical; g: Game }) {
@@ -139,8 +138,6 @@ function Flow({ t, g }: { t: Typical; g: Game }) {
   const y = (m: number) => H / 2 - (m / maxAbs) * (H / 2 - 14);
   const d = useMemo(() => smoothPath(pts.map((p) => [x(p.t), y(p.h - p.a)])), [pts]);
   const area = `${d}L${W},${H / 2}L0,${H / 2}Z`;
-  // Chiffres du match complet (le déroulé dessiné est échantillonné).
-  const kpi = { home: t.largestLead[0], away: t.largestLead[1], changes: t.leadChanges };
   const ref = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number>();
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
@@ -154,24 +151,6 @@ function Flow({ t, g }: { t: Typical; g: Game }) {
   const marks = [720, 1440, 2160, ...(end > REG ? [REG] : [])];
   return (
     <figure className="flow">
-      <div className="flow-kpis">
-        <div className="flow-kpi away">
-          <span>
-            <i className="sw sw-away" /> Plus grosse avance {g.away.tri}
-          </span>
-          <b className="mono">{kpi.away ? `+${kpi.away}` : '-'}</b>
-        </div>
-        <div className="flow-kpi home">
-          <span>
-            <i className="sw sw-home" /> Plus grosse avance {g.home.tri}
-          </span>
-          <b className="mono">{kpi.home ? `+${kpi.home}` : '-'}</b>
-        </div>
-        <div className="flow-kpi">
-          <span>Changements de leader</span>
-          <b className="mono">{kpi.changes}</b>
-        </div>
-      </div>
       <div ref={ref} className="flow-chart" onPointerMove={onMove} onPointerLeave={() => setHover(undefined)}>
         <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Écart au score pendant le match typique">
           <defs>

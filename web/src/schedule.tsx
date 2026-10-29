@@ -263,7 +263,7 @@ function HotFace({ id, team }: { id: number; team: Game['home'] }) {
 function Row({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i: number }) {
   const o = g.odds;
   return (
-    <Link href={matchPath(g)} className="row lit" style={{ '--i': i, '--glow': glow(teamColor(g.home)) } as CSSProperties}>
+    <Link href={matchPath(g)} className="row" style={{ '--i': i } as CSSProperties}>
       <div className="row-time">
         <span className="t">{g.state === 'pre' ? timeLocal(g.start) : `${g.away.score ?? '-'}-${g.home.score ?? '-'}`}</span>
         <TimeTag g={g} />
