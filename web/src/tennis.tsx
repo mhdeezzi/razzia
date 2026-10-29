@@ -856,8 +856,8 @@ function TennisVerdict({ r, win }: { r: TennisResult; win?: Outcome }) {
   const sets = r.sim.atLeast1[i];
   return (
     <section className={`verdict verdict-${tier}`}>
+      {win?.warn && <span className="odds-warn verdict-warn">{win.warn}</span>}
       <div className="verdict-ring">
-        {win?.warn && <span className="odds-warn">{win.warn}</span>}
         <Ring value={p} format={pct0} label="Victoire" />
       </div>
       <div>

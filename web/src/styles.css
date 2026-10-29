@@ -274,16 +274,22 @@ a.row:active { transform: scale(0.995); }
 .vs-at { font-size: 13px; color: var(--text-3); }
 .cell-odds { text-align: center; font: 500 15px var(--mono); letter-spacing: -0.02em; color: var(--text); }
 .cell-total { text-align: center; font: 500 15px var(--mono); letter-spacing: -0.02em; color: var(--text-2); }
-/* Forme : pilule sombre, logo (ou photo) et flèche colorée par équipe en mouvement ; flamme pour le joueur en feu. */
-.forme { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 9px 0 4px; border-radius: 10px; vertical-align: middle; background: var(--chip-bg); box-shadow: var(--chip-shadow); }
-.forme-item { display: inline-flex; align-items: center; gap: 3px; }
-.forme .mark-sm, .forme-face { width: 22px; height: 22px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+/* Forme : logo (ou photo) et petite pastille en diagonale ; deux équipes en mouvement : les deux en escalier. */
+.forme { position: relative; display: inline-block; width: 46px; height: 36px; vertical-align: middle; }
+.forme-item { position: absolute; left: 6px; top: 2px; }
+.forme.duo .forme-item:first-child { left: 0; top: 0; }
+.forme.duo .forme-item:last-child { left: 16px; top: 10px; }
+.forme.duo .forme-item:first-child .forme-chip { right: auto; bottom: auto; left: -8px; top: -5px; } /* pastilles sur les coins extérieurs */
+.forme-chip { z-index: 1; }
+.forme .mark-sm, .forme-face { width: 28px; height: 28px; box-shadow: 0 0 0 2px var(--bg); }
+.forme.duo .mark-sm { width: 24px; height: 24px; }
 .forme-face { display: block; border-radius: 50%; overflow: hidden; background: var(--panel-4); }
 .forme-face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; transform: scale(1.35); transform-origin: 50% 20%; }
-.forme-chip { display: inline-grid; place-items: center; }
-.forme-item.up .forme-chip { color: var(--c-green); }
-.forme-item.down .forme-chip { color: var(--c-red); }
-.forme-item.hot .forme-chip { color: var(--c-fire); }
+.forme-chip { position: absolute; right: -7px; bottom: -5px; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; background: #0c0c0e;
+  box-shadow: 0 0 0 1.5px var(--bg), inset 0 0 0 1px color-mix(in srgb, currentColor 45%, transparent); }
+.forme-item.up .forme-chip { color: var(--m-green); }
+.forme-item.down .forme-chip { color: var(--m-rose); }
+.forme-item.hot .forme-chip { color: var(--m-fire); }
 .forme-none { color: var(--text-3); }
 /* Badges du programme : pas de fond, contour et texte de la teinte (bleu simulé, vert assuré, ambre pile ou face, rouge
    échec), icône ou point, pourcentage en chiffres à chasse fixe. */
@@ -585,15 +591,18 @@ a.row:hover .mark { transform: scale(1.06); }
 .pick-value { --pglow: rgba(61, 139, 255, 0.1); }
 .pick { position: relative; }
 /* « Déconseillé » et « Plus sûr » : pilules neutres à point rouge ou vert (au-dessus du cercle, dans le coin des cartes). */
-.pick-warn, .odds-warn { --c: #e5484d; display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: 8px; font: 500 12.5px/1 var(--sans); letter-spacing: -0.005em; white-space: nowrap;
-  color: #ff9592; background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 55%, transparent); }
+.pick-warn, .odds-warn { --c: #f0585a; display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: 8px; font: 500 12.5px/1 var(--sans); letter-spacing: -0.005em; white-space: nowrap;
+  color: var(--c); background: transparent; box-shadow: inset 0 0 0 1px var(--c); }
 .pick-warn::before, .odds-warn::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
 .pick-warn { position: absolute; top: 18px; right: 18px; }
 .pick-warn.safe { --c: var(--c-green); color: var(--c-green); }
 /* Point sur l'onglet : rouge déconseillé, vert plus sûr. */
-.tab-dot { --c: #e5484d; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+.tab-dot { --c: #f0585a; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
 .tab-dot.good { --c: var(--c-green); }
 .verdict-ring { display: grid; justify-items: center; gap: 12px; }
+/* « Déconseillé » du verdict : en haut à droite de la carte, comme sur les cartes de paris (au-dessus du cercle sur téléphone). */
+.verdict { position: relative; }
+.verdict-warn { position: absolute; top: 18px; right: 18px; }
 .pick-risky { --pglow: rgba(229, 72, 77, 0.1); }
 .pick-tags { display: flex; align-items: center; gap: 10px; }
 .kind { display: inline-flex; align-items: center; gap: 7px; font: 800 11px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 9px; border-radius: 6px; }
@@ -1052,7 +1061,9 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .box-head { border-bottom: 1px solid var(--line); font: 600 11.5px var(--sans); letter-spacing: 0.16em; }
 .section-head h3 { font: 600 12px var(--sans); letter-spacing: 0.16em; }
 .verdict-team { font: 900 clamp(30px, 3.8vw, 48px)/0.92 var(--display); font-stretch: 78%; letter-spacing: 0; text-transform: uppercase; }
-.pick h4 { font: 900 clamp(32px, 4.4vw, 60px)/0.92 var(--display); font-stretch: 78%; letter-spacing: 0; text-transform: uppercase; }
+.pick h4 { display: flex; align-items: center; gap: 14px; padding-right: 120px; font: 900 clamp(28px, 3.6vw, 48px)/0.95 var(--display); font-stretch: 78%; letter-spacing: 0; text-transform: uppercase; }
+.pick h4 .mark, .pick h4 .t-ava { flex: none; }
+@media (max-width: 720px) { .verdict-warn { position: static; justify-self: center; } .pick h4 { padding-right: 0; justify-content: center; font-size: 30px; } }
 .kind { font: 600 11px var(--sans); letter-spacing: 0.08em; border-radius: 8px; }
 .odds-pill { align-items: center; height: 32px; padding: 0 14px; font: 500 13.5px/1 var(--sans); border: 0; border-radius: 10px; background: var(--chip-bg); box-shadow: var(--chip-shadow); }
 .odds-pill b { font: 600 14px var(--mono); letter-spacing: -0.03em; color: #fff; }

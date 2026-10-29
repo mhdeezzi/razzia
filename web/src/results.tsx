@@ -148,8 +148,8 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
   const win = useMemo(() => buildCategories(r, g).flatMap((c) => c.items).find((o) => o.id === 'win'), [r, g]);
   return (
     <section className={`verdict verdict-${c.tier}`}>
+      {win?.warn && <span className="odds-warn verdict-warn">{win.warn}</span>}
       <div className="verdict-ring">
-        {win?.warn && <span className="odds-warn">{win.warn}</span>}
         <Ring value={pFav} format={pctInt} label="Victoire" />
       </div>
       <div>
@@ -263,6 +263,18 @@ export function PickOdds({ o }: { o?: Outcome }) {
   );
 }
 
+/** À gauche du titre d'un pari : logo de l'équipe, ou photo du joueur (initiales si elle manque). */
+function PickWho({ who }: { who: NonNullable<Outcome['who']> }) {
+  const [failed, setFailed] = useState(0);
+  if (who.tri) return <TeamMark team={{ tri: who.tri, color: who.color, logo: who.logo }} size="md" />;
+  const srcs = [who.photo, who.alt].filter((x): x is string => !!x);
+  return (
+    <span className="t-ava t-ava-md" aria-hidden="true">
+      {failed < srcs.length ? <img key={srcs[failed]} src={srcs[failed]} alt="" loading="lazy" onError={() => setFailed(failed + 1)} /> : (who.name ?? '').split(' ').map((x) => x[0]).slice(0, 2).join('')}
+    </span>
+  );
+}
+
 function OutcomeCard({ o, n }: { o: Outcome; n: number }) {
   return (
     <article className="pick">
@@ -270,7 +282,10 @@ function OutcomeCard({ o, n }: { o: Outcome; n: number }) {
       {!o.warn && o.safe && <span className="pick-warn safe">{o.safe}</span>}
       <Ring value={o.p} format={pctInt} label="Fréquence" />
       <div>
-        <h4>{o.title}</h4>
+        <h4>
+          {o.who && <PickWho who={o.who} />}
+          <span>{o.title}</span>
+        </h4>
         {o.odds != null && (
           <span className="odds-pill">
             Cote <b>{dec(o.odds)}</b>
