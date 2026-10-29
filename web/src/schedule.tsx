@@ -1,7 +1,7 @@
 // Programme : les matchs des 7 prochains jours (heure de New York), en liste ou en grille, filtrés par statut.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CaretRight, Check, Flame, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
-import { dayLong, isToday, line, listSims, loadProgramme, matchPath, odds, pct0, simKey, teamColor, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
+import { dayLong, isToday, listSims, loadProgramme, matchPath, odds, pct0, simKey, teamColor, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
 import { Empty, glow, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
 import { flipP } from './picks.ts';
@@ -320,7 +320,6 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
       <div className="card-foot">
         <span>
           {o?.mlAway != null ? `${odds(o.mlAway)} / ${odds(o.mlHome)}` : 'Cotes à venir'}
-          {o?.total != null ? `  |  ${line(o.total)}` : ''}
         </span>
         <SimPill g={g} sim={sim} run={run} />
       </div>
