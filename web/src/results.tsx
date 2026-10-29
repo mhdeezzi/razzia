@@ -89,13 +89,13 @@ function confidenceOf(r: Result, g: Game): Confidence {
 function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
   if (c.tier === 'sure')
     return (
-      <Callout tone="badge-sure" icon={<ShieldCheck size={19} weight="bold" />} title="Razzia assuré">
+      <Callout tone="badge-sure" icon={<ShieldCheck size={19} weight="light" />} title="Razzia assuré">
         <p>Quand le moteur est aussi sûr de lui, il a vu juste 85 % du temps sur la saison passée (un match sur quatre).</p>
       </Callout>
     );
   if (c.tier === 'flip')
     return (
-      <Callout tone="badge-flip" icon={<Scales size={21} weight="thin" />} title="Pile ou face">
+      <Callout tone="badge-flip" icon={<Scales size={20} weight="light" />} title="Pile ou face">
         <p>
           {c.early && c.p >= 0.66
             ? `Début de saison : moins de 5 matchs joués, les équipes repartent de zéro. ${g[c.side].name} reste favori, mais rien n'est sûr.`
@@ -117,7 +117,7 @@ function MarketBadge({ c, g }: { c: Confidence; g: Game }) {
   if (!c.disagree || c.book == null) return null;
   const other = g[c.side === 'home' ? 'away' : 'home'];
   return (
-    <Callout tone="badge-market" icon={<ArrowsLeftRight size={19} weight="bold" />} title="Désaccord avec le marché">
+    <Callout tone="badge-market" icon={<ArrowsLeftRight size={19} weight="light" />} title="Désaccord avec le marché">
       <p>
         Le marché voit <b>{other.name}</b> favori ({pct(1 - c.book)}). En début de saison, sur des écarts aussi grands, le moteur
         n'a eu raison que 5 fois sur 10 la saison passée : prudence.

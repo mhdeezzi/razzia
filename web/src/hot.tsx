@@ -37,7 +37,7 @@ function Face({ p, team }: { p: Player; team: Game['home'] }) {
 
 /**
  * « En feu ce soir » : les joueurs que les simulations voient le plus souvent faire un gros match, et pourquoi.
- * Carte noire au contour neutre, petite lumière de la couleur de l'équipe en haut à droite ; chance de gros match, seuil en grand, jauge, raisons.
+ * Carte noire au contour neutre, petite lumière de la couleur de l'équipe en haut à droite ; la chance en grand chiffre, barre fine, raisons en texte.
  */
 export function HotStrip({ r, g }: { r: Result; g: Game }) {
   // Les quatre plus chauds, rangés par chance de gros match : 1 en haut à gauche, 2 en haut à droite, 3 et 4 dessous.
@@ -65,29 +65,17 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
                 <Face p={p} team={team} />
                 <div className="feu-id">
                   <p className="feu-name">{p.name}</p>
-                  <p className="feu-team">{team.name}</p>
+                  <p className="feu-team">
+                    {team.name} · seuil {h.threshold}+ pts ({n1(h.base)} d'habitude)
+                  </p>
                 </div>
-                <span className="feu-p">{pct0(h.pBig)}</span>
               </div>
-              <div className="feu-bet">
-                <p className="feu-line">
-                  {h.threshold}+<small>pts</small>
-                </p>
-                <p className="feu-base">{n1(h.base)} pts d'habitude</p>
-              </div>
+              <p className="feu-lab">Chance de gros match</p>
+              <p className="feu-p">{pct0(h.pBig)}</p>
               <div className="feu-meter" role="img" aria-label={`Chance de gros match : ${pct0(h.pBig)}`}>
                 <span style={{ width: `${Math.max(6, (100 * h.pBig) / top)}%` }} />
               </div>
-              {h.reasons.length > 0 && (
-                <ul className="feu-why">
-                  {h.reasons.slice(0, 3).map((t) => (
-                    <li key={t} title={t}>
-                      {short(t)}
-                      {detail(t) && <span>{detail(t)}</span>}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {h.reasons.length > 0 && <p className="feu-why">{h.reasons.slice(0, 3).map((t) => (detail(t) ? `${short(t)} : ${detail(t)}` : short(t))).join(' · ')}</p>}
             </li>
           );
         })}

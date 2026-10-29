@@ -1,7 +1,7 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowLeft, CaretRight, Cat, HouseLine, HouseSimple, ListBullets, Mountains, Scales, ShieldCheck, SquaresFour, TennisBall, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
+import { ArrowLeft, CaretRight, Ghost, HouseLine, HouseSimple, ListBullets, Mountains, Scales, ShieldCheck, SquaresFour, TennisBall, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
 import { Callout, Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgress } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
@@ -770,7 +770,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {cat && (
         <div className="signal signal-cat">
           <span className="signal-icon">
-            <Cat size={18} weight="fill" />
+            <Ghost size={19} weight="light" />
           </span>
           <div>
             <p className="signal-title">Chat noir pour {r[cat.victim].name}</p>
@@ -781,7 +781,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {home.map((p) => (
         <div key={`home-${p.name}`} className="signal signal-home">
           <span className="signal-icon">
-            <HouseSimple size={18} weight="fill" />
+            <HouseSimple size={19} weight="light" />
           </span>
           <div>
             <p className="signal-title">
@@ -796,7 +796,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {goal.length > 0 && (
         <div className="signal signal-goal">
           <span className="signal-icon">
-            <Trophy size={18} weight="fill" />
+            <Trophy size={19} weight="light" />
           </span>
           <div>
             <p className="signal-title">
@@ -814,7 +814,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {surf && (
         <div className="signal signal-surface">
           <span className="signal-icon">
-            <Mountains size={18} weight="fill" />
+            <Mountains size={19} weight="light" />
           </span>
           <div>
             <p className="signal-title">
@@ -830,7 +830,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
         const wins = p.form.filter((m) => m.won).length;
         return (
           <div key={p.name} className={`signal ${p.trend === 'up' ? 'signal-up' : 'signal-down'}`}>
-            <span className="signal-icon">{p.trend === 'up' ? <TrendUp size={18} weight="bold" /> : <TrendDown size={18} weight="bold" />}</span>
+            <span className="signal-icon">{p.trend === 'up' ? <TrendUp size={19} weight="light" /> : <TrendDown size={19} weight="light" />}</span>
             <div>
               <p className="signal-title">
                 <Avatar name={p.name} photo={p.photo} alt={p.photoAlt} size="sm" /> {p.name} {p.trend === 'up' ? 'en hausse' : 'en baisse'}
@@ -870,12 +870,12 @@ function TennisVerdict({ r, win }: { r: TennisResult; win?: Outcome }) {
         </p>
         <PickOdds o={win} />
         {tier === 'sure' && (
-          <Callout tone="badge-sure" icon={<ShieldCheck size={19} weight="bold" />} title="Razzia assuré">
+          <Callout tone="badge-sure" icon={<ShieldCheck size={19} weight="light" />} title="Razzia assuré">
             <p>Quand Razzia est aussi sûr, le favori a gagné 88 % du temps sur 2024 et 2025 (un match sur six).</p>
           </Callout>
         )}
         {tier === 'flip' && (
-          <Callout tone="badge-flip" icon={<Scales size={21} weight="thin" />} title="Pile ou face">
+          <Callout tone="badge-flip" icon={<Scales size={20} weight="light" />} title="Pile ou face">
             <p>
               {flip === 'dogUp'
                 ? `${dog.name} est en hausse : avec un outsider dans cette forme, le favori perd plus souvent que prévu.`
