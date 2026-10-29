@@ -294,9 +294,9 @@ a.row:active { transform: scale(0.995); }
   transition: background-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.15s var(--ease); }
 .conf-pill b { font: 600 13px var(--mono); letter-spacing: -0.03em; color: inherit; }
 .conf-pill.wait .wait-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
-/* Badge de simulation : bouton mat comme les autres, texte de la couleur du pari (ambre pile ou face, bleu sinon). */
+/* Badge de simulation : texte blanc pile ou face, bleu sinon. */
 .conf-pill.sim { --c: #5b95f0; }
-.conf-pill.sim.flip { --c: var(--c-amber); }
+.conf-pill.sim.flip { --c: #f4f4f2; }
 .conf-pill.sim > svg { color: var(--c); }
 .conf-pill.fail { --c: var(--c-red); }
 @media (hover: hover) and (pointer: fine) { a.row:hover .conf-pill.sim, a.card:hover .conf-pill.sim { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); } }
