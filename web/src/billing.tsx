@@ -1,9 +1,11 @@
-// Abonnement et compte : pages prêtes mais pas en ligne (activées par VITE_BILLING=1 au build, voir main.tsx).
-// Rien n'est encore branché : ni paiement, ni connexion. Les prix sont indicatifs, à valider avant l'ouverture.
-import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+// Compte (en ligne) : connexion par e-mail avec Supabase. Abonnement : page prête mais pas en ligne (VITE_BILLING=1),
+// paiement pas encore branché ; les prix sont indicatifs, à valider avant l'ouverture.
+import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import type { User } from '@supabase/supabase-js';
+import { supabase } from './supabase.ts';
 import {
   AppleLogo, ArrowUpRight, Bell, CalendarCheck, ChartLineUp, Check, CreditCard, Crown, Envelope, GoogleLogo, Infinity as InfinityIcon,
-  Lightning, LockKey, Receipt, Scales, ShieldCheck, Sparkle, Star, UserCircle,
+  Lightning, LockKey, Receipt, Scales, ShieldCheck, SignOut, Sparkle, Star, UserCircle,
 } from '@phosphor-icons/react';
 import { Link, Segmented } from './ui.tsx';
 
@@ -128,115 +130,146 @@ export function PricingPage() {
   );
 }
 
-/** Compte : connexion ou création, puis aperçu de l'espace abonné (formule, moyen de paiement, factures). */
+type AuthMode = 'in' | 'up' | 'forgot' | 'reset';
+const AUTH_FR: Record<string, string> = {
+  'Invalid login credentials': 'E-mail ou mot de passe incorrect.',
+  'Email not confirmed': "Confirme d'abord ton e-mail (lien reçu par mail).",
+  'User already registered': 'Un compte existe déjà avec cet e-mail.',
+};
+const authError = (m: string) => AUTH_FR[m] ?? m;
+
+/** Compte : connexion, création, mot de passe oublié (Supabase), puis l'espace du compte. Pas encore de paiement. */
 export function AccountPage() {
-  const [mode, setMode] = useState<'in' | 'up'>('in');
-  const [signed, setSigned] = useState(false);
+  const [mode, setMode] = useState<AuthMode>('in');
+  const [user, setUser] = useState<User | null>(null);
+  const [ready, setReady] = useState(false);
   const [email, setEmail] = useState('');
-  const submit = (e: FormEvent) => {
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string }>();
+  useEffect(() => {
+    if (!supabase) return setReady(true);
+    void supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null);
+      setReady(true);
+    });
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      if (event === 'PASSWORD_RECOVERY') setMode('reset');
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setSigned(true); // aperçu seulement : aucune connexion n'est encore branchée
+    if (!supabase) return;
+    setBusy(true);
+    setMsg(undefined);
+    const back = `${location.origin}/compte`;
+    const r =
+      mode === 'in'
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : mode === 'up'
+          ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: back } })
+          : mode === 'forgot'
+            ? await supabase.auth.resetPasswordForEmail(email, { redirectTo: back })
+            : await supabase.auth.updateUser({ password });
+    setBusy(false);
+    if (r.error) return setMsg({ ok: false, text: authError(r.error.message) });
+    if (mode === 'up' && !('session' in r.data && r.data.session)) setMsg({ ok: true, text: 'Compte créé : clique sur le lien reçu par e-mail pour le confirmer.' });
+    if (mode === 'forgot') setMsg({ ok: true, text: 'Si un compte existe, un lien pour changer le mot de passe vient de partir par e-mail.' });
+    if (mode === 'reset') {
+      setMsg({ ok: true, text: 'Mot de passe changé.' });
+      setMode('in');
+    }
+    setPassword('');
   };
-  if (signed)
+  if (!ready) return <div className="page"><span className="sk sk-hero" aria-busy="true" /></div>;
+  if (user && mode !== 'reset')
     return (
       <div className="page">
         <header className="page-head">
           <span className="caps">Mon compte</span>
           <h1>Bonjour</h1>
-          <p className="lede">{email || 'ton@email.fr'}</p>
+          <p className="lede">{user.email}</p>
         </header>
         <div className="account-grid">
           <section className="panel account-card">
             <span className="caps">Formule</span>
             <p className="account-plan">
-              <Lightning size={18} weight="fill" /> Razzia Pro
+              <Lightning size={18} weight="fill" /> Découverte
             </p>
-            <p className="muted small">Prochain paiement le 1er décembre : 9,99 €</p>
-            <div className="account-actions">
-              {PRICING && (
+            <p className="muted small">Gratuit. Les abonnements arrivent bientôt.</p>
+            {PRICING && (
+              <div className="account-actions">
                 <Link href="/abonnement" className="btn glass">
-                  Changer de formule
+                  Voir les formules
                 </Link>
-              )}
-              <button className="btn btn-quiet">Résilier</button>
-            </div>
+              </div>
+            )}
           </section>
           <section className="panel account-card">
-            <span className="caps">Moyen de paiement</span>
-            <div className="pay-card">
-              <CreditCard size={22} />
-              <div>
-                <p className="strong">Visa •••• 4242</p>
-                <p className="muted small">Expire 08/29</p>
-              </div>
-            </div>
+            <span className="caps">Compte</span>
+            <p className="muted small">Membre depuis le {new Date(user.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             <div className="account-actions">
-              <button className="btn glass">Modifier</button>
+              <button className="btn glass" onClick={() => void supabase?.auth.signOut()}>
+                <SignOut size={16} /> Se déconnecter
+              </button>
             </div>
-          </section>
-          <section className="panel account-card wide">
-            <span className="caps">Factures</span>
-            <ul className="invoices">
-              {['1er novembre', '1er octobre', '1er septembre'].map((d) => (
-                <li key={d}>
-                  <Receipt size={18} />
-                  <span>{d}</span>
-                  <span className="mono">9,99 €</span>
-                  <span className="pill-tag final">Payée</span>
-                </li>
-              ))}
-            </ul>
           </section>
         </div>
-        <p className="note center">Aperçu : la connexion et le paiement ne sont pas encore branchés.</p>
       </div>
     );
+  const titles: Record<AuthMode, [string, string, string]> = {
+    in: ['Connexion', 'Retrouve tes simulations et ton abonnement.', 'Se connecter'],
+    up: ['Créer un compte', 'Un compte pour simuler sans limite.', 'Créer mon compte'],
+    forgot: ['Mot de passe oublié', 'On t’envoie un lien par e-mail pour le changer.', 'Envoyer le lien'],
+    reset: ['Nouveau mot de passe', 'Choisis ton nouveau mot de passe.', 'Enregistrer'],
+  };
+  const [title, lede, cta] = titles[mode];
   return (
     <div className="page">
       <div className="auth mesh mesh-auth">
         <form className="auth-card panel" onSubmit={submit}>
           <UserCircle size={34} weight="light" className="auth-icon" />
-          <h1>{mode === 'in' ? 'Connexion' : 'Créer un compte'}</h1>
-          <p className="muted">{mode === 'in' ? 'Retrouve tes simulations et ton abonnement.' : 'Un compte pour simuler sans limite.'}</p>
-          <div className="auth-social">
-            <button type="button" className="btn glass" onClick={() => setSigned(true)}>
-              <AppleLogo size={18} weight="fill" /> Continuer avec Apple
-            </button>
-            <button type="button" className="btn glass" onClick={() => setSigned(true)}>
-              <GoogleLogo size={18} weight="bold" /> Continuer avec Google
-            </button>
-          </div>
-          <p className="auth-or">
-            <span>ou</span>
-          </p>
-          <label className="field">
-            <span>E-mail</span>
-            <span className="field-in">
-              <Envelope size={18} />
-              <input type="email" required autoComplete="email" placeholder="ton@email.fr" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </span>
-          </label>
-          <label className="field">
-            <span>Mot de passe</span>
-            <span className="field-in">
-              <LockKey size={18} />
-              <input type="password" required minLength={8} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} placeholder="8 caractères minimum" />
-            </span>
-          </label>
+          <h1>{title}</h1>
+          <p className="muted">{lede}</p>
+          {!supabase && <p className="auth-msg">Les comptes ne sont pas encore configurés sur ce site.</p>}
+          {mode !== 'reset' && (
+            <label className="field">
+              <span>E-mail</span>
+              <span className="field-in">
+                <Envelope size={18} />
+                <input type="email" required autoComplete="email" placeholder="ton@email.fr" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </span>
+            </label>
+          )}
+          {mode !== 'forgot' && (
+            <label className="field">
+              <span>Mot de passe</span>
+              <span className="field-in">
+                <LockKey size={18} />
+                <input type="password" required minLength={8} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} placeholder="8 caractères minimum" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </span>
+            </label>
+          )}
           {mode === 'in' && (
-            <button type="button" className="auth-link">
+            <button type="button" className="auth-link" onClick={() => { setMode('forgot'); setMsg(undefined); }}>
               Mot de passe oublié ?
             </button>
           )}
-          <button type="submit" className="btn glass glass-brand btn-lg">
-            {mode === 'in' ? 'Se connecter' : 'Créer mon compte'}
+          {msg && <p className={`auth-msg${msg.ok ? ' ok' : ''}`} role="status">{msg.text}</p>}
+          <button type="submit" className="btn glass glass-brand btn-lg" disabled={busy || !supabase}>
+            {busy && <span className="spin" />}
+            {cta}
           </button>
-          <p className="auth-switch">
-            {mode === 'in' ? 'Pas encore de compte ?' : 'Déjà un compte ?'}{' '}
-            <button type="button" className="auth-link" onClick={() => setMode(mode === 'in' ? 'up' : 'in')}>
-              {mode === 'in' ? 'Créer un compte' : 'Se connecter'}
-            </button>
-          </p>
+          {mode !== 'reset' && (
+            <p className="auth-switch">
+              {mode === 'in' ? 'Pas encore de compte ?' : 'Déjà un compte ?'}{' '}
+              <button type="button" className="auth-link" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setMsg(undefined); }}>
+                {mode === 'in' ? 'Créer un compte' : 'Se connecter'}
+              </button>
+            </p>
+          )}
         </form>
       </div>
     </div>
