@@ -289,19 +289,17 @@ a.row:active { transform: scale(0.995); }
 .forme-none { color: var(--text-3); }
 /* Badges du programme : pas de fond, contour et texte de la teinte (bleu simulé, vert assuré, ambre pile ou face, rouge
    échec), icône ou point, pourcentage en chiffres à chasse fixe. */
-.conf-pill { --c: #8e8e93; display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px 0 10px; border-radius: 8px; font: 500 13px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; white-space: nowrap;
-  color: var(--c); background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 75%, transparent);
-  transition: color 0.2s, background-color 0.2s, box-shadow 0.2s var(--ease), transform 0.15s var(--ease); }
+.conf-pill { --c: #8e8e93; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 10px; font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; white-space: nowrap;
+  color: var(--c); background-color: rgba(255, 255, 255, 0.08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: background-color 0.2s var(--ease), transform 0.15s var(--ease); }
 .conf-pill b { font: 600 13px var(--mono); letter-spacing: -0.03em; color: inherit; }
-.pill-dot, .conf-pill.wait .wait-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
-.pill-ic { flex: none; color: var(--c); }
-.conf-pill.sim { --c: var(--c-blue); }
-.conf-pill.sim.sure { --c: var(--c-green); }
+.conf-pill.wait .wait-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+/* Badge de simulation : bouton mat comme les autres, texte de la couleur du pari (ambre pile ou face, bleu sinon). */
+.conf-pill.sim { --c: #5b95f0; }
 .conf-pill.sim.flip { --c: var(--c-amber); }
 .conf-pill.sim > svg { color: var(--c); }
 .conf-pill.fail { --c: var(--c-red); }
-.conf-pill.fail > svg { color: var(--c-red); }
-@media (hover: hover) and (pointer: fine) { a.row:hover .conf-pill.sim { box-shadow: inset 0 0 0 1px var(--c); } }
+@media (hover: hover) and (pointer: fine) { a.row:hover .conf-pill.sim, a.card:hover .conf-pill.sim { background-color: rgba(255, 255, 255, 0.12); } }
 /* « Simuler » : petit bouton de verre. */
 .conf-pill.go { height: 28px; padding: 0 14px; border-radius: 8px; font-weight: 600; color: #fff; }
 .conf-pill.wait { --c: #8e8e93; color: var(--text-2); }
@@ -1145,9 +1143,9 @@ a.row:hover .t-ava { transform: scale(1.06); }
 /* ——— Téléphone ———
    En-têtes centrés, sélecteurs pleine largeur, sports regroupés dans la pilule de verre en haut, liens de pages masqués. */
 @media (max-width: 720px) {
-  /* Téléphone : Compte (icône seule) juste avant les sports, Méthode masquée. */
-  .top-right { order: 1; margin-left: auto; }
-  .sports { order: 2; }
+  /* Téléphone : logo à gauche, sports au milieu, Compte (icône seule) dans le coin droit, Méthode masquée. */
+  .sports { margin-left: auto; }
+  .top-right { margin-left: 8px; }
   .top-methode { display: none; }
   .top-account { width: 40px; height: 40px; padding: 0; justify-content: center; }
   .top-account .lbl { display: none; }
