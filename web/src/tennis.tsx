@@ -1,8 +1,8 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowLeft, CaretRight, Cat, Coin, HouseLine, HouseSimple, ListBullets, Mountains, SealCheck, SquaresFour, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
-import { Callout, Empty, Link, PageHero, PillMark, ProgressLine, Ring, SaferBet, Segmented, SimProgress } from './ui.tsx';
+import { ArrowLeft, CaretRight, Cat, HouseLine, HouseSimple, ListBullets, Mountains, Scales, ShieldCheck, SquaresFour, TennisBall, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
+import { Callout, Empty, Link, PageHero, PillMark, ProgressLine, Ring, Segmented, SimProgress } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
@@ -77,7 +77,7 @@ const initials = (n: string) => n.split(' ').map((x) => x[0]).slice(0, 2).join('
 const atpHeadshot = (code: string) => `https://www.atptour.com/-/media/alias/player-headshot/${code.toLowerCase()}`;
 
 /** Photo du joueur : officielle ATP, sinon Wikipédia, sinon ses initiales. */
-export function Avatar({ name, photo, alt, size = 'md' }: { name: string; photo?: string; alt?: string; size?: 'sm' | 'row' | 'md' | 'lg' }) {
+export function Avatar({ name, photo, alt, size = 'md' }: { name: string; photo?: string; alt?: string; size?: 'sm' | 'row' | 'md' | 'lg' | 'xl' }) {
   const srcs = [photo, alt].filter((x): x is string => !!x);
   const [i, setI] = useState(0);
   return (
@@ -336,7 +336,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
             <Empty title="Pas de match ATP coté ce jour-là." />
           ) : view === 'liste' ? (
             // Toute la journée dans une seule carte, comme la NBA ; chaque tournoi séparé par une barre blanche.
-            <section className="league-card" key={`${current}-${status}`}>
+            <section className="league-card lit lit-atp" key={`${current}-${status}`}>
               <div className="league-top">
                 <h2>ATP</h2>
                 <span className="badge-n">{shown.length}</span>
@@ -559,6 +559,88 @@ function useTennisSim(id: string, day: string) {
   return { state, busy, launch, since };
 }
 
+/**
+ * Bandeau de la fiche, comme au basket : fond lisse vert et bleu, tournoi et tour, les deux joueurs (photo, nom,
+ * classement et pays), « VS » et l'heure avant le match, sets gagnés pendant et après. Les joueurs viennent de la
+ * simulation, sinon du programme du jour.
+ */
+function TennisHero({ id, r }: { id: string; r?: TennisResult }) {
+  const [slate, setSlate] = useState<{ matches: SlateMatch[]; players?: Record<string, PlayerCard> }>();
+  useEffect(() => {
+    void api('?slate=1').then(setSlate, () => setSlate({ matches: [] }));
+  }, []);
+  const m = slate?.matches.find((x) => x.id === id);
+  if (!r && !m) return slate ? null : <span className="sk sk-hero" aria-busy="true" />;
+  const st = m ? stateOf(m) : 'pre';
+  const league = m?.league ?? '';
+  const tourney = r?.tourney ?? tourneyOf(league);
+  const round = r?.round ?? roundOf(league);
+  const start = r?.start ?? m!.start;
+  const player = (k: 'home' | 'away') => {
+    const name = r?.[k].name ?? m![k];
+    const c = slate?.players?.[name];
+    const photo = r?.[k].photo ?? (c?.atp ? atpHeadshot(c.atp) : undefined);
+    const alt = r?.[k].photoAlt ?? c?.wiki ?? undefined;
+    const rank = r?.[k].rank ?? c?.rank;
+    const ioc = r?.[k].ioc ?? c?.ioc;
+    const lost = m?.live?.winner && m.live.winner !== k;
+    return (
+      <div className={`hero-team ${k}${lost ? ' t-lost' : ''}`}>
+        <Avatar name={name} photo={photo} alt={alt} size="xl" />
+        <div>
+          <p className="hero-name">{name}</p>
+          <p className="hero-rec">{[rank != null ? `n° ${rank}` : '', ioc ?? ''].filter(Boolean).join(' | ')}</p>
+        </div>
+      </div>
+    );
+  };
+  return (
+    <header className="hero mesh mesh-atp">
+      <div className="hero-meta">
+        <span>
+          <TennisBall size={15} /> ATP
+        </span>
+        {tourney && (
+          <>
+            <i />
+            <span>{tourney}</span>
+          </>
+        )}
+        {round && (
+          <>
+            <i />
+            <span>{ROUND_FR[round] ?? round}</span>
+          </>
+        )}
+      </div>
+      <div className="hero-grid">
+        {player('home')}
+        <div className="hero-mid">
+          {st === 'pre' || !m?.live ? (
+            <>
+              <span className="hero-vs" aria-hidden="true">
+                VS
+              </span>
+              <span className="hero-time">{timeLocal(start)}</span>
+            </>
+          ) : (
+            <>
+              <span className="hero-score">
+                {setsWon(m.live, 'home')}
+                <span className="muted">:</span>
+                {setsWon(m.live, 'away')}
+              </span>
+              <span className="hero-time">{st === 'in' ? 'Direct' : 'Final'}</span>
+            </>
+          )}
+        </div>
+        {player('away')}
+      </div>
+      <p className="hero-date">{new Date(start).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+    </header>
+  );
+}
+
 export function TennisMatchPage({ day, id }: { day: string; id: string }) {
   const { state, busy, launch, since } = useTennisSim(id, day);
   return (
@@ -566,6 +648,7 @@ export function TennisMatchPage({ day, id }: { day: string; id: string }) {
       <Link href="/tennis" className="back">
         <ArrowLeft size={16} /> Programme ATP
       </Link>
+      {state.status !== 'loading' && <TennisHero id={id} r={state.status === 'done' ? state.result : undefined} />}
       {state.status === 'loading' && <span className="sk sk-hero" aria-busy="true" />}
       {state.status === 'done' && <TennisResults r={state.result} />}
       {(state.status === 'queued' || state.status === 'running') && (
@@ -787,20 +870,20 @@ function TennisVerdict({ r, win }: { r: TennisResult; win?: Outcome }) {
         </p>
         <PickOdds o={win} />
         {tier === 'sure' && (
-          <Callout tone="badge-sure" icon={<SealCheck size={18} weight="fill" />} title="Razzia assuré" tag="88 % de réussite">
+          <Callout tone="badge-sure" icon={<ShieldCheck size={19} weight="bold" />} title="Razzia assuré">
             <p>Quand Razzia est aussi sûr, le favori a gagné 88 % du temps sur 2024 et 2025 (un match sur six).</p>
           </Callout>
         )}
         {tier === 'flip' && (
-          <Callout tone="badge-flip" icon={<Coin size={18} weight="fill" />} title="Pile ou face" tag="Match imprévisible">
+          <Callout tone="badge-flip" icon={<Scales size={21} weight="thin" />} title="Pile ou face">
             <p>
               {flip === 'dogUp'
                 ? `${dog.name} est en hausse : avec un outsider dans cette forme, le favori perd plus souvent que prévu.`
                 : flip === 'close'
-                  ? `${fav.name} reste favori, mais d'un rien.`
-                  : `${fav.name} est favori, mais pas assez pour jouer sa victoire seule.`}
+                  ? `${fav.name} reste favori, mais d'un rien : match imprévisible.`
+                  : `${fav.name} est favori, mais pas assez pour jouer sa victoire seule.`}{' '}
+              Plus sûr : <b>{fav.name} gagne au moins un set</b> ({pct(sets)} des simulations).
             </p>
-            <SaferBet title={`${fav.name} gagne au moins un set`} p={pct(sets)} />
           </Callout>
         )}
         <div className="split" role="img" aria-label={`${r.home.name} ${pct(r.pHome)}, ${r.away.name} ${pct(r.pAway)}`}>

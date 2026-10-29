@@ -1,23 +1,26 @@
 // Barre du haut : îlot de verre fumé qui flotte en haut de page, logo RAZZIA (étoile verte), sports dans une pilule
-// où le verre clair glisse vers le sport choisi, lien Méthode à droite.
+// où le verre clair glisse vers le sport choisi, Compte et Méthode à droite (sur téléphone, Compte passe avant les sports).
 import { useRef } from 'react';
-import { Basketball, Info, SoccerBall, TennisBall } from '@phosphor-icons/react';
+import { Basketball, Info, SoccerBall, TennisBall, UserCircle } from '@phosphor-icons/react';
 import { Link, useSlider } from './ui.tsx';
 import logo from './assets/razzia-logo.webp';
 
 export function TopBar({ path }: { path: string }) {
   const tennis = path.startsWith('/tennis');
   // Simulations, Bilan et Badges restent accessibles par leur adresse ; seule Méthode est dans la barre.
-  const links = [{ href: '/methode', label: 'Méthode', icon: <Info size={18} />, on: path === '/methode' }];
+  const links = [
+    { href: '/compte', label: 'Compte', icon: <UserCircle size={19} />, on: path === '/compte', cls: 'top-account' },
+    { href: '/methode', label: 'Méthode', icon: <Info size={18} />, on: path === '/methode', cls: 'top-methode' },
+  ];
   const nav = useRef<HTMLElement>(null);
-  const { pos, cls } = useSlider(nav, '.sport.is-on', tennis);
+  const pos = useSlider(nav, '.sport.is-on', tennis);
   return (
     <header className="topbar">
       <div className="topbar-in">
         <Link href="/" className="brand" aria-label="Razzia, programme du jour">
           <img className="logo" src={logo} alt="Razzia" width={1200} height={645} />
         </Link>
-        <nav ref={nav} className={`sports ${cls}`} aria-label="Sports">
+        <nav ref={nav} className="sports" aria-label="Sports">
           {pos && <span className="sport-thumb" style={{ left: pos.l, right: pos.r }} aria-hidden="true" />}
           <Link href="/" className={`sport${tennis ? '' : ' is-on'}`} aria-current={path === '/' ? 'page' : undefined} title="Programme NBA">
             <Basketball size={18} weight={tennis ? 'regular' : 'bold'} />
@@ -34,7 +37,7 @@ export function TopBar({ path }: { path: string }) {
         </nav>
         <div className="top-right">
           {links.map((l) => (
-            <Link key={l.href} href={l.href} className={`top-link glass${l.on ? ' is-on' : ''}`} aria-current={l.on ? 'page' : undefined} title={l.label}>
+            <Link key={l.href} href={l.href} className={`top-link glass ${l.cls}${l.on ? ' is-on' : ''}`} aria-current={l.on ? 'page' : undefined} title={l.label}>
               {l.icon}
               <span className="lbl">{l.label}</span>
             </Link>

@@ -237,13 +237,10 @@ input, textarea { caret-color: var(--brand); }
 .top-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .top-link { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; font: 500 14.5px var(--sans); color: #d6d6da; white-space: nowrap; }
 .top-link.is-on { --g-a: 0.16; color: #fff; }
+.top-account { padding: 0 14px 0 12px; }
 @media (hover: hover) and (pointer: fine) { .sport:hover:not(:disabled):not(.is-on) { color: #fff; } }
-/* Curseurs (sports, onglets) : le bord avant part tout de suite, le bord arrière suit (le verre s'étire), et le verre
-   gonfle pendant le trajet. */
-.sport-thumb, .seg.is-ready .seg-thumb { transition: left 0.3s var(--ease), right 0.3s var(--ease), transform 0.22s var(--ease), background-color 0.2s var(--ease); }
-.to-right > .sport-thumb, .seg.is-ready.to-right .seg-thumb { transition: left 0.36s cubic-bezier(0.65, 0, 0.35, 1), right 0.22s var(--ease), transform 0.22s var(--ease), background-color 0.2s var(--ease); }
-.to-left > .sport-thumb, .seg.is-ready.to-left .seg-thumb { transition: left 0.22s var(--ease), right 0.36s cubic-bezier(0.65, 0, 0.35, 1), transform 0.22s var(--ease), background-color 0.2s var(--ease); }
-.is-moving > .sport-thumb, .seg.is-moving .seg-thumb { --g-a: 0.2; transform: scale(1.03, 1.1); }
+/* Curseurs (sports, onglets) : glissé court et léger vers le choix, sans rebond. */
+.sport-thumb, .seg.is-ready .seg-thumb { transition: left 0.2s var(--ease), right 0.2s var(--ease); }
 
 /* Pages */
 main { max-width: 1280px; margin: 0 auto; padding: 0 24px 72px; }
@@ -300,7 +297,12 @@ main { max-width: 1280px; margin: 0 auto; padding: 0 24px 72px; }
 .rows { list-style: none; margin: 0; padding: 0; }
 .row { padding: 16px 14px; border-bottom: 1px solid var(--line); border-radius: 14px; position: relative; transition: background-color 0.2s var(--ease), transform 0.15s var(--ease); animation: rise 0.28s var(--ease) both; animation-delay: calc(min(var(--i, 0), 6) * 30ms); }
 .rows li:last-child .row { border-bottom: 0; }
-a.row:hover { background: rgba(255, 255, 255, 0.035); }
+a.row:hover { background-color: rgba(255, 255, 255, 0.035); }
+/* Petite lumière très légère en haut à droite : couleur de l'équipe à domicile sur chaque ligne, couleur de l'en-tête
+   sur l'encadré du programme. Le fond reste noir. */
+.row.lit { background-image: radial-gradient(34% 190% at 100% 0%, color-mix(in srgb, var(--glow) 6%, transparent), transparent 80%); }
+.league-card.lit { --glow: #2f7fe0; background: radial-gradient(34% 300px at 100% 0%, color-mix(in srgb, var(--glow) 11%, transparent), transparent 72%), #000; }
+.league-card.lit-atp { --glow: #2aa873; }
 a.row:active { transform: scale(0.995); }
 .row-time { display: grid; gap: 5px; justify-items: start; }
 .row-time .t { font: 600 16px var(--mono); letter-spacing: -0.02em; }
@@ -360,6 +362,10 @@ a.row:active { transform: scale(0.995); }
 .signal-tag { margin-left: auto; display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 7px; font: 500 11.5px/1 var(--sans); letter-spacing: 0; white-space: nowrap;
   color: var(--c); background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 75%, transparent); }
 .signal p b { color: var(--text); font-weight: 600; }
+/* Niveau de confiance (Razzia assuré, Pile ou face, Désaccord) : titre de la teinte, comme avant. */
+.badge-sure .signal-title, .badge-flip .signal-title, .badge-market .signal-title { color: var(--c); }
+.hedge-line { margin-top: 14px; font-size: 13.5px; color: var(--text-2); }
+.hedge-line b { color: var(--text); }
 .signal + .signal { margin-top: 0; }
 .verdict .signal { margin-top: 18px; }
 .verdict .signal + .signal { margin-top: 10px; }
@@ -374,12 +380,6 @@ a.row:active { transform: scale(0.995); }
 /* Chat noir : pastille blanche, chat noir, filet blanc. */
 .signal-cat { --c: #f2f2f4; }
 .signal-cat .signal-icon { color: #0a0a0b; background: #f2f2f4; box-shadow: none; }
-/* « Plus sûr » : le pari de repli en pilule, la part des simulations à côté. */
-.safer { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; color: var(--text-2); }
-.signal .safer { margin-top: 11px; padding-top: 11px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
-.safer-k { font: 600 10.5px var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
-.safer b { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: 8px; font: 600 13px/1 var(--sans); color: var(--c-green); background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-green) 75%, transparent); }
-.safer b::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--c-green); }
 /* Page Badges. */
 .badge-sec { margin-bottom: 28px; }
 .badge-sec h2 { margin-bottom: 12px; }
@@ -392,7 +392,7 @@ a.row:hover .mark { transform: scale(1.06); }
 
 /* Grille */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
-.card { border-radius: var(--r-card); background: radial-gradient(70% 60% at 0% 100%, color-mix(in srgb, var(--away, transparent) 12%, transparent), transparent 70%), radial-gradient(70% 60% at 100% 0%, color-mix(in srgb, var(--home, transparent) 12%, transparent), transparent 70%), #000; box-shadow: inset 0 0 0 1px var(--surface-rim); padding: 18px; display: grid; gap: 16px; position: relative; overflow: hidden;
+.card { --glow: #4a86e8; border-radius: var(--r-card); background: radial-gradient(55% 55% at 100% 0%, color-mix(in srgb, var(--glow) 13%, transparent), transparent 72%), #000; box-shadow: inset 0 0 0 1px var(--surface-rim); padding: 18px; display: grid; gap: 16px; position: relative; overflow: hidden;
   transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease); animation: rise 0.28s var(--ease) both; animation-delay: calc(min(var(--i, 0), 6) * 30ms); }
 @media (hover: hover) and (pointer: fine) { .card:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px var(--line-3), inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 24px 44px -24px rgba(0, 0, 0, 0.95); } }
 .card:active { transform: translateY(-1px) scale(0.99); }
@@ -674,11 +674,9 @@ a.row:hover .mark { transform: scale(1.06); }
 
 /* En feu ce soir : carte noire par joueur, filet et lueur aux couleurs de son équipe ; photo cerclée de la couleur,
    chance de gros match en pilule de feu, seuil en grand, jauge de feu, raisons en pilules. */
-.feu-title { display: flex; align-items: center; gap: 10px; }
-.feu-badge { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; color: var(--c-fire); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-fire) 75%, transparent); }
 .feu { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .feu-card { --tc: #3a3d44; position: relative; border-radius: 20px; padding: 18px 18px 18px; display: grid; gap: 14px; align-content: start; overflow: hidden;
-  background: radial-gradient(80% 90% at 100% 0%, color-mix(in srgb, var(--tc) 14%, transparent), transparent 65%), #000 !important;
+  background: radial-gradient(55% 60% at 100% 0%, color-mix(in srgb, var(--glow, var(--tc)) 14%, transparent), transparent 72%), #000 !important;
   box-shadow: inset 0 0 0 1px var(--surface-rim) !important; animation: rise 0.28s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
 .feu-who { display: flex; align-items: center; gap: 12px; }
 .feu-id { min-width: 0; flex: 1; }
@@ -689,7 +687,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .feu-face > .mark { position: absolute; right: -6px; bottom: -4px; width: 22px; height: 22px; box-shadow: 0 0 0 2px #000; }
 .feu-name { font-weight: 650; font-size: 15.5px; line-height: 1.25; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .feu-team { font-size: 12.5px; color: var(--text-3); }
-.feu-p { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 8px; font: 600 14px var(--mono); letter-spacing: -0.03em; color: var(--c-fire); background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-fire) 75%, transparent); }
+.feu-p { flex: none; font: 600 20px var(--mono); letter-spacing: -0.04em; color: var(--c-fire); }
 .feu-bet { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .feu-line { font: 900 46px/0.9 var(--display); font-stretch: 80%; letter-spacing: 0; color: #fff; font-variant-numeric: tabular-nums; }
 .feu-line small { margin-left: 6px; font: 600 15px var(--sans); color: var(--text-2); letter-spacing: 0; }
@@ -748,10 +746,6 @@ a.row:hover .mark { transform: scale(1.06); }
 .flow-side { position: absolute; left: 14px; font: 600 10.5px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; pointer-events: none; }
 .flow-side.top { top: 10px; color: #ff8a8d; }
 .flow-side.bot { bottom: 10px; color: #7fb0ff; }
-.flow-dot { --c: #fff; position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: var(--c); pointer-events: none;
-  box-shadow: 0 0 0 3px #000, 0 0 0 4.5px var(--c), 0 0 16px 2px var(--c); transition: left 0.08s linear, top 0.08s linear; }
-.flow-dot.home { --c: var(--rose); }
-.flow-dot.away { --c: var(--blue); }
 .flow-tip { position: absolute; top: 8px; transform: translateX(12px); padding: 7px 11px; border-radius: 10px; font-size: 12px; white-space: nowrap; pointer-events: none; color: var(--text-2);
   background: rgba(14, 14, 16, 0.85); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 10px 24px -10px rgba(0, 0, 0, 0.9); }
 .flow-tip.left { transform: translateX(calc(-100% - 12px)); }
@@ -1015,6 +1009,10 @@ a.row:hover .mark { transform: scale(1.06); }
 .t-ava-sm { width: 28px; height: 28px; font-size: 10px; }
 .t-ava-md { width: 52px; height: 52px; }
 .t-ava-lg { width: 72px; height: 72px; font-size: 16px; }
+/* Fiche tennis : grandes photos du bandeau, cerclées de verre comme les logos NBA. */
+.t-ava-xl { width: 150px; height: 150px; font-size: 34px; background: rgba(0, 0, 0, 0.35); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), 0 24px 60px rgba(0, 0, 0, 0.45); }
+.hero-team.t-lost { opacity: 0.55; }
+@media (max-width: 720px) { .t-ava-xl { width: 84px; height: 84px; font-size: 20px; } .mesh-atp .hero-name { font-size: 18px; overflow-wrap: anywhere; } }
 .t-row { grid-template-columns: 92px minmax(0, 1fr) 140px 190px 24px; }
 .t-ava-row { width: 44px; height: 44px; font-size: 12px; }
 .t-row .vs-team > span { min-width: 0; }
@@ -1186,8 +1184,12 @@ a.row:hover .t-ava { transform: scale(1.06); }
 /* ——— Téléphone ———
    En-têtes centrés, sélecteurs pleine largeur, sports regroupés dans la pilule de verre en haut, liens de pages masqués. */
 @media (max-width: 720px) {
-  .top-right { display: none; }
-  .sports { margin-left: auto; }
+  /* Téléphone : Compte (icône seule) juste avant les sports, Méthode masquée. */
+  .top-right { order: 1; margin-left: auto; }
+  .sports { order: 2; }
+  .top-methode { display: none; }
+  .top-account { width: 40px; height: 40px; padding: 0; justify-content: center; }
+  .top-account .lbl { display: none; }
   /* Fiche : chiffres qui ne se coupent plus. */
   .verdict-side dd { white-space: nowrap; }
   .hero-rec { white-space: nowrap; font-size: 12px; }

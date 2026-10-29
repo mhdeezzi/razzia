@@ -1,13 +1,13 @@
 // Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowsLeftRight, Coin, SealCheck } from '@phosphor-icons/react';
+import { ArrowsLeftRight, Scales, ShieldCheck } from '@phosphor-icons/react';
 import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
 import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
-import { Callout, Ring, SaferBet, Segmented, TeamMark } from './ui.tsx';
+import { Callout, Ring, Segmented, TeamMark } from './ui.tsx';
 import { HotStrip, LineupNotice } from './hot.tsx';
 
 type Dist = Result['margin'];
@@ -89,20 +89,25 @@ function confidenceOf(r: Result, g: Game): Confidence {
 function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
   if (c.tier === 'sure')
     return (
-      <Callout tone="badge-sure" icon={<SealCheck size={18} weight="fill" />} title="Razzia assuré" tag="85 % de réussite">
+      <Callout tone="badge-sure" icon={<ShieldCheck size={19} weight="bold" />} title="Razzia assuré">
         <p>Quand le moteur est aussi sûr de lui, il a vu juste 85 % du temps sur la saison passée (un match sur quatre).</p>
       </Callout>
     );
   if (c.tier === 'flip')
     return (
-      <Callout tone="badge-flip" icon={<Coin size={18} weight="fill" />} title="Pile ou face" tag="Match imprévisible">
+      <Callout tone="badge-flip" icon={<Scales size={21} weight="thin" />} title="Pile ou face">
         <p>
           {c.early && c.p >= 0.66
             ? `Début de saison : moins de 5 matchs joués, les équipes repartent de zéro. ${g[c.side].name} reste favori, mais rien n'est sûr.`
-            : `${g[c.side].name} reste favori, mais d'un rien.`}
-          {!c.hedge && ' Mieux vaut passer ce match.'}
+            : `${g[c.side].name} reste favori, mais d'un rien : match imprévisible.`}
+          {c.hedge ? (
+            <>
+              {' '}Plus sûr : <b>{c.hedge.title}</b> (passe dans {pct(c.hedge.p)} des simulations).
+            </>
+          ) : (
+            ' Mieux vaut passer ce match.'
+          )}
         </p>
-        {c.hedge && <SaferBet title={c.hedge.title} p={pct(c.hedge.p)} />}
       </Callout>
     );
   return null;
@@ -112,10 +117,10 @@ function MarketBadge({ c, g }: { c: Confidence; g: Game }) {
   if (!c.disagree || c.book == null) return null;
   const other = g[c.side === 'home' ? 'away' : 'home'];
   return (
-    <Callout tone="badge-market" icon={<ArrowsLeftRight size={18} weight="bold" />} title="Désaccord avec le marché" tag="Prudence">
+    <Callout tone="badge-market" icon={<ArrowsLeftRight size={19} weight="bold" />} title="Désaccord avec le marché">
       <p>
         Le marché voit <b>{other.name}</b> favori ({pct(1 - c.book)}). En début de saison, sur des écarts aussi grands, le moteur
-        n'a eu raison que 5 fois sur 10 la saison passée.
+        n'a eu raison que 5 fois sur 10 la saison passée : prudence.
       </p>
     </Callout>
   );
@@ -161,7 +166,9 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
         <MarketBadge c={c} g={g} />
         {c.tier !== 'flip' && c.hedge && (
           // Fin de match serrée : le favori avec des points d'avance couvre aussi une défaite de peu.
-          <SaferBet title={c.hedge.title} p={pct(c.hedge.p)} note="couvre une défaite de peu" />
+          <p className="hedge-line">
+            Plus sûr : <b>{c.hedge.title}</b>, passe dans {pct(c.hedge.p)} des simulations (couvre une défaite de peu).
+          </p>
         )}
         <div className="split" role="img" aria-label={`${g.away.tri} ${pct(1 - pH)}, ${g.home.tri} ${pct(pH)}`}>
           {/* Le favori en clair, l'autre équipe éteinte : même lecture que le cercle. */}
