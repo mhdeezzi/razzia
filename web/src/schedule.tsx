@@ -149,7 +149,7 @@ export function SchedulePage({ day }: { day: string | null }) {
               </ol>
             </section>
           ) : (
-            <div className="cards" key={`${current}-${status}`}>
+            <div className="cards" key={`${current}-${status}`} style={{ '--w': nameWidth(games).toFixed(2) } as CSSProperties}>
               {games.map((g, i) => (
                 <Card key={g.id} g={g} sim={sims.get(simKey(g))} run={runOf(g)} i={i} />
               ))}
@@ -297,6 +297,12 @@ function Row({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i: 
   );
 }
 
+/**
+ * Largeur en em du nom le plus long de la grille (police étroite en capitales, « @ » compris) : une seule taille de
+ * noms pour toutes les cartes, choisie pour que le plus long tienne.
+ */
+const nameWidth = (games: Game[]) => Math.max(5, ...games.flatMap((g) => [g.away.name.length * 0.6, g.home.name.length * 0.6 + 0.95]));
+
 /** Carte de la grille : noms en gros avec les logos, heure et salle en haut, favori et cotes en pied. */
 function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i: number }) {
   const o = g.odds;
@@ -313,10 +319,8 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
       {g.state !== 'pre' && <span className="card-a-score mono">{g[side].score ?? ''}</span>}
     </p>
   );
-  // Largeur des deux noms en em (police étroite, « @ » compris) : la taille baisse pour les noms longs, la même pour les deux.
-  const w = Math.max(g.away.name.length * 0.63, g.home.name.length * 0.63 + 0.9);
   return (
-    <Link href={matchPath(g)} className="card card-a" style={{ '--i': i, '--w': w.toFixed(2) } as CSSProperties}>
+    <Link href={matchPath(g)} className="card card-a" style={{ '--i': i } as CSSProperties}>
       <span className="card-a-top mono">
         {g.state === 'pre' ? timeLocal(g.start) : g.detail}
         {g.venue ? ` · ${g.venue}` : ''}
