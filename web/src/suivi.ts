@@ -6,7 +6,10 @@ import { useEffect, useState } from 'react';
 import type { Outcome } from './picks.ts';
 import { supabase } from './supabase.ts';
 
-export type LegStatus = 'pending' | 'live' | 'won' | 'lost';
+// void : pari remboursé (joueur qui n'a pas joué), compté à la cote 1 dans le ticket.
+export type LegStatus = 'pending' | 'live' | 'won' | 'lost' | 'void';
+/** Issue définitive d'un pari. */
+export const final = (s?: LegStatus): s is 'won' | 'lost' | 'void' => s === 'won' || s === 'lost' || s === 'void';
 
 export interface Leg {
   key: string; // match + pari : un même pari n'est qu'une fois dans le ticket
@@ -22,7 +25,12 @@ export interface Leg {
   path: string; // lien vers la fiche
   at: string;
   status?: LegStatus; // dans un ticket validé : issue figée une fois le match fini
+  oid?: string; // identifiant du pari dans la fiche (win, spread, hedge, sets, straight), pour relire sa cote
+  was?: number; // ticket en préparation : cote d'avant, quand elle vient de bouger
 }
+
+/** Identifiant du pari dans la fiche (les anciens paris l'ont seulement à la fin de leur clé). */
+export const oidOf = (l: Leg) => l.oid ?? l.key.split(':').slice(3).join(':');
 
 /** Identifiant du match d'un pari : deux paris du même match ne se combinent pas. */
 export const matchKey = (l: Pick<Leg, 'sport' | 'date' | 'match'>) => `${l.sport}:${l.date}:${l.match.id ?? `${l.match.away}@${l.match.home}`}`;
@@ -59,8 +67,8 @@ export const slip = {
   remove(key: string) {
     write(read().filter((l) => l.key !== key));
   },
-  setOdds(key: string, odds: number) {
-    write(read().map((l) => (l.key === key ? { ...l, odds, fair: false } : l)));
+  update(key: string, patch: Partial<Leg>) {
+    write(read().map((l) => (l.key === key ? { ...l, ...patch } : l)));
   },
   clear() {
     write([]);
@@ -143,7 +151,7 @@ export function useTickets(owner: string | undefined): Store {
 /** Valide le ticket : un ticket par pari en simple (même mise chacun), un seul en combiné. */
 export async function placeTickets(owner: string, kind: Ticket['kind'], stake: number, legs: Leg[]) {
   if (!supabase) throw new Error('Comptes non configurés.');
-  const clean = legs.map(({ status: _s, ...l }) => l);
+  const clean = legs.map(({ status: _s, was: _w, ...l }) => l);
   const rows: Array<Pick<Ticket, 'kind' | 'stake' | 'odds' | 'legs'>> = kind === 'combine' ? [{ kind, stake, odds: round(comboOdds(clean), 3), legs: clean }] : clean.map((l) => ({ kind, stake, odds: l.odds ?? 1, legs: [l] }));
   const { error } = await supabase.from('tickets').insert(rows);
   if (error) throw new Error(tableError(error));
@@ -166,16 +174,83 @@ export async function markSeen(owner: string, ids: string[]) {
 
 const round = (v: number, d: number) => Math.round(v * 10 ** d) / 10 ** d;
 
-/** Issue d'un ticket à partir de ses sélections : perdu dès une sélection perdue, gagné quand toutes le sont. */
+/** Issue d'un ticket à partir de ses sélections : perdu dès une sélection perdue, gagné quand toutes le sont (un pari
+ * remboursé compte comme passé, à la cote 1). */
 export function ticketState(s: LegStatus[]): LegStatus {
   if (s.includes('lost')) return 'lost';
-  if (s.length && s.every((x) => x === 'won')) return 'won';
-  return s.includes('live') || s.includes('won') ? 'live' : 'pending';
+  if (s.length && s.every((x) => x === 'won' || x === 'void')) return 'won';
+  return s.includes('live') || s.includes('won') || s.includes('void') ? 'live' : 'pending';
+}
+
+/** Cote d'un ticket réglé : les paris remboursés comptent à 1. */
+export const settledOdds = (legs: Leg[]) => round(legs.reduce((x, l) => x * (l.status === 'void' ? 1 : (l.odds ?? 1)), 1), 3);
+
+/**
+ * Compléter un ticket simple en cours avec un pari d'un autre match pas encore commencé : il devient un combiné, la mise
+ * ne bouge pas, la cote est multipliée.
+ */
+export async function completeTicket(owner: string, t: Ticket, leg: Leg) {
+  if (!supabase) throw new Error('Comptes non configurés.');
+  if (t.status !== 'pending') throw new Error('Ce ticket est déjà réglé.');
+  if (t.legs.some((l) => matchKey(l) === matchKey(leg))) throw new Error('Ce match est déjà dans le ticket.');
+  if (Date.parse(leg.start) <= Date.now()) throw new Error('Ce match a déjà commencé.');
+  const { status: _s, was: _w, ...clean } = leg;
+  const legs = [...t.legs, clean];
+  const { data, error } = await supabase.from('tickets').update({ legs, kind: 'combine', odds: round(comboOdds(legs), 3) }).eq('id', t.id).eq('status', 'pending').select('id');
+  if (error) throw new Error(tableError(error));
+  if (!data?.length) throw new Error('Ce ticket est déjà réglé.');
+  await loadTickets(owner, true);
+}
+
+// ——— Compléter un ticket : choix d'un pari dans les fiches ———
+
+const DONE_KEY = 'razzia-completer';
+export interface Completing { id: string; stake: number; odds: number; matches: string[] }
+export const completing = {
+  get(): Completing | null {
+    try {
+      return JSON.parse(sessionStorage.getItem(DONE_KEY) ?? 'null');
+    } catch {
+      return null;
+    }
+  },
+  set(c: Completing | null) {
+    try {
+      if (c) sessionStorage.setItem(DONE_KEY, JSON.stringify(c));
+      else sessionStorage.removeItem(DONE_KEY);
+    } catch {
+      /* stockage indisponible */
+    }
+    dispatchEvent(new Event(DONE_KEY));
+  },
+};
+/** Ticket en train d'être complété (null sinon). */
+export function useCompleting(): Completing | null {
+  const [c, setC] = useState(completing.get);
+  useEffect(() => {
+    const on = () => setC(completing.get());
+    addEventListener(DONE_KEY, on);
+    return () => removeEventListener(DONE_KEY, on);
+  }, []);
+  return c;
 }
 
 // ——— Résultats ———
 
 interface NbaFinal { state: 'pre' | 'in' | 'post'; home: number; away: number }
+interface BoxLine { name: string; pts: number; min: number; dnp: boolean }
+/** « Luka Dončić » et « Luka Doncic » : même joueur. */
+const plain = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z ]/g, '').replace(/\s+(jr|sr|ii|iii|iv)$/i, '').trim().toLowerCase();
+
+/** Pari sur les points d'un joueur, d'après la feuille de match : remboursé s'il n'a pas joué. */
+function ptsStatus(leg: Leg, nba?: NbaFinal, box?: BoxLine[]): LegStatus {
+  if (!nba || nba.state === 'pre') return 'pending';
+  if (nba.state === 'in' || !box) return 'live';
+  const p = box.find((x) => plain(x.name) === plain(leg.bet.player ?? ''));
+  if (!p || p.dnp || p.min <= 0) return 'void';
+  const over = p.pts > (leg.bet.line ?? 0);
+  return over === (leg.bet.over ?? true) ? 'won' : 'lost';
+}
 interface AtpFinal { state: 'pre' | 'in' | 'post'; sets: { home: number; away: number }; winner?: 'home' | 'away' }
 
 /** Issue d'un pari d'après le score : gagné, perdu, ou pas encore joué / en cours. */
@@ -224,15 +299,28 @@ export async function fetchStatuses(legs: Leg[]): Promise<Record<string, LegStat
       /* idem */
     }
   }
+  // Paris joueurs : feuille de match une fois le match fini.
+  const boxes = new Map<string, BoxLine[]>();
+  const events = [...new Set(legs.filter((l) => l.bet.kind === 'pts' && l.bet.event && nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`)?.state === 'post').map((l) => l.bet.event!))];
+  await Promise.all(
+    events.map(async (id) => {
+      try {
+        const r = await fetch(`/api/games?box=${id}`).then((x) => x.json());
+        if (r.state === 'post') boxes.set(id, r.players ?? []);
+      } catch {
+        /* idem */
+      }
+    }),
+  );
   for (const l of legs)
-    res[l.key] = statusOf(l, l.sport === 'nba' ? nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`) : undefined, l.sport === 'atp' ? atpGames.get(l.match.id ?? '') : undefined);
+    res[l.key] = l.bet.kind === 'pts' ? ptsStatus(l, nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`), boxes.get(l.bet.event ?? '')) : statusOf(l, l.sport === 'nba' ? nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`) : undefined, l.sport === 'atp' ? atpGames.get(l.match.id ?? '') : undefined);
   return res;
 }
 
 /** Statuts en direct des paris affichés (relus chaque minute tant qu'un match est en cours). */
 export function useResults(legs: Leg[]): Record<string, LegStatus> {
   const [out, setOut] = useState<Record<string, LegStatus>>({});
-  const todo = legs.filter((l) => !l.status || l.status === 'pending' || l.status === 'live');
+  const todo = legs.filter((l) => !final(l.status));
   const sig = todo.map((l) => l.key).join('|');
   useEffect(() => {
     if (!todo.length) return;
@@ -248,7 +336,7 @@ export function useResults(legs: Leg[]): Record<string, LegStatus> {
   return out;
 }
 
-export interface SettleEvent { kind: 'leg' | 'ticket'; status: 'won' | 'lost'; ticket: Ticket; leg?: Leg }
+export interface SettleEvent { kind: 'leg' | 'ticket'; status: 'won' | 'lost' | 'void'; ticket: Ticket; leg?: Leg }
 
 /**
  * Règle les tickets en attente du compte : fige l'issue des sélections terminées, puis celle du ticket. Renvoie ce qui
@@ -270,9 +358,9 @@ export async function settleTickets(owner: string, tickets: Ticket[]): Promise<S
 async function settle(owner: string, tickets: Ticket[]): Promise<SettleEvent[]> {
   if (!supabase) return [];
   const now = Date.now();
-  const open = tickets.filter((t) => t.status === 'pending' && t.legs.some((l) => (!l.status || l.status === 'pending' || l.status === 'live') && Date.parse(l.start) < now));
+  const open = tickets.filter((t) => t.status === 'pending' && t.legs.some((l) => !final(l.status) && Date.parse(l.start) < now));
   if (!open.length) return [];
-  const st = await fetchStatuses(open.flatMap((t) => t.legs.filter((l) => l.status !== 'won' && l.status !== 'lost')));
+  const st = await fetchStatuses(open.flatMap((t) => t.legs.filter((l) => !final(l.status))));
   const events: SettleEvent[] = [];
   const tell = (k: string, e: SettleEvent) => {
     if (told.has(k)) return;
@@ -283,19 +371,19 @@ async function settle(owner: string, tickets: Ticket[]): Promise<SettleEvent[]> 
     const fresh: Leg[] = [];
     const legs = t.legs.map((l) => {
       const s = st[l.key];
-      if (l.status === 'won' || l.status === 'lost' || (s !== 'won' && s !== 'lost')) return l;
+      if (final(l.status) || !final(s)) return l;
       fresh.push({ ...l, status: s });
       return { ...l, status: s };
     });
     if (!fresh.length) continue;
     const fin = ticketState(legs.map((l) => l.status ?? 'pending'));
     const status: TicketStatus = fin === 'won' || fin === 'lost' ? fin : 'pending';
-    const patch = status === 'pending' ? { legs } : { legs, status, settled_at: new Date().toISOString(), seen: false };
+    const patch = status === 'pending' ? { legs } : { legs, status, odds: status === 'won' ? settledOdds(legs) : t.odds, settled_at: new Date().toISOString(), seen: false };
     // Seulement si le ticket était encore en attente (un autre onglet a pu le régler entre-temps).
     const { data, error } = await supabase.from('tickets').update(patch).eq('id', t.id).eq('status', 'pending').select('id');
     if (error || !data?.length) continue;
     const next = { ...t, ...patch } as Ticket;
-    if (t.legs.length > 1) for (const l of fresh) tell(`${t.id}:${l.key}`, { kind: 'leg', status: l.status as 'won' | 'lost', ticket: next, leg: l });
+    if (t.legs.length > 1) for (const l of fresh) tell(`${t.id}:${l.key}`, { kind: 'leg', status: l.status as 'won' | 'lost' | 'void', ticket: next, leg: l });
     if (status !== 'pending') tell(t.id, { kind: 'ticket', status, ticket: next });
   }
   if (events.length) await loadTickets(owner, true);

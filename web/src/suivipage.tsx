@@ -2,15 +2,16 @@
 // ou en combiné avec une mise, les tickets en cours et terminés (chaque sélection cochée quand elle passe), le bilan.
 // Réservée aux comptes : les tickets sont enregistrés dans le compte. Sans compte, la page invite à se connecter.
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ArrowRight, Basketball, ChartLineUp, Check, CheckCircle, Lightning, ListChecks, Stack, TennisBall, Ticket as TicketIcon, Trash, X } from '@phosphor-icons/react';
+import { ArrowDown, ArrowRight, ArrowUp, Basketball, ChartLineUp, Check, CheckCircle, Lightning, ListChecks, Minus, Plus, Stack, TennisBall, Ticket as TicketIcon, Trash, X } from '@phosphor-icons/react';
 import { useAuth } from './auth.ts';
 import { supabase } from './supabase.ts';
 import {
-  comboOdds, deleteTicket, markSeen, matchKey, placeTickets, settleTickets, slip, ticketState, useResults, useSlip, useTickets,
+  comboOdds, completing, deleteTicket, final, markSeen, matchKey, placeTickets, settleTickets, slip, ticketState, useCompleting, useResults, useSlip, useTickets,
   type Leg, type LegStatus, type SettleEvent, type Ticket,
 } from './suivi.ts';
+import { freshOdds, moved } from './liveodds.ts';
 import { toast } from './toast.tsx';
-import { Empty, Link, Segmented } from './ui.tsx';
+import { Empty, Link, navigate, Segmented } from './ui.tsx';
 import { WarpBg } from './shaders.tsx';
 
 const dec = (v: number) => v.toFixed(2).replace('.', ',');
@@ -19,7 +20,7 @@ const signed = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${eur(Math.abs
 const whenShort = (iso: string) => new Date(iso).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 const when = (iso: string) => new Date(iso).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const parseNum = (s: string) => Number(s.replace(',', '.').replace(/[^\d.]/g, ''));
-const STATUS: Record<LegStatus, string> = { pending: 'À venir', live: 'En cours', won: 'Gagné', lost: 'Perdu' };
+const STATUS: Record<LegStatus, string> = { pending: 'À venir', live: 'En cours', won: 'Gagné', lost: 'Perdu', void: 'Remboursé' };
 const kindLabel = (t: Pick<Ticket, 'kind' | 'legs'>) => (t.kind === 'combine' ? `Combiné · ${t.legs.length} sélections` : 'Simple');
 const gainOf = (t: Pick<Ticket, 'stake' | 'odds'>) => t.stake * t.odds;
 
@@ -203,15 +204,22 @@ function LegMark({ s }: { s: LegStatus }) {
   if (s === 'won') return <span className="lm won" aria-label="Gagné"><Check size={13} weight="bold" /></span>;
   if (s === 'lost') return <span className="lm lost" aria-label="Perdu"><X size={13} weight="bold" /></span>;
   if (s === 'live') return <span className="lm live" aria-label="En cours"><i /></span>;
+  if (s === 'void') return <span className="lm void" aria-label="Remboursé"><Minus size={13} weight="bold" /></span>;
   return <span className="lm" aria-label="À venir" />;
 }
 
-/** Un ticket validé : sélections cochées une à une, mise, cote, gain potentiel ou gain, statut. */
+/** Un ticket validé : sélections cochées une à une, ligne de suivi, mise, cote, gain potentiel ou gain, statut. */
 function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: Record<string, LegStatus>; isNew?: boolean; owner?: string; demo?: boolean; i?: number }) {
-  const ls = t.legs.map((l) => (l.status === 'won' || l.status === 'lost' ? l.status : live[l.key] ?? l.status ?? 'pending'));
+  const ls = t.legs.map((l) => (final(l.status) ? l.status : live[l.key] ?? l.status ?? 'pending'));
   const state: LegStatus = t.status === 'won' || t.status === 'lost' ? t.status : ticketState(ls);
-  const okN = ls.filter((s) => s === 'won').length;
+  const okN = ls.filter((s) => s === 'won' || s === 'void').length;
   const [confirm, setConfirm] = useState(false);
+  // Compléter : un ticket simple encore en cours devient un combiné, avec la même mise.
+  const canComplete = !demo && owner && t.kind === 'simple' && t.status === 'pending' && (state === 'pending' || state === 'live');
+  const complete = () => {
+    completing.set({ id: t.id, stake: t.stake, odds: t.odds, matches: t.legs.map(matchKey) });
+    navigate(t.legs[0]?.sport === 'atp' ? '/tennis' : '/');
+  };
   return (
     <article className={`tk ${state}${isNew ? ' is-new' : ''}`} style={{ '--i': i } as CSSProperties}>
       <header className="tk-head">
@@ -221,13 +229,6 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
         {isNew && <span className="tk-new">Nouveau</span>}
         <span className={`tk-st ${state}`}>{state === 'live' && t.legs.length > 1 && okN ? `${okN}/${t.legs.length} validées` : STATUS[state]}</span>
       </header>
-      {t.legs.length > 1 && (
-        <div className="tk-prog" aria-hidden="true">
-          {ls.map((s, k) => (
-            <span key={k} className={s} />
-          ))}
-        </div>
-      )}
       <ol className="tk-legs">
         {t.legs.map((l, k) => (
           <li key={l.key} className={ls[k]}>
@@ -245,10 +246,16 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
                 {!demo && ` · ${when(l.start)}`}
               </span>
             </div>
-            <span className="tk-odd mono">{l.odds ? dec(l.odds) : '-'}</span>
+            <span className="tk-odd mono">{ls[k] === 'void' ? '1,00' : l.odds ? dec(l.odds) : '-'}</span>
           </li>
         ))}
       </ol>
+      {/* Ligne de suivi : une part par sélection, pleine et animée en orange tant qu'un match se joue. */}
+      <div className={`tk-line${t.legs.length === 1 ? ' one' : ''}`} role="img" aria-label={`${okN} sélection${okN > 1 ? 's' : ''} validée${okN > 1 ? 's' : ''} sur ${t.legs.length}`}>
+        {ls.map((s, k) => (
+          <span key={k} className={s} />
+        ))}
+      </div>
       <footer className="tk-foot">
         <div>
           <span>Mise</span>
@@ -264,6 +271,11 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
         </div>
         {!demo && owner && (
           <div className="tk-actions">
+            {canComplete && !confirm && (
+              <button className="tk-del tk-more" onClick={complete} title="Ajouter un pari d'un autre match : le ticket devient un combiné, même mise">
+                <Plus size={14} weight="bold" /> Compléter
+              </button>
+            )}
             {confirm ? (
               <>
                 <button className="tk-del yes" onClick={() => void deleteTicket(owner, t.id).catch((e: Error) => toast({ tone: 'bad', title: 'Suppression impossible', text: e.message }))}>
@@ -286,14 +298,46 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
   );
 }
 
-/** Ticket en préparation : simple ou combiné, cote modifiable (celle de ton bookmaker), mise, gain potentiel. */
+/**
+ * Ticket en préparation : simple ou combiné, mise, gain potentiel. Les cotes ne se saisissent pas : elles sont relues
+ * chaque minute et juste avant de valider ; si elles ont bougé, le ticket le montre et attend une nouvelle validation.
+ */
 function BetSlip({ owner, legs, onPlaced }: { owner: string; legs: Leg[]; onPlaced: () => void }) {
   const [kind, setKind] = useState<Ticket['kind']>(legs.length > 1 ? 'combine' : 'simple');
   const [stakeTxt, setStakeTxt] = useState('10');
   const [busy, setBusy] = useState(false);
+  const [closed, setClosed] = useState<Set<string>>(new Set());
+  const [checking, setChecking] = useState(false);
   useEffect(() => {
     if (legs.length < 2 && kind === 'combine') setKind('simple');
   }, [legs.length]);
+  // Relit les cotes du moment ; renvoie true si une cote ou une ligne a bougé (ou si un match a commencé).
+  const refresh = async (): Promise<boolean> => {
+    const cur = slip.list();
+    if (!cur.length) return false;
+    setChecking(true);
+    const f = await freshOdds(cur).catch(() => ({}) as Awaited<ReturnType<typeof freshOdds>>);
+    setChecking(false);
+    let changed = false;
+    const shut = new Set<string>();
+    for (const l of cur) {
+      const x = f[l.key];
+      if (x === null) shut.add(l.key);
+      if (!x) continue;
+      if (moved(l, x)) {
+        changed = true;
+        slip.update(l.key, { odds: x.odds, fair: x.fair, p: x.p, title: x.title, bet: x.bet, was: l.odds });
+      }
+    }
+    setClosed(shut);
+    return changed || [...shut].some((k) => !closed.has(k));
+  };
+  const sig = legs.map((l) => l.key).join('|');
+  useEffect(() => {
+    void refresh();
+    const t = window.setInterval(() => void refresh(), 60_000);
+    return () => window.clearInterval(t);
+  }, [sig]);
   const stake = parseNum(stakeTxt);
   const combine = kind === 'combine' && legs.length > 1;
   // Deux paris du même match ne se combinent pas (ils dépendent l'un de l'autre).
@@ -305,7 +349,7 @@ function BetSlip({ owner, legs, onPlaced }: { owner: string; legs: Leg[]; onPlac
     seen.set(k, l.key);
   }
   const total = comboOdds(legs);
-  const blocked = combine && clash.size > 0;
+  const blocked = (combine && clash.size > 0) || legs.some((l) => closed.has(l.key));
   // Chance du combiné selon les simulations : un match compte une fois, avec son pari le moins probable.
   const byMatch = new Map<string, number>();
   for (const l of legs) byMatch.set(matchKey(l), Math.min(byMatch.get(matchKey(l)) ?? 1, l.p));
@@ -314,11 +358,18 @@ function BetSlip({ owner, legs, onPlaced }: { owner: string; legs: Leg[]; onPlac
   const valid = legs.length > 0 && stake > 0 && !blocked && legs.every((l) => (l.odds ?? 0) > 1);
   const place = async () => {
     setBusy(true);
+    // Dernière vérification des cotes : si elles ont bougé, on montre les nouvelles et on attend une nouvelle validation.
+    if (await refresh()) {
+      setBusy(false);
+      return toast({ tone: 'info', title: 'Les cotes ont bougé', text: 'Ton ticket affiche les cotes du moment. Vérifie puis valide à nouveau.' });
+    }
     try {
-      await placeTickets(owner, combine ? 'combine' : 'simple', Math.round(stake * 100) / 100, legs);
+      const now = slip.list();
+      const g = combine ? stake * comboOdds(now) : now.reduce((x, l) => x + stake * (l.odds ?? 1), 0);
+      await placeTickets(owner, combine ? 'combine' : 'simple', Math.round(stake * 100) / 100, now);
       slip.clear();
       onPlaced();
-      toast({ tone: 'ok', title: combine ? 'Combiné validé' : legs.length > 1 ? `${legs.length} paris validés` : 'Pari validé', text: `Gain potentiel ${eur(gain)}. On te prévient à chaque sélection.` });
+      toast({ tone: 'ok', title: combine ? 'Combiné validé' : now.length > 1 ? `${now.length} paris validés` : 'Pari validé', text: `Gain potentiel ${eur(g)}. On te prévient à chaque sélection.` });
     } catch (e) {
       toast({ tone: 'bad', title: 'Ticket non enregistré', text: (e as Error).message });
     }
@@ -354,10 +405,11 @@ function BetSlip({ owner, legs, onPlaced }: { owner: string; legs: Leg[]; onPlac
           />
           <ul className="slip-legs">
             {legs.map((l) => (
-              <SlipLeg key={l.key} l={l} clash={combine && clash.has(matchKey(l))} stake={combine ? undefined : stake} />
+              <SlipLeg key={l.key} l={l} clash={combine && clash.has(matchKey(l))} shut={closed.has(l.key)} stake={combine ? undefined : stake} />
             ))}
           </ul>
-          {blocked && <p className="slip-warn">Deux paris du même match ne peuvent pas être combinés. Retire-en un ou passe en simple.</p>}
+          {combine && clash.size > 0 && <p className="slip-warn">Deux paris du même match ne peuvent pas être combinés. Retire-en un ou passe en simple.</p>}
+          {legs.some((l) => closed.has(l.key)) && <p className="slip-warn">Un match a commencé ou n'est plus proposé : retire ce pari pour valider.</p>}
           <label className="slip-stake">
             <span>{combine || legs.length === 1 ? 'Mise' : 'Mise par pari'}</span>
             <span className="slip-stake-in">
@@ -398,23 +450,21 @@ function BetSlip({ owner, legs, onPlaced }: { owner: string; legs: Leg[]; onPlac
           <button className="btn btn-primary btn-lg slip-go" disabled={!valid || busy} onClick={() => void place()}>
             {busy ? <span className="spin" /> : <Lightning size={17} weight="fill" />} Valider le ticket
           </button>
-          <p className="slip-note">Razzia ne prend pas de paris : le ticket sert à suivre ceux que tu joues chez ton bookmaker. Mets sa cote si elle diffère.</p>
+          <p className="slip-note">
+            <span className={`slip-live${checking ? ' on' : ''}`} /> Cotes du moment, relues chaque minute et juste avant de valider. Razzia ne prend pas de paris :
+            le ticket sert à suivre ceux que tu joues.
+          </p>
         </>
       )}
     </aside>
   );
 }
 
-function SlipLeg({ l, clash, stake }: { l: Leg; clash: boolean; stake?: number }) {
-  const [txt, setTxt] = useState(l.odds ? dec(l.odds) : '');
-  useEffect(() => setTxt(l.odds ? dec(l.odds) : ''), [l.odds]);
-  const commit = () => {
-    const v = parseNum(txt);
-    if (v > 1 && v !== l.odds) slip.setOdds(l.key, Math.round(v * 100) / 100);
-    else setTxt(l.odds ? dec(l.odds) : '');
-  };
+function SlipLeg({ l, clash, shut, stake }: { l: Leg; clash: boolean; shut: boolean; stake?: number }) {
+  const up = l.was != null && l.odds != null && l.odds > l.was;
+  const down = l.was != null && l.odds != null && l.odds < l.was;
   return (
-    <li className={`slip-leg${clash ? ' clash' : ''}`}>
+    <li className={`slip-leg${clash || shut ? ' clash' : ''}`}>
       <div className="slip-leg-main">
         <Link href={l.path} className="slip-leg-t">
           {l.title}
@@ -422,12 +472,18 @@ function SlipLeg({ l, clash, stake }: { l: Leg; clash: boolean; stake?: number }
         <span>
           {l.sport === 'nba' ? <Basketball size={13} /> : <TennisBall size={13} />} {l.match.awayName} – {l.match.homeName} · {whenShort(l.start)}
         </span>
-        {stake != null && stake > 0 && l.odds && <span className="slip-leg-g">Gain potentiel {eur(stake * l.odds)}</span>}
+        {shut && <span className="slip-leg-shut">Match commencé ou plus proposé</span>}
+        {!shut && stake != null && stake > 0 && l.odds && <span className="slip-leg-g">Gain potentiel {eur(stake * l.odds)}</span>}
       </div>
-      <label className="slip-odd" title={l.fair ? 'Cote juste Razzia : mets celle de ton bookmaker' : 'Cote de ton bookmaker'}>
+      <span className={`slip-odd${up ? ' up' : down ? ' down' : ''}`} title={l.fair ? 'Cote juste Razzia (aucune cote publiée)' : 'Cote du moment'}>
         <span>{l.fair ? 'Cote juste' : 'Cote'}</span>
-        <input inputMode="decimal" value={txt} onChange={(e) => setTxt(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} aria-label={`Cote de ${l.title}`} />
-      </label>
+        <b className="mono">
+          {up && <ArrowUp size={12} weight="bold" />}
+          {down && <ArrowDown size={12} weight="bold" />}
+          {l.odds ? dec(l.odds) : '-'}
+        </b>
+        {l.was != null && l.was !== l.odds && <s className="mono">{dec(l.was)}</s>}
+      </span>
       <button className="slip-rm" onClick={() => slip.remove(l.key)} aria-label={`Retirer ${l.title}`}>
         <X size={14} />
       </button>
@@ -438,6 +494,8 @@ function SlipLeg({ l, clash, stake }: { l: Leg; clash: boolean; stake?: number }
 /** En bas de l'écran, hors page Suivi : le ticket en préparation, en un coup d'œil. */
 export function SlipBar({ path }: { path: string }) {
   const legs = useSlip();
+  const c = useCompleting();
+  if (c) return <CompleteBar c={c} path={path} />;
   if (!legs.length || path === '/suivi' || path === '/compte') return null;
   return (
     <Link href="/suivi" className="slipbar">
@@ -447,6 +505,27 @@ export function SlipBar({ path }: { path: string }) {
       </span>
       <ArrowRight size={16} weight="bold" />
     </Link>
+  );
+}
+
+/** Pendant qu'on complète un ticket : rappel en bas de l'écran, et annuler. */
+function CompleteBar({ c, path }: { c: { stake: number; odds: number }; path: string }) {
+  if (path === '/suivi' || path === '/compte') return null;
+  return (
+    <div className="slipbar completebar" role="status">
+      <span className="slipbar-n">
+        <Plus size={16} weight="bold" />
+      </span>
+      <span>
+        <b>Complète ton ticket</b>
+        <span className="completebar-sub">
+          {eur(c.stake)} · cote {dec(c.odds)} · choisis un pari dans une fiche
+        </span>
+      </span>
+      <button className="completebar-x" onClick={() => completing.set(null)} aria-label="Annuler">
+        Annuler
+      </button>
+    </div>
   );
 }
 

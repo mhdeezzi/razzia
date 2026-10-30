@@ -1144,7 +1144,7 @@ a.row:hover .t-ava { transform: scale(1.06); }
   .top-account .lbl { display: none; }
   /* Fiche : chiffres qui ne se coupent plus. */
   .verdict-side dd { white-space: nowrap; }
-  .hero-rec { white-space: nowrap; font-size: 12px; }
+  .hero-rec { font-size: 11.5px; overflow-wrap: anywhere; }
   /* Tableaux : plus serrés, « Titulaire » devient un petit T. */
   .grid-table { font-size: 13px; }
   .grid-table th, .grid-table td { padding: 10px 9px; }
@@ -1296,11 +1296,6 @@ dd.down { color: var(--c-red); }
 .tk-st.won { color: var(--c-green); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-green) 55%, transparent); }
 .tk-st.lost { color: var(--c-red); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-red) 65%, transparent); }
 .tk-st.live { color: #f5a524; box-shadow: inset 0 0 0 1px rgba(245, 165, 36, 0.55); }
-.tk-prog { display: flex; gap: 4px; }
-.tk-prog span { flex: 1; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); transition: background 0.3s var(--ease); }
-.tk-prog .won { background: var(--c-green); }
-.tk-prog .lost { background: var(--c-red); }
-.tk-prog .live { background: #f5a524; animation: lm-pulse 1.4s ease-in-out infinite; }
 .tk-legs { list-style: none; margin: 0; padding: 0; display: grid; }
 .tk-legs li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
 .tk-legs li:first-child { border-top: 0; padding-top: 0; }
@@ -1316,8 +1311,18 @@ dd.down { color: var(--c-red); }
 .lm.live { box-shadow: inset 0 0 0 1.5px rgba(245, 165, 36, 0.6); }
 .lm.live i { width: 8px; height: 8px; border-radius: 50%; background: #f5a524; box-shadow: 0 0 8px rgba(245, 165, 36, 0.7); animation: lm-pulse 1.4s ease-in-out infinite; }
 @keyframes lm-pulse { 50% { opacity: 0.35; transform: scale(0.75); } }
-@media (prefers-reduced-motion: reduce) { .lm.live i, .tk-prog .live { animation: none; } }
-.tk-foot { display: flex; align-items: flex-end; gap: 22px; padding-top: 14px; border-top: 1px solid var(--line); }
+.lm.void { background: rgba(255, 255, 255, 0.14); color: #fff; box-shadow: none; }
+/* Ligne de suivi du ticket (à la place du trait gris) : une part par sélection ; en cours, orange qui file. */
+.tk-line { display: flex; gap: 4px; }
+.tk-line span { position: relative; flex: 1; height: 3px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, 0.1); transition: background 0.3s var(--ease); }
+.tk-line .won { background: var(--c-green); }
+.tk-line .lost { background: var(--c-red); }
+.tk-line .void { background: rgba(255, 255, 255, 0.3); }
+.tk-line .live { background: #d98a14; }
+.tk-line .live::after { content: ''; position: absolute; inset: 0; width: 45%; border-radius: inherit; background: linear-gradient(90deg, transparent, #ffc14d 40%, #fff0c8 60%, transparent); animation: tk-run 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+@keyframes tk-run { from { transform: translateX(-100%); } to { transform: translateX(230%); } }
+@media (prefers-reduced-motion: reduce) { .lm.live i { animation: none; } .tk-line .live { background: #f5a524; } .tk-line .live::after { display: none; } }
+.tk-foot { display: flex; align-items: flex-end; gap: 22px; }
 .tk-foot > div { display: grid; gap: 2px; }
 .tk-foot span { font: 600 10.5px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
 .tk-foot b { font: 600 16px var(--sans); font-variant-numeric: tabular-nums; }
@@ -1352,9 +1357,36 @@ dd.down { color: var(--c-red); }
 .slip-leg-main > span svg { vertical-align: -2px; margin-right: 3px; }
 .slip-leg-main > .slip-leg-g { color: var(--text-2); }
 .slip-odd { display: grid; gap: 2px; justify-items: end; }
-.slip-odd span { font: 600 9.5px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
-.slip-odd input { width: 62px; height: 32px; border: 0; border-radius: 9px; background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px var(--line-2); color: #fff; font: 600 14px var(--mono); text-align: center; outline: 0; }
-.slip-odd input:focus { box-shadow: inset 0 0 0 1px #23a26b; }
+.slip-odd > span { font: 600 9.5px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+.slip-odd b { display: inline-flex; align-items: center; gap: 3px; font-size: 16px; font-weight: 600; }
+.slip-odd s { font-size: 11.5px; color: var(--text-3); }
+.slip-odd.up b { color: var(--c-green); }
+.slip-odd.down b { color: var(--c-red); }
+.slip-leg-main > .slip-leg-shut { color: var(--c-red); }
+.slip-live { display: inline-block; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: var(--c-green); vertical-align: 1px; }
+.slip-live.on { animation: lm-pulse 0.8s ease-in-out infinite; }
+.tk-more { display: inline-flex; align-items: center; gap: 5px; color: #fff; }
+.completebar { padding-right: 8px; white-space: normal; }
+.completebar > span:nth-child(2) { display: grid; gap: 1px; font-size: 14px; line-height: 1.3; }
+.completebar-sub { font: 500 12.5px var(--sans); color: var(--text-2); }
+.tk-foot > .tk-actions { display: flex; align-items: center; gap: 6px; }
+.completebar-x { flex: none; height: 34px; padding: 0 12px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.08); color: #fff; font: 600 13px var(--sans); cursor: pointer; }
+.completebar-x:hover { background: rgba(255, 255, 255, 0.14); }
+.follow-btn.sm { height: 32px; padding: 0 12px; font-size: 13px; }
+.follow-note { font-size: 12.5px; color: var(--text-3); }
+/* En feu : le pari du joueur (plus ou moins de N,5 points), sous ses raisons. */
+.feu-bet { display: grid; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.feu-bet .follow { margin-top: 0; }
+.feu-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.feu-ou { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: #121214; }
+.feu-ou button { height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: 600 12.5px var(--sans); cursor: pointer; }
+.feu-ou button.is-on { background: #ededed; color: #0a0a0a; }
+.feu-step { display: inline-flex; align-items: center; gap: 2px; height: 34px; padding: 3px; border-radius: 10px; background: #121214; }
+.feu-step button { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--text-2); cursor: pointer; }
+.feu-step button:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.feu-step b { min-width: 42px; text-align: center; font-size: 14px; }
+.feu-odds { font-size: 12.5px; color: var(--text-3); }
+.feu-odds b { color: var(--text); font-size: 13.5px; }
 .slip-rm { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 8px; background: none; color: var(--text-3); cursor: pointer; }
 .slip-rm:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
 .slip-warn { font-size: 13px; color: var(--c-red); }
@@ -1442,7 +1474,9 @@ dd.down { color: var(--c-red); }
   .suivi-stats > div { flex: 1; min-width: 0; padding: 12px; }
   .suivi-stats dd { font-size: 19px; }
   .tk { padding: 16px 14px; }
-  .tk-foot { gap: 14px; }
+  .tk-foot { gap: 14px; flex-wrap: wrap; }
+  .tk-foot b { white-space: nowrap; }
+  .tk-foot > .tk-actions { flex-basis: 100%; margin-left: 0; justify-content: flex-end; }
   .auth-card2 { padding: 26px 18px; }
   .auth-side h2 { font-size: 46px; }
   .acct-hero { flex-wrap: wrap; padding: 24px 20px; gap: 16px; }
@@ -1450,4 +1484,21 @@ dd.down { color: var(--c-red); }
   .acct-plan-tag { margin-left: 0; }
   .acct-tk li { grid-template-columns: 78px minmax(0, 1fr) auto; }
   .acct-tk li .mono:nth-child(3) { display: none; }
+}
+
+/* Fiche sur téléphone : l'en-tête tient dans son cadre, même avec un score à trois chiffres et un long nom d'équipe. */
+@media (max-width: 720px) {
+  .hero-grid { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; }
+  .hero-team { min-width: 0; gap: 12px; container-type: inline-size; }
+  .hero-team > div { min-width: 0; width: 100%; }
+  .hero .mark-xl, .hero .t-ava-xl { width: 72px; height: 72px; }
+  .hero-name { font-size: min(22px, 100cqi / 5.4); overflow-wrap: anywhere; }
+  .hero-score { font-size: 38px; }
+  .hero-vs { font-size: 54px; }
+  .hero-time { font-size: 13px; padding: 6px 11px; }
+  .pick .follow { justify-content: center; }
+  .hero-rec-sep { display: none; }
+  .hero-rec > span { display: block; }
+  .completebar { left: 12px; right: 12px; transform: none; height: auto; min-height: 56px; padding: 8px 8px 8px 8px; }
+  .slipbar.completebar:hover { transform: none; }
 }
