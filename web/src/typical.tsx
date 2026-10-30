@@ -98,7 +98,7 @@ export function TypicalGame({ t, g }: { t: Typical; g: Game }) {
 }
 
 /** Courbe lisse qui passe par chaque point sans dépasser (cubique monotone, Fritsch-Carlson). */
-function smoothPath(p: Array<[number, number]>): string {
+export function smoothPath(p: Array<[number, number]>): string {
   const n = p.length;
   if (n < 3) return p.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join('');
   const dx = p.slice(1).map((q, i) => q[0] - p[i][0]);

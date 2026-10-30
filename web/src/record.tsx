@@ -25,10 +25,21 @@ async function nbaRecord(): Promise<Record> {
   return { rows };
 }
 
+// Heure de début pour l'ordre des résultats. Un match « à suivre » sans heure fixe est daté de minuit à New York par ESPN :
+// il se joue en fait après les matchs à heure fixe du même jour, donc rangé en fin de journée (sinon un résultat récent
+// passait avant ceux de la veille au soir et sortait des dix derniers).
+const ny = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+function playedAt(start: string): string {
+  const d = new Date(start);
+  if (Number.isNaN(+d)) return start;
+  const f = Object.fromEntries(ny.formatToParts(d).map((x) => [x.type, x.value]));
+  return f.hour === '00' && f.minute === '00' ? `${f.year}-${f.month}-${f.day}T23:59` : `${f.year}-${f.month}-${f.day}T${f.hour}:${f.minute}`;
+}
+
 async function atpRecord(): Promise<Record> {
   const b = await fetch('/api/tennis?bilan=1').then((r) => r.json());
   const rows = ((b.rows ?? []) as Array<{ id: string; day: string; start: string; tier: string; pick: { won: boolean } }>)
-    .sort((x, y) => x.start.localeCompare(y.start))
+    .sort((x, y) => playedAt(x.start).localeCompare(playedAt(y.start)))
     .map((r) => ({ key: r.id, won: r.pick.won, sure: r.tier === 'sure' }));
   return { rows };
 }
