@@ -27,6 +27,7 @@ export interface Leg {
   status?: LegStatus; // dans un ticket validé : issue figée une fois le match fini
   oid?: string; // identifiant du pari dans la fiche (win, spread, hedge, sets, straight), pour relire sa cote
   was?: number; // ticket en préparation : cote d'avant, quand elle vient de bouger
+  note?: string; // pari remboursé au tennis : « Abandon · X qualifié », « Forfait · X qualifié »
 }
 
 /** Identifiant du pari dans la fiche (les anciens paris l'ont seulement à la fin de leur clé). */
@@ -291,6 +292,9 @@ export function statusOf(leg: Leg, nba?: NbaFinal, atp?: AtpFinal): LegStatus {
 }
 
 /** Statut de chaque pari (clé du pari) d'après les scores : programme NBA du jour du match, programme tennis récent. */
+/** Explication d'un pari tennis remboursé (abandon, forfait), par clé de pari : remplie par fetchStatuses. */
+export const legNotes = new Map<string, string>();
+
 export async function fetchStatuses(legs: Leg[]): Promise<Record<string, LegStatus>> {
   const res: Record<string, LegStatus> = {};
   const nbaDays = [...new Set(legs.filter((l) => l.sport === 'nba').map((l) => l.date))];
@@ -331,8 +335,14 @@ export async function fetchStatuses(legs: Leg[]): Promise<Record<string, LegStat
       }
     }),
   );
-  for (const l of legs)
-    res[l.key] = l.bet.kind === 'pts' ? ptsStatus(l, nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`), boxes.get(l.bet.event ?? '')) : statusOf(l, l.sport === 'nba' ? nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`) : undefined, l.sport === 'atp' ? atpGames.get(l.match.id ?? '') : undefined);
+  for (const l of legs) {
+    const atp = l.sport === 'atp' ? atpGames.get(l.match.id ?? '') : undefined;
+    res[l.key] = l.bet.kind === 'pts' ? ptsStatus(l, nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`), boxes.get(l.bet.event ?? '')) : statusOf(l, l.sport === 'nba' ? nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`) : undefined, atp);
+    if (atp?.ended === 'retired' || atp?.ended === 'walkover') {
+      const q = atp.winner ? (atp.winner === 'home' ? l.match.homeName : l.match.awayName) : undefined;
+      legNotes.set(l.key, `${atp.ended === 'retired' ? 'Abandon' : 'Forfait'}${q ? ` · ${q} qualifié` : ''}`);
+    }
+  }
   return res;
 }
 
@@ -391,8 +401,9 @@ async function settle(owner: string, tickets: Ticket[]): Promise<SettleEvent[]> 
     const legs = t.legs.map((l) => {
       const s = st[l.key];
       if (final(l.status) || !final(s)) return l;
-      fresh.push({ ...l, status: s });
-      return { ...l, status: s };
+      const note = s === 'void' ? legNotes.get(l.key) : undefined;
+      fresh.push({ ...l, status: s, ...(note ? { note } : {}) });
+      return { ...l, status: s, ...(note ? { note } : {}) };
     });
     if (!fresh.length) continue;
     const fin = ticketState(legs.map((l) => l.status ?? 'pending'));

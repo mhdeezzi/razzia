@@ -251,7 +251,7 @@ function LegMark({ s }: { s: LegStatus }) {
   if (s === 'won') return <span className="lm won" aria-label="Gagné"><Check size={13} weight="bold" /></span>;
   if (s === 'lost') return <span className="lm lost" aria-label="Perdu"><X size={13} weight="bold" /></span>;
   if (s === 'live') return <span className="lm live" aria-label="En cours"><i /></span>;
-  if (s === 'void') return <span className="lm void" aria-label="Remboursé"><Minus size={13} weight="bold" /></span>;
+  if (s === 'void') return <span className="lm void" aria-label="Compté comme annulé"><Minus size={13} weight="bold" /></span>;
   return <span className="lm" aria-label="À venir" />;
 }
 
@@ -296,7 +296,7 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
               )}
               <span>
                 {l.sport === 'nba' ? <Basketball size={13} /> : <TennisBall size={13} />} {l.match.awayName} – {l.match.homeName}
-                {!demo && ` · ${when(l.start)}`}
+                {!demo && ` · ${l.note ?? when(l.start)}`}
               </span>
             </div>
             <span className="tk-odd mono">{ls[k] === 'void' ? '1,00' : l.odds ? dec(l.odds) : '-'}</span>

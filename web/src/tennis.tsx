@@ -415,7 +415,7 @@ function subLine(m: SlateMatch, side: 'home' | 'away', c?: PlayerCard) {
 /** Joueur comme une équipe NBA : photo à côté du nom, flèche de forme, ligne du dessous (classement ou jeux). */
 function Who({ m, side, players, sim, align, size = 'row' }: { m: SlateMatch; side: 'home' | 'away'; players?: Record<string, PlayerCard>; sim?: SimIndex; align?: 'away'; size?: 'row' | 'lg' }) {
   const name = m[side], c = players?.[name];
-  const lost = m.live?.ended === 'final' && m.live.winner && m.live.winner !== side;
+  const lost = m.live?.state === 'post' && m.live.winner && m.live.winner !== side;
   const trend = sim?.trend?.[side];
   const ava = <Avatar name={name} photo={c?.atp ? atpHeadshot(c.atp) : undefined} alt={c?.wiki ?? undefined} size={size} />;
   const label = (
@@ -555,7 +555,7 @@ function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimI
   const ff = sim && !running ? favFlip(sim) : undefined;
   const who = (side: 'home' | 'away') => {
     const name = m[side], c = players?.[name];
-    const lost = m.live?.ended === 'final' && m.live.winner && m.live.winner !== side;
+    const lost = m.live?.state === 'post' && m.live.winner && m.live.winner !== side;
     return (
       <p className={`card-a-team${lost ? ' t-lost' : ''}`}>
         <Avatar name={name} photo={c?.atp ? atpHeadshot(c.atp) : undefined} alt={c?.wiki ?? undefined} size="row" />
@@ -570,7 +570,7 @@ function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimI
   return (
     <Link href={`/tennis/match/${m.day}/${m.id}`} className="card card-a" style={{ '--i': i } as CSSProperties}>
       <span className="card-a-top mono">
-        {st === 'pre' || !m.live ? timeLocal(m.start) : st === 'in' ? 'En direct' : m.live.ended === 'retired' ? 'Abandon' : m.live.ended === 'walkover' ? 'Forfait' : 'Terminé'} · {tourneyOf(m.league)}
+        {st === 'pre' || !m.live ? timeLocal(m.start) : st === 'in' ? 'En direct' : m.live.ended === 'retired' || m.live.ended === 'walkover' ? `${m.live.ended === 'retired' ? 'Abandon' : 'Forfait'}${m.live.winner ? ` · ${short(m[m.live.winner])} qualifié` : ''}` : 'Terminé'} · {tourneyOf(m.league)}
         {round ? ` · ${ROUND_SHORT[round] ?? ROUND_FR[round] ?? round}` : ''}
       </span>
       <div className="card-a-t">
@@ -659,7 +659,7 @@ function TennisHero({ id, r }: { id: string; r?: TennisResult }) {
     const alt = r?.[k].photoAlt ?? c?.wiki ?? undefined;
     const rank = r?.[k].rank ?? c?.rank;
     const ioc = r?.[k].ioc ?? c?.ioc;
-    const lost = m?.live?.ended === 'final' && m.live.winner && m.live.winner !== k;
+    const lost = m?.live?.state === 'post' && m.live.winner && m.live.winner !== k;
     return (
       <div className={`hero-team ${k}${lost ? ' t-lost' : ''}`}>
         <Avatar name={name} photo={photo} alt={alt} size="xl" />
