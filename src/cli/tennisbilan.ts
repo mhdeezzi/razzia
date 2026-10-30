@@ -1,4 +1,5 @@
-// Bilan des simulations tennis publiées : pour chaque match terminé (résultats TennisMyLife), le pronostic mis en avant
+// Bilan des simulations tennis publiées : pour chaque match terminé (résultats TennisMyLife, ou ESPN en attendant qu'ils
+// y soient : un match compte moins d'une heure après sa fin), le pronostic mis en avant
 // par la fiche (vainqueur, ou « Un set » / « Deux sets » pour un favori à 80 % ou moins ou face à un outsider en hausse)
 // et son résultat, par niveau de confiance (Razzia assuré, entre les deux, pile ou face), face au marché. Abandons et
 // forfaits ne comptent pas.
@@ -6,7 +7,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadHistory } from '../tennis/data.ts';
-import { nameKey, type Match } from '../tennis/history.ts';
+import { nameKey, parseScore, type Match } from '../tennis/history.ts';
 
 const dir = process.argv[2];
 if (!dir) throw new Error('Usage : node src/cli/tennisbilan.ts <dossier tennis>');
@@ -49,6 +50,35 @@ for (const m of history) {
   byPair.set(k, [...(byPair.get(k) ?? []), m]);
 }
 
+// Résultats ESPN des 4 derniers jours (simple messieurs), par paire de joueurs : TennisMyLife publie avec quelques heures
+// de retard. Abandons et forfaits marqués comme tels (ils ne comptent pas).
+type Res = { key: string; date: string; score: string; wSets: number; lSets: number; retired: boolean; walkover: boolean; w: { id: string }; l: { id: string } };
+const espn = new Map<string, Res[]>();
+for (const i of [0, 1, 2, 3]) {
+  const ymd = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10).replaceAll('-', '');
+  const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard?dates=${ymd}`, { signal: AbortSignal.timeout(15_000) }).catch(() => undefined);
+  if (!r?.ok) continue;
+  for (const ev of (await r.json()).events ?? [])
+    for (const g of ev.groupings ?? []) {
+      if (g.grouping?.slug !== 'mens-singles') continue;
+      for (const c of g.competitions ?? []) {
+        const t = c.status?.type?.name, ps = c.competitors ?? [];
+        if (ps.length !== 2 || !['STATUS_FINAL', 'STATUS_RETIRED', 'STATUS_WALKOVER'].includes(t)) continue;
+        const wi = ps.findIndex((p: any) => p.winner);
+        if (wi < 0) continue;
+        const W = ps[wi], L = ps[1 - wi];
+        const score = (W.linescores ?? []).map((x: any, k: number) => `${x.value}-${L.linescores?.[k]?.value ?? 0}`).join(' ');
+        const sc = parseScore(score);
+        const res: Res = {
+          key: `espn-${c.id}`, date: String(c.date ?? '').slice(0, 10), score, wSets: sc.wSets, lSets: sc.lSets,
+          retired: t === 'STATUS_RETIRED', walkover: t === 'STATUS_WALKOVER', w: { id: nameKey(W.athlete?.displayName ?? '') }, l: { id: nameKey(L.athlete?.displayName ?? '') },
+        };
+        const k = [res.w.id, res.l.id].sort().join('|');
+        if (!(espn.get(k) ?? []).some((x) => x.key === res.key)) espn.set(k, [...(espn.get(k) ?? []), res]);
+      }
+    }
+}
+
 const rows: Row[] = [];
 let voided = 0, late = 0;
 const seen = new Map<string, { row: Row; built: string }>();
@@ -59,15 +89,21 @@ for (const f of existsSync(simsDir) ? readdirSync(simsDir) : []) {
   const kH = nameKey(s.home.name), kA = nameKey(s.away.name);
   // Le match joué entre ces deux joueurs le plus près du jour prévu (de la veille à 3 jours après : pluie, report).
   const t = Date.parse(s.day);
-  const m = (byPair.get([kH, kA].sort().join('|')) ?? [])
-    .filter((x) => Date.parse(x.date) >= t - 86_400_000 && Date.parse(x.date) <= t + 3 * 86_400_000)
-    .sort((a, b) => Math.abs(Date.parse(a.date) - t) - Math.abs(Date.parse(b.date) - t))[0];
+  const near = <T extends { date: string }>(l: T[]) =>
+    l.filter((x) => Date.parse(x.date) >= t - 86_400_000 && Date.parse(x.date) <= t + 3 * 86_400_000).sort((a, b) => Math.abs(Date.parse(a.date) - t) - Math.abs(Date.parse(b.date) - t))[0];
+  const pk = [kH, kA].sort().join('|');
+  // TennisMyLife d'abord (source de l'historique), ESPN en attendant ; même clé de paire pour ne pas compter deux fois.
+  const tml = near(byPair.get(pk) ?? []);
+  const e = tml ? undefined : near(espn.get(pk) ?? []);
+  const m = tml ?? e;
+  // Un match = une paire de joueurs dans un tournoi et un tour (le numéro de match TennisMyLife peut servir deux fois).
+  const one = tml ? `${pk}|${tml.tid}|${tml.round}` : `${pk}|${e?.date}`;
   if (!m) continue; // pas encore joué (ou pas encore dans TennisMyLife)
   if (m.walkover || m.retired) { voided++; continue; }
   // Une simulation lancée après le début du match ne compte pas (cotes en direct).
   if (s.start && s.meta?.builtAt && Date.parse(s.meta.builtAt) > Date.parse(s.start)) { late++; continue; }
   // Un même match simulé sous deux identifiants (ESPN, Pinnacle) : compté une seule fois, la dernière simulation.
-  const prev = seen.get(m.key);
+  const prev = seen.get(one);
   if (prev) {
     if (Date.parse(prev.built) >= Date.parse(s.meta?.builtAt ?? '')) continue;
     rows.splice(rows.indexOf(prev.row), 1);
@@ -85,7 +121,7 @@ for (const f of existsSync(simsDir) ? readdirSync(simsDir) : []) {
     pick: pickOf(s, favWon, favSets),
   };
   rows.push(row);
-  seen.set(m.key, { row, built: s.meta?.builtAt ?? '' });
+  seen.set(one, { row, built: s.meta?.builtAt ?? '' });
 }
 rows.sort((a, b) => (b.start ?? b.day).localeCompare(a.start ?? a.day));
 
