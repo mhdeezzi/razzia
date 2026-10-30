@@ -1,9 +1,10 @@
-# Cotes Pinnacle des matchs ATP (circuit principal) notées toutes les 3 heures : première cote vue (ouverture), dernière,
+# Cotes Pinnacle des matchs ATP (circuit principal) notées toutes les heures (GitHub décale souvent les passages : toutes
+# les 3 heures, ils arrivaient en vrai toutes les 4 à 8 heures, et les nouveaux joueurs restaient sans photo) : première cote vue (ouverture), dernière,
 # et changements de la cote du vainqueur ; matchs programmés par ESPN pas encore cotés (fiches sans cote) ; plus la fiche courte des joueurs à l'affiche (code ATP pour la photo, pays,
 # classement). Poussées sur la branche cotes-tennis, que le moteur tennis et le programme lisent.
 name: Cotes tennis
 on:
-  schedule: [{ cron: '17 */3 * * *' }]
+  schedule: [{ cron: '17 * * * *' }]
   workflow_dispatch:
 concurrency: { group: cotes-tennis, cancel-in-progress: false }
 permissions: { contents: write }
