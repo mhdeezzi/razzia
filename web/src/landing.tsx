@@ -2,7 +2,7 @@
 // Les affiches de pub (Poster 1 à 6) restent une maquette sans route.
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
-  ArrowRight, ArrowsLeftRight, Basketball, Bell, ChartLineUp, Check, CheckCircle, Clock, Crown, Fire, Infinity as InfinityIcon, Lightning, ListChecks,
+  ArrowRight, ArrowsLeftRight, Basketball, Bell, ChartLineUp, Check, CheckCircle, Clock, Coins, Crown, Fire, Infinity as InfinityIcon, Lightning, ListChecks,
   Scales, ShieldCheck, SoccerBall, Stack, TennisBall, ThumbsUp, Ticket as TicketIcon,
 } from '@phosphor-icons/react';
 import { Link, Ring, TeamMark } from './ui.tsx';
@@ -186,7 +186,7 @@ function Logo() {
 const FEATS: Array<{ icon: ReactNode; t: string; d: string }> = [
   { icon: <ChartLineUp size={20} />, t: '25 000 simulations par match', d: 'Chaque match rejoué possession par possession, avec les compos et les cotes du moment.' },
   { icon: <ShieldCheck size={20} />, t: 'Razzia assuré', d: 'Quand le favori dépasse 77 %, le moteur a vu juste 85 % du temps la saison passée.' },
-  { icon: <Scales size={20} />, t: 'Pile ou face et paris plus sûrs', d: 'Les matchs trop serrés signalés, avec le handicap qui passe plus souvent.' },
+  { icon: <Coins size={20} weight="fill" />, t: 'Pile ou face et paris plus sûrs', d: 'Les matchs trop serrés signalés, avec le handicap qui passe plus souvent.' },
   { icon: <ListChecks size={20} />, t: 'Suivi de tes tickets', d: 'Simples et combinés, cotes en direct, chaque sélection validée toute seule.' },
   { icon: <Fire size={20} />, t: 'En feu ce soir', d: 'Les joueurs qui vont faire un gros match, et pourquoi. Suis leurs points.' },
   { icon: <ArrowsLeftRight size={20} />, t: 'Où va l’argent', d: 'La cote du favori depuis l’ouverture : tu vois de quel côté le marché bascule.' },

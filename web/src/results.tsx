@@ -2,7 +2,7 @@
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useContext, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { SideColors } from './flags.ts';
-import { ArrowsLeftRight, Check, FirstAid, Plus, Scales, ShieldCheck } from '@phosphor-icons/react';
+import { ArrowsLeftRight, Check, FirstAid, Plus, Coins, ShieldCheck } from '@phosphor-icons/react';
 import { starsOut } from './stars.ts';
 import type { Leg } from './suivi.ts';
 import { FollowBtn } from './follow.tsx';
@@ -111,7 +111,7 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
     );
   if (c.tier === 'flip')
     return (
-      <Callout tone="badge-flip" icon={<Scales size={20} weight="light" />} title="Pile ou face">
+      <Callout tone="badge-flip" icon={<Coins size={20} weight="fill" />} title="Pile ou face">
         <p>
           {c.early && c.p >= 0.66
             ? `Début de saison : moins de 5 matchs joués, les équipes repartent de zéro. ${g[c.side].name} reste favori, mais rien n'est sûr.`
