@@ -199,6 +199,10 @@ export function Ring({ value, tone = 'blue', label, format, marble }: { value: n
             <WarpBg c1={marble} c2={marble} ring />
           </span>
         )}
+        {/* À l'ouverture : début de l'arc assombri, puis de plus en plus clair jusqu'au bout ; l'ombre s'efface ensuite. */}
+        {marble && (
+          <span className="ring-warp ring-shade" aria-hidden="true" />
+        )}
         <svg viewBox="0 0 100 100" aria-hidden="true">
           {/* Même dégradé que les lignes de résultats. */}
           <defs>
