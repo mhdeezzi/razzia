@@ -202,7 +202,8 @@ input, textarea { caret-color: var(--brand); }
 .sport:disabled { color: #4b4b50; cursor: default; }
 .top-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .top-link { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; font: 500 14.5px var(--sans); color: #d6d6da; white-space: nowrap; }
-.top-link.is-on { --g-a: 0.16; color: #fff; }
+/* Page Suivi ou Compte ouverte : son bouton s'allume (fond clair, comme un onglet choisi). */
+.top-link.is-on { --g-a: 0.16; color: #0a0a0a; background: #ededed; box-shadow: none; font-weight: 600; }
 .top-account { padding: 0 14px 0 12px; }
 @media (hover: hover) and (pointer: fine) { .sport:hover:not(:disabled):not(.is-on) { color: #fff; background-color: rgba(255, 255, 255, 0.06); } }
 /* Curseurs (sports, onglets) : glissé court et léger vers le choix, sans rebond. */

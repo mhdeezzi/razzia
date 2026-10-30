@@ -73,7 +73,7 @@ export function useSlider(ref: RefObject<HTMLElement | null>, selector: string, 
     const measure = () => {
       const box = ref.current;
       const el = box?.querySelector<HTMLElement>(selector);
-      if (box && el) setPos({ l: el.offsetLeft, r: box.clientWidth - el.offsetLeft - el.offsetWidth });
+      setPos(box && el ? { l: el.offsetLeft, r: box.clientWidth - el.offsetLeft - el.offsetWidth } : undefined);
     };
     measure();
     const ro = new ResizeObserver(measure);
