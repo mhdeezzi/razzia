@@ -178,7 +178,11 @@ export function CountUp({ value, format, duration = 1100 }: { value: number; for
 }
 
 /** Anneau de probabilité (0 à 1) qui se remplit à l'affichage : toujours bleu. */
-export function Ring({ value, tone = 'blue', label, format }: { value: number; tone?: 'blue' | 'rose'; label?: string; format: (v: number) => string }) {
+/**
+ * Anneau de probabilité. Avec `marble` (couleur d'une équipe), l'arc est le marbre animé de l'en-tête de la fiche, à la
+ * couleur de cette équipe, au lieu du dégradé bleu.
+ */
+export function Ring({ value, tone = 'blue', label, format, marble }: { value: number; tone?: 'blue' | 'rose'; label?: string; format: (v: number) => string; marble?: string }) {
   const r = 44;
   const c = 2 * Math.PI * r;
   const [shown, setShown] = useState(reduced() ? value : 0);
@@ -188,8 +192,13 @@ export function Ring({ value, tone = 'blue', label, format }: { value: number; t
     return () => cancelAnimationFrame(t);
   }, [value]);
   return (
-    <figure className={`ring ring-${tone}`}>
+    <figure className={`ring ring-${tone}${marble ? ' ring-marble' : ''}`} style={marble ? ({ '--c': marble, '--p': shown } as CSSProperties) : undefined}>
       <div className="ring-disc">
+        {marble && (
+          <span className="ring-warp" aria-hidden="true">
+            <WarpBg c1={marble} c2={marble} />
+          </span>
+        )}
         <svg viewBox="0 0 100 100" aria-hidden="true">
           {/* Même dégradé que les lignes de résultats. */}
           <defs>
