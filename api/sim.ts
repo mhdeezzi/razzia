@@ -57,7 +57,7 @@ export async function GET(request: Request): Promise<Response> {
     if (q.get('bilan')) {
       const r = await gh(`/contents/sims/bilan.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
       if (!r.ok) return Response.json({ error: 'Bilan pas encore calculé (une fois par jour, matchs terminés).' }, { status: 404, headers: noStore });
-      return Response.json(await r.json(), { headers: { 'Cache-Control': 'public, s-maxage=300' } });
+      return Response.json(await r.json(), { headers: { 'Cache-Control': 'public, s-maxage=60' } });
     }
     if (q.get('reqs')) {
       const reqs = q.get('reqs')!.split(',').filter((r) => /^[a-z0-9]{1,16}$/.test(r)).slice(0, 30);

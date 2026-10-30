@@ -1,8 +1,8 @@
-# Bilan des simulations tennis publiées (résultats TennisMyLife) toutes les 3 heures : tennis/bilan.json sur la branche
+# Bilan des simulations tennis publiées (résultats TennisMyLife) tous les quarts d'heure (GitHub décale souvent les tâches planifiées : plus elles sont fréquentes, moins le bilan attend) : tennis/bilan.json sur la branche
 # resultats, que la page Bilan de l'onglet Tennis lit.
 name: Bilan tennis
 on:
-  schedule: [{ cron: '47 */3 * * *' }]
+  schedule: [{ cron: '7,22,37,52 * * * *' }]
   workflow_dispatch:
 concurrency: { group: bilan-tennis, cancel-in-progress: false }
 permissions: { contents: write }

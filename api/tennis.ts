@@ -2,7 +2,7 @@
 // Actions (workflow simulate-tennis.yml) et la branche resultats.
 //   GET  /api/tennis?slate=1             -> {matches, sims, players} : matchs (cotes), déjà simulés, fiche des joueurs ;
 //                                           chaque match porte son état ESPN (à venir, en direct, terminé) et son score
-//   GET  /api/tennis?bilan=1             -> bilan des simulations terminées (bilan-tennis.yml, toutes les 3 heures)
+//   GET  /api/tennis?bilan=1             -> bilan des simulations terminées (bilan-tennis.yml, tous les quarts d'heure)
 //   POST /api/tennis {id, day}           -> lance une simulation, renvoie {status:'queued', req}
 //   POST /api/tennis {ids, days}         -> toute la journée en un seul passage GitHub (un jour par match), même réponse
 //   GET  /api/tennis?id=&day=[&req=]     -> {status:'done', result} | {status:'queued'|'running'|'failed'|'none'}
@@ -160,7 +160,7 @@ export async function GET(request: Request): Promise<Response> {
     }
     if (q.get('bilan')) {
       const b = await raw('tennis/bilan.json', 'resultats');
-      return b.ok ? Response.json(await b.json(), { headers: { 'Cache-Control': 'public, s-maxage=300' } }) : Response.json({ games: 0 }, { headers: noStore });
+      return b.ok ? Response.json(await b.json(), { headers: { 'Cache-Control': 'public, s-maxage=60' } }) : Response.json({ games: 0 }, { headers: noStore });
     }
     const id = q.get('id'), day = q.get('day'), req = q.get('req');
     if (!id && req && /^[a-z0-9]{4,12}$/.test(req)) {

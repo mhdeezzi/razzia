@@ -1,8 +1,8 @@
-# Bilan quotidien des simulations publiées (valeur de clôture, résultats) : sims/bilan.json sur la branche resultats.
+# Bilan des simulations publiées (valeur de clôture, résultats), tous les quarts d'heure : sims/bilan.json sur la branche resultats.
 name: Bilan des simulations
 on:
   schedule:
-    - cron: '17 11 * * *'
+    - cron: '2,17,32,47 * * * *'
   workflow_dispatch:
 concurrency: { group: bilan, cancel-in-progress: false }
 permissions: { contents: write }
