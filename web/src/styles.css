@@ -296,12 +296,11 @@ a.row:active { transform: scale(0.995); }
   transition: background-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.15s var(--ease); }
 .conf-pill b { font: 600 13px var(--mono); letter-spacing: -0.03em; color: inherit; }
 .conf-pill.wait .wait-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
-/* Badge de simulation : texte rouge pile ou face, vert sinon. */
-.conf-pill.sim { --c: var(--c-green); }
+/* Badge de simulation : juste le texte, rouge pile ou face, vert sinon ; pas de contour (comme en grille). */
+.conf-pill.sim { --c: var(--c-green); box-shadow: none; }
 .conf-pill.sim.flip { --c: var(--c-red); }
 .conf-pill.sim > svg { color: var(--c); }
 .conf-pill.fail { --c: var(--c-red); }
-@media (hover: hover) and (pointer: fine) { a.row:hover .conf-pill.sim, a.card:hover .conf-pill.sim { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); } }
 /* « Simuler » : petit bouton de verre. */
 .conf-pill.go { height: 28px; padding: 0 14px; border-radius: 8px; font-weight: 600; color: #fff; }
 .conf-pill.wait { --c: #8e8e93; color: var(--text-2); }
