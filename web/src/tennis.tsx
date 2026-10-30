@@ -1,7 +1,7 @@
 // Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowLeft, CaretRight, Ghost, HouseLine, HouseSimple, ListBullets, Mountains, Scales, ShieldCheck, SquaresFour, TennisBall, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
+import { ArrowLeft, CaretRight, PawPrint, HouseLine, HouseSimple, ListBullets, Mountains, Scales, ShieldCheck, SquaresFour, TennisBall, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
 import { Callout, Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgress } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { MoneyFlow } from './money.tsx';
@@ -868,7 +868,7 @@ function TennisSignals({ r }: { r: TennisResult }) {
       {cat && (
         <div className="signal signal-cat">
           <span className="signal-icon">
-            <Ghost size={19} weight="light" />
+            <PawPrint size={19} weight="light" />
           </span>
           <div>
             <p className="signal-title">Chat noir pour {r[cat.victim].name}</p>

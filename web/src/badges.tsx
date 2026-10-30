@@ -1,6 +1,6 @@
 // Page « Badges » : ce que veut dire chaque badge de l'app, basket et tennis, avec ce qu'il a donné sur les saisons passées.
 import type { ReactNode } from 'react';
-import { ArrowsLeftRight, ClipboardText, Fire, Ghost, HouseSimple, Mountains, Scales, ShieldCheck, TrendDown, TrendUp, Trophy } from '@phosphor-icons/react';
+import { ArrowsLeftRight, ClipboardText, Fire, PawPrint, HouseSimple, Mountains, Scales, ShieldCheck, TrendDown, TrendUp, Trophy } from '@phosphor-icons/react';
 
 interface Badge { icon: ReactNode; tone: string; title: string; text: ReactNode }
 
@@ -45,7 +45,7 @@ const nba: Badge[] = [
     text: "En début de saison, quand le marché voit l'autre équipe favorite avec un gros écart : le moteur n'avait raison qu'une fois sur deux. Prudence.",
   },
   {
-    icon: <Ghost size={19} weight="light" />, tone: 'signal-cat', title: 'Chat noir',
+    icon: <PawPrint size={19} weight="light" />, tone: 'signal-cat', title: 'Chat noir',
     text: "Une équipe qui perd contre l'autre même quand elle est favorite (au moins 3 défaites en étant favorite sur deux ans, 70 % ou plus, bien sous l'écart attendu). Rare.",
   },
   {
@@ -76,7 +76,7 @@ const tennis: Badge[] = [
     text: "Favori à 80 % ou moins, ou outsider en hausse (le favori perdait alors plus souvent que prévu) : « Un set » passe devant, le vainqueur est déconseillé. Sauf quand l'outsider est le chat noir du favori : on garde sa victoire.",
   },
   {
-    icon: <Ghost size={19} weight="light" />, tone: 'signal-cat', title: 'Chat noir',
+    icon: <PawPrint size={19} weight="light" />, tone: 'signal-cat', title: 'Chat noir',
     text: "Au moins 4 confrontations en 6 ans, dont 75 % ou plus gagnées par le même joueur, avec 3 victoires d'avance.",
   },
   {
