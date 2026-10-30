@@ -77,7 +77,7 @@ export interface PlayerModel {
   tovLiveShare: number;
   guardProfile: { height: number; usg: number };
   h2h?: { games: number; pts: number; reb: number; ast: number; ptsAll: number; last?: { date: string; pts: number }; best?: number };
-  form: { gp: number; gpCur: number; ptsL10: number; minL10: number; ptsSeason: number; minSeason: number; rebL10: number; astL10: number; fg3mL10: number; minTeam?: number; valTeam?: number };
+  form: { gp: number; gpCur: number; ptsL10: number; minL10: number; ptsSeason: number; minSeason: number; rebL10: number; astL10: number; fg3mL10: number; minTeam?: number; valTeam?: number; missed?: number }; // missed : matchs de l'équipe joués sans lui depuis sa dernière apparition
   notes: string[];
 }
 
