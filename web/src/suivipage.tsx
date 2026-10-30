@@ -252,7 +252,7 @@ function LegMark({ s }: { s: LegStatus }) {
 }
 
 /** Pastille du ticket, à côté de son nom : 3/3 et pouce, 1/3 et pouce rouge, sélections à venir et horloge, LIVE, annulé. */
-function TicketPill({ state, ls }: { state: LegStatus; ls: LegStatus[] }) {
+export function TicketPill({ state, ls }: { state: LegStatus; ls: LegStatus[] }) {
   const n = ls.length, ok = ls.filter((x) => x === 'won' || x === 'void').length, wait = ls.filter((x) => x === 'pending' || x === 'live').length;
   const label = `${STATUS[state]} · ${ok} sur ${n} validée${ok > 1 ? 's' : ''}`;
   if (state === 'won') return <span className="tk-st won" aria-label={label}>{n > 1 ? `${ok}/${n}` : ''}<ThumbsUp size={15} weight="fill" /></span>;

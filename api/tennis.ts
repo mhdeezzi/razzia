@@ -177,6 +177,9 @@ export async function GET(request: Request): Promise<Response> {
       const run = await findRun(req);
       if (run?.status === 'completed' && run.conclusion !== 'success') return Response.json({ status: 'done', result, relaunchFailed: true, url: run.html_url }, { headers: noStore });
       if (!run || run.status === 'completed') return Response.json({ status: 'done', result }, { headers: noStore });
+      // Résultat publié après la demande : il est prêt, même si GitHub affiche encore la demande « en attente »
+      // (son état peut retarder de plusieurs minutes sur la publication réelle).
+      if (result.meta?.builtAt && Date.parse(result.meta.builtAt) > Date.parse(run.created_at)) return Response.json({ status: 'done', result }, { headers: noStore });
       return Response.json({ status: run.status === 'queued' ? 'queued' : 'running', startedAt: run.run_started_at, previous: result }, { headers: noStore });
     }
     if (!req) return Response.json({ status: 'none' }, { headers: noStore });
