@@ -4,7 +4,8 @@ import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabase.ts';
 import { endRecovery, useAuth } from './auth.ts';
-import { useTickets } from './suivi.ts';
+import { ticketState, useTickets } from './suivi.ts';
+import { TicketPill } from './suivipage.tsx';
 import { WarpBg } from './shaders.tsx';
 import {
   AppleLogo, ArrowUpRight, Bell, CalendarCheck, ChartLineUp, Check, CreditCard, Crown, Envelope, GoogleLogo, Infinity as InfinityIcon,
@@ -412,7 +413,8 @@ function AccountSpace({ user }: { user: User }) {
           <ul className="acct-tk">
             {(tickets ?? []).slice(0, 4).map((t) => (
               <li key={t.id}>
-                <span className={`tk-st ${t.status}`}>{t.status === 'won' ? 'Gagné' : t.status === 'lost' ? 'Perdu' : 'En cours'}</span>
+                {/* Même pastille que le Suivi (pouce vert, pouce rouge, horloge jaune). */}
+                <TicketPill state={t.status === 'won' || t.status === 'lost' ? t.status : ticketState(t.legs.map((l) => l.status ?? 'pending'))} ls={t.legs.map((l) => l.status ?? 'pending')} />
                 <span className="acct-tk-t">{t.kind === 'combine' ? `Combiné · ${t.legs.length} sélections` : t.legs[0]?.title}</span>
                 <span className="mono muted">{t.odds.toFixed(2).replace('.', ',')}</span>
                 <span className="mono">{eur(t.stake)}</span>
