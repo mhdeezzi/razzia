@@ -203,7 +203,7 @@ input, textarea { caret-color: var(--brand); }
 .top-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .top-link { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; font: 500 14.5px var(--sans); color: #d6d6da; white-space: nowrap; }
 /* Page Suivi ou Compte ouverte : son bouton s'allume (fond clair, comme un onglet choisi). */
-.top-link.is-on { --g-a: 0.16; color: #0a0a0a; background: #ededed; box-shadow: none; font-weight: 600; }
+.top-link.is-on, .top-link.is-on:hover:not(:disabled) { --g-a: 0.16; color: #0a0a0a; background: #ededed; box-shadow: none; font-weight: 600; }
 .top-account { padding: 0 14px 0 12px; }
 @media (hover: hover) and (pointer: fine) { .sport:hover:not(:disabled):not(.is-on) { color: #fff; background-color: rgba(255, 255, 255, 0.06); } }
 /* Curseurs (sports, onglets) : glissé court et léger vers le choix, sans rebond. */
@@ -1331,10 +1331,8 @@ body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
 
 /* Ticket validé */
 .tk { position: relative; display: grid; gap: 0; border-radius: 20px; overflow: hidden; background: #0b0b0c; box-shadow: inset 0 0 0 1px var(--surface-rim); animation: rise 0.28s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
-.tk.won { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-win) 55%, transparent); }
-.tk.lost { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-red) 45%, transparent); }
 .tk.is-new { animation: rise 0.28s var(--ease) both, tk-new 1.6s var(--ease) 0.3s 2; }
-@keyframes tk-new { 50% { box-shadow: inset 0 0 0 1px var(--c-win), 0 0 0 4px rgba(34, 165, 91, 0.18); } }
+@keyframes tk-new { 50% { box-shadow: inset 0 0 0 1px var(--surface-rim), 0 0 0 4px rgba(34, 165, 91, 0.18); } }
 /* Carnet façon bookmaker : en-tête « COMBINÉ (3) » et sa pastille, une ligne grise par sélection, badge rond à droite. */
 .tk-head { display: flex; align-items: center; gap: 10px; padding: 16px 16px 14px; }
 .tk-kind { font: 800 17px var(--sans); letter-spacing: 0.01em; text-transform: uppercase; }
