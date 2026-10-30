@@ -4,7 +4,7 @@ import { CaretRight, Check, Fire, FirstAid, ListBullets, SquaresFour, TrendDown,
 import { dayLong, isToday, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
 import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
-import { flipP } from './picks.ts';
+import { pillTier } from './picks.ts';
 import { nbaHype } from './hype.ts';
 import { PublicRecord } from './record.tsx';
 
@@ -210,7 +210,7 @@ function SimPill({ g, sim, run }: { g: Game; sim?: SimEntry; run?: ItemState }) 
   const home = sim.pHome >= sim.pAway;
   const p = Math.max(sim.pHome, sim.pAway);
   // Bouton mat, texte de la couleur du pari : ambre « Pile ou face », bleu sinon.
-  const tier = flipP(p, sim.gp ?? recordGames(g)) ? 'flip' : '';
+  const tier = pillTier(p, sim.gp ?? recordGames(g)).trim();
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
       <span className={`conf-pill sim ${tier}`}>
@@ -349,7 +349,7 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
       </div>
       <div className="card-a-f">
         {sim && p != null && fav && !busy ? (
-          <span className={`card-a-p${flipP(p, sim.gp ?? recordGames(g)) ? ' flip' : ''}`}>
+          <span className={`card-a-p${pillTier(p, sim.gp ?? recordGames(g))}`}>
             {fav.tri} {pct0(p)}
           </span>
         ) : (
@@ -381,7 +381,7 @@ function Une({ games, sims }: { games: Game[]; sims: Map<string, SimEntry> }) {
       </span>
       <span className="hb-une-t mono">{g.state === 'pre' ? timeLocal(g.start) : g.state === 'in' ? g.detail : `${g.away.score ?? '-'}-${g.home.score ?? '-'}`}</span>
       {sim && p != null && fav && (
-        <span className={`card-a-p${flipP(p, sim.gp ?? recordGames(g)) ? ' flip' : ''}`}>
+        <span className={`card-a-p${pillTier(p, sim.gp ?? recordGames(g))}`}>
           {fav.tri} {pct0(p)}
         </span>
       )}
