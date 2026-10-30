@@ -33,6 +33,7 @@
     "@fontsource-variable/host-grotesk": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
+    "@fontsource/pinyon-script": "5.3.0",
     "@paper-design/shaders-react": "0.0.82",
     "@phosphor-icons/react": "^2.1.7",
     "@supabase/supabase-js": "^2.118.0",

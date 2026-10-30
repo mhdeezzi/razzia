@@ -1,10 +1,11 @@
-// MAQUETTE (non branchée, aucune route) : page d'accueil payante (Landing, versions 1 à 3) et affiches de pub (Poster 1 à 6).
+// Page d'accueil payante, cachée (pas de lien depuis le site) : /accueil et ses pages Fonctionnalités, Tarifs, Questions.
+// Les affiches de pub (Poster 1 à 6) restent une maquette sans route.
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   ArrowRight, ArrowsLeftRight, Basketball, Bell, ChartLineUp, Check, CheckCircle, Crown, Fire, Infinity as InfinityIcon, Lightning, ListChecks,
   Scales, ShieldCheck, SoccerBall, Stack, TennisBall, Ticket as TicketIcon,
 } from '@phosphor-icons/react';
-import { Ring, TeamMark } from './ui.tsx';
+import { Link, Ring, TeamMark } from './ui.tsx';
 import { WarpBg } from './shaders.tsx';
 import logo from './assets/razzia-logo.webp';
 import './landing.css';
@@ -187,302 +188,431 @@ const FEATS: Array<{ icon: ReactNode; t: string; d: string }> = [
   { icon: <ArrowsLeftRight size={20} />, t: 'Où va l’argent', d: 'La cote du favori depuis l’ouverture : tu vois de quel côté le marché bascule.' },
 ];
 
-// ——— Page d'accueil ———
+// ——— Page d'accueil (cachée : /accueil, /accueil/fonctionnalites, /accueil/tarifs, /accueil/questions) ———
 
-export function Landing({ v }: { v: number }) {
-  const [year, setYear] = useState(false);
+type LpPage = 'home' | 'features' | 'pricing' | 'faq';
+const PAGES: Record<string, LpPage> = { '/accueil': 'home', '/accueil/fonctionnalites': 'features', '/accueil/tarifs': 'pricing', '/accueil/questions': 'faq' };
+export const landingPage = (path: string): LpPage | undefined => PAGES[path.replace(/\/$/, '')];
+// Pas de paiement branché pour l'instant : l'essai mène à la création de compte.
+const TRIAL = '/compte?mode=up&next=/';
+
+/** Apparition douce au défilement (une fois), sans écouter le scroll. */
+function useReveal(dep: unknown) {
+  useEffect(() => {
+    const els = [...document.querySelectorAll<HTMLElement>('.lp [data-reveal]')];
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return void els.forEach((e) => e.classList.add('is-in'));
+    const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && (e.target.classList.add('is-in'), io.unobserve(e.target))), { rootMargin: '0px 0px -8% 0px' });
+    els.forEach((e) => io.observe(e));
+    return () => io.disconnect();
+  }, [dep]);
+}
+
+/** Bouton principal : texte et flèche dans sa propre case, qui glisse au survol. */
+function Cta({ href, children, ghost }: { href: string; children: ReactNode; ghost?: boolean }) {
   return (
-    <div className={`lp lp-v${v}`}>
-      <nav className="lp-nav">
+    <Link href={href} className={`btn btn-lg lp-btn ${ghost ? 'glass' : 'btn-primary'}`}>
+      {children}
+      {!ghost && (
+        <span className="lp-btn-ic">
+          <ArrowRight size={16} weight="bold" />
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function Eyebrow({ children }: { children: ReactNode }) {
+  return <span className="lp-eyebrow">{children}</span>;
+}
+
+/** Carte à double contour : plaque extérieure fine, cœur noir à l'intérieur. */
+function Bezel({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={`lp-bezel ${className}`} data-reveal>
+      <div className="lp-bezel-in">{children}</div>
+    </div>
+  );
+}
+
+function LpNav({ page }: { page: LpPage }) {
+  const links: Array<[LpPage, string, string]> = [
+    ['features', 'Fonctionnalités', '/accueil/fonctionnalites'],
+    ['pricing', 'Tarifs', '/accueil/tarifs'],
+    ['faq', 'Questions', '/accueil/questions'],
+  ];
+  return (
+    <nav className="lp-nav">
+      <Link href="/accueil" aria-label="Razzia, accueil">
         <Logo />
-        <div className="lp-links">
-          <a href="#features">Fonctionnalités</a>
-          <a href="#prix">Tarifs</a>
-          <a href="#faq">Questions</a>
+      </Link>
+      <div className="lp-links">
+        {links.map(([id, label, href]) => (
+          <Link key={id} href={href} className={page === id ? 'is-on' : undefined} aria-current={page === id ? 'page' : undefined}>
+            {label}
+          </Link>
+        ))}
+      </div>
+      <div className="lp-nav-r">
+        <Link className="btn glass" href="/compte">
+          Se connecter
+        </Link>
+        <Link className="btn btn-primary" href="/accueil/tarifs">
+          Essai gratuit
+        </Link>
+      </div>
+    </nav>
+  );
+}
+
+function Hero() {
+  return (
+    <header className="lp-hero3 mesh has-shader">
+      <WarpBg c1={NUIT[0]} c2={NUIT[1]} />
+      <span className="lp-eyebrow on-dark lp-in" style={{ '--d': 0 } as CSSProperties}>
+        NBA · ATP · 5 000 simulations par match
+      </span>
+      <h1 className="lp-in" style={{ '--d': 1 } as CSSProperties}>
+        Le match,
+        <br />
+        5 000 fois
+        <br />
+        <em>avant le vrai.</em>
+      </h1>
+      <p className="lp-lede center lp-in" style={{ '--d': 2 } as CSSProperties}>
+        Razzia rejoue chaque match avant le coup d’envoi : qui gagne, de combien, et quel pari passe le plus souvent.
+      </p>
+      <div className="lp-cta center lp-in" style={{ '--d': 3 } as CSSProperties}>
+        <Cta href="/accueil/tarifs">Débloquer Razzia</Cta>
+        <Cta href="/accueil/fonctionnalites" ghost>
+          Voir ce qu’il fait
+        </Cta>
+      </div>
+      <p className="lp-trial lp-in" style={{ '--d': 4 } as CSSProperties}>
+        3 jours d’essai gratuit · sans engagement
+      </p>
+      <div className="lp-marquee" aria-hidden="true">
+        <div>
+          {[0, 1].map((n) => (
+            <div key={n} className="lp-marquee-row">
+              <MatchCard a={T('BOS', 'Celtics')} h={T('NYK', 'Knicks')} p={0.59} fav="NYK" flip odds="2,35 / 1,63" />
+              <MatchCard a={T('OKC', 'Thunder')} h={T('DEN', 'Nuggets')} p={0.78} fav="DEN" odds="2,05 / 1,83" />
+              <MatchCard a={T('LAL', 'Lakers')} h={T('GSW', 'Warriors')} p={0.71} fav="LAL" odds="1,75 / 2,25" />
+              <MatchCard a={T('MIA', 'Heat')} h={T('ORL', 'Magic')} p={0.63} fav="ORL" flip odds="2,40 / 1,60" />
+            </div>
+          ))}
         </div>
-        <div className="lp-nav-r">
-          <a className="btn glass" href="#prix">
-            Se connecter
-          </a>
-          <a className="btn btn-primary" href="#prix">
-            Commencer
-          </a>
+      </div>
+    </header>
+  );
+}
+
+function Proof() {
+  return (
+    <section className="lp-proof" data-reveal>
+      <div>
+        <b>5 000</b>
+        <span>matchs simulés avant chaque coup d’envoi</span>
+      </div>
+      <div>
+        <b className="up">85 %</b>
+        <span>de favoris trouvés quand Razzia est sûr (saison passée)</span>
+      </div>
+      <div>
+        <b>2</b>
+        <span>sports : NBA et tennis ATP, le football arrive</span>
+      </div>
+    </section>
+  );
+}
+
+function Bento() {
+  return (
+    <div className="lp-bento">
+      <Bezel className="lp-b-big">
+        <div className="lp-b-t">
+          <h3>5 000 matchs avant le vrai</h3>
+          <p>Qui gagne, de combien, le score le plus probable, et le pari qui passe le plus souvent.</p>
         </div>
-      </nav>
+        <RingCard />
+      </Bezel>
+      <Bezel className="lp-b-tall">
+        <div className="lp-b-t">
+          <h3>Suivi de tes tickets</h3>
+          <p>Simple ou combiné, cotes relues en direct, chaque sélection cochée toute seule.</p>
+        </div>
+        <LiveTicket />
+      </Bezel>
+      <Bezel>
+        <div className="lp-b-t">
+          <h3>En feu ce soir</h3>
+          <p>Les joueurs partis pour un gros match.</p>
+        </div>
+        <FeuMini />
+      </Bezel>
+      <Bezel>
+        <div className="lp-b-t">
+          <h3>Où va l’argent</h3>
+          <p>La cote du favori depuis l’ouverture.</p>
+        </div>
+        <MoneyMini />
+      </Bezel>
+    </div>
+  );
+}
 
-      {v === 1 && (
-        <header className="lp-hero1 mesh has-shader">
-          <WarpBg c1={AMBRE[0]} c2={AMBRE[1]} />
-          <div className="lp-hero1-copy">
-            <span className="caps">NBA · ATP · 5 000 simulations par match</span>
-            <h1>
-              Simule
-              <br />
-              avant de
-              <br />
-              parier.
-            </h1>
-            <p className="lp-lede">Razzia rejoue chaque match 5 000 fois avant le coup d’envoi. Tu vois qui gagne, de combien, et quel pari passe le plus souvent.</p>
-            <div className="lp-cta">
-              <a className="btn btn-primary btn-lg" href="#prix">
-                Voir les formules <ArrowRight size={17} weight="bold" />
-              </a>
-              <a className="btn glass btn-lg" href="#features">
-                Comment ça marche
-              </a>
+function Steps() {
+  return (
+    <section className="lp-sec lp-steps">
+      <div className="lp-sec-head" data-reveal>
+        <Eyebrow>Comment ça marche</Eyebrow>
+        <h2>Trois gestes, chaque soir.</h2>
+      </div>
+      <ol>
+        {[
+          ['Choisis un match', 'Le programme NBA et ATP du jour, avec les cotes et les compos.'],
+          ['Razzia le joue 5 000 fois', 'En une minute : vainqueur, handicap plus sûr, joueurs en feu, badges.'],
+          ['Suis ton ticket', 'Ajoute les paris, valide, et regarde chaque sélection passer au vert.'],
+        ].map(([t, d], i) => (
+          <li key={t} data-reveal style={{ '--d': i } as CSSProperties}>
+            <b>0{i + 1}</b>
+            <h3>{t}</h3>
+            <p>{d}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function Plans() {
+  const [year, setYear] = useState(false);
+  const plans = [
+    {
+      id: 'pro', name: 'Razzia Pro', m: '9,99', y: '7,99', pitch: 'Tout ce qu’il faut pour suivre chaque soirée.',
+      items: [[<InfinityIcon size={17} />, 'Simulations illimitées'], [<Lightning size={17} />, 'Toute la soirée en un clic'], [<Scales size={17} />, 'Handicaps et paris plus sûrs'], [<ListChecks size={17} />, 'Suivi des tickets et bilan']] as Array<[ReactNode, string]>,
+    },
+    {
+      id: 'elite', name: 'Razzia Elite', m: '24,99', y: '19,99', pitch: 'Pour tout voir avant tout le monde.', top: true,
+      items: [[<Check size={17} />, 'Tout Razzia Pro'], [<Bell size={17} />, 'Alertes : compos, cotes qui bougent, chat noir'], [<Crown size={17} />, 'Nouveaux sports en avant-première'], [<CheckCircle size={17} />, 'Support prioritaire']] as Array<[ReactNode, string]>,
+    },
+  ];
+  return (
+    <>
+      <div className="lp-period" role="group" aria-label="Période">
+        <button className={!year ? 'is-on' : ''} onClick={() => setYear(false)}>
+          Mensuel
+        </button>
+        <button className={year ? 'is-on' : ''} onClick={() => setYear(true)}>
+          Annuel <em>−20 %</em>
+        </button>
+      </div>
+      <div className="lp-plans">
+        {plans.map((p, i) => (
+          <div key={p.id} className={`lp-bezel lp-plan-shell${p.top ? ' is-top' : ''}`} data-reveal style={{ '--d': i } as CSSProperties}>
+            <div className={`lp-bezel-in lp-plan${p.top ? ' mesh has-shader' : ''}`}>
+              {p.top && (
+                <div className="lp-dim">
+                  <WarpBg c1={NUIT[0]} c2={NUIT[1]} />
+                </div>
+              )}
+              {p.top && <span className="lp-plan-tag">Le plus complet</span>}
+              <span className="caps">{p.name}</span>
+              <p className="lp-price-v">
+                {year ? p.y : p.m} €<small>/mois</small>
+              </p>
+              <p className="lp-plan-sub">{year ? 'Facturé à l’année, ' : ''}après 3 jours d’essai gratuit.</p>
+              <p className="muted">{p.pitch}</p>
+              <ul>
+                {p.items.map(([ic, t]) => (
+                  <li key={t}>
+                    {ic} {t}
+                  </li>
+                ))}
+              </ul>
+              <Cta href={TRIAL}>Essai gratuit 3 jours</Cta>
+              <span className="lp-plan-note">Aucun prélèvement avant la fin de l’essai</span>
             </div>
           </div>
-          <div className="lp-hero1-stack">
-            <MatchCard a={T('BOS', 'Celtics')} h={T('NYK', 'Knicks')} p={0.59} fav="NYK" flip odds="2,35 / 1,63" />
-            <RingCard />
-          </div>
-        </header>
+        ))}
+      </div>
+      <p className="lp-pay">Paiement sécurisé · Carte, Apple Pay, Google Pay · Sans engagement, résiliable en un clic</p>
+    </>
+  );
+}
+
+const QA: Array<[string, string]> = [
+  ['Razzia prend-il mes paris ?', 'Non. Razzia analyse les matchs. Tu joues chez ton bookmaker, Razzia t’aide à choisir et suit ton ticket.'],
+  ['Comment marche l’essai gratuit ?', 'Tu as accès à tout pendant 3 jours. Rien n’est prélevé avant la fin de l’essai, et tu peux arrêter avant en un clic.'],
+  ['D’où viennent les cotes ?', 'DraftKings pour la NBA, Pinnacle pour le tennis. Elles sont relues juste avant que tu valides un ticket.'],
+  ['Le moteur a-t-il toujours raison ?', 'Non. Il donne des probabilités : un favori à 80 % perd une fois sur cinq. Les badges disent quand se méfier (pile ou face, chat noir).'],
+  ['Qu’est-ce qu’une simulation ?', 'Le match est rejoué possession par possession, ou point par point au tennis, 5 000 fois, avec les compos, la forme et le contexte du soir.'],
+  ['Quels sports ?', 'NBA et tennis ATP aujourd’hui. Le football et la simulation en direct arrivent.'],
+  ['Je peux arrêter quand je veux ?', 'Oui, sans engagement. L’abonnement s’arrête à la fin de la période en cours.'],
+  ['C’est réservé aux majeurs ?', 'Oui, Razzia est réservé aux plus de 18 ans. Jouer comporte des risques : endettement, dépendance. Appelle le 09 74 75 13 13 (appel non surtaxé) si besoin.'],
+];
+
+function Faq({ items = QA }: { items?: Array<[string, string]> }) {
+  return (
+    <div className="lp-faq-list">
+      {items.map(([q, a], i) => (
+        <details key={q} data-reveal style={{ '--d': i % 4 } as CSSProperties}>
+          <summary>
+            {q}
+            <span className="lp-plus" aria-hidden="true" />
+          </summary>
+          <p>{a}</p>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function Final() {
+  return (
+    <section className="lp-final mesh has-shader" data-reveal>
+      <WarpBg c1={NUIT[0]} c2={NUIT[1]} />
+      <Eyebrow>3 jours d’essai gratuit</Eyebrow>
+      <h2>
+        Ce soir,
+        <br />
+        parie en sachant.
+      </h2>
+      <Cta href="/accueil/tarifs">Débloquer Razzia</Cta>
+    </section>
+  );
+}
+
+function PageHead({ eyebrow, title, lede }: { eyebrow: string; title: ReactNode; lede?: string }) {
+  return (
+    <header className="lp-page-head">
+      <span className="lp-in" style={{ '--d': 0 } as CSSProperties}>
+        <Eyebrow>{eyebrow}</Eyebrow>
+      </span>
+      <h1 className="lp-in" style={{ '--d': 1 } as CSSProperties}>
+        {title}
+      </h1>
+      {lede && (
+        <p className="lp-lede lp-in" style={{ '--d': 2 } as CSSProperties}>
+          {lede}
+        </p>
       )}
+    </header>
+  );
+}
 
-      {v === 2 && (
-        <header className="lp-hero2">
-          <div className="lp-hero2-copy">
-            <span className="lp-chip">
-              <span className="lm live"><i /></span> En direct ce soir
-            </span>
-            <h1>
-              Ton ticket,
-              <br />
-              <em>validé en direct.</em>
-            </h1>
-            <p className="lp-lede">Les simulations te montrent les paris qui passent le plus souvent. Mets-les dans ton ticket : Razzia relit les cotes, puis coche chaque sélection à la fin du match.</p>
-            <div className="lp-cta">
-              <a className="btn btn-primary btn-lg" href="#prix">
-                Commencer <ArrowRight size={17} weight="bold" />
-              </a>
+export function Landing({ path }: { path: string }) {
+  const page = landingPage(path) ?? 'home';
+  useReveal(page);
+  useEffect(() => window.scrollTo({ top: 0 }), [page]);
+  return (
+    <div className="lp">
+      <LpNav page={page} />
+      {page === 'home' && (
+        <>
+          <Hero />
+          <section className="lp-sports" data-reveal>
+            <span><Basketball size={18} /> NBA</span>
+            <span><TennisBall size={18} /> ATP</span>
+            <span className="soon"><SoccerBall size={18} /> Football bientôt</span>
+            <span className="soon"><Lightning size={18} /> Simulation en direct bientôt</span>
+          </section>
+          <Proof />
+          <section className="lp-sec">
+            <div className="lp-sec-head" data-reveal>
+              <Eyebrow>Ce que tu débloques</Eyebrow>
+              <h2>Tout pour une soirée de paris lucide.</h2>
             </div>
-            <dl className="lp-mini-stats">
-              <div>
-                <dt>Simulations</dt>
-                <dd>5 000</dd>
-              </div>
-              <div>
-                <dt>Razzia assuré</dt>
-                <dd className="up">85 %</dd>
-              </div>
-              <div>
-                <dt>Sports</dt>
-                <dd>2 + 1</dd>
-              </div>
-            </dl>
-          </div>
-          <div className="lp-hero2-art">
-            <div className="lp-hero2-glow mesh has-shader">
-              <WarpBg c1={AMBRE[0]} c2={AMBRE[1]} />
+            <Bento />
+            <div className="lp-more" data-reveal>
+              <Link href="/accueil/fonctionnalites" className="lp-link">
+                Toutes les fonctionnalités <ArrowRight size={15} weight="bold" />
+              </Link>
             </div>
-            <LiveTicket />
-          </div>
-        </header>
+          </section>
+          <Steps />
+          <section className="lp-sec">
+            <div className="lp-sec-head center" data-reveal>
+              <Eyebrow>Tarifs</Eyebrow>
+              <h2>Choisis ta formule.</h2>
+              <p className="lp-lede center">Les deux formules commencent par 3 jours d’essai gratuit.</p>
+            </div>
+            <Plans />
+          </section>
+          <section className="lp-sec lp-faq-short">
+            <div className="lp-sec-head" data-reveal>
+              <Eyebrow>Questions</Eyebrow>
+              <h2>Avant de te lancer.</h2>
+            </div>
+            <Faq items={QA.slice(0, 4)} />
+            <div className="lp-more" data-reveal>
+              <Link href="/accueil/questions" className="lp-link">
+                Toutes les questions <ArrowRight size={15} weight="bold" />
+              </Link>
+            </div>
+          </section>
+        </>
       )}
-
-      {v === 3 && (
-        <header className="lp-hero3 mesh has-shader">
-          <WarpBg c1={NUIT[0]} c2={NUIT[1]} />
-          <span className="caps">Razzia · sports analysis specialist</span>
-          <h1>
-            Le match,
-            <br />
-            5 000 fois
-            <br />
-            avant le vrai.
-          </h1>
-          <div className="lp-cta center">
-            <a className="btn btn-primary btn-lg" href="#prix">
-              Débloquer Razzia <ArrowRight size={17} weight="bold" />
-            </a>
-          </div>
-          <div className="lp-marquee" aria-hidden="true">
-            <div>
-              {[0, 1].map((n) => (
-                <div key={n} className="lp-marquee-row">
-                  <MatchCard a={T('BOS', 'Celtics')} h={T('NYK', 'Knicks')} p={0.59} fav="NYK" flip odds="2,35 / 1,63" />
-                  <MatchCard a={T('OKC', 'Thunder')} h={T('DEN', 'Nuggets')} p={0.78} fav="DEN" odds="2,05 / 1,83" />
-                  <MatchCard a={T('LAL', 'Lakers')} h={T('GSW', 'Warriors')} p={0.71} fav="LAL" odds="1,75 / 2,25" />
-                  <MatchCard a={T('MIA', 'Heat')} h={T('ORL', 'Magic')} p={0.63} fav="ORL" flip odds="2,40 / 1,60" />
+      {page === 'features' && (
+        <>
+          <PageHead eyebrow="Fonctionnalités" title={<>Tout ce que<br />Razzia fait.</>} lede="Chaque soir, le programme NBA et ATP simulé, les paris qui passent le plus souvent, et ton ticket suivi jusqu’au coup de sifflet final." />
+          <section className="lp-sec lp-sec-tight">
+            <Bento />
+          </section>
+          <section className="lp-sec">
+            <div className="lp-sec-head" data-reveal>
+              <Eyebrow>Dans le détail</Eyebrow>
+              <h2>Ce que tu trouves sur chaque match.</h2>
+            </div>
+            <div className="lp-feats">
+              {[
+                ...FEATS,
+                { icon: <TicketIcon size={20} />, t: 'Compléter un ticket', d: 'Ajoute un pari d’un autre match à un ticket simple : même mise, cote multipliée.' },
+                { icon: <ShieldCheck size={20} />, t: 'Badges du soir', d: 'Chat noir, équipe en pleine montée ou en baisse, compos non officielles : les signaux à connaître.' },
+                { icon: <TennisBall size={20} />, t: 'Tennis ATP', d: 'Points simulés un par un, surface, forme et confrontations, pour chaque match du jour.' },
+              ].map((f, i) => (
+                <div key={f.t} data-reveal style={{ '--d': i % 3 } as CSSProperties}>
+                  <span>{f.icon}</span>
+                  <b>{f.t}</b>
+                  <p>{f.d}</p>
                 </div>
               ))}
             </div>
-          </div>
-        </header>
+          </section>
+          <Steps />
+        </>
       )}
-
-      <section className="lp-sports">
-        <span>
-          <Basketball size={18} /> NBA
-        </span>
-        <span>
-          <TennisBall size={18} /> ATP
-        </span>
-        <span className="soon">
-          <SoccerBall size={18} /> Football bientôt
-        </span>
-        <span className="soon">
-          <Lightning size={18} /> Simulation en direct bientôt
-        </span>
-      </section>
-
-      <section id="features" className="lp-sec">
-        <div className="lp-sec-head">
-          <span className="caps">Ce que tu débloques</span>
-          <h2>Tout ce qu’il faut pour une soirée de paris lucide.</h2>
-        </div>
-        <div className="lp-bento">
-          <div className="lp-b lp-b-big">
-            <div className="lp-b-t">
-              <h3>5 000 matchs avant le vrai</h3>
-              <p>Qui gagne, de combien, le score le plus probable, et le pari qui passe le plus souvent.</p>
+      {page === 'pricing' && (
+        <>
+          <PageHead eyebrow="Tarifs" title={<>3 jours<br />pour essayer.</>} lede="Choisis ta formule et profite de tout Razzia gratuitement pendant 3 jours. Rien n’est prélevé avant la fin de l’essai." />
+          <section className="lp-sec lp-sec-tight">
+            <Plans />
+          </section>
+          <section className="lp-sec">
+            <div className="lp-sec-head" data-reveal>
+              <Eyebrow>Abonnement</Eyebrow>
+              <h2>Questions sur l’essai.</h2>
             </div>
-            <RingCard />
-          </div>
-          <div className="lp-b lp-b-tall">
-            <div className="lp-b-t">
-              <h3>Suivi de tes tickets</h3>
-              <p>Simple ou combiné, cotes relues en direct, chaque sélection cochée toute seule.</p>
-            </div>
-            <LiveTicket loop={false} />
-          </div>
-          <div className="lp-b">
-            <div className="lp-b-t">
-              <h3>En feu ce soir</h3>
-              <p>Les joueurs partis pour un gros match.</p>
-            </div>
-            <FeuMini />
-          </div>
-          <div className="lp-b">
-            <div className="lp-b-t">
-              <h3>Où va l’argent</h3>
-              <p>La cote du favori depuis l’ouverture.</p>
-            </div>
-            <MoneyMini />
-          </div>
-        </div>
-        <div className="lp-feats">
-          {FEATS.map((f) => (
-            <div key={f.t}>
-              <span>{f.icon}</span>
-              <b>{f.t}</b>
-              <p>{f.d}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="lp-sec lp-steps">
-        <div className="lp-sec-head">
-          <span className="caps">Comment ça marche</span>
-          <h2>Trois gestes, chaque soir.</h2>
-        </div>
-        <ol>
-          <li>
-            <b>01</b>
-            <h3>Choisis un match</h3>
-            <p>Le programme NBA et ATP du jour, avec les cotes et les compos.</p>
-          </li>
-          <li>
-            <b>02</b>
-            <h3>Razzia le joue 5 000 fois</h3>
-            <p>En une minute : vainqueur, handicap plus sûr, joueurs en feu, badges.</p>
-          </li>
-          <li>
-            <b>03</b>
-            <h3>Suis ton ticket</h3>
-            <p>Ajoute les paris, valide, et regarde chaque sélection passer au vert.</p>
-          </li>
-        </ol>
-      </section>
-
-      <section id="prix" className="lp-sec lp-price">
-        <div className="lp-sec-head center">
-          <span className="caps">Tarifs</span>
-          <h2>Choisis ta formule.</h2>
-          <div className="lp-period">
-            <button className={!year ? 'is-on' : ''} onClick={() => setYear(false)}>
-              Mensuel
-            </button>
-            <button className={year ? 'is-on' : ''} onClick={() => setYear(true)}>
-              Annuel <em>−20 %</em>
-            </button>
-          </div>
-        </div>
-        <div className="lp-plans">
-          <div className="lp-plan">
-            <span className="caps">Razzia Pro</span>
-            <p className="lp-price-v">
-              {year ? '7,99' : '9,99'} €<small>/mois</small>
-            </p>
-            <p className="muted">Tout ce qu’il faut pour suivre chaque soirée.</p>
-            <ul>
-              <li><InfinityIcon size={17} /> Simulations illimitées</li>
-              <li><Lightning size={17} /> Toute la soirée en un clic</li>
-              <li><Scales size={17} /> Handicaps et paris plus sûrs</li>
-              <li><ListChecks size={17} /> Suivi des tickets et bilan</li>
-            </ul>
-            <a className="btn btn-primary btn-lg" href="#prix">
-              Passer à Pro
-            </a>
-          </div>
-          <div className="lp-plan is-top mesh has-shader">
-            <div className="lp-dim">
-              <WarpBg c1={AMBRE[0]} c2={AMBRE[1]} />
-            </div>
-            <span className="lp-plan-tag">Le plus complet</span>
-            <span className="caps">Razzia Elite</span>
-            <p className="lp-price-v">
-              {year ? '19,99' : '24,99'} €<small>/mois</small>
-            </p>
-            <p className="lp-plan-sub">Pour tout voir avant tout le monde.</p>
-            <ul>
-              <li><Check size={17} /> Tout Razzia Pro</li>
-              <li><Bell size={17} /> Alertes : compos, cotes qui bougent, chat noir</li>
-              <li><Crown size={17} /> Nouveaux sports en avant-première</li>
-              <li><CheckCircle size={17} /> Support prioritaire</li>
-            </ul>
-            <a className="btn btn-primary btn-lg" href="#prix">
-              Choisir Elite
-            </a>
-          </div>
-        </div>
-        <p className="lp-pay">Paiement sécurisé · Carte, Apple Pay, Google Pay · Sans engagement, résiliable en un clic</p>
-      </section>
-
-      <section id="faq" className="lp-sec lp-faq">
-        <div className="lp-sec-head">
-          <span className="caps">Questions</span>
-          <h2>Avant de te lancer.</h2>
-        </div>
-        <div className="lp-faq-list">
-          {[
-            ['Razzia prend-il mes paris ?', 'Non. Razzia analyse les matchs. Tu joues chez ton bookmaker, Razzia t’aide à choisir et suit ton ticket.'],
-            ['D’où viennent les cotes ?', 'DraftKings pour la NBA, Pinnacle pour le tennis, relues avant chaque validation.'],
-            ['Le moteur a-t-il toujours raison ?', 'Non. Il donne des probabilités : un favori à 80 % perd une fois sur cinq. Les badges disent quand se méfier.'],
-            ['Je peux arrêter quand je veux ?', 'Oui, sans engagement. L’abonnement s’arrête à la fin du mois en cours.'],
-          ].map(([q, a]) => (
-            <details key={q}>
-              <summary>{q}</summary>
-              <p>{a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      <section className="lp-final mesh has-shader">
-        <WarpBg c1={v === 3 ? NUIT[0] : AMBRE[0]} c2={v === 3 ? NUIT[1] : AMBRE[1]} />
-        <h2>
-          Ce soir,
-          <br />
-          parie en sachant.
-        </h2>
-        <a className="btn btn-primary btn-lg" href="#prix">
-          Débloquer Razzia <ArrowRight size={17} weight="bold" />
-        </a>
-      </section>
+            <Faq items={[QA[1], QA[6], QA[0]]} />
+          </section>
+        </>
+      )}
+      {page === 'faq' && (
+        <>
+          <PageHead eyebrow="Questions" title={<>Tout ce que<br />tu te demandes.</>} />
+          <section className="lp-sec lp-sec-tight">
+            <Faq />
+          </section>
+        </>
+      )}
+      <Final />
       <footer className="lp-foot">
         <Logo />
+        <div className="lp-foot-links">
+          <Link href="/accueil/fonctionnalites">Fonctionnalités</Link>
+          <Link href="/accueil/tarifs">Tarifs</Link>
+          <Link href="/accueil/questions">Questions</Link>
+          <Link href="/compte">Se connecter</Link>
+        </div>
         <p>Razzia analyse les matchs, il ne prend pas de paris. Réservé aux plus de 18 ans. Jouer comporte des risques : endettement, dépendance. Appelez le 09 74 75 13 13 (appel non surtaxé).</p>
       </footer>
     </div>
