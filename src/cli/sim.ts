@@ -1,5 +1,5 @@
 // Simule un match N fois et produit : résumé des distributions, props, match typique (pour le rendu 2D).
-//   node src/cli/sim.ts --game OKC@SAS --date 2026-10-20 [--n 5000] [--out "Nom1,Nom2"] [--in "Nom"] [--seed 7]
+//   node src/cli/sim.ts --game OKC@SAS --date 2026-10-20 [--n 25000] [--out "Nom1,Nom2"] [--in "Nom"] [--seed 7]
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildGameModel } from '../nba/model/build.ts';
@@ -139,12 +139,12 @@ export function report(m: GameModel, s: Summary, typ: ReturnType<typeof typicalG
 if (import.meta.main) {
   const game = arg('game');
   if (!game || !game.includes('@')) {
-    console.error('Usage : node src/cli/sim.ts --game AWAY@HOME --date YYYY-MM-DD [--n 5000]');
+    console.error('Usage : node src/cli/sim.ts --game AWAY@HOME --date YYYY-MM-DD [--n 25000]');
     process.exit(1);
   }
   const [away, home] = game.toUpperCase().split('@');
   const date = arg('date', new Date().toISOString().slice(0, 10))!;
-  const n = Number(arg('n', '5000'));
+  const n = Number(arg('n', '25000'));
   const res = await simulateMatchup({
     away, home, date, n, seed: Number(arg('seed', '7')), fresh: flag('fresh'),
     out: arg('out')?.split(',').map((s) => s.trim()).filter(Boolean), in: arg('in')?.split(',').map((s) => s.trim()).filter(Boolean),

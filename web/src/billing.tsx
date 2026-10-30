@@ -251,7 +251,7 @@ function AuthScreen({ mode, setMode }: { mode: AuthMode; setMode: (m: AuthMode) 
             <li>
               <span><ChartLineUp size={18} /></span>
               <div>
-                <b>5 000 simulations par match</b>
+                <b>25 000 simulations par match</b>
                 <p>NBA et ATP, avec les compos et les cotes du moment.</p>
               </div>
             </li>

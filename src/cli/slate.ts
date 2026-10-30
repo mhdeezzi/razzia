@@ -1,5 +1,5 @@
 // Simule tous les matchs d'une date et récapitule probabilités, lignes et meilleurs écarts sur les props.
-//   node src/cli/slate.ts --date 2026-10-22 [--n 5000]
+//   node src/cli/slate.ts --date 2026-10-22 [--n 25000]
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { getSchedule } from '../data/cdn.ts';
@@ -13,7 +13,7 @@ function arg(name: string, def?: string): string | undefined {
 }
 
 const date = arg('date', new Date().toISOString().slice(0, 10))!;
-const n = Number(arg('n', '5000'));
+const n = Number(arg('n', '25000'));
 const sched = await getSchedule(1);
 const games = sched.games.filter((g) => g.date === date && isCompetitiveGame(g.gameId));
 if (!games.length) {

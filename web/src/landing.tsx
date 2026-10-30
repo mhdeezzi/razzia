@@ -122,7 +122,7 @@ function RingCard({ p = 0.82, title = 'Knicks +8,5' }: { p?: number; title?: str
         <span className="odds-pill">
           Cote <b>1,23</b>
         </span>
-        <p className="muted small">Passe dans 4 081 des 5 000 matchs simulés.</p>
+        <p className="muted small">Passe dans 20 405 des 25 000 matchs simulés.</p>
       </div>
     </div>
   );
@@ -180,7 +180,7 @@ function Logo() {
 }
 
 const FEATS: Array<{ icon: ReactNode; t: string; d: string }> = [
-  { icon: <ChartLineUp size={20} />, t: '5 000 simulations par match', d: 'Chaque match rejoué possession par possession, avec les compos et les cotes du moment.' },
+  { icon: <ChartLineUp size={20} />, t: '25 000 simulations par match', d: 'Chaque match rejoué possession par possession, avec les compos et les cotes du moment.' },
   { icon: <ShieldCheck size={20} />, t: 'Razzia assuré', d: 'Quand le favori dépasse 77 %, le moteur a vu juste 85 % du temps la saison passée.' },
   { icon: <Scales size={20} />, t: 'Pile ou face et paris plus sûrs', d: 'Les matchs trop serrés signalés, avec le handicap qui passe plus souvent.' },
   { icon: <ListChecks size={20} />, t: 'Suivi de tes tickets', d: 'Simples et combinés, cotes en direct, chaque sélection validée toute seule.' },
@@ -269,12 +269,12 @@ function Hero() {
     <header className="lp-hero3 mesh has-shader">
       <WarpBg c1={NUIT[0]} c2={NUIT[1]} />
       <span className="lp-eyebrow on-dark lp-in" style={{ '--d': 0 } as CSSProperties}>
-        NBA · ATP · 5 000 simulations par match
+        NBA · ATP · 25 000 simulations par match
       </span>
       <h1 className="lp-in" style={{ '--d': 1 } as CSSProperties}>
         Le match,
         <br />
-        5 000 fois
+        25 000 fois
         <br />
         <em>avant le vrai.</em>
       </h1>
@@ -318,7 +318,7 @@ function Proof() {
         <span>joueurs sur le terrain, chacun avec sa carte de tir, son défenseur et sa note d’impact</span>
       </div>
       <div>
-        <b className="up">5 000</b>
+        <b className="up">25 000</b>
         <span>matchs rejoués avant chaque coup d’envoi, compos et arbitres du soir compris</span>
       </div>
     </section>
@@ -330,7 +330,7 @@ function Bento() {
     <div className="lp-bento">
       <Bezel className="lp-b-big">
         <div className="lp-b-t">
-          <h3>5 000 matchs avant le vrai</h3>
+          <h3>25 000 matchs avant le vrai</h3>
           <p>Qui gagne, de combien, le score le plus probable, et le pari qui passe le plus souvent.</p>
         </div>
         <RingCard />
@@ -448,7 +448,7 @@ function Steps() {
       <ol>
         {[
           ['Choisis un match', 'Le programme NBA et ATP du jour, avec les cotes et les compos.'],
-          ['Razzia le joue 5 000 fois', 'En une minute : vainqueur, handicap plus sûr, joueurs en feu, badges.'],
+          ['Razzia le joue 25 000 fois', 'En une minute : vainqueur, handicap plus sûr, joueurs en feu, badges.'],
           ['Suis ton ticket', 'Ajoute les paris, valide, et regarde chaque sélection passer au vert.'],
         ].map(([t, d], i) => (
           <li key={t} data-reveal style={{ '--d': i } as CSSProperties}>
@@ -519,7 +519,7 @@ function Plans() {
 }
 
 const QA: Array<[string, string]> = [
-  ['Qu’est-ce que Razzia fait qu’une IA généraliste ne fait pas ?', 'Une IA généraliste résume ce qu’elle a lu. Razzia rejoue le match : 5 000 fois, possession par possession, avec la carte de tir de chaque joueur, ses défenseurs, les rotations, les arbitres et la fatigue du soir, sur des données mises à jour avant chaque simulation. Le résultat est une distribution chiffrée, pas une opinion.'],
+  ['Qu’est-ce que Razzia fait qu’une IA généraliste ne fait pas ?', 'Une IA généraliste résume ce qu’elle a lu. Razzia rejoue le match : 25 000 fois, possession par possession, avec la carte de tir de chaque joueur, ses défenseurs, les rotations, les arbitres et la fatigue du soir, sur des données mises à jour avant chaque simulation. Le résultat est une distribution chiffrée, pas une opinion.'],
   ['Comment est simulé un tir ?', 'Le moteur choisit le type de jeu (pick and roll, isolation, catch-and-shoot…), qui finit l’action, la zone et la position du tir sur la vraie carte du joueur, puis l’adresse selon la zone, le type de jeu, sa forme récente, le défenseur qui conteste et le domicile.'],
   ['Comment sont prévues les minutes ?', 'Comme le ferait le coach : hiérarchie de la rotation, titulaires annoncés, fautes, écart au score. Pour un effectif remanié, la pré-saison sert à lire la nouvelle hiérarchie, jamais à juger le niveau.'],
   ['Le moteur tient-il compte des arbitres et de la fatigue ?', 'Oui. Chaque arbitre a sa tendance à siffler, mesurée sur ses matchs : le trio du soir change le nombre de fautes. La fatigue compte les fuseaux traversés, l’altitude, le back-to-back et l’habitude d’un joueur de se reposer ce soir-là.'],
@@ -649,7 +649,7 @@ export function Landing({ path }: { path: string }) {
       )}
       {page === 'features' && (
         <>
-          <PageHead eyebrow="Fonctionnalités" title={<>Tout ce que<br />Razzia fait.</>} lede="Chaque match rejoué 5 000 fois, possession par possession ou point par point : les paris qui passent le plus souvent, les signaux à connaître, et ton ticket suivi jusqu’au coup de sifflet final." />
+          <PageHead eyebrow="Fonctionnalités" title={<>Tout ce que<br />Razzia fait.</>} lede="Chaque match rejoué 25 000 fois, possession par possession ou point par point : les paris qui passent le plus souvent, les signaux à connaître, et ton ticket suivi jusqu’au coup de sifflet final." />
           <section className="lp-sec lp-sec-tight">
             <Bento />
           </section>
@@ -742,7 +742,7 @@ export function Poster({ n }: { n: number }) {
         <WarpBg c1={AMBRE[0]} c2={AMBRE[1]} />
         <Logo />
         <h1>
-          5 000 matchs.
+          25 000 matchs.
           <br />
           <em>Avant le vrai.</em>
         </h1>
@@ -755,7 +755,7 @@ export function Poster({ n }: { n: number }) {
             <TeamMark team={{ tri: 'NYK' }} size="xl" />
           </div>
         </div>
-        <p className="po-sub">Chaque match NBA et ATP rejoué 5 000 fois avant le coup d’envoi.</p>
+        <p className="po-sub">Chaque match NBA et ATP rejoué 25 000 fois avant le coup d’envoi.</p>
         <span className="po-cta">razzia · simule avant de parier</span>
         {legal}
       </div>

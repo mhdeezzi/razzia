@@ -261,7 +261,7 @@ export function PageHero({ sport, title, day, count, feature, children }: { spor
         <span className="hb-label">RAZZIA · Saison {season(sport)}</span>
         <span className="hb-label hb-right">
           {sport === 'nba' ? 'NBA' : 'ATP'}
-          <span className="hb-more"> · 5 000 simulations par match</span>
+          <span className="hb-more"> · 25 000 simulations par match</span>
         </span>
       </div>
       <h1 className="hb-title">
