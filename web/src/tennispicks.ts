@@ -5,8 +5,10 @@
 import { shown, MIN_ODDS, type Category, type Outcome } from './picks.ts';
 import type { TennisResult } from './tennis.tsx';
 
-/** Favori à 80 % ou moins : « Un set » passe devant, le vainqueur est déconseillé (et c'est « Un set » qui compte au bilan). */
-export const T_HEDGE_FIRST = 0.8;
+/** Favori à 75 % ou moins : « Un set » passe devant la victoire (c'est lui qui compte au bilan). 2024-2026 : 78,8 % de
+ * bons pronostics, comme à 80 %. La victoire est alors « Risqué » entre 70 et 75 %, « Déconseillé » à 70 % ou moins. */
+export const T_HEDGE_FIRST = 0.75;
+export const T_RISKY = 0.7;
 /** Favori sous 60 % : match serré (texte du badge « Pile ou face »). */
 export const T_FLIP = 0.6;
 /** Favori à 80 % ou plus : Razzia assuré. */
@@ -81,7 +83,7 @@ export function buildTennisCategories(r: TennisResult): Category[] {
   if (flipOf(r))
     return [
       { id: 'sets', label: L!.label, items: [sets!] },
-      { id: 'win', label: 'Vainqueur', items: [{ ...win, warn: 'Déconseillé' }], warn: true },
+      { id: 'win', label: 'Vainqueur', items: [{ ...win, warn: shown(winP) > T_RISKY ? 'Risqué' : 'Déconseillé' }], warn: true },
     ];
   if (sets) return [{ id: 'win', label: 'Vainqueur', items: [win] }, { id: 'sets', label: L!.label, items: [{ ...sets, safe: 'Safe' }], good: true }];
   return [{ id: 'win', label: 'Vainqueur', items: [win] }, { id: 'straight', label: `${need}-0`, items: [straight] }];

@@ -778,8 +778,11 @@ function assignMinutes(ctx: Ctx, team: TeamInfo, players: PlayerModel[], curSeas
     // (seulement si son dernier match était avec cette équipe : un transfert n'est pas une absence).
     const lastLine = lines.filter((x) => x.sec > 0).at(-1);
     const lastPlayed = lastLine?.tm === team.id ? lastLine.date : undefined;
+    // Matchs manqués depuis sa dernière apparition : aussi pour le badge « Star absente » (absence récente seulement).
+    const missedAll = lastPlayed ? (teamLogOf(f).get(team.id) ?? []).filter((g) => g.date > lastPlayed).length : undefined;
+    if (missedAll != null) p.form.missed = missedAll;
     if (lastPlayed && exp >= 15) {
-      const missed = (teamLogOf(f).get(team.id) ?? []).filter((g) => g.date > lastPlayed).length;
+      const missed = missedAll!;
       if (missed >= 3 && missed < 82) {
         exp *= RETURN_MIN;
         p.notes.push(`retour après ${missed} matchs d'absence (temps de jeu limité)`);

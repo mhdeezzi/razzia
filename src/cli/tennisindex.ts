@@ -14,7 +14,7 @@ function flipOf(s: any): boolean {
   const dogUp = s[side === 'home' ? 'away' : 'home'].trend === 'up';
   if (s.blackCat && s.blackCat.victim !== side) return false;
   const lines = s.bestOf === 5 ? [s.sim.atLeast1[i], s.sim.atLeast2[i]] : [s.sim.atLeast1[i]];
-  return lines.some((c: number) => (dogUp || c <= 1 / 1.15) && c > winP) && (dogUp || shown(winP) <= 0.8);
+  return lines.some((c: number) => (dogUp || c <= 1 / 1.15) && c > winP) && (dogUp || shown(winP) <= 0.75);
 }
 const fresh = new Set(list.split(','));
 const file = join(dir, 'index.json');

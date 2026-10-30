@@ -13,7 +13,7 @@ const dir = process.argv[2];
 if (!dir) throw new Error('Usage : node src/cli/tennisbilan.ts <dossier tennis>');
 
 // Mêmes seuils que la fiche (web/src/tennispicks.ts).
-const T_HEDGE_FIRST = 0.8; // favori à 80 % ou moins : « Un set » passe devant, c'est lui qui compte
+const T_HEDGE_FIRST = 0.75; // favori à 75 % ou moins : « Un set » passe devant, c'est lui qui compte
 const T_SURE = 0.8; // favori à 80 % ou plus : Razzia assuré
 const MIN_ODDS = 1.15; // ligne de sets proposée seulement si sa cote juste dépasse 1,15
 const shown = (p: number) => Math.round(p * 1000) / 1000;
