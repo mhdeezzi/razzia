@@ -9,6 +9,7 @@ export interface RatingParams {
   serveKn: number; // la part vaut max(serveK, 1 / (matchs + serveKn)) : un joueur peu connu bouge plus vite
   surfMix: number; // part de la note de surface dans la note utilisée
   kFloor?: number; // K minimal de l'Elo : plus haut, les derniers résultats pèsent plus, même pour un joueur de 500 matchs
+  comebackK?: number; // multiplicateur du K de l'Elo pendant les matchs de retour après une longue absence
 }
 export const DEFAULT_RATING: RatingParams = { serveK: 0.035, serveKn: 6, surfMix: 0.5 };
 
@@ -26,6 +27,7 @@ interface State {
   last?: { date: string; surface: Surface; minutes?: number; tid: string };
   recent: Array<{ date: string; res: number; minutes?: number }>; // res : gagné - attendu (Elo)
   retiredAt?: string; // dernier abandon (en perdant)
+  comeback?: { gap: number; n: number }; // retour après plus de 90 jours sans jouer : durée de l'absence, matchs rejoués
   tourney?: { tid: string; minutes: number; sets: number; matches: number };
   info?: { name: string; atp?: string; ioc: string; hand: string; ht?: number; age?: number; ageAt: string; rank?: number };
 }
@@ -47,6 +49,7 @@ export interface Snapshot {
   played14: number; // matchs joués sur les 14 derniers jours
   form10: number; // somme (gagné - attendu) sur les 10 derniers matchs
   retired30: boolean; // a abandonné un match dans les 30 jours
+  comeback: number; // retour de longue absence encore en cours : 0 à 1 (absence longue, peu de matchs rejoués)
   surfaceSwitch: boolean; // dernier match sur une autre surface
   age?: number;
   rank?: number;
@@ -58,6 +61,7 @@ const fifteen = () => ({ Hard: 1500, Clay: 1500, Grass: 1500 });
 const day = (d: string) => Date.parse(d) / 86_400_000;
 const eloP = (a: number, b: number) => 1 / (1 + 10 ** ((b - a) / 400));
 const kElo0 = (n: number) => 250 / (n + 5) ** 0.4;
+const COMEBACK_MATCHES = 10;
 
 export class Ratings {
   readonly S = new Map<string, State>();
@@ -95,6 +99,10 @@ export class Ratings {
       played14: s.recent.filter((r) => day(m.date) - day(r.date) <= 14).length,
       form10: s.recent.slice(-10).reduce((a, r) => a + r.res, 0),
       retired30: !!s.retiredAt && day(m.date) - day(s.retiredAt) <= 30,
+      // Du 2e au 10e match après plus de 6 mois d'absence (1), ou du 2e au 4e après 3 à 6 mois (0,4) ; le 1er match est
+      // couvert par « retour après 45 jours ». 2016-2026 : un joueur de haut niveau absent 6 mois et plus, prévu à 58 %
+      // sur ces matchs, n'en gagne que 52 % : le niveau d'avant l'absence n'est pas encore retrouvé.
+      comeback: !s.comeback || !s.last || day(m.date) - day(s.last.date) > 45 ? 0 : s.comeback.gap >= 180 ? 1 : s.comeback.n < 4 ? 0.4 : 0,
       surfaceSwitch: !!s.last && s.last.surface !== sf,
       age: s.info?.age != null ? s.info.age + (day(m.date) - day(s.info.ageAt)) / 365.25 : undefined,
       rank: s.info?.rank,
@@ -113,11 +121,13 @@ export class Ratings {
   update(m: Match): void {
     if (m.walkover) return;
     const W = this.state(m.w.id), L = this.state(m.l.id), sf = m.surface;
-    const kElo = (n: number) => Math.max(this.P.kFloor ?? 0, kElo0(n));
+    for (const S of [W, L]) if (S.last && day(m.date) - day(S.last.date) > 90) S.comeback = { gap: day(m.date) - day(S.last.date), n: 0 };
+    const kOf = (S: State) => (n: number) => Math.max(this.P.kFloor ?? 0, kElo0(n)) * (S.comeback ? (this.P.comebackK ?? 1) : 1);
     const pAll = eloP(W.elo, L.elo), pS = eloP(W.eloS[sf], L.eloS[sf]), pB = eloP((W.elo + W.eloS[sf]) / 2, (L.elo + L.eloS[sf]) / 2);
-    W.elo += kElo(W.n) * (1 - pAll); L.elo -= kElo(L.n) * (1 - pAll);
-    W.eloS[sf] += kElo(W.nS[sf]) * (1 - pS); L.eloS[sf] -= kElo(L.nS[sf]) * (1 - pS);
+    W.elo += kOf(W)(W.n) * (1 - pAll); L.elo -= kOf(L)(L.n) * (1 - pAll);
+    W.eloS[sf] += kOf(W)(W.nS[sf]) * (1 - pS); L.eloS[sf] -= kOf(L)(L.nS[sf]) * (1 - pS);
     W.n++; L.n++; W.nS[sf]++; L.nS[sf]++;
+    for (const S of [W, L]) if (S.comeback && ++S.comeback.n >= COMEBACK_MATCHES) S.comeback = undefined;
     // Service et retour : écart entre les points gagnés au service et l'attendu, réparti entre le serveur et le relanceur.
     if (m.w.serve && m.l.serve && m.w.serve.svpt >= 20 && m.l.serve.svpt >= 20) {
       const k = (st: State) => Math.max(this.P.serveK, 1 / (st.nServe + this.P.serveKn));

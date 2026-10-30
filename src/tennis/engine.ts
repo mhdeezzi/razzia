@@ -16,6 +16,7 @@ export const WEIGHTS = {
   // Confrontations des 6 dernières années, (victoires A - victoires B) / (matchs + 4) : même sens sur les deux saisons,
   // effet petit (log-loss du moteur 0,5957 -> 0,5952 ; pronostics inchangés une fois mélangés au marché).
   h2h: 0.4458,
+  comeback: 0.15, // retour de longue absence encore en cours (2e au 10e match) ; voir src/dev/tenniscomeback.ts
 };
 /**
  * Part du marché (Pinnacle sans marge) dans la probabilité Razzia. Deux saisons, pronostics vainqueur / « Un set » :
@@ -44,6 +45,7 @@ export function engineProb(R: Ratings, a: Snapshot, b: Snapshot, surface: Surfac
     { key: 'form10', label: 'Forme sur 10 matchs', z: WEIGHTS.form10 * (a.form10 - b.form10) },
     { key: 'rank', label: 'Classement ATP', z: WEIGHTS.rank * (Math.log(v(b.rank) || 500) - Math.log(v(a.rank) || 500)) },
     { key: 'h2h', label: 'Confrontations directes', z: WEIGHTS.h2h * ((h2h.a - h2h.b) / (h2h.a + h2h.b + 4)) },
+    { key: 'comeback', label: 'Retour de blessure en cours', z: WEIGHTS.comeback * (b.comeback - a.comeback) },
   ];
   return { p: Sg(factors.reduce((s, f) => s + f.z, 0)), elo, point, factors };
 }
