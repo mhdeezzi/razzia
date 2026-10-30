@@ -1044,8 +1044,8 @@ function TennisVerdict({ r, win }: { r: TennisResult; win?: Outcome }) {
         )}
         <div className="split" role="img" aria-label={`${r.home.name} ${pct(r.pHome)}, ${r.away.name} ${pct(r.pAway)}`}>
           <div className="split-bar">
-            <span className={side === 'home' ? 'is-fav' : ''} style={{ flexGrow: r.pHome }} />
-            <span className={side === 'away' ? 'is-fav' : ''} style={{ flexGrow: r.pAway }} />
+            <span className={`h${side === 'home' ? ' is-fav' : ''}`} style={{ flexGrow: r.pHome }} />
+            <span className={`a${side === 'away' ? ' is-fav' : ''}`} style={{ flexGrow: r.pAway }} />
           </div>
           <div className="split-legend">
             <span className={side === 'home' ? 'is-fav' : ''}>
