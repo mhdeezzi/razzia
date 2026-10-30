@@ -162,7 +162,9 @@ function publishing(run: DayRun, sims: Map<string, SimIndex>) {
 
 function DayTracker({ run, sims, onClose }: { run: DayRun; sims: Map<string, SimIndex>; onClose: () => void }) {
   const settling = publishing(run, sims);
-  const live = !ended(run) || settling;
+  // Tout est publié : la journée est finie, même si GitHub affiche encore la demande en cours.
+  const allIn = run.ids.every((id) => sims.get(id) && Date.parse(sims.get(id)!.at) >= publishedSince(run));
+  const live = (!ended(run) || settling) && !allIn;
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!live) return;
@@ -247,6 +249,12 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
   const sims = new Map((data?.sims ?? []).map((s) => [s.id, s]));
   // Journée finie chez GitHub mais pas encore toute dans la liste (publication et caches) : relue toutes les 5 s.
   const settling = !!run && publishing(run, sims);
+  // Pendant la journée : liste relue toutes les 15 s, les matchs publiés s'affichent sans attendre la fin chez GitHub.
+  useEffect(() => {
+    if (!busy) return;
+    const t = window.setInterval(reload, 15000);
+    return () => window.clearInterval(t);
+  }, [busy, reload]);
   useEffect(() => {
     if (!settling) return;
     const t = window.setTimeout(reload, 5000);

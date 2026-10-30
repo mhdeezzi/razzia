@@ -73,12 +73,20 @@ async function poll() {
   const watched = b.items.filter((i) => i.req && !terminal(i.state));
   if (watched.length) {
     try {
-      const { runs, actions } = await simRuns(watched.map((i) => i.req!));
+      const [{ runs, actions }, sims] = await Promise.all([simRuns(watched.map((i) => i.req!)), listSims(true, true)]);
       if (current !== b) return schedule(POLL); // modifiée entre-temps (autre onglet) : on repart de la nouvelle version
       let published = false;
       const items = b.items.map((i): BatchItem => {
+        if (terminal(i.state)) return i;
+        // Simulation déjà publiée depuis la demande : prête, même si GitHub affiche encore « en attente » (son état peut
+        // retarder de plusieurs minutes).
+        const sim = sims.get(i.key);
+        if (sim && Date.parse(sim.at) > b.at) {
+          pending.clear(i.key);
+          return { ...i, state: 'done' };
+        }
         const r = i.req ? runs[i.req] : undefined;
-        if (!r || terminal(i.state)) return i;
+        if (!r) return i;
         if (r.status === 'done') {
           published = true;
           pending.clear(i.key);
