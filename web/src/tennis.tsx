@@ -720,7 +720,8 @@ function TennisHero({ id, r }: { id: string; r?: TennisResult }) {
   };
   return (
     <header className="hero mesh mesh-atp has-shader">
-      <WarpBg c1={cols.away} c2={cols.home} />
+      {/* Le marbre met c1 à gauche : le joueur à domicile (à gauche) et l'autre (à droite), chacun à sa couleur. */}
+      <WarpBg c1={cols.home} c2={cols.away} />
       <div className="hero-meta">
         <span>
           <TennisBall size={15} /> ATP
