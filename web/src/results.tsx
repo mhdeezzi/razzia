@@ -1,8 +1,10 @@
 // Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowsLeftRight, Scales, ShieldCheck } from '@phosphor-icons/react';
-import { line, n1, pct, pct0, type Game, type Result } from './data.ts';
+import { ArrowsLeftRight, Check, Plus, Scales, ShieldCheck } from '@phosphor-icons/react';
+import { openSuivi, suivi, useSuivi, type Leg } from './suivi.ts';
+import { MoneyFlow } from './money.tsx';
+import { line, matchPath, n1, noVig, pct, pct0, type Game, type Result } from './data.ts';
 import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
@@ -26,6 +28,7 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
       <Section i={0} title="Pronostics par catégorie" tag="issue la plus fréquente">
         <Categories r={r} g={g} />
       </Section>
+      <NbaMoney r={r} g={g} />
       <Signals r={r} g={g} />
       <HotStrip r={r} g={g} />
       {r.typical && (
@@ -205,6 +208,25 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
   );
 }
 
+/** Où va l'argent : cote sans marge du favori Razzia à l'ouverture, au moment de la simulation, et maintenant. */
+function NbaMoney({ r, g }: { r: Result; g: Game }) {
+  const pH = r.market?.blendedHome ?? r.pHome;
+  const side = pH >= 0.5 ? 'home' : 'away';
+  const fav = (p?: number) => (p == null ? undefined : side === 'home' ? p : 1 - p);
+  const now = noVig(g.odds?.mlHome, g.odds?.mlAway)?.[0];
+  const pts = [
+    { label: 'Ouverture', p: fav(r.market?.bookHomeOpen) },
+    { label: 'Simulation', p: fav(r.market?.bookHome) },
+    ...(g.state === 'pre' ? [{ label: 'Maintenant', p: fav(now) }] : []),
+  ].filter((x): x is { label: string; p: number } => x.p != null && x.p > 0);
+  if (pts.length < 2) return null;
+  return (
+    <Section i={1} title="Où va l'argent" tag="cote du favori, sans marge">
+      <MoneyFlow fav={g[side].name} other={g[side === 'home' ? 'away' : 'home'].name} points={pts.map((x) => ({ label: x.label, odds: 1 / x.p }))} />
+    </Section>
+  );
+}
+
 /** Confrontations des deux dernières saisons, comme au tennis : vainqueur, score, favori d'avant-match, date. */
 function H2H({ r, g }: { r: Result; g: Game }) {
   const list = [...(r.h2h?.meetings ?? [])].sort((a, b) => b.date.localeCompare(a.date));
@@ -242,11 +264,18 @@ function Delta({ v }: { v: number }) {
 
 function Categories({ r, g }: { r: Result; g: Game }) {
   const cats = useMemo(() => buildCategories(r, g), [r, g]);
-  return <PickTabs cats={cats} n={r.n} />;
+  const ctx: MatchCtx = {
+    sport: 'nba', date: g.date, start: g.start, path: matchPath(g),
+    match: { home: g.home.tri, away: g.away.tri, homeName: g.home.name, awayName: g.away.name },
+  };
+  return <PickTabs cats={cats} n={r.n} ctx={ctx} />;
 }
 
 /** Onglets de pronostics (un point sur l'onglet en deuxième position) et la carte de l'issue retenue : NBA et tennis. */
-export function PickTabs({ cats, n }: { cats: Category[]; n: number }) {
+/** Le match d'un pari, pour l'ajouter au suivi. */
+export type MatchCtx = Pick<Leg, 'sport' | 'date' | 'start' | 'match' | 'path'>;
+
+export function PickTabs({ cats, n, ctx }: { cats: Category[]; n: number; ctx?: MatchCtx }) {
   const [id, setId] = useState(cats[0]?.id);
   const cat = cats.find((c) => c.id === id) ?? cats[0];
   if (!cat) return null;
@@ -273,7 +302,7 @@ export function PickTabs({ cats, n }: { cats: Category[]; n: number }) {
       <p className="note">Pour chaque pari, l'issue qui se produit le plus souvent sur les {n.toLocaleString('fr-FR')} matchs simulés. La cote est affichée pour comparaison.</p>
       <div key={cat.id} className="cat-body">
         {cat.items.map((o) => (
-          <OutcomeCard key={o.id} o={o} n={n} />
+          <OutcomeCard key={o.id} o={o} n={n} ctx={ctx} />
         ))}
       </div>
     </>
@@ -306,7 +335,30 @@ function PickWho({ who }: { who: NonNullable<Outcome['who']> }) {
   );
 }
 
-function OutcomeCard({ o, n }: { o: Outcome; n: number }) {
+/** « Suivre » : ajoute ce pari au suivi (combiné), ou le retire. */
+function FollowButton({ o, ctx }: { o: Outcome; ctx: MatchCtx }) {
+  const legs = useSuivi();
+  const key = `${ctx.sport}:${ctx.date}:${ctx.match.id ?? `${ctx.match.away}@${ctx.match.home}`}:${o.id}`;
+  const on = legs.some((l) => l.key === key);
+  const toggle = () => {
+    if (on) return suivi.remove(key);
+    suivi.add({ ...ctx, key, title: o.title, odds: o.odds ?? o.fair, fair: o.odds == null, p: o.p, bet: o.bet!, at: new Date().toISOString() });
+  };
+  return (
+    <span className="follow">
+      <button className={`btn glass follow-btn${on ? ' is-on' : ''}`} onClick={toggle}>
+        {on ? <Check size={15} weight="bold" /> : <Plus size={15} weight="bold" />} {on ? 'Suivi' : 'Suivre'}
+      </button>
+      {on && (
+        <button className="follow-link" onClick={openSuivi}>
+          Voir le suivi ({legs.length})
+        </button>
+      )}
+    </span>
+  );
+}
+
+function OutcomeCard({ o, n, ctx }: { o: Outcome; n: number; ctx?: MatchCtx }) {
   return (
     <article className="pick">
       {o.warn && <span className="pick-warn">{o.warn}</span>}
@@ -327,6 +379,7 @@ function OutcomeCard({ o, n }: { o: Outcome; n: number }) {
             Cote juste <b>{dec(o.fair)}</b>
           </span>
         )}
+        {ctx && o.bet && <FollowButton o={o} ctx={ctx} />}
         {o.text && <p>{o.text}</p>}
         <div className="pick-stats">
           <div>

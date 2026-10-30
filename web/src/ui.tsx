@@ -2,6 +2,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import { CalendarBlank, Check } from '@phosphor-icons/react';
 import { teamColor, teamLogo, type Team } from './data.ts';
+import { DotsBg } from './shaders.tsx';
 
 export function navigate(to: string): void {
   history.pushState(null, '', to);
@@ -245,13 +246,14 @@ function season(sport: 'nba' | 'atp'): string {
 }
 
 /**
- * En-tête des programmes façon affiche RAZZIA : dégradé de couleurs lisse, petites mentions en haut, titre très gras
+ * En-tête des programmes façon affiche RAZZIA : grille de points sur fond noir, petites mentions en haut, titre très gras
  * et serré, accroche en dessous ; date, nombre de matchs et affichage en pied.
  */
 export function PageHero({ sport, title, day, count, children }: { sport: 'nba' | 'atp'; title: string; day?: string; count?: number; children?: ReactNode }) {
   const [first, ...rest] = title.split(' ');
   return (
-    <header className={`hero-banner mesh mesh-${sport}`}>
+    <header className={`hero-banner mesh mesh-${sport} has-shader`}>
+      <DotsBg />
       <div className="hb-top" aria-hidden="true">
         <span className="hb-label">RAZZIA · Saison {season(sport)}</span>
         <span className="hb-label hb-right">

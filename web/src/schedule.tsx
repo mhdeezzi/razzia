@@ -297,31 +297,43 @@ function Row({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i: 
   );
 }
 
+/** Carte de la grille : noms en gros avec les logos, heure et salle en haut, favori et cotes en pied. */
 function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i: number }) {
   const o = g.odds;
+  const busy = run === 'sending' || run === 'queued' || run === 'running' || run === 'failed';
+  const p = sim && Math.max(sim.pHome, sim.pAway);
+  const fav = sim && (sim.pHome >= sim.pAway ? g.home : g.away);
   const team = (side: 'away' | 'home') => (
-    <div className="card-team">
-      <TeamMark team={g[side]} size="lg" />
-      <span>{g[side].name}</span>
-      <small>{g.state === 'pre' ? g[side].record ?? '' : g[side].score ?? ''}</small>
-    </div>
+    <p className="card-a-team">
+      <TeamMark team={g[side]} size="md" />
+      <span className="card-a-name">
+        {side === 'home' && <i>@</i>}
+        {g[side].name}
+      </span>
+      {g.state !== 'pre' && <span className="card-a-score mono">{g[side].score ?? ''}</span>}
+    </p>
   );
+  // Largeur des deux noms en em (police étroite, « @ » compris) : la taille baisse pour les noms longs, la même pour les deux.
+  const w = Math.max(g.away.name.length * 0.63, g.home.name.length * 0.63 + 0.9);
   return (
-    <Link href={matchPath(g)} className="card" style={{ '--i': i, '--glow': glow(teamColor(g.home)) } as CSSProperties}>
-      <div className="card-top">
-        <span className="mono strong">{g.state === 'pre' ? timeLocal(g.start) : g.detail}</span>
-        <TimeTag g={g} />
-      </div>
-      <div className="card-vs">
+    <Link href={matchPath(g)} className="card card-a" style={{ '--i': i, '--glow': glow(teamColor(g.home)), '--w': w.toFixed(2) } as CSSProperties}>
+      <span className="card-a-top mono">
+        {g.state === 'pre' ? timeLocal(g.start) : g.detail}
+        {g.venue ? ` · ${g.venue}` : ''}
+      </span>
+      <div className="card-a-t">
         {team('away')}
-        <span className="card-x">VS</span>
         {team('home')}
       </div>
-      <div className="card-foot">
-        <span>
-          {o?.mlAway != null ? `${odds(o.mlAway)} / ${odds(o.mlHome)}` : 'Cotes à venir'}
-        </span>
-        <SimPill g={g} sim={sim} run={run} />
+      <div className="card-a-f">
+        {sim && p != null && fav && !busy ? (
+          <span className={`card-a-p${flipP(p, sim.gp ?? recordGames(g)) ? ' flip' : ''}`}>
+            {fav.tri} {pct0(p)}
+          </span>
+        ) : (
+          <SimPill g={g} sim={sim} run={run} />
+        )}
+        <span className="mono muted">{o?.mlAway != null ? `${odds(o.mlAway)} / ${odds(o.mlHome)}` : 'Cotes à venir'}</span>
       </div>
     </Link>
   );

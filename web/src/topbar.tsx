@@ -1,7 +1,8 @@
 // Barre du haut : îlot de verre fumé qui flotte en haut de page, logo RAZZIA (étoile verte), sports dans une pilule
 // où le verre clair glisse vers le sport choisi, Compte et Méthode à droite (sur téléphone, Compte passe avant les sports).
 import { useRef } from 'react';
-import { Basketball, Info, SoccerBall, TennisBall, UserCircle } from '@phosphor-icons/react';
+import { Basketball, Info, ListChecks, SoccerBall, TennisBall, UserCircle } from '@phosphor-icons/react';
+import { openSuivi, useSuivi } from './suivi.ts';
 import { Link, useSlider } from './ui.tsx';
 import logo from './assets/razzia-logo.webp';
 
@@ -14,6 +15,7 @@ export function TopBar({ path }: { path: string }) {
   ];
   const nav = useRef<HTMLElement>(null);
   const pos = useSlider(nav, '.sport.is-on', tennis);
+  const legs = useSuivi();
   return (
     <header className="topbar">
       <div className="topbar-in">
@@ -36,6 +38,11 @@ export function TopBar({ path }: { path: string }) {
           </Link>
         </nav>
         <div className="top-right">
+          <button className="top-link glass top-suivi" onClick={openSuivi} title="Suivi des paris">
+            <ListChecks size={18} />
+            <span className="lbl">Suivi</span>
+            {legs.length > 0 && <span className="top-count">{legs.length}</span>}
+          </button>
           {links.map((l) => (
             <Link key={l.href} href={l.href} className={`top-link glass ${l.cls}${l.on ? ' is-on' : ''}`} aria-current={l.on ? 'page' : undefined} title={l.label}>
               {l.icon}
