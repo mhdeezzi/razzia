@@ -174,7 +174,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
   const win = useMemo(() => buildCategories(r, g).flatMap((c) => c.items).find((o) => o.id === 'win'), [r, g]);
   return (
     <section className={`verdict verdict-${c.tier}`}>
-      {win?.warn && <span className="odds-warn verdict-warn">{win.warn}</span>}
+      {win?.warn && <span className={`odds-warn verdict-warn${win.warn === 'Risqué' ? ' risky' : ''}`}>{win.warn}</span>}
       <div className="verdict-ring">
         <Ring value={pFav} format={pctInt} label="Victoire" />
       </div>
@@ -367,7 +367,7 @@ function FollowButton({ o, ctx }: { o: Outcome; ctx: MatchCtx }) {
 function OutcomeCard({ o, n, ctx }: { o: Outcome; n: number; ctx?: MatchCtx }) {
   return (
     <article className="pick">
-      {o.warn && <span className="pick-warn">{o.warn}</span>}
+      {o.warn && <span className={`pick-warn${o.warn === 'Risqué' ? ' risky' : ''}`}>{o.warn}</span>}
       {!o.warn && o.safe && <span className="pick-warn safe">{o.safe}</span>}
       <Ring value={o.p} format={pctInt} label="Fréquence" />
       <div>
