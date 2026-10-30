@@ -1646,12 +1646,22 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
   -webkit-mask: conic-gradient(#000 calc(var(--p) * 360deg), transparent 0), radial-gradient(closest-side, transparent 80.5%, #000 81.5%, #000 95.5%, transparent 96.5%);
   -webkit-mask-composite: source-in; mask: conic-gradient(#000 calc(var(--p) * 360deg), transparent 0), radial-gradient(closest-side, transparent 80.5%, #000 81.5%, #000 95.5%, transparent 96.5%); mask-composite: intersect; }
 .ring-sm .ring-warp { inset: 10px; }
-.team-marble :is(.split-bar span, .duel-bar span:not(.dim), .oc-bar span, .ladder-bar span) {
+.team-marble :is(.split-bar span, .duel-bar span:not(.dim), .oc-bar span, .ladder-bar span, .pbar span, .t-sets-bar span, .t-why-bar span) {
   background: linear-gradient(105deg, color-mix(in srgb, var(--k) 38%, #000) 0%, var(--k) 26%, color-mix(in srgb, var(--k) 55%, #fff) 42%, var(--k) 58%, color-mix(in srgb, var(--k) 38%, #000) 82%, var(--k) 100%);
   background-size: 260% 100%; box-shadow: 0 0 8px color-mix(in srgb, var(--k) 45%, transparent);
   animation-name: grow, marble-pan; animation-duration: 0.9s, 7s; animation-timing-function: var(--ease), ease-in-out; animation-iteration-count: 1, infinite; animation-direction: normal, alternate; animation-fill-mode: both, none; }
-.team-marble .split-bar span:first-child, .team-marble .duel-bar .a { --k: var(--team-a); }
-.team-marble .split-bar span:last-child, .team-marble .duel-bar .h { --k: var(--team-h); }
+.team-marble .split-bar span:first-child, .team-marble .duel-bar .a, .team-marble .pbar.away span, .team-marble .t-sets-bar .a, .team-marble .t-why-bar.a span { --k: var(--team-a); }
+.team-marble .split-bar span:last-child, .team-marble .duel-bar .h, .team-marble .pbar.home span, .team-marble .t-sets-bar .h, .team-marble .t-why-bar.h span { --k: var(--team-h); }
+/* Le reste de la fiche (match typique, cartes et profil de tir, confrontations) : bleu = extérieur, rouge = domicile
+   deviennent les couleurs des deux camps. */
+.team-marble { --blue: var(--team-a); --rose: var(--team-h); --rose-soft: color-mix(in srgb, var(--team-h) 16%, transparent); }
+.team-marble .flow-line.home { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--team-h) 80%, transparent)); }
+.team-marble .flow-line.away { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--team-a) 80%, transparent)); }
+.team-marble .flow-side.top, .team-marble .flow-kpi.home b { color: color-mix(in srgb, var(--team-h) 70%, #fff); }
+.team-marble .flow-side.bot, .team-marble .flow-kpi.away b { color: color-mix(in srgb, var(--team-a) 70%, #fff); }
+.team-marble .flow-chart { background: radial-gradient(70% 60% at 50% 0%, color-mix(in srgb, var(--team-h) 9%, transparent), transparent 70%), radial-gradient(70% 60% at 50% 100%, color-mix(in srgb, var(--team-a) 9%, transparent), transparent 70%), #000; }
+.team-marble .t-res.w { color: color-mix(in srgb, var(--team-h) 70%, #fff); background: color-mix(in srgb, var(--team-h) 16%, transparent); }
+.team-marble .t-res.l { color: color-mix(in srgb, var(--team-a) 70%, #fff); background: color-mix(in srgb, var(--team-a) 16%, transparent); }
 .team-marble .oc-bar span, .team-marble .ladder-bar span { --k: var(--fav); }
 .team-marble .split-bar span:not(.is-fav) { opacity: 0.4; box-shadow: none; }
 @keyframes marble-pan { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }

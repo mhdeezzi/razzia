@@ -13,7 +13,11 @@ const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const preload = () => void import('@paper-design/shaders-react');
 if (typeof window !== 'undefined') (window.requestIdleCallback ?? ((f: () => void) => setTimeout(f, 300)))(preload);
 
-export function WarpBg({ c1, c2 }: { c1: string; c2: string }) {
+/**
+ * `ring` : version des ronds de probabilité. Un seul quart de noir, en taches plus petites et plus mobiles, pour que la
+ * couleur domine dès l'ouverture (sinon tout un côté du cercle reste noir quelques secondes).
+ */
+export function WarpBg({ c1, c2, ring }: { c1: string; c2: string; ring?: boolean }) {
   // Le marbre (WebGL, coûteux à démarrer) arrive juste après l'affichage de la page, en fondu : le clic qui change de
   // page ne fige plus l'écran le temps de préparer le shader.
   const [on, setOn] = useState(false);
@@ -36,11 +40,21 @@ export function WarpBg({ c1, c2 }: { c1: string; c2: string }) {
       {on && (
         <Suspense fallback={null}>
           {/* Marbre très doux : calculé à faible résolution (le flou ne se voit pas), ce qui le rend bien moins coûteux. */}
-          <Warp className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={320_000} colors={['#000000', toHex(c1), '#000000', toHex(c2)]} proportion={0.45} softness={1} distortion={0.25} swirl={0.6} swirlIterations={8} shape="checks" shapeScale={0.08} speed={still() || !seen ? 0 : 0.4} />
+          {ring ? (
+            <Warp className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={120_000} colors={[toHex(c1), '#000000', mix(toHex(c1), '#ffffff', 0.35), toHex(c2)]} proportion={0.5} softness={1} distortion={0.3} swirl={0.7} swirlIterations={8} shape="checks" shapeScale={0.24} speed={still() || !seen ? 0 : 0.7} />
+          ) : (
+            <Warp className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={320_000} colors={['#000000', toHex(c1), '#000000', toHex(c2)]} proportion={0.45} softness={1} distortion={0.25} swirl={0.6} swirlIterations={8} shape="checks" shapeScale={0.08} speed={still() || !seen ? 0 : 0.4} />
+          )}
         </Suspense>
       )}
     </span>
   );
+}
+
+/** Mélange de deux couleurs #rrggbb (t : part de la seconde). */
+function mix(a: string, b: string, t: number) {
+  const p = (h: string, i: number) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16);
+  return `#${[0, 1, 2].map((i) => Math.round(p(a, i) * (1 - t) + p(b, i) * t).toString(16).padStart(2, '0')).join('')}`;
 }
 
 /** Les shaders veulent du #rrggbb : conversion depuis hsl(h s% l%) (couleurs d'équipe éclaircies par glow()). */

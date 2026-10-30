@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowLeft, CaretRight, PawPrint, HouseLine, HouseSimple, ListBullets, Mountains, Scales, ShieldCheck, SquaresFour, TennisBall, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
 import { Callout, Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgress } from './ui.tsx';
-import { PickOdds, PickTabs } from './results.tsx';
+import { marbleVars, PickOdds, PickTabs } from './results.tsx';
+import { playerColors, SideColors } from './flags.ts';
 import { MoneyFlow } from './money.tsx';
 import { WarpBg } from './shaders.tsx';
 import { PublicRecord } from './record.tsx';
@@ -696,6 +697,9 @@ function TennisHero({ id, r }: { id: string; r?: TennisResult }) {
   const tourney = r?.tourney ?? tourneyOf(league);
   const round = r?.round ?? roundOf(league);
   const start = r?.start ?? m!.start;
+  // Couleurs des joueurs (drapeaux) : le marbre du bandeau, comme les couleurs des équipes au basket.
+  const iocOf = (k: 'home' | 'away') => r?.[k].ioc ?? slate?.players?.[r?.[k].name ?? m![k]]?.ioc;
+  const cols = playerColors(iocOf('home'), iocOf('away'));
   const player = (k: 'home' | 'away') => {
     const name = r?.[k].name ?? m![k];
     const c = slate?.players?.[name];
@@ -716,7 +720,7 @@ function TennisHero({ id, r }: { id: string; r?: TennisResult }) {
   };
   return (
     <header className="hero mesh mesh-atp has-shader">
-      <WarpBg c1="#2a4f9a" c2="#7a3a6e" />
+      <WarpBg c1={cols.away} c2={cols.home} />
       <div className="hero-meta">
         <span>
           <TennisBall size={15} /> ATP
@@ -841,8 +845,10 @@ function TennisMoney({ r }: { r: TennisResult }) {
 
 function TennisResults({ r }: { r: TennisResult }) {
   const cats = useMemo(() => buildTennisCategories(r), [r]);
+  const cols = useMemo(() => playerColors(r.home.ioc, r.away.ioc), [r]);
   return (
-    <div className="results">
+    <SideColors.Provider value={cols}>
+    <div className="results team-marble" style={marbleVars(cols, favOf(r).side === 'home')}>
       <div className="res-head">
         <span className="slash">
           {r.tourney} · {ROUND_FR[r.round] ?? r.round} · {surfaceFr[r.surface] ?? r.surface}
@@ -900,6 +906,7 @@ function TennisResults({ r }: { r: TennisResult }) {
         cotes Pinnacle. Probabilité Razzia : moitié moteur, moitié marché. Les probabilités décrivent le modèle, pas une certitude. Jouer comporte des risques.
       </p>
     </div>
+    </SideColors.Provider>
   );
 }
 
@@ -1007,7 +1014,7 @@ function TennisVerdict({ r, win }: { r: TennisResult; win?: Outcome }) {
     <section className={`verdict verdict-${tier}`}>
       {win?.warn && <span className={`odds-warn verdict-warn${win.warn === 'Risqué' ? ' risky' : ''}`}>{win.warn}</span>}
       <div className="verdict-ring">
-        <Ring value={p} format={pct0} label="Victoire" />
+        <Ring value={p} format={pct0} label="Victoire" marble={playerColors(r.home.ioc, r.away.ioc)[side]} />
       </div>
       <div>
         <span className="caps">Favori Razzia</span>

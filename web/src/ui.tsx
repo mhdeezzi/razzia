@@ -196,7 +196,7 @@ export function Ring({ value, tone = 'blue', label, format, marble }: { value: n
       <div className="ring-disc">
         {marble && (
           <span className="ring-warp" aria-hidden="true">
-            <WarpBg c1={marble} c2={marble} />
+            <WarpBg c1={marble} c2={marble} ring />
           </span>
         )}
         <svg viewBox="0 0 100 100" aria-hidden="true">
