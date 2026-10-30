@@ -1,24 +1,14 @@
-// Fonds des bandeaux dessinés en WebGL (shaders Paper) : grille de points sur les programmes, marbre aux couleurs des
-// deux camps sur les fiches. Chargés à part pour ne pas alourdir la première page ; le marbre reste figé si le système
+// Fond des bandeaux dessiné en WebGL (shader Paper) : marbre vert et bleu sur les programmes, aux couleurs des deux
+// camps sur les fiches. Chargés à part pour ne pas alourdir la première page ; le marbre reste figé si le système
 // demande moins d'animations. Sans WebGL, le bandeau reste noir.
 import { lazy, Suspense } from 'react';
 
-const DotGrid = lazy(() => import('@paper-design/shaders-react').then((m) => ({ default: m.DotGrid })));
 const Warp = lazy(() => import('@paper-design/shaders-react').then((m) => ({ default: m.Warp })));
 
 const fill = { position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: -1 } as const;
 const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Grille de points verts, fixe : fond du bandeau des programmes. */
-export function DotsBg() {
-  return (
-    <Suspense fallback={null}>
-      <DotGrid style={fill} colorBack="#000000" colorFill="#2fb57c" colorStroke="#2fb57c" size={2} gapX={22} gapY={22} strokeWidth={0} sizeRange={0.6} opacityRange={0.8} shape="circle" />
-    </Suspense>
-  );
-}
-
-/** Marbre lent entre les deux couleurs (équipes, joueurs) : fond de l'en-tête d'une fiche. */
+/** Marbre lent entre deux couleurs : bandeau des programmes, en-tête d'une fiche (couleurs des équipes). */
 export function WarpBg({ c1, c2 }: { c1: string; c2: string }) {
   return (
     <Suspense fallback={null}>
