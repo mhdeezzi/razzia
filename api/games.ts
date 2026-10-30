@@ -1,6 +1,7 @@
 // Programme des prochains jours (ESPN) : horaires, bilans, cotes DraftKings, blessés par équipe.
 //   GET /api/games?days=7            (à partir d'aujourd'hui)
 //   GET /api/games?days=1&from=AAAA-MM-JJ  (un jour passé : scores finaux, pour le suivi des paris)
+//   GET /api/games?box=<id ESPN>     (feuille de match : points et minutes de chaque joueur, pour les paris joueurs)
 const SITE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
 // Tricodes ESPN -> NBA (le moteur utilise ceux de la NBA).
 const TRI: Record<string, string> = { GS: 'GSW', NY: 'NYK', SA: 'SAS', NO: 'NOP', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX' };
@@ -16,7 +17,32 @@ async function json(url: string): Promise<any> {
   return r.json();
 }
 
+/** Feuille de match ESPN : état du match et, pour chaque joueur, points, minutes, et s'il n'a pas joué. */
+async function box(id: string): Promise<Response> {
+  try {
+    const j = await json(`${SITE}/summary?event=${encodeURIComponent(id)}`);
+    const players = (j.boxscore?.players ?? []).flatMap((t: any) =>
+      (t.statistics ?? []).flatMap((st: any) => {
+        const keys: string[] = st.keys ?? [];
+        const iPts = keys.indexOf('points'), iMin = keys.indexOf('minutes');
+        return (st.athletes ?? []).map((a: any) => ({
+          name: a.athlete?.displayName ?? '',
+          pts: iPts >= 0 ? num(a.stats?.[iPts]) ?? 0 : 0,
+          min: iMin >= 0 ? num(a.stats?.[iMin]) ?? 0 : 0,
+          dnp: !!a.didNotPlay || !(a.stats ?? []).length,
+        }));
+      }),
+    );
+    const state = j.header?.competitions?.[0]?.status?.type?.state ?? 'pre';
+    return Response.json({ id, state, players }, { headers: { 'Cache-Control': `public, s-maxage=${state === 'post' ? 3600 : 60}, stale-while-revalidate=300` } });
+  } catch (e) {
+    return Response.json({ error: (e as Error).message }, { status: 502 });
+  }
+}
+
 export async function GET(request: Request): Promise<Response> {
+  const boxId = new URL(request.url).searchParams.get('box');
+  if (boxId && /^\d+$/.test(boxId)) return box(boxId);
   const days = Math.min(10, Math.max(1, Number(new URL(request.url).searchParams.get('days') ?? 7) || 7));
   const from = new URL(request.url).searchParams.get('from');
   const start = from && /^\d{4}-\d{2}-\d{2}$/.test(from) ? new Date(`${from}T16:00:00Z`) : new Date();

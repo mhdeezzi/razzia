@@ -111,8 +111,13 @@ function Hero({ g }: { g: Game }) {
       <div>
         <p className="hero-name">{g[side].name}</p>
         <p className="hero-rec">
-          {g[side].city}
-          {g[side].record ? ` | ${g[side].record}` : ''}
+          <span>{g[side].city}</span>
+          {g[side].record && (
+            <>
+              <span className="hero-rec-sep"> | </span>
+              <span>{g[side].record}</span>
+            </>
+          )}
         </p>
       </div>
     </div>

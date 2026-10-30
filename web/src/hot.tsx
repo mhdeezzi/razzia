@@ -1,8 +1,10 @@
 // « En feu ce soir » : les joueurs dont les 5 000 simulations annoncent un gros match, et pourquoi.
 // Et l'avertissement quand la simulation précède l'annonce des compositions officielles.
 import { useState, type CSSProperties } from 'react';
-import { ArrowClockwise, Info } from '@phosphor-icons/react';
-import { n1, pct0, teamColor, type Game, type Result } from './data.ts';
+import { ArrowClockwise, Info, Minus, Plus } from '@phosphor-icons/react';
+import { matchPath, n1, pct0, teamColor, type Game, type Result } from './data.ts';
+import { FollowBtn } from './follow.tsx';
+import { pOverPts } from './picks.ts';
 import { TeamMark } from './ui.tsx';
 
 type Player = Result['players'][number];
@@ -56,31 +58,81 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
         <span className="slash">chance de gros match</span>
       </div>
       <ol className="feu">
-        {hot.map((p, i) => {
-          const h = p.heat!;
-          const team = p.side === 0 ? g.home : g.away;
-          return (
-            <li key={p.id} className="feu-card" style={{ '--i': i, '--tc': teamColor(team) } as CSSProperties}>
-              <div className="feu-who">
-                <Face p={p} team={team} />
-                <div className="feu-id">
-                  <p className="feu-name">{p.name}</p>
-                  <p className="feu-team">
-                    {team.name} · seuil {h.threshold}+ pts ({n1(h.base)} d'habitude)
-                  </p>
-                </div>
-              </div>
-              <p className="feu-lab">Chance de gros match</p>
-              <p className="feu-p">{pct0(h.pBig)}</p>
-              <div className="feu-meter" role="img" aria-label={`Chance de gros match : ${pct0(h.pBig)}`}>
-                <span style={{ width: `${Math.max(6, (100 * h.pBig) / top)}%` }} />
-              </div>
-              {h.reasons.length > 0 && <p className="feu-why">{h.reasons.slice(0, 3).map((t) => (detail(t) ? `${short(t)} : ${detail(t)}` : short(t))).join(' · ')}</p>}
-            </li>
-          );
-        })}
+        {hot.map((p, i) => (
+          <FeuCard key={p.id} p={p} g={g} i={i} top={top} />
+        ))}
       </ol>
     </section>
+  );
+}
+
+const fmt = (v: number) => v.toFixed(1).replace('.', ',');
+
+/** Carte d'un joueur en feu, avec son pari : plus ou moins de N,5 points (ligne réglable), cote juste des simulations. */
+function FeuCard({ p, g, i, top }: { p: Player; g: Game; i: number; top: number }) {
+  const h = p.heat!;
+  const team = p.side === 0 ? g.home : g.away;
+  const [line, setLine] = useState(h.threshold - 0.5);
+  const [over, setOver] = useState(true);
+  const d = p.stats?.pts;
+  const pOver = d ? pOverPts(d, line) : undefined;
+  const pBet = pOver == null ? undefined : over ? pOver : 1 - pOver;
+  const odds = pBet ? Math.round((1 / pBet) * 100) / 100 : undefined;
+  const title = `${p.name} : ${over ? 'plus' : 'moins'} de ${fmt(line)} pts`;
+  return (
+    <li className="feu-card" style={{ '--i': i, '--tc': teamColor(team) } as CSSProperties}>
+      <div className="feu-who">
+        <Face p={p} team={team} />
+        <div className="feu-id">
+          <p className="feu-name">{p.name}</p>
+          <p className="feu-team">
+            {team.name} · seuil {h.threshold}+ pts ({n1(h.base)} d'habitude)
+          </p>
+        </div>
+      </div>
+      <p className="feu-lab">Chance de gros match</p>
+      <p className="feu-p">{pct0(h.pBig)}</p>
+      <div className="feu-meter" role="img" aria-label={`Chance de gros match : ${pct0(h.pBig)}`}>
+        <span style={{ width: `${Math.max(6, (100 * h.pBig) / top)}%` }} />
+      </div>
+      {h.reasons.length > 0 && <p className="feu-why">{h.reasons.slice(0, 3).map((t) => (detail(t) ? `${short(t)} : ${detail(t)}` : short(t))).join(' · ')}</p>}
+      {pBet != null && odds != null && (
+        <div className="feu-bet">
+          <div className="feu-line">
+            <div className="feu-ou" role="group" aria-label="Plus ou moins">
+              <button className={over ? 'is-on' : ''} onClick={() => setOver(true)}>
+                Plus
+              </button>
+              <button className={!over ? 'is-on' : ''} onClick={() => setOver(false)}>
+                Moins
+              </button>
+            </div>
+            <div className="feu-step">
+              <button onClick={() => setLine(Math.max(0.5, line - 1))} aria-label="Un point de moins">
+                <Minus size={13} weight="bold" />
+              </button>
+              <b className="mono">{fmt(line)}</b>
+              <button onClick={() => setLine(line + 1)} aria-label="Un point de plus">
+                <Plus size={13} weight="bold" />
+              </button>
+            </div>
+            <span className="feu-odds">
+              {pct0(pBet)} · cote juste <b className="mono">{odds.toFixed(2).replace('.', ',')}</b>
+            </span>
+          </div>
+          <FollowBtn
+            small
+            leg={() => ({
+              key: `nba:${g.date}:${g.away.tri}@${g.home.tri}:pts-${p.id}-${over ? 'p' : 'm'}${line}`,
+              sport: 'nba', date: g.date, start: g.start, path: matchPath(g),
+              match: { home: g.home.tri, away: g.away.tri, homeName: g.home.name, awayName: g.away.name },
+              oid: 'pts', title, odds, fair: true, p: pBet, at: '',
+              bet: { kind: 'pts', side: p.side === 0 ? 'home' : 'away', line, over, player: p.name, event: g.id },
+            })}
+          />
+        </div>
+      )}
+    </li>
   );
 }
 

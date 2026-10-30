@@ -14,8 +14,9 @@ export interface Outcome {
   text?: string;
   // Qui porte le pari : logo de l'équipe (basket) ou photo du joueur (tennis), à gauche du titre.
   who?: { tri?: string; color?: string; logo?: string; name?: string; photo?: string; alt?: string };
-  // Le pari en clair, pour le suivi : vainqueur, handicap (points donnés à ce camp), au moins N sets, N-0.
-  bet?: { kind: 'win' | 'spread' | 'sets' | 'straight'; side: 'home' | 'away'; line?: number; need?: number };
+  // Le pari en clair, pour le suivi : vainqueur, handicap (points donnés à ce camp), au moins N sets, N-0, ou points d'un
+  // joueur au-dessus / en dessous d'une ligne (player : son nom, event : identifiant ESPN du match pour la feuille).
+  bet?: { kind: 'win' | 'spread' | 'sets' | 'straight' | 'pts'; side: 'home' | 'away'; line?: number; need?: number; over?: boolean; player?: string; event?: string };
 }
 
 export interface Category {
@@ -140,4 +141,22 @@ export function buildCategories(r: Result, g: Game): Category[] {
   }
 
   return cats;
+}
+
+/**
+ * Chance qu'un joueur marque plus de `line` points, quand il joue : courbe des simulations (déciles et quartiles),
+ * prolongée par une loi normale au-delà. Un joueur qui ne joue pas : pari remboursé, donc sans effet ici.
+ */
+export function pOverPts(d: { mean: number; sd: number; p10: number; p25: number; p50: number; p75: number; p90: number }, line: number): number {
+  const q: Array<[number, number]> = [[d.p10, 0.1], [d.p25, 0.25], [d.p50, 0.5], [d.p75, 0.75], [d.p90, 0.9]];
+  const norm = (x: number) => 0.5 * (1 + erf((x - d.mean) / Math.max(1, d.sd) / Math.SQRT2));
+  let F: number;
+  if (line <= q[0][0]) F = Math.min(0.1, norm(line));
+  else if (line >= q[4][0]) F = Math.max(0.9, norm(line));
+  else {
+    const k = q.findIndex(([v]) => v >= line);
+    const [v0, f0] = q[k - 1], [v1, f1] = q[k];
+    F = v1 === v0 ? f1 : f0 + ((line - v0) / (v1 - v0)) * (f1 - f0);
+  }
+  return Math.min(0.99, Math.max(0.01, 1 - F));
 }
