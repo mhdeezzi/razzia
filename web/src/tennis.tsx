@@ -670,7 +670,7 @@ function TennisHero({ id, r }: { id: string; r?: TennisResult }) {
   };
   return (
     <header className="hero mesh mesh-atp has-shader">
-      <WarpBg c1="#2aa873" c2="#2a59cc" />
+      <WarpBg c1="#2a4f9a" c2="#7a3a6e" />
       <div className="hero-meta">
         <span>
           <TennisBall size={15} /> ATP
@@ -1132,97 +1132,6 @@ function Form({ p }: { p: TennisPlayer }) {
           </li>
         ))}
       </ul>
-    </div>
-  );
-}
-
-
-// ——— Bilan ———
-interface Rate { n: number; won: number }
-interface TennisBilan {
-  at: string; games: number; voided?: number; late?: number; pick: Rate; sets: Rate;
-  tiers: { sure: Rate; mid: Rate; flip: Rate; advised: Rate };
-  accuracy: { razzia?: number; market?: number };
-  rows: Array<{ id: string; day: string; start: string; tourney: string; round: string; home: string; away: string; pHome: number; homeWon: boolean; score: string; tier: 'sure' | 'mid' | 'flip'; pick: { kind: 'vainqueur' | 'sets'; label: string; won: boolean } }>;
-  error?: string;
-}
-const rateTxt = (r?: Rate) => (r?.n ? pct(r.won / r.n) : '-');
-const label = (r: TennisBilan['rows'][number]) => (r.pick.kind === 'sets' ? r.pick.label : `Victoire ${r.pick.label}`);
-
-/** Bilan tennis : le pronostic mis en avant par chaque fiche face au résultat, par niveau de confiance. */
-export function TennisBilanPage() {
-  const [b, setB] = useState<TennisBilan>();
-  useEffect(() => {
-    api('?bilan=1').then(setB, (e: Error) => setB({ error: e.message } as TennisBilan));
-  }, []);
-  return (
-    <div className="page">
-      <header className="page-head">
-        <h1>Bilan tennis</h1>
-        <p className="lede">Les simulations ATP publiées face aux résultats. Mis à jour toutes les 3 heures.</p>
-      </header>
-      {!b && <span className="sk sk-panel" aria-busy="true" />}
-      {b && (b.error || !b.games) && <Empty title={b.error ?? 'Aucun match terminé parmi les simulations publiées.'} />}
-      {b && b.games > 0 && (
-        <>
-          <section className="league-card bilan-kpis">
-            <div>
-              <span className="caps">Matchs terminés</span>
-              <b className="mono">{b.games}</b>
-              <small>{b.voided ? `${b.voided} abandons ou forfaits non comptés` : 'Abandons et forfaits non comptés'}</small>
-            </div>
-            <div>
-              <span className="caps">Bon pronostic</span>
-              <b className="mono">{rateTxt(b.pick)}</b>
-              <small>
-                {b.sets.n ? `dont ${b.sets.n} « Un set » (${b.sets.won} passés), ` : ''}vainqueur seul {b.accuracy.razzia != null ? pct(b.accuracy.razzia) : '-'}, marché {b.accuracy.market != null ? pct(b.accuracy.market) : '-'}
-              </small>
-            </div>
-            <div>
-              <span className="caps">Razzia assuré</span>
-              <b className="mono">{rateTxt(b.tiers.sure)}</b>
-              <small>favoris à 80 % ou plus, {b.tiers.sure.n} matchs</small>
-            </div>
-            <div>
-              <span className="caps">Hors pile ou face</span>
-              <b className="mono">{rateTxt(b.tiers.advised)}</b>
-              <small>
-                {b.tiers.advised.n} matchs ; pile ou face (favori à 80 % ou moins, ou outsider en hausse : « Un set » conseillé) : {rateTxt(b.tiers.flip)} sur {b.tiers.flip.n}
-              </small>
-            </div>
-          </section>
-          <p className="note" style={{ margin: '12px 0 18px' }}>
-            Le pronostic compté est celui que la fiche met en avant : le vainqueur, ou « Un set » quand le favori est à 80 % ou moins ou que l'outsider est en hausse. Une simulation lancée après le début du match ne compte pas.
-          </p>
-          <section className="league-card">
-            <ol className="rows">
-              {b.rows.map((r) => {
-                const fav = r.pHome >= 0.5 ? { n: r.home, p: r.pHome } : { n: r.away, p: 1 - r.pHome };
-                return (
-                  <li key={r.id}>
-                    <Link href={`/tennis/match/${r.day}/${r.id}`} className="row t-bilan-row">
-                      <span className="muted">{new Date(r.start ?? `${r.day}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
-                      <span className="t-bl-match">
-                        <span className="strong">{r.home} - {r.away}</span>
-                        <span className="mono muted">{r.score}</span>
-                        <span className="t-sm muted">{label(r)}</span>
-                      </span>
-                      <span className="t-bl-fav">
-                        <span className="mono">{fav.n.split(' ').at(-1)} {pct0(fav.p)}</span>
-                        {r.tier !== 'mid' && <span className={`pill-tag${r.tier === 'flip' ? ' final' : ''}`}>{r.tier === 'sure' ? 'Assuré' : 'Pile ou face'}</span>}
-                      </span>
-                      <span className="t-bl-pick">
-                        <span className={`t-res ${r.pick.won ? 'w' : 'l'}`}>{r.pick.won ? 'Passé' : 'Raté'}</span>
-                        <span className="t-lg">{label(r)}</span>
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        </>
-      )}
     </div>
   );
 }

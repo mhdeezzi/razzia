@@ -1524,3 +1524,15 @@ dd.down { color: var(--c-red); }
   .hb-une-m b { font-size: 17px; }
   .hb-une-go { grid-column: 3; grid-row: 3; justify-self: end; }
 }
+
+/* Pied de page : liens légaux. Pages légales et page introuvable. */
+.foot-links { display: flex; gap: 16px; flex-wrap: wrap; justify-content: flex-end; margin: 6px 0 4px; }
+.foot-links a { color: var(--text-3); font-size: 12.5px; }
+.foot-links a:hover { color: #fff; }
+.legal h2 { font: 700 18px var(--sans); letter-spacing: -0.01em; margin: 28px 0 8px; }
+.legal p { color: var(--text-2); line-height: 1.65; max-width: 72ch; }
+.notfound { display: grid; justify-items: center; text-align: center; gap: 14px; padding: 90px 0 60px; }
+.notfound-n { font: 900 clamp(120px, 22vw, 240px)/0.85 var(--display); font-stretch: 70%; color: rgba(255, 255, 255, 0.12); }
+.notfound h1 { font: 900 clamp(34px, 5vw, 56px)/0.95 var(--display); font-stretch: 76%; text-transform: uppercase; }
+.notfound .btn { margin-top: 10px; }
+@media (max-width: 720px) { .foot-links { justify-content: flex-start; } }

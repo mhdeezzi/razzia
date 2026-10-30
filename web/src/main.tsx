@@ -9,16 +9,15 @@ import { CaretRight } from '@phosphor-icons/react';
 import './styles.css';
 import { listSims, loadProgramme, matchPath, type Programme, type SimEntry } from './data.ts';
 import { MatchPage } from './match.tsx';
-import { BadgesPage } from './badges.tsx';
-import { BilanPage } from './bilan.tsx';
 import { SchedulePage } from './schedule.tsx';
 import { TopBar } from './topbar.tsx';
 import { SlipBar, SuiviPage, TicketWatcher } from './suivipage.tsx';
 import { Toasts } from './toast.tsx';
-import { TennisBilanPage, TennisMatchPage, TennisSchedulePage } from './tennis.tsx';
+import { TennisMatchPage, TennisSchedulePage } from './tennis.tsx';
 import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
 import { AccountPage, PricingPage } from './billing.tsx';
 import { Landing, landingPage } from './landing.tsx';
+import { LEGAL, LegalLinks, LegalPage, NotFound } from './legal.tsx';
 import logo from './assets/razzia-logo.webp';
 
 // Compte (connexion) en ligne, sans paiement branché ; abonnement prêt, activé seulement par VITE_BILLING=1 au build.
@@ -34,27 +33,23 @@ function App() {
     <TennisMatchPage key={path} day={t[1]} id={t[2]} />
   ) : path === '/tennis' ? (
     <TennisSchedulePage day={search.get('jour')} />
-  ) : path === '/tennis/bilan' ? (
-    <TennisBilanPage />
   ) : path === '/simulations' ? (
     <SimsPage />
-  ) : path === '/methode' ? (
-    <MethodPage />
-  ) : path === '/bilan' ? (
-    <BilanPage />
-  ) : path === '/badges' ? (
-    <BadgesPage />
   ) : BILLING && path === '/abonnement' ? (
     <PricingPage />
   ) : path === '/compte' ? (
     <AccountPage />
   ) : path === '/suivi' ? (
     <SuiviPage />
-  ) : (
+  ) : LEGAL[path] ? (
+    <LegalPage path={path} />
+  ) : path === '/' ? (
     <SchedulePage day={search.get('jour')} />
+  ) : (
+    <NotFound />
   );
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : path === '/badges' ? 'Badges | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : landingPage(path) ? 'Razzia | Simule avant de parier' : 'Razzia | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : landingPage(path) ? 'Razzia | Simule avant de parier' : LEGAL[path] ? `${LEGAL[path].title} | Razzia` : 'Razzia | Simulations NBA';
   }, [path]);
   // Page d'accueil payante : cachée (aucun lien), visible seulement en tapant /accueil, en attendant de l'activer.
   if (landingPage(path))
@@ -81,6 +76,7 @@ function App() {
             <b>Razzia</b> analyse les matchs, il ne prend pas de paris.
           </p>
           <p>Jouer comporte des risques : endettement, dépendance. Appelez le 09 74 75 13 13 (appel non surtaxé).</p>
+          <LegalLinks />
           <p className="foot-legal">© {new Date().getFullYear()} RAZZIA</p>
         </div>
       </footer>
@@ -150,35 +146,6 @@ function SimsPage() {
         </section>
       )}
       {sims && sims.length > 0 && <p className="note" style={{ marginTop: 14 }}>Seuls les matchs des 7 prochains jours s'ouvrent avec leur fiche complète.</p>}
-    </div>
-  );
-}
-
-function MethodPage() {
-  return (
-    <div className="page prose">
-      <header className="page-head">
-        <h1>Méthode</h1>
-        <p className="lede">Ce que fait le moteur, avec quelles données, et ce que disent nos tests.</p>
-      </header>
-      <h2>Un match rejoué 5 000 fois</h2>
-      <p>
-        Chaque simulation joue le match possession par possession : qui est sur le terrain minute par minute, qui tire, d'où, contre quel défenseur, avec
-        les fautes, le bonus et les fins de match serrées. Les 5 000 issues donnent les probabilités affichées : victoire, spread, total, stats de chaque
-        joueur.
-      </p>
-      <h2>Les données</h2>
-      <p>
-        Le play-by-play de plus de 2 600 matchs NBA sur trois saisons, les profils de tir par zone, le suivi défensif, les duels joueur contre joueur et les
-        passes, mis à jour avant chaque simulation avec les absences annoncées et les cotes du moment.
-      </p>
-      <h2>Ce que disent les tests</h2>
-      <p>
-        Sur 80 matchs de la saison 2025-26, les stats d'équipe simulées sont proches du réel et 82 % des scores réels tombent dans la fourchette annoncée à
-        80 %. Le marché reste plus précis sur le vainqueur à la clôture. Sur les props, testées sur 12 289 lignes de playoffs, le modèle n'a pas d'avantage
-        face aux lignes de clôture, mais il en montre un face aux lignes d'ouverture quand elles bougent ensuite. C'est pourquoi les probabilités de props
-        sont mêlées au marché selon la confiance.
-      </p>
     </div>
   );
 }

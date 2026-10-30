@@ -722,6 +722,9 @@ export function Landing({ path }: { path: string }) {
           <Link href="/accueil/tarifs">Tarifs</Link>
           <Link href="/accueil/questions">Questions</Link>
           <Link href="/compte">Se connecter</Link>
+          <Link href="/mentions-legales">Mentions légales</Link>
+          <Link href="/cgv">CGV</Link>
+          <Link href="/confidentialite">Confidentialité</Link>
         </div>
         <p>Razzia analyse les matchs, il ne prend pas de paris. Réservé aux plus de 18 ans. Jouer comporte des risques : endettement, dépendance. Appelez le 09 74 75 13 13 (appel non surtaxé).</p>
       </footer>
