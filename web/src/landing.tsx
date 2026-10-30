@@ -310,16 +310,16 @@ function Proof() {
   return (
     <section className="lp-proof" data-reveal>
       <div>
-        <b>5 000</b>
-        <span>matchs simulés avant chaque coup d’envoi</span>
+        <b>11</b>
+        <span>types de jeu simulés à chaque possession, du pick and roll à l’isolation</span>
       </div>
       <div>
-        <b className="up">85 %</b>
-        <span>de favoris trouvés quand Razzia est sûr (saison passée)</span>
+        <b>10</b>
+        <span>joueurs sur le terrain, chacun avec sa carte de tir, son défenseur et sa note d’impact</span>
       </div>
       <div>
-        <b>2</b>
-        <span>sports : NBA et tennis ATP, le football arrive</span>
+        <b className="up">5 000</b>
+        <span>matchs rejoués avant chaque coup d’envoi, compos et arbitres du soir compris</span>
       </div>
     </section>
   );
@@ -356,6 +356,84 @@ function Bento() {
         </div>
         <MoneyMini />
       </Bezel>
+    </div>
+  );
+}
+
+/** Ce que le moteur regarde vraiment, sport par sport : pour les connaisseurs. */
+const ENGINE: Array<{ g: string; items: Array<[ReactNode, string, string]> }> = [
+  {
+    g: 'Basket · chaque possession',
+    items: [
+      [<Basketball size={20} />, 'La possession, décomposée', 'Départ (rebond, perte, panier encaissé), contre-attaque ou attaque placée, puis le type de jeu parmi 11 : pick and roll côté porteur ou côté roll man, isolation, poste bas, catch-and-shoot, sortie d’écran, hand-off, coupe, rebond offensif…'],
+      [<ChartLineUp size={20} />, 'Le tir, comme sur le parquet', 'Zone et position tirées de la vraie carte de tir du joueur, adresse par zone et par type de jeu, forme récente, niveau de contestation. Un joueur qui ne tire jamais de loin ne tirera jamais à 3 points.'],
+      [<ArrowsLeftRight size={20} />, 'Qui défend sur qui', 'Les assignations défensives réelles (duels suivis par le tracking), les changements sur écran, et le défenseur qui conteste chaque tir.'],
+      [<ListChecks size={20} />, 'Les rotations du coach', 'Les minutes de chaque joueur prévues comme le ferait le coach, la hiérarchie du banc (même pré-saison pour un effectif tout neuf), les fautes, le bonus et l’horloge.'],
+      [<Stack size={20} />, 'Les cinq, ensemble', 'Cohésion des duos et trios (possessions jouées ensemble sur l’année), écartement quand deux non-shooteurs sont sur le terrain, et la note d’impact de chacun des dix joueurs.'],
+      [<Scales size={20} />, 'La chance, mise de côté', 'Chaque tir vaut ce qu’il vaut d’habitude à cet endroit et de cette façon (dunk, lay-up, tir après dribble…). On sépare les occasions créées de la réussite, qui sur quelques matchs relève surtout de la chance.'],
+    ],
+  },
+  {
+    g: 'Basket · le contexte du soir',
+    items: [
+      [<ShieldCheck size={20} />, 'Les trois arbitres', 'Chaque arbitre siffle plus ou moins que la moyenne : le trio du soir change le nombre de fautes et de lancers francs.'],
+      [<Lightning size={20} />, 'Fatigue et repos', 'Fuseaux horaires et altitude du déplacement, second soir d’un back-to-back, et l’habitude de chaque star de souffler ce soir-là.'],
+      [<Bell size={20} />, 'Absences et compos', 'Blessures et raisons d’absence, transferts, changement d’entraîneur. Les cinq de départ tombent 30 minutes avant : la simulation se relance toute seule.'],
+      [<Fire size={20} />, 'Momentum et chat noir', 'La forme des 15 derniers matchs face aux deux saisons d’avant, le chat noir en confrontation directe, et le chat noir de style (rythme, volume à 3 points, tirs au cercle…).'],
+      [<ChartLineUp size={20} />, 'Notes d’impact', 'Chaque possession explique les points par les dix joueurs sur le terrain : on isole l’apport réel de chacun, coéquipiers et adversaires pris en compte.'],
+      [<ArrowsLeftRight size={20} />, 'Le marché', 'Cotes DraftKings, mouvement depuis l’ouverture, mélange moteur et marché selon la confiance, et comparateur des bookmakers français.'],
+    ],
+  },
+  {
+    g: 'Tennis · point par point',
+    items: [
+      [<TennisBall size={20} />, 'Chaque point joué', 'Le match est rejoué point par point, au service et au retour, avec une forme du jour qui rend les sets liés entre eux, comme en vrai.'],
+      [<ChartLineUp size={20} />, 'Des notes par surface', 'Elo général et par surface, qualité au service et au retour corrigée du niveau des adversaires affrontés.'],
+      [<Lightning size={20} />, 'L’état du joueur', 'Repos, fatigue du tournoi, forme, abandon récent, longue absence, changement de surface, joueur à domicile, course aux Masters.'],
+    ],
+  },
+];
+
+function Engine({ short }: { short?: boolean }) {
+  const groups = short ? [{ ...ENGINE[0], items: ENGINE[0].items.slice(0, 3) }, { ...ENGINE[1], items: ENGINE[1].items.slice(0, 3) }] : ENGINE;
+  return (
+    <div className="lp-engine">
+      {groups.map((g) => (
+        <div key={g.g} className="lp-engine-g">
+          <p className="lp-engine-t" data-reveal>
+            {g.g}
+          </p>
+          <div className="lp-engine-grid">
+            {g.items.map(([ic, t, d], i) => (
+              <div key={t} className="lp-engine-i" data-reveal style={{ '--d': i % 3 } as CSSProperties}>
+                <span>{ic}</span>
+                <b>{t}</b>
+                <p>{d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** D'où viennent les données, et ce que disent les tests : chiffres vérifiables. */
+function Data() {
+  return (
+    <div className="lp-data">
+      {[
+        ['2 600+', 'matchs NBA en play-by-play', 'Trois saisons rejouées action par action, avec les types de jeu, le suivi défensif, les duels et les passes.'],
+        ['82 %', 'des scores réels dans la fourchette', 'Sur 80 matchs testés, 82 % des scores tombent dans la fourchette annoncée à 80 %.'],
+        ['85 %', 'quand Razzia est sûr', 'Favori à 77 % ou plus dans les simulations : il a gagné 85 % du temps la saison passée.'],
+        ['12 289', 'lignes de props testées', 'Les stats joueurs testées sur les playoffs, face aux lignes d’ouverture et de clôture.'],
+      ].map(([n, t, d], i) => (
+        <div key={t} data-reveal style={{ '--d': i } as CSSProperties}>
+          <b>{n}</b>
+          <span>{t}</span>
+          <p>{d}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -441,12 +519,16 @@ function Plans() {
 }
 
 const QA: Array<[string, string]> = [
+  ['Qu’est-ce que Razzia fait qu’une IA généraliste ne fait pas ?', 'Une IA généraliste résume ce qu’elle a lu. Razzia rejoue le match : 5 000 fois, possession par possession, avec la carte de tir de chaque joueur, ses défenseurs, les rotations, les arbitres et la fatigue du soir, sur des données mises à jour avant chaque simulation. Le résultat est une distribution chiffrée, pas une opinion.'],
+  ['Comment est simulé un tir ?', 'Le moteur choisit le type de jeu (pick and roll, isolation, catch-and-shoot…), qui finit l’action, la zone et la position du tir sur la vraie carte du joueur, puis l’adresse selon la zone, le type de jeu, sa forme récente, le défenseur qui conteste et le domicile.'],
+  ['Comment sont prévues les minutes ?', 'Comme le ferait le coach : hiérarchie de la rotation, titulaires annoncés, fautes, écart au score. Pour un effectif remanié, la pré-saison sert à lire la nouvelle hiérarchie, jamais à juger le niveau.'],
+  ['Le moteur tient-il compte des arbitres et de la fatigue ?', 'Oui. Chaque arbitre a sa tendance à siffler, mesurée sur ses matchs : le trio du soir change le nombre de fautes. La fatigue compte les fuseaux traversés, l’altitude, le back-to-back et l’habitude d’un joueur de se reposer ce soir-là.'],
+  ['Et la chance dans tout ça ?', 'Chaque tir est évalué à sa valeur habituelle (emplacement, type de tir), qu’il rentre ou non. On distingue ce qu’une équipe crée de ce qu’elle convertit : une série de tirs réussis sur quelques matchs ne fait pas d’elle une meilleure équipe.'],
+  ['Comment Razzia utilise les cotes ?', 'Les cotes servent de repère : la probabilité affichée mêle le moteur et le marché selon la confiance, et le mouvement de cote depuis l’ouverture est un signal à part entière. Tu vois aussi de quel côté va l’argent.'],
+  ['Est-ce testé ?', 'Oui, sur des matchs passés que le moteur n’avait pas vus : stats d’équipe proches du réel, 82 % des scores dans la fourchette annoncée à 80 %, et 85 % de réussite quand Razzia est sûr. Le marché reste plus précis sur le vainqueur à la clôture : on te le dit.'],
+  ['Comment marche le tennis ?', 'Point par point, au service et au retour, avec des notes Elo par surface et la qualité de service et de retour corrigée des adversaires. L’état du joueur compte : repos, fatigue du tournoi, abandon récent, longue absence.'],
   ['Razzia prend-il mes paris ?', 'Non. Razzia analyse les matchs. Tu joues chez ton bookmaker, Razzia t’aide à choisir et suit ton ticket.'],
   ['Comment marche l’essai gratuit ?', 'Tu as accès à tout pendant 3 jours. Rien n’est prélevé avant la fin de l’essai, et tu peux arrêter avant en un clic.'],
-  ['D’où viennent les cotes ?', 'DraftKings pour la NBA, Pinnacle pour le tennis. Elles sont relues juste avant que tu valides un ticket.'],
-  ['Le moteur a-t-il toujours raison ?', 'Non. Il donne des probabilités : un favori à 80 % perd une fois sur cinq. Les badges disent quand se méfier (pile ou face, chat noir).'],
-  ['Qu’est-ce qu’une simulation ?', 'Le match est rejoué possession par possession, ou point par point au tennis, 5 000 fois, avec les compos, la forme et le contexte du soir.'],
-  ['Quels sports ?', 'NBA et tennis ATP aujourd’hui. Le football et la simulation en direct arrivent.'],
   ['Je peux arrêter quand je veux ?', 'Oui, sans engagement. L’abonnement s’arrête à la fin de la période en cours.'],
   ['C’est réservé aux majeurs ?', 'Oui, Razzia est réservé aux plus de 18 ans. Jouer comporte des risques : endettement, dépendance. Appelle le 09 74 75 13 13 (appel non surtaxé) si besoin.'],
 ];
@@ -529,6 +611,19 @@ export function Landing({ path }: { path: string }) {
               </Link>
             </div>
           </section>
+          <section className="lp-sec">
+            <div className="lp-sec-head" data-reveal>
+              <Eyebrow>Sous le capot</Eyebrow>
+              <h2>Pas un pronostic. Un match rejoué.</h2>
+              <p className="lp-lede">Ce que le moteur regarde, possession après possession, avant de te donner un chiffre.</p>
+            </div>
+            <Engine short />
+            <div className="lp-more" data-reveal>
+              <Link href="/accueil/fonctionnalites" className="lp-link">
+                Tout ce qu’on analyse <ArrowRight size={15} weight="bold" />
+              </Link>
+            </div>
+          </section>
           <Steps />
           <section className="lp-sec">
             <div className="lp-sec-head center" data-reveal>
@@ -554,7 +649,7 @@ export function Landing({ path }: { path: string }) {
       )}
       {page === 'features' && (
         <>
-          <PageHead eyebrow="Fonctionnalités" title={<>Tout ce que<br />Razzia fait.</>} lede="Chaque soir, le programme NBA et ATP simulé, les paris qui passent le plus souvent, et ton ticket suivi jusqu’au coup de sifflet final." />
+          <PageHead eyebrow="Fonctionnalités" title={<>Tout ce que<br />Razzia fait.</>} lede="Chaque match rejoué 5 000 fois, possession par possession ou point par point : les paris qui passent le plus souvent, les signaux à connaître, et ton ticket suivi jusqu’au coup de sifflet final." />
           <section className="lp-sec lp-sec-tight">
             <Bento />
           </section>
@@ -578,6 +673,21 @@ export function Landing({ path }: { path: string }) {
               ))}
             </div>
           </section>
+          <section className="lp-sec">
+            <div className="lp-sec-head" data-reveal>
+              <Eyebrow>Sous le capot</Eyebrow>
+              <h2>Tout ce que le moteur analyse.</h2>
+              <p className="lp-lede">Pour ceux qui veulent savoir d’où vient chaque pourcentage : le match est rejoué, pas deviné.</p>
+            </div>
+            <Engine />
+          </section>
+          <section className="lp-sec">
+            <div className="lp-sec-head" data-reveal>
+              <Eyebrow>Données et tests</Eyebrow>
+              <h2>Des chiffres qu’on peut vérifier.</h2>
+            </div>
+            <Data />
+          </section>
           <Steps />
         </>
       )}
@@ -592,7 +702,7 @@ export function Landing({ path }: { path: string }) {
               <Eyebrow>Abonnement</Eyebrow>
               <h2>Questions sur l’essai.</h2>
             </div>
-            <Faq items={[QA[1], QA[6], QA[0]]} />
+            <Faq items={[QA[9], QA[10], QA[8]]} />
           </section>
         </>
       )}

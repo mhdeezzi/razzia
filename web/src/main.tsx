@@ -5,7 +5,6 @@ import '@fontsource-variable/geist'; // texte, menus et badges
 import '@fontsource-variable/geist-mono'; // heures, cotes, scores
 import '@fontsource-variable/archivo/wdth.css'; // titres très gras et serrés de l'affiche RAZZIA, cote sous le rond
 import '@fontsource-variable/host-grotesk'; // chiffres des cercles de probabilité
-import '@fontsource/pinyon-script'; // « sports analysis specialist » du bandeau, écrit à la plume
 import { CaretRight } from '@phosphor-icons/react';
 import './styles.css';
 import { listSims, loadProgramme, matchPath, type Programme, type SimEntry } from './data.ts';
