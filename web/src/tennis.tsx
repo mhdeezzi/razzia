@@ -8,7 +8,7 @@ import { MoneyFlow } from './money.tsx';
 import { WarpBg } from './shaders.tsx';
 import { PublicRecord } from './record.tsx';
 import { atpHype } from './hype.ts';
-import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
+import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_RISKY, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
 
 // ——— Données ———
@@ -464,8 +464,12 @@ function Who({ m, side, players, sim, align, size = 'row' }: { m: SlateMatch; si
 function favFlip(sim: SimIndex) {
   const fav = sim.pHome >= 0.5 ? { n: sim.home, p: sim.pHome } : { n: sim.away, p: 1 - sim.pHome };
   const dog = sim.pHome >= 0.5 ? sim.away : sim.home;
-  const flip = sim.flip ?? (sim.cat !== dog && (shown(fav.p) <= T_HEDGE_FIRST || sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up'));
-  return { fav, flip };
+  const dogUp = sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up';
+  // Index publié avant le passage du seuil à 75 % : on réapplique le seuil actuel.
+  const flip = (sim.flip ?? sim.cat !== dog) && (shown(fav.p) <= T_HEDGE_FIRST || dogUp);
+  // Couleur de la pastille : rouge « Déconseillé » (70 % ou moins), orange « Risqué » au-dessus, vert sinon.
+  const cls = flip ? (shown(fav.p) > T_RISKY ? ' risky' : ' flip') : '';
+  return { fav, flip, cls };
 }
 
 /** Nom de famille (tout après le prénom) : « De Minaur », « Auger-Aliassime ». */
@@ -483,10 +487,10 @@ function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
       </span>
     );
   if (!sim) return <span className="conf-pill go">Simuler</span>;
-  const { fav, flip } = favFlip(sim);
+  const { fav, cls } = favFlip(sim);
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
-      <span className={`conf-pill sim${flip ? ' flip' : ''}`}>
+      <span className={`conf-pill sim${cls}`}>
         {fav.n.split(' ').at(-1)} <b>{pct0(fav.p)}</b>
       </span>
     </span>
@@ -539,7 +543,7 @@ function TennisUne({ matches, sims, players }: { matches: SlateMatch[]; sims: Ma
         {round ? ` · ${ROUND_SHORT[round] ?? ROUND_FR[round] ?? round}` : ''}
       </span>
       {ff && (
-        <span className={`card-a-p${ff.flip ? ' flip' : ''}`}>
+        <span className={`card-a-p${ff.cls}`}>
           {lastName(ff.fav.n)} {pct0(ff.fav.p)}
         </span>
       )}
@@ -579,7 +583,7 @@ function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimI
       </div>
       <div className="card-a-f">
         {ff ? (
-          <span className={`card-a-p${ff.flip ? ' flip' : ''}`}>
+          <span className={`card-a-p${ff.cls}`}>
             {lastName(ff.fav.n)} {pct0(ff.fav.p)}
           </span>
         ) : (
