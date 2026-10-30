@@ -13,7 +13,8 @@ import { BadgesPage } from './badges.tsx';
 import { BilanPage } from './bilan.tsx';
 import { SchedulePage } from './schedule.tsx';
 import { TopBar } from './topbar.tsx';
-import { SuiviPanel } from './suivipanel.tsx';
+import { SlipBar, SuiviPage, TicketWatcher } from './suivipage.tsx';
+import { Toasts } from './toast.tsx';
 import { TennisBilanPage, TennisMatchPage, TennisSchedulePage } from './tennis.tsx';
 import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
 import { AccountPage, PricingPage } from './billing.tsx';
@@ -46,17 +47,21 @@ function App() {
     <PricingPage />
   ) : path === '/compte' ? (
     <AccountPage />
+  ) : path === '/suivi' ? (
+    <SuiviPage />
   ) : (
     <SchedulePage day={search.get('jour')} />
   );
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : path === '/badges' ? 'Badges | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : 'Razzia | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : path === '/badges' ? 'Badges | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : 'Razzia | Simulations NBA';
   }, [path]);
   return (
     <>
       <TopBar path={path} />
-      <SuiviPanel />
+      <TicketWatcher />
       <main>{page}</main>
+      <SlipBar path={path} />
+      <Toasts />
       <footer className="foot">
         <div className="foot-brand">
           <img src={logo} alt="Razzia" width={1200} height={645} />

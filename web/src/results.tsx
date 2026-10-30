@@ -2,14 +2,14 @@
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowsLeftRight, Check, Plus, Scales, ShieldCheck } from '@phosphor-icons/react';
-import { openSuivi, suivi, useSuivi, type Leg } from './suivi.ts';
+import { slip, useSlip, type Leg } from './suivi.ts';
 import { MoneyFlow } from './money.tsx';
 import { line, matchPath, n1, noVig, pct, pct0, type Game, type Result } from './data.ts';
 import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
-import { Callout, Ring, Segmented, TeamMark } from './ui.tsx';
+import { Callout, Link, Ring, Segmented, TeamMark } from './ui.tsx';
 import { HotStrip, LineupNotice } from './hot.tsx';
 
 type Dist = Result['margin'];
@@ -335,24 +335,24 @@ function PickWho({ who }: { who: NonNullable<Outcome['who']> }) {
   );
 }
 
-/** « Suivre » : ajoute ce pari au suivi (combiné), ou le retire. */
+/** « Suivre » : ajoute ce pari au ticket en préparation (page Suivi), ou l'en retire. */
 function FollowButton({ o, ctx }: { o: Outcome; ctx: MatchCtx }) {
-  const legs = useSuivi();
+  const legs = useSlip();
   const key = `${ctx.sport}:${ctx.date}:${ctx.match.id ?? `${ctx.match.away}@${ctx.match.home}`}:${o.id}`;
   const on = legs.some((l) => l.key === key);
   const toggle = () => {
-    if (on) return suivi.remove(key);
-    suivi.add({ ...ctx, key, title: o.title, odds: o.odds ?? o.fair, fair: o.odds == null, p: o.p, bet: o.bet!, at: new Date().toISOString() });
+    if (on) return slip.remove(key);
+    slip.add({ ...ctx, key, title: o.title, odds: o.odds ?? o.fair, fair: o.odds == null, p: o.p, bet: o.bet!, at: new Date().toISOString() });
   };
   return (
     <span className="follow">
       <button className={`btn glass follow-btn${on ? ' is-on' : ''}`} onClick={toggle}>
-        {on ? <Check size={15} weight="bold" /> : <Plus size={15} weight="bold" />} {on ? 'Suivi' : 'Suivre'}
+        {on ? <Check size={15} weight="bold" /> : <Plus size={15} weight="bold" />} {on ? 'Dans le ticket' : 'Suivre'}
       </button>
       {on && (
-        <button className="follow-link" onClick={openSuivi}>
-          Voir le suivi ({legs.length})
-        </button>
+        <Link href="/suivi" className="follow-link">
+          Voir le ticket ({legs.length})
+        </Link>
       )}
     </span>
   );

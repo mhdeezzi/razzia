@@ -338,7 +338,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
             <Empty title="Pas de match ATP coté ce jour-là." />
           ) : view === 'liste' ? (
             // Toute la journée dans une seule carte, comme la NBA ; chaque tournoi séparé par une barre blanche.
-            <section className="league-card lit lit-atp" key={`${current}-${status}`}>
+            <section className="league-card" key={`${current}-${status}`}>
               <div className="league-top">
                 <h2>ATP</h2>
                 <span className="badge-n">{shown.length}</span>
