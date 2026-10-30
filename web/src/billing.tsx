@@ -141,7 +141,7 @@ const AUTH_FR: Record<string, string> = {
 };
 const authError = (m: string) => AUTH_FR[m] ?? m;
 // Après connexion, retour à la page demandée (ex. /suivi) ; seulement un chemin du site.
-// (Google et Apple renvoient sur /compte : la page de retour est gardée le temps de l'aller-retour.)
+// (Google renvoie sur /compte : la page de retour est gardée le temps de l'aller-retour.)
 const nextPath = () => {
   let n = new URLSearchParams(location.search).get('next');
   try {
@@ -185,8 +185,8 @@ function AuthScreen({ mode, setMode }: { mode: AuthMode; setMode: (m: AuthMode) 
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string }>();
-  // Connexion Google ou Apple (à activer dans Supabase, Authentication, Providers).
-  const oauth = async (provider: 'google' | 'apple') => {
+  // Connexion Google (activée dans Supabase, Authentication, Providers).
+  const oauth = async (provider: 'google') => {
     if (!supabase) return;
     const n = nextPath();
     try {
@@ -195,7 +195,7 @@ function AuthScreen({ mode, setMode }: { mode: AuthMode; setMode: (m: AuthMode) 
       /* stockage indisponible */
     }
     const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}/compte` } });
-    if (error) setMsg({ ok: false, text: /not enabled|unsupported provider/i.test(error.message) ? `La connexion ${provider === 'google' ? 'Google' : 'Apple'} n'est pas encore activée.` : authError(error.message) });
+    if (error) setMsg({ ok: false, text: /not enabled|unsupported provider/i.test(error.message) ? "La connexion Google n'est pas encore activée." : authError(error.message) });
   };
   const go = (m: AuthMode) => {
     setMode(m);
@@ -293,9 +293,6 @@ function AuthScreen({ mode, setMode }: { mode: AuthMode; setMode: (m: AuthMode) 
               <div className="auth-social">
                 <button type="button" className="btn glass btn-lg" onClick={() => void oauth('google')} disabled={!supabase}>
                   <GoogleLogo size={18} weight="bold" /> Continuer avec Google
-                </button>
-                <button type="button" className="btn glass btn-lg" onClick={() => void oauth('apple')} disabled={!supabase}>
-                  <AppleLogo size={18} weight="fill" /> Continuer avec Apple
                 </button>
               </div>
               <p className="auth-or">ou par e-mail</p>
