@@ -72,7 +72,8 @@ const fmt = (v: number) => v.toFixed(1).replace('.', ',');
 function FeuCard({ p, g, i, top }: { p: Player; g: Game; i: number; top: number }) {
   const h = p.heat!;
   const team = p.side === 0 ? g.home : g.away;
-  const [line, setLine] = useState(h.threshold - 0.5);
+  // Même ligne de départ pour tous : 19,5 points, à régler ensuite.
+  const [line, setLine] = useState(19.5);
   const [over, setOver] = useState(true);
   const d = p.stats?.pts;
   const pOver = d ? pOverPts(d, line) : undefined;
