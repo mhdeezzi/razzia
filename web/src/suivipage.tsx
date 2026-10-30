@@ -2,7 +2,7 @@
 // ou en combiné avec une mise, les tickets en cours et terminés (chaque sélection cochée quand elle passe), le bilan.
 // Réservée aux comptes : les tickets sont enregistrés dans le compte. Sans compte, la page invite à se connecter.
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, Basketball, ChartLineUp, Check, CheckCircle, Lightning, ListChecks, Minus, Plus, ShareNetwork, Stack, TennisBall, Ticket as TicketIcon, Trash, X } from '@phosphor-icons/react';
+import { ArrowDown, ArrowRight, ArrowUp, Basketball, ChartLineUp, CheckCircle, Clock, Lightning, ListChecks, Plus, Prohibit, ShareNetwork, Stack, TennisBall, ThumbsDown, ThumbsUp, Ticket as TicketIcon, Trash, X } from '@phosphor-icons/react';
 import { useAuth } from './auth.ts';
 import { supabase } from './supabase.ts';
 import {
@@ -247,12 +247,24 @@ function Stats({ tickets }: { tickets?: Ticket[] }) {
   );
 }
 
+/** État d'une sélection, en rond plein : pouce vert gagné, pouce rouge perdu, horloge jaune à venir, LIVE en direct, interdit gris annulé. */
 function LegMark({ s }: { s: LegStatus }) {
-  if (s === 'won') return <span className="lm won" aria-label="Gagné"><Check size={13} weight="bold" /></span>;
-  if (s === 'lost') return <span className="lm lost" aria-label="Perdu"><X size={13} weight="bold" /></span>;
-  if (s === 'live') return <span className="lm live" aria-label="En cours"><i /></span>;
-  if (s === 'void') return <span className="lm void" aria-label="Compté comme annulé"><Minus size={13} weight="bold" /></span>;
-  return <span className="lm" aria-label="À venir" />;
+  if (s === 'won') return <span className="lm won" aria-label="Gagné"><ThumbsUp size={16} weight="fill" /></span>;
+  if (s === 'lost') return <span className="lm lost" aria-label="Perdu"><ThumbsDown size={16} weight="fill" /></span>;
+  if (s === 'live') return <span className="lm live" aria-label="En direct">LIVE</span>;
+  if (s === 'void') return <span className="lm void" aria-label="Annulé, remboursé"><Prohibit size={17} weight="bold" /></span>;
+  return <span className="lm wait" aria-label="À venir"><Clock size={18} weight="fill" /></span>;
+}
+
+/** Pastille du ticket, à côté de son nom : 3/3 et pouce, 1/3 et pouce rouge, sélections à venir et horloge, LIVE, annulé. */
+function TicketPill({ state, ls }: { state: LegStatus; ls: LegStatus[] }) {
+  const n = ls.length, ok = ls.filter((x) => x === 'won' || x === 'void').length, wait = ls.filter((x) => x === 'pending' || x === 'live').length;
+  const label = `${STATUS[state]} · ${ok} sur ${n} validée${ok > 1 ? 's' : ''}`;
+  if (state === 'won') return <span className="tk-st won" aria-label={label}>{n > 1 ? `${ok}/${n}` : ''}<ThumbsUp size={15} weight="fill" /></span>;
+  if (state === 'lost') return <span className="tk-st lost" aria-label={label}>{n > 1 ? `${ok}/${n}` : ''}<ThumbsDown size={15} weight="fill" /></span>;
+  if (state === 'void') return <span className="tk-st void" aria-label={label}>Remboursé<Prohibit size={14} weight="bold" /></span>;
+  if (state === 'live') return <span className="tk-st live" aria-label={label}><i />LIVE{n > 1 ? <b>{ok}/{n}</b> : null}</span>;
+  return <span className="tk-st wait" aria-label={label}>{wait}<Clock size={15} weight="fill" /></span>;
 }
 
 /** Un ticket validé : sélections cochées une à une, ligne de suivi, mise, cote, gain potentiel ou gain, statut. */
@@ -280,7 +292,7 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
           {t.kind === 'combine' ? <Stack size={16} /> : <TicketIcon size={16} />} {kindLabel(t)}
         </span>
         {isNew && <span className="tk-new">Nouveau</span>}
-        <span className={`tk-st ${state}`}>{state === 'live' && t.legs.length > 1 && okN ? `${okN}/${t.legs.length} validées` : STATUS[state]}</span>
+        <TicketPill state={state} ls={ls} />
       </header>
       <ol className="tk-legs">
         {t.legs.map((l, k) => (
@@ -303,7 +315,7 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
           </li>
         ))}
       </ol>
-      {/* Ligne de suivi : une part par sélection, pleine et animée en orange tant qu'un match se joue. */}
+      {/* Ligne de suivi : une part par sélection, pleine et animée en jaune tant qu'un match se joue. */}
       <div className={`tk-line${t.legs.length === 1 ? ' one' : ''}`} role="img" aria-label={`${okN} sélection${okN > 1 ? 's' : ''} validée${okN > 1 ? 's' : ''} sur ${t.legs.length}`}>
         {ls.map((s, k) => (
           <span key={k} className={s} />

@@ -33,6 +33,11 @@
   --c-blue: #2272e0; /* le bleu des cercles */
   --c-gold: #f1c35b;
   --c-fire: #ff8b3e;
+  /* États des paris du Suivi (ronds pleins) : gagné, à venir et ligne en cours, en direct, annulé. */
+  --c-win: #22a55b;
+  --c-wait: #f8b230;
+  --c-live: #ec4d6b;
+  --c-void: #8b8f94;
   --c-feu-gold: #d1a032; /* « En feu ce soir » : or profond, sans éclat blanc */
   /* Camps d'un match dans les graphiques : bleu vif (extérieur, ou favori), rouge vif (domicile). */
   --blue: #3d8bff;
@@ -1260,12 +1265,16 @@ a.row:hover .t-ava { transform: scale(1.06); }
 
 /* ——— Suivi : barre du haut, ticket flottant, messages ——— */
 .top-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--c-green); box-shadow: 0 0 0 2px #0b0b0d; }
-.slipbar { position: fixed; z-index: 40; left: 50%; bottom: 18px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 12px; height: 50px; padding: 0 18px 0 8px; border-radius: 16px; background: #121214; color: #fff; font: 600 14.5px var(--sans); white-space: nowrap; max-width: calc(100vw - 32px);
+.slipbar { position: fixed; z-index: 40; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); translate: -50% 0; display: inline-flex; align-items: center; gap: 12px; height: 50px; padding: 0 18px 0 8px; border-radius: 16px; background: #121214; color: #fff; font: 600 14.5px var(--sans); white-space: nowrap; max-width: calc(100vw - 32px);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 40px rgba(0, 0, 0, 0.6); animation: rise 0.24s var(--ease) both; transition: transform 0.15s var(--ease); }
 .slipbar > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; }
 .slipbar-n { display: inline-grid; place-items: center; min-width: 34px; height: 34px; padding: 0 8px; border-radius: 10px; background: #23a26b; font: 700 15px var(--mono); }
-@media (hover: hover) and (pointer: fine) { .slipbar:hover { transform: translateX(-50%) scale(1.03); } }
-.toasts { position: fixed; z-index: 70; right: 18px; bottom: 18px; display: grid; gap: 8px; width: min(380px, calc(100vw - 32px)); }
+/* Centrée avec « translate » et non « transform » : l'animation d'apparition (transform) remettait la barre à droite. */
+@media (hover: hover) and (pointer: fine) { .slipbar:hover { scale: 1.03; } }
+.toasts { position: fixed; z-index: 70; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom)); display: grid; gap: 8px; width: min(380px, calc(100vw - 32px)); }
+/* Barre du ticket affichée : les messages passent au-dessus au lieu de la recouvrir. */
+body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
+@media (max-width: 720px) { .toasts { left: 16px; right: 16px; width: auto; } }
 .toast { display: flex; align-items: flex-start; gap: 6px; padding: 12px 10px 12px 14px; border-radius: 16px; background: #121214; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 18px 40px rgba(0, 0, 0, 0.6); animation: rise 0.24s var(--ease) both; }
 .toast-main { flex: 1; display: flex; gap: 12px; align-items: flex-start; min-width: 0; color: inherit; }
 .toast-ic { flex: none; display: grid; }
@@ -1320,12 +1329,14 @@ dd.down { color: var(--c-red); }
 .tk-kind { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14.5px; }
 .tk-kind svg { color: var(--text-3); }
 .tk-new { font: 600 11px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-green); }
-.tk-st { margin-left: auto; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 8px; font: 600 12.5px var(--sans); color: var(--text-2); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); white-space: nowrap; }
-.tk-st.won { color: var(--c-green); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-green) 55%, transparent); }
-.tk-st.lost { color: var(--c-red); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-red) 65%, transparent); }
-.tk-st.live { color: #f5a524; box-shadow: inset 0 0 0 1px rgba(245, 165, 36, 0.55); }
-.tk-legs { list-style: none; margin: 0; padding: 0; display: grid; }
-.tk-legs li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.tk-st { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 999px; font: 700 13.5px/1 var(--sans); color: #fff; background: var(--c-void); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tk-st.won { background: var(--c-win); }
+.tk-st.lost { background: var(--c-red); }
+.tk-st.wait { background: var(--c-wait); }
+.tk-st.live { gap: 7px; background: none; color: var(--c-live); box-shadow: inset 0 0 0 1.5px var(--c-live); font-size: 12px; letter-spacing: 0.04em; }
+.tk-st.live b { color: #fff; font-weight: 600; letter-spacing: 0; }
+.tk-st.live i { width: 7px; height: 7px; border-radius: 50%; background: var(--c-live); animation: lm-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+.tk-legs li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
 .tk-legs li:first-child { border-top: 0; padding-top: 0; }
 .tk-leg-main { display: grid; gap: 2px; min-width: 0; }
 .tk-leg-main b, .tk-leg-t { font-weight: 600; font-size: 14.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1333,27 +1344,24 @@ dd.down { color: var(--c-red); }
 .tk-leg-main > span { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tk-legs li.lost .tk-leg-main b, .tk-legs li.lost .tk-leg-t { color: var(--text-3); text-decoration: line-through; text-decoration-color: rgba(226, 35, 43, 0.6); }
 .tk-odd { font-weight: 600; font-size: 14px; }
-.lm { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.18); }
-.lm.won { background: var(--c-green); color: #04140c; box-shadow: none; }
-.lm.lost { background: var(--c-red); color: #fff; box-shadow: none; }
-.lm.live { box-shadow: none; }
-.lm.live i { position: relative; width: 8px; height: 8px; border-radius: 50%; background: #f5a524; animation: lm-dot 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-/* Point qui respire, avec un anneau qui s'élargit et s'efface (façon Pulse Dot d'Amicro). */
-.lm.live i::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: #f5a524; animation: lm-ring 1.6s cubic-bezier(0, 0, 0.2, 1) infinite; }
+/* Rond d'état d'une sélection : pouce vert, pouce rouge, horloge jaune, anneau LIVE, interdit gris. */
+.lm { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; background: var(--c-void); }
+.lm.won { background: var(--c-win); }
+.lm.lost { background: var(--c-red); }
+.lm.wait { background: var(--c-wait); }
+.lm.live { background: none; color: var(--c-live); box-shadow: inset 0 0 0 2px var(--c-live); font: 800 8.5px/1 var(--sans); letter-spacing: 0.02em; animation: lm-live 1.8s ease-in-out infinite; }
 @keyframes lm-dot { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.82); } }
-@keyframes lm-ring { 0% { transform: scale(1); opacity: 0.55; } 80%, 100% { transform: scale(2.6); opacity: 0; } }
 @keyframes lm-pulse { 50% { opacity: 0.35; transform: scale(0.75); } }
-.lm.void { background: rgba(255, 255, 255, 0.14); color: #fff; box-shadow: none; }
-/* Ligne de suivi du ticket (à la place du trait gris) : une part par sélection ; en cours, orange qui file. */
+@keyframes lm-live { 50% { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c-live) 45%, transparent); } }
 .tk-line { display: flex; gap: 4px; }
 .tk-line span { position: relative; flex: 1; height: 3px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, 0.1); transition: background 0.3s var(--ease); }
-.tk-line .won { background: var(--c-green); }
+.tk-line .won { background: var(--c-win); }
 .tk-line .lost { background: var(--c-red); }
 .tk-line .void { background: rgba(255, 255, 255, 0.3); }
-.tk-line .live { background: #d98a14; }
-.tk-line .live::after { content: ''; position: absolute; inset: 0; width: 45%; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(255, 200, 110, 0.35) 45%, rgba(255, 220, 160, 0.45) 55%, transparent); animation: tk-run 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.tk-line .live { background: var(--c-wait); }
+.tk-line .live::after { content: ''; position: absolute; inset: 0; width: 45%; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(255, 236, 190, 0.45) 45%, rgba(255, 246, 220, 0.55) 55%, transparent); animation: tk-run 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
 @keyframes tk-run { from { transform: translateX(-100%); } to { transform: translateX(230%); } }
-@media (prefers-reduced-motion: reduce) { .lm.live i, .lm.live i::after { animation: none; } .tk-line .live { background: #f5a524; } .tk-line .live::after { display: none; } }
+@media (prefers-reduced-motion: reduce) { .lm.live, .tk-st.live i { animation: none; } .tk-line .live::after { display: none; } }
 .tk-foot { display: flex; align-items: flex-end; gap: 22px; }
 .tk-foot > div { display: grid; gap: 2px; }
 .tk-foot span { font: 600 10.5px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
@@ -1531,8 +1539,8 @@ dd.down { color: var(--c-red); }
   .pick .follow { justify-content: center; }
   .hero-rec-sep { display: none; }
   .hero-rec > span { display: block; }
-  .completebar { left: 12px; right: 12px; transform: none; height: auto; min-height: 56px; padding: 8px 8px 8px 8px; }
-  .slipbar.completebar:hover { transform: none; }
+  .completebar { left: 12px; right: 12px; translate: none; height: auto; min-height: 56px; padding: 8px 8px 8px 8px; }
+  .slipbar.completebar:hover { scale: none; }
 }
 
 /* « À la une » du bandeau : le match le plus suivi du jour, dans une pastille de verre sombre. */

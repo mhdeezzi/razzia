@@ -152,19 +152,28 @@ function useDayRun(onDone: () => void) {
 const dayName = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
 /** Suivi de la journée : une ligne remplie au fil des matchs publiés, et le chrono. */
+const SETTLE = 2 * 60e3; // après la fin chez GitHub, le temps laissé à la publication avant de parler d'échec
+const publishedSince = (run: DayRun) => Date.parse(run.startedAt ?? new Date(run.at).toISOString()) - 60e3;
+/** Journée terminée chez GitHub, dont des matchs manquent encore à la liste depuis moins de 2 minutes. */
+function publishing(run: DayRun, sims: Map<string, SimIndex>) {
+  if (!ended(run) || run.status === 'sending' || !run.endedAt || Date.now() - run.endedAt > SETTLE) return false;
+  return run.ids.some((id) => !(sims.get(id) && Date.parse(sims.get(id)!.at) >= publishedSince(run)));
+}
+
 function DayTracker({ run, sims, onClose }: { run: DayRun; sims: Map<string, SimIndex>; onClose: () => void }) {
-  const live = !ended(run);
+  const settling = publishing(run, sims);
+  const live = !ended(run) || settling;
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!live) return;
     const t = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(t);
   }, [live]);
-  const since = Date.parse(run.startedAt ?? new Date(run.at).toISOString()) - 60e3;
+  const since = publishedSince(run);
   const state = (id: string) => (sims.get(id) && Date.parse(sims.get(id)!.at) >= since ? 'done' : live ? (run.status === 'running' ? 'running' : 'queued') : 'failed');
   const done = run.ids.filter((id) => state(id) === 'done').length;
   const failed = run.ids.length - done;
-  const s = Math.max(0, Math.round(((run.endedAt ?? now) - run.at) / 1000));
+  const s = Math.max(0, Math.round(((settling ? now : run.endedAt ?? now) - run.at) / 1000));
   // Journée finie : le suivi se ferme seul (un peu plus tard s'il y a des échecs, le temps de les voir).
   const close = useRef(onClose);
   close.current = onClose;
@@ -177,7 +186,7 @@ function DayTracker({ run, sims, onClose }: { run: DayRun; sims: Map<string, Sim
     <section className="batch" aria-live="polite">
       <div className="batch-head">
         <p className="batch-title">
-          {live ? 'Simulation de la journée' : failed ? 'Journée simulée, avec des échecs' : 'Journée simulée'} <span>· {dayLongOf(run.day)}</span>
+          {settling ? 'Publication des résultats' : live ? 'Simulation de la journée' : failed ? 'Journée simulée, avec des échecs' : 'Journée simulée'} <span>· {dayLongOf(run.day)}</span>
         </p>
         <span className="batch-clock mono">
           {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
@@ -226,14 +235,23 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
   const [error, setError] = useState<string>();
   const [view, setView] = useState<View>(storedView);
   const [status, setStatus] = useState<Status>('pre');
-  const load = useCallback(() => api('?slate=1').then(setData, (e: Error) => setError(e.message)), []);
+  // `fresh` contourne le cache du CDN (60 s) : juste après une simulation, la liste doit déjà la contenir.
+  const load = useCallback((fresh = false) => api(`?slate=1${fresh ? `&v=${Date.now()}` : ''}`).then(setData, (e: Error) => setError(e.message)), []);
   useEffect(() => {
     void load();
   }, [load]);
   useEffect(() => store.set('vue', view), [view]);
-  const { run, start, dismiss } = useDayRun(load);
+  const reload = useCallback(() => void load(true), [load]);
+  const { run, start, dismiss } = useDayRun(reload);
   const busy = !ended(run);
   const sims = new Map((data?.sims ?? []).map((s) => [s.id, s]));
+  // Journée finie chez GitHub mais pas encore toute dans la liste (publication et caches) : relue toutes les 5 s.
+  const settling = !!run && publishing(run, sims);
+  useEffect(() => {
+    if (!settling) return;
+    const t = window.setTimeout(reload, 5000);
+    return () => window.clearTimeout(t);
+  }, [settling, data, reload]);
 
   // Hier, aujourd'hui et les six jours suivants, à l'heure locale.
   const dates = useMemo(() => Array.from({ length: 8 }, (_, i) => localDay(Date.now() + (i - 1) * 86_400_000)), [data]);
