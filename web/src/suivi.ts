@@ -107,7 +107,11 @@ const setStore = (s: Store) => {
 const num = (t: Ticket): Ticket => ({ ...t, stake: Number(t.stake), odds: Number(t.odds) });
 // Table pas encore créée dans Supabase : message clair plutôt que l'erreur brute.
 const tableError = (e: { code?: string; message: string }) =>
-  e.code === '42P01' || e.code === 'PGRST205' ? "La table des tickets n'existe pas encore dans Supabase (voir supabase/tickets.sql)." : e.message;
+  e.code === '42P01' || e.code === 'PGRST205'
+    ? "La table des tickets n'existe pas encore dans Supabase (voir supabase/tickets.sql)."
+    : e.code === '42501'
+      ? 'Accès aux tickets refusé : lance la ligne « grant » de supabase/tickets.sql dans Supabase.'
+      : e.message;
 
 /** Relit les tickets du compte connecté (une seule lecture à la fois quand plusieurs composants la demandent). */
 let inflight: Promise<void> | undefined;

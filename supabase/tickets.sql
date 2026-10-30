@@ -26,3 +26,6 @@ create policy "tickets lecture" on public.tickets for select to authenticated us
 create policy "tickets ajout" on public.tickets for insert to authenticated with check (auth.uid() = user_id);
 create policy "tickets mise a jour" on public.tickets for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "tickets suppression" on public.tickets for delete to authenticated using (auth.uid() = user_id);
+
+-- Droits de la table pour les comptes connectés (certains projets ne les donnent pas d'office). Rien pour les visiteurs.
+grant select, insert, update, delete on public.tickets to authenticated;
