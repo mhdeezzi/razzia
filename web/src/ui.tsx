@@ -247,7 +247,7 @@ function season(sport: 'nba' | 'atp'): string {
 
 /**
  * En-tête des programmes façon affiche RAZZIA : marbre lent aux couleurs du sport, petites mentions en haut, titre très gras
- * et serré, accroche en dessous ; date, nombre de matchs et affichage en pied.
+ * et serré ; date, nombre de matchs et affichage en pied.
  */
 /** Couleurs du marbre du bandeau, une paire par sport : ambre et ardoise au basket, bleu nuit et violet au tennis. */
 const HERO_COLORS = { nba: ['#c98a3d', '#3b4a5e'], atp: ['#2a4f9a', '#7a3a6e'] } as const;
@@ -267,7 +267,6 @@ export function PageHero({ sport, title, day, count, children }: { sport: 'nba' 
       <h1 className="hb-title">
         <span>{first}</span> <span className="hb-title-2">{rest.join(' ')}</span>
       </h1>
-      <p className="hb-tag">sports analysis specialist</p>
       <div className="hb-foot">
         {day && (
           <p className="dash-meta">
