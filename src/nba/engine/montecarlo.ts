@@ -656,7 +656,8 @@ function evalProps(m: GameModel, b: Batch, players: PlayerSummary[]): PropEval[]
  * et chaque joueur proche de sa moyenne ». On minimise une distance standardisée sous ces contraintes.
  */
 export function pickTypical(m: GameModel, b: Batch, s: Summary): number {
-  const homeFav = s.pHome >= 0.5;
+  // Vainqueur du pronostic affiché (moteur mélangé à la cote), pour que le match typique ne contredise jamais le rond.
+  const homeFav = (s.market?.blendedHome ?? s.pHome) >= 0.5;
   const players = s.players;
   const weights = players.map((p) => (p.playRate > 0.5 ? Math.min(1, p.stats.min.mean / 30) : 0));
   let best = -1;
