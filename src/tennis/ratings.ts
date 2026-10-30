@@ -8,6 +8,7 @@ export interface RatingParams {
   serveK: number; // part minimale de l'écart observé reportée sur la note de service ou de retour
   serveKn: number; // la part vaut max(serveK, 1 / (matchs + serveKn)) : un joueur peu connu bouge plus vite
   surfMix: number; // part de la note de surface dans la note utilisée
+  kFloor?: number; // K minimal de l'Elo : plus haut, les derniers résultats pèsent plus, même pour un joueur de 500 matchs
 }
 export const DEFAULT_RATING: RatingParams = { serveK: 0.035, serveKn: 6, surfMix: 0.5 };
 
@@ -56,7 +57,7 @@ const zero = () => ({ Hard: 0, Clay: 0, Grass: 0 });
 const fifteen = () => ({ Hard: 1500, Clay: 1500, Grass: 1500 });
 const day = (d: string) => Date.parse(d) / 86_400_000;
 const eloP = (a: number, b: number) => 1 / (1 + 10 ** ((b - a) / 400));
-const kElo = (n: number) => 250 / (n + 5) ** 0.4;
+const kElo0 = (n: number) => 250 / (n + 5) ** 0.4;
 
 export class Ratings {
   readonly S = new Map<string, State>();
@@ -112,6 +113,7 @@ export class Ratings {
   update(m: Match): void {
     if (m.walkover) return;
     const W = this.state(m.w.id), L = this.state(m.l.id), sf = m.surface;
+    const kElo = (n: number) => Math.max(this.P.kFloor ?? 0, kElo0(n));
     const pAll = eloP(W.elo, L.elo), pS = eloP(W.eloS[sf], L.eloS[sf]), pB = eloP((W.elo + W.eloS[sf]) / 2, (L.elo + L.eloS[sf]) / 2);
     W.elo += kElo(W.n) * (1 - pAll); L.elo -= kElo(L.n) * (1 - pAll);
     W.eloS[sf] += kElo(W.nS[sf]) * (1 - pS); L.eloS[sf] -= kElo(L.nS[sf]) * (1 - pS);

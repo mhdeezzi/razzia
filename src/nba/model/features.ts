@@ -9,9 +9,19 @@ import { ZONES, type Zone } from './zones.ts';
 import { seasonOfGameId, seasonsBetween } from '../seasons.ts';
 
 export const DECAY = 0.97; // demi-vie ≈ 23 matchs joués
-export const PREV_SEASON_DISCOUNT = 0.8;
 export const PREV_DECAY = 0.993; // saison précédente : demi-vie ≈ 100 matchs
 export const PLAYOFF_DISCOUNT = 0.8;
+/**
+ * Poids de la saison en cours face aux précédentes (réglables pour le contrôle de justesse) :
+ *   prevDiscount : escompte d'un match de la saison précédente ;
+ *   prevFade     : en plus, chaque match joué cette saison retire cette part aux matchs des saisons précédentes.
+ */
+// Contrôle de justesse (600 matchs, débuts de saison 2024-25 et 2025-26) : actuel (0,8 / 1) 69,7 % de bons vainqueurs,
+// Brier 0,2009 ; saison précédente à 0,3 et fondu 0,9 : 70,5 %, Brier 0,1988. Retenu.
+export const RECENCY = { decay: DECAY, prevDiscount: 0.3, prevDecay: PREV_DECAY, prevFade: 0.9 };
+export function setRecency(p: Partial<typeof RECENCY>): void {
+  for (const k of Object.keys(RECENCY) as Array<keyof typeof RECENCY>) if (typeof p[k] === 'number') RECENCY[k] = p[k]!;
+}
 
 export type ZoneArr = [number, number, number, number, number, number];
 export const zArr = (): ZoneArr => [0, 0, 0, 0, 0, 0];
@@ -230,10 +240,11 @@ export function buildFeatures(asOf: string, groupOf: (pid: number) => string): F
       else prevAfter++;
     }
     const gs = seasonOfGameId(gameId);
-    if (gs === curSeason) return DECAY ** curAfter;
+    const R = RECENCY;
+    if (gs === curSeason) return R.decay ** curAfter;
     const po = gameId.startsWith('004') ? PLAYOFF_DISCOUNT : 1;
     const back = Math.max(1, seasonsBetween(gs, curSeason));
-    return PREV_SEASON_DISCOUNT ** back * DECAY ** curAfter * PREV_DECAY ** prevAfter * po;
+    return R.prevDiscount ** back * (R.decay * R.prevFade) ** curAfter * R.prevDecay ** prevAfter * po;
   };
 
   // Ligue (non pondéré : saison précédente + saison en cours).
