@@ -6,6 +6,7 @@ import { Callout, Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgr
 import { PickOdds, PickTabs } from './results.tsx';
 import { MoneyFlow } from './money.tsx';
 import { WarpBg } from './shaders.tsx';
+import { atpHype } from './hype.ts';
 import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
 
@@ -264,7 +265,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
 
   return (
     <div className="page">
-      <PageHero sport="atp" title="Programme ATP" day={cap(dayLongOf(current))} count={dayMatches.length}>
+      <PageHero sport="atp" title="Programme ATP" day={cap(dayLongOf(current))} count={dayMatches.length} feature={<TennisUne matches={dayMatches} sims={sims} players={data?.players} />}>
         <Segmented<View>
           tone="dark"
           ariaLabel="Affichage"
@@ -504,6 +505,43 @@ function TennisRow({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimIn
         <TennisSimPill sim={sim} running={running} />
       </span>
       <CaretRight size={16} className="row-caret" />
+    </Link>
+  );
+}
+
+/** « À la une » : le match le plus suivi du jour (classements, tour, tournoi, têtes d'affiche), avec le favori simulé. */
+function TennisUne({ matches, sims, players }: { matches: SlateMatch[]; sims: Map<string, SimIndex>; players?: Record<string, PlayerCard> }) {
+  const open = matches.filter((m) => stateOf(m) !== 'post');
+  const m = [...(open.length ? open : matches)].sort((a, b) => atpHype(b, (n) => players?.[n]?.rank) - atpHype(a, (n) => players?.[n]?.rank))[0];
+  if (!m) return null;
+  const st = stateOf(m);
+  const sim = sims.get(m.id);
+  const ff = sim && favFlip(sim);
+  const round = roundOf(m.league);
+  const ava = (name: string) => {
+    const c = players?.[name];
+    return <Avatar name={name} photo={c?.atp ? atpHeadshot(c.atp) : undefined} alt={c?.wiki ?? undefined} size="sm" />;
+  };
+  return (
+    <Link href={`/tennis/match/${m.day}/${m.id}`} className="hb-une">
+      <span className="hb-une-k">À la une</span>
+      <span className="hb-une-m">
+        {ava(m.home)}
+        <b>
+          {lastName(m.home)} <i>vs</i> {lastName(m.away)}
+        </b>
+        {ava(m.away)}
+      </span>
+      <span className="hb-une-t mono">
+        {st === 'pre' || !m.live ? timeLocal(m.start) : `${setsWon(m.live, 'home')}-${setsWon(m.live, 'away')}`}
+        {round ? ` · ${ROUND_SHORT[round] ?? ROUND_FR[round] ?? round}` : ''}
+      </span>
+      {ff && (
+        <span className={`card-a-p${ff.flip ? ' flip' : ''}`}>
+          {lastName(ff.fav.n)} {pct0(ff.fav.p)}
+        </span>
+      )}
+      <CaretRight size={15} className="hb-une-go" />
     </Link>
   );
 }

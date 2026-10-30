@@ -5,6 +5,7 @@ import { dayLong, isToday, listSims, loadProgramme, matchPath, odds, pct0, simKe
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
 import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
 import { flipP } from './picks.ts';
+import { nbaHype } from './hype.ts';
 
 type Status = 'pre' | 'in' | 'post';
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -67,7 +68,7 @@ export function SchedulePage({ day }: { day: string | null }) {
 
   return (
     <div className="page">
-      <PageHero sport="nba" title="Programme NBA" day={current ? cap(dayLong(current)) : undefined} count={current ? dayGames.length : undefined}>
+      <PageHero sport="nba" title="Programme NBA" day={current ? cap(dayLong(current)) : undefined} count={current ? dayGames.length : undefined} feature={<Une games={dayGames} sims={sims} />}>
         <Segmented<View>
           tone="dark"
           ariaLabel="Affichage"
@@ -339,6 +340,35 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
         )}
         <span className="mono muted">{o?.mlAway != null ? `${odds(o.mlAway)} / ${odds(o.mlHome)}` : 'Cotes à venir'}</span>
       </div>
+    </Link>
+  );
+}
+
+/** « À la une » : le match le plus suivi du jour (pas encore fini de préférence), avec le favori s'il est simulé. */
+function Une({ games, sims }: { games: Game[]; sims: Map<string, SimEntry> }) {
+  const open = games.filter((g) => g.state !== 'post');
+  const g = [...(open.length ? open : games)].sort((a, b) => nbaHype(b) - nbaHype(a))[0];
+  if (!g) return null;
+  const sim = sims.get(simKey(g));
+  const p = sim && Math.max(sim.pHome, sim.pAway);
+  const fav = sim && (sim.pHome >= sim.pAway ? g.home : g.away);
+  return (
+    <Link href={matchPath(g)} className="hb-une">
+      <span className="hb-une-k">À la une</span>
+      <span className="hb-une-m">
+        <TeamMark team={g.away} size="sm" />
+        <b>
+          {g.away.name} <i>@</i> {g.home.name}
+        </b>
+        <TeamMark team={g.home} size="sm" />
+      </span>
+      <span className="hb-une-t mono">{g.state === 'pre' ? timeLocal(g.start) : g.state === 'in' ? g.detail : `${g.away.score ?? '-'}-${g.home.score ?? '-'}`}</span>
+      {sim && p != null && fav && (
+        <span className={`card-a-p${flipP(p, sim.gp ?? recordGames(g)) ? ' flip' : ''}`}>
+          {fav.tri} {pct0(p)}
+        </span>
+      )}
+      <CaretRight size={15} className="hb-une-go" />
     </Link>
   );
 }
