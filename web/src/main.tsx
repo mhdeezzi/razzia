@@ -13,6 +13,7 @@ import { BadgesPage } from './badges.tsx';
 import { BilanPage } from './bilan.tsx';
 import { SchedulePage } from './schedule.tsx';
 import { TopBar } from './topbar.tsx';
+import { SuiviPanel } from './suivipanel.tsx';
 import { TennisBilanPage, TennisMatchPage, TennisSchedulePage } from './tennis.tsx';
 import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
 import { AccountPage, PricingPage } from './billing.tsx';
@@ -54,6 +55,7 @@ function App() {
   return (
     <>
       <TopBar path={path} />
+      <SuiviPanel />
       <main>{page}</main>
       <footer className="foot">
         <div className="foot-brand">

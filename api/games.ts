@@ -1,5 +1,6 @@
 // Programme des prochains jours (ESPN) : horaires, bilans, cotes DraftKings, blessés par équipe.
-//   GET /api/games?days=7
+//   GET /api/games?days=7            (à partir d'aujourd'hui)
+//   GET /api/games?days=1&from=AAAA-MM-JJ  (un jour passé : scores finaux, pour le suivi des paris)
 const SITE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
 // Tricodes ESPN -> NBA (le moteur utilise ceux de la NBA).
 const TRI: Record<string, string> = { GS: 'GSW', NY: 'NYK', SA: 'SAS', NO: 'NOP', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX' };
@@ -17,7 +18,8 @@ async function json(url: string): Promise<any> {
 
 export async function GET(request: Request): Promise<Response> {
   const days = Math.min(10, Math.max(1, Number(new URL(request.url).searchParams.get('days') ?? 7) || 7));
-  const start = new Date();
+  const from = new URL(request.url).searchParams.get('from');
+  const start = from && /^\d{4}-\d{2}-\d{2}$/.test(from) ? new Date(`${from}T16:00:00Z`) : new Date();
   const dates = Array.from({ length: days }, (_, i) => etDate(new Date(start.getTime() + i * 864e5)));
   try {
     // Une requête par jour : ESPN refuse les plages de dates (400).

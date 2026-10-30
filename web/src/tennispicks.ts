@@ -62,19 +62,19 @@ export function buildTennisCategories(r: TennisResult): Category[] {
   };
 
   const win: Outcome = {
-    id: 'win', title: `Victoire ${de(fav.name)}`, who, p: winP, fair: 1 / winP,
+    id: 'win', title: `Victoire ${de(fav.name)}`, who, bet: { kind: 'win', side }, p: winP, fair: 1 / winP,
     odds: o.ml ? o.ml[i] : undefined, implied: o.ml ? noVig(o.ml[i], o.ml[1 - i]) : undefined,
     text: `${fav.name} gagne ${Math.round(winP * r.sim.n).toLocaleString('fr-FR')} des ${r.sim.n.toLocaleString('fr-FR')} matchs simulés${top ? `. Score le plus fréquent : ${scoreTxt(top[0])} (${pct(top[1])})` : ''}.`,
   };
 
   const L = setsLine(r);
   const sets: Outcome | undefined = L && {
-    id: 'sets', title: `${fav.name} gagne au moins ${L.need === 1 ? 'un set' : 'deux sets'}`, who, p: L.c, fair: 1 / L.c, ...setOdds(L.line),
+    id: 'sets', title: `${fav.name} gagne au moins ${L.need === 1 ? 'un set' : 'deux sets'}`, who, bet: { kind: 'sets', side, need: L.need }, p: L.c, fair: 1 / L.c, ...setOdds(L.line),
     text: `Plus sûr que la victoire : ${fav.name} gagne le match, ou perd en prenant au moins ${L.need === 1 ? 'un set' : 'deux sets'} à ${dog.name}. Passe dans ${pct(L.c)} des simulations.`,
   };
   const need = r.bestOf === 5 ? 3 : 2;
   const straight: Outcome = {
-    id: 'straight', title: `${fav.name} gagne ${need}-0`, who, p: r.sim.straight[i], fair: 1 / r.sim.straight[i], ...setOdds(-(need - 0.5)),
+    id: 'straight', title: `${fav.name} gagne ${need}-0`, who, bet: { kind: 'straight', side, need }, p: r.sim.straight[i], fair: 1 / r.sim.straight[i], ...setOdds(-(need - 0.5)),
     text: `${fav.name} gagne sans perdre de set dans ${pct(r.sim.straight[i])} des simulations : cote plus haute, risque plus grand.`,
   };
 

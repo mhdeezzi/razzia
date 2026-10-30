@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { ArrowLeft, CaretRight, Ghost, HouseLine, HouseSimple, ListBullets, Mountains, Scales, ShieldCheck, SquaresFour, TennisBall, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
 import { Callout, Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgress } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
+import { MoneyFlow } from './money.tsx';
 import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
 
@@ -700,6 +701,24 @@ function Section({ title, tag, children }: { title: string; tag?: string; childr
   );
 }
 
+/** Où va l'argent : cote du favori Razzia à chaque relevé Pinnacle depuis l'ouverture. */
+function TennisMoney({ r }: { r: TennisResult }) {
+  const { side } = favOf(r);
+  const i = side === 'home' ? 0 : 1;
+  const hm = (at: string) => new Date(at).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  const pts = [
+    ...(r.market.oddsOpen?.ml ? [{ label: 'Ouverture', odds: r.market.oddsOpen.ml[i] }] : []),
+    ...(r.market.moves ?? []).map((m) => ({ label: hm(m.at), odds: m.ml[i] })),
+    ...(r.market.odds?.ml ? [{ label: 'Maintenant', odds: r.market.odds.ml[i] }] : []),
+  ].filter((p, k, all) => p.odds > 1 && (k === 0 || p.odds !== all[k - 1].odds || k === all.length - 1));
+  if (pts.length < 2) return null;
+  return (
+    <Section title="Où va l'argent" tag="cote Pinnacle du favori">
+      <MoneyFlow fav={r[side].name.split(' ').at(-1)!} other={r[side === 'home' ? 'away' : 'home'].name.split(' ').at(-1)!} points={pts} />
+    </Section>
+  );
+}
+
 function TennisResults({ r }: { r: TennisResult }) {
   const cats = useMemo(() => buildTennisCategories(r), [r]);
   return (
@@ -712,8 +731,13 @@ function TennisResults({ r }: { r: TennisResult }) {
       </div>
       <TennisVerdict r={r} win={cats.flatMap((c) => c.items).find((o) => o.id === 'win')} />
       <Section title="Pronostics par catégorie" tag="issue la plus fréquente">
-        <PickTabs cats={cats} n={r.sim.n} />
+        <PickTabs
+          cats={cats}
+          n={r.sim.n}
+          ctx={{ sport: 'atp', date: r.day, start: r.start, path: `/tennis/match/${r.day}/${r.id}`, match: { id: r.id, home: r.home.name, away: r.away.name, homeName: r.home.name, awayName: r.away.name } }}
+        />
       </Section>
+      <TennisMoney r={r} />
       <TennisSignals r={r} />
       <Section title="Score en sets" tag={`${r.sim.n.toLocaleString('fr-FR')} matchs simulés`}>
         <SetScores r={r} />
