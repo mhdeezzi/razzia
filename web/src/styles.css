@@ -1647,8 +1647,8 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
   -webkit-mask-composite: source-in; mask: conic-gradient(#000 calc(var(--p) * 360deg), transparent 0), radial-gradient(closest-side, transparent 80.5%, #000 81.5%, #000 95.5%, transparent 96.5%); mask-composite: intersect; }
 .ring-sm .ring-warp { inset: 10px; }
 .team-marble :is(.split-bar span, .duel-bar span:not(.dim), .oc-bar span, .ladder-bar span, .pbar span, .t-sets-bar span, .t-why-bar span) { background: var(--k); box-shadow: none; }
-.team-marble .split-bar span:first-child, .team-marble .duel-bar .a, .team-marble .pbar.away span, .team-marble .t-sets-bar .a, .team-marble .t-why-bar.a span { --k: var(--team-a); }
-.team-marble .split-bar span:last-child, .team-marble .duel-bar .h, .team-marble .pbar.home span, .team-marble .t-sets-bar .h, .team-marble .t-why-bar.h span { --k: var(--team-h); }
+.team-marble .split-bar .a, .team-marble .duel-bar .a, .team-marble .pbar.away span, .team-marble .t-sets-bar .a, .team-marble .t-why-bar.a span { --k: var(--team-a); }
+.team-marble .split-bar .h, .team-marble .duel-bar .h, .team-marble .pbar.home span, .team-marble .t-sets-bar .h, .team-marble .t-why-bar.h span { --k: var(--team-h); }
 /* Le reste de la fiche (match typique, cartes et profil de tir, confrontations) : bleu = extérieur, rouge = domicile
    deviennent les couleurs des deux camps. */
 .team-marble { --blue: var(--team-a); --rose: var(--team-h); --rose-soft: color-mix(in srgb, var(--team-h) 16%, transparent); }

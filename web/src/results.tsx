@@ -210,8 +210,8 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
         <div className="split" role="img" aria-label={`${g.away.tri} ${pct(1 - pH)}, ${g.home.tri} ${pct(pH)}`}>
           {/* Le favori en clair, l'autre équipe éteinte : même lecture que le cercle. */}
           <div className="split-bar">
-            <span className={c.side === 'away' ? 'is-fav' : ''} style={{ flexGrow: 1 - pH }} />
-            <span className={c.side === 'home' ? 'is-fav' : ''} style={{ flexGrow: pH }} />
+            <span className={`a${c.side === 'away' ? ' is-fav' : ''}`} style={{ flexGrow: 1 - pH }} />
+            <span className={`h${c.side === 'home' ? ' is-fav' : ''}`} style={{ flexGrow: pH }} />
           </div>
           <div className="split-legend">
             <span className={c.side === 'away' ? 'is-fav' : ''}>
