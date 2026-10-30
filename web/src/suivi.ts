@@ -265,7 +265,7 @@ function ptsStatus(leg: Leg, nba?: NbaFinal, box?: BoxLine[]): LegStatus {
   const over = p.pts > (leg.bet.line ?? 0);
   return over === (leg.bet.over ?? true) ? 'won' : 'lost';
 }
-interface AtpFinal { state: 'pre' | 'in' | 'post'; sets: { home: number; away: number }; winner?: 'home' | 'away' }
+interface AtpFinal { state: 'pre' | 'in' | 'post'; sets: { home: number; away: number }; winner?: 'home' | 'away'; ended?: 'final' | 'retired' | 'walkover' }
 
 /** Issue d'un pari d'après le score : gagné, perdu, ou pas encore joué / en cours. */
 export function statusOf(leg: Leg, nba?: NbaFinal, atp?: AtpFinal): LegStatus {
@@ -281,7 +281,9 @@ export function statusOf(leg: Leg, nba?: NbaFinal, atp?: AtpFinal): LegStatus {
     return margin > 0 ? 'won' : 'lost';
   }
   if (!atp || atp.state === 'pre') return 'pending';
-  if (atp.state === 'in' && !atp.winner) return 'live';
+  // Abandon ou forfait : pari annulé (remboursé), quel que soit le joueur qui passe au tour suivant.
+  if (atp.ended === 'retired' || atp.ended === 'walkover') return 'void';
+  if (atp.state !== 'post' || !atp.winner) return 'live';
   const mine = atp.sets[leg.bet.side], theirs = atp.sets[other];
   if (leg.bet.kind === 'win') return atp.winner === leg.bet.side ? 'won' : 'lost';
   if (leg.bet.kind === 'sets') return atp.winner === leg.bet.side || mine >= (leg.bet.need ?? 1) ? 'won' : 'lost';
@@ -310,7 +312,7 @@ export async function fetchStatuses(legs: Leg[]): Promise<Record<string, LegStat
       for (const m of r.matches ?? []) {
         const l = m.live;
         const won = (side: 'home' | 'away') => (l?.[side] ?? []).filter((x: { w?: boolean }) => x.w).length;
-        atpGames.set(String(m.id), { state: l?.state ?? 'pre', sets: { home: won('home'), away: won('away') }, winner: l?.winner });
+        atpGames.set(String(m.id), { state: l?.state ?? 'pre', sets: { home: won('home'), away: won('away') }, winner: l?.winner, ended: l?.ended });
       }
     } catch {
       /* idem */

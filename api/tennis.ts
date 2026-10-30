@@ -29,7 +29,7 @@ const okDay = (d: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? '')) && new
 // Tableaux ATP d'ESPN (simple messieurs) : scores des tournois en cours et de la veille, et matchs programmés des
 // 6 prochains jours (ceux que Pinnacle n'a pas encore cotés s'affichent sans cote, simulables avec le moteur seul).
 const key = (n: string) => (n ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
-interface Live { state: 'pre' | 'in' | 'post'; detail?: string; players: Array<{ key: string; winner: boolean; sets: Array<{ g: number; tb?: number; w?: boolean }> }> }
+interface Live { state: 'pre' | 'in' | 'post'; ended?: 'final' | 'retired' | 'walkover'; detail?: string; players: Array<{ key: string; winner: boolean; sets: Array<{ g: number; tb?: number; w?: boolean }> }> }
 interface Planned { id: string; event: string; round: string; start: string; home: string; away: string }
 // Tour ESPN -> code des fiches Pinnacle (« ATP Paris - R16 ») ; qualifications ignorées, comme pour les cotes.
 function roundCode(name = ''): string | undefined {
@@ -56,10 +56,15 @@ async function espn(): Promise<{ live: Map<string, Live>; planned: Planned[] }> 
             const ps = (c.competitors ?? []).filter((p: any) => p.athlete?.displayName && p.athlete.displayName !== 'TBD');
             if (ps.length !== 2) continue;
             const pair = ps.map((p: any) => key(p.athlete.displayName)).sort().join('|');
-            const state = c.status?.type?.state ?? 'pre';
+            // Terminé seulement sur un vrai statut de fin (score final, abandon, forfait). Temps mort médical, suspension
+            // ou pluie : le match reste en direct jusqu'à la reprise ou l'abandon.
+            const name = String(c.status?.type?.name ?? '');
+            const ended = name === 'STATUS_FINAL' ? 'final' : name === 'STATUS_RETIRED' ? 'retired' : name === 'STATUS_WALKOVER' ? 'walkover' : undefined;
+            const raw0 = c.status?.type?.state ?? 'pre';
+            const state = raw0 === 'pre' && !ended ? 'pre' : ended ? 'post' : 'in';
             live.set(pair, {
-              state, detail: c.status?.type?.shortDetail,
-              players: ps.map((p: any) => ({ key: key(p.athlete.displayName), winner: !!p.winner, sets: (p.linescores ?? []).map((l: any) => ({ g: l.value, tb: l.tiebreak, w: l.winner })) })),
+              state, ended, detail: ended === 'retired' ? 'Abandon' : ended === 'walkover' ? 'Forfait' : c.status?.type?.shortDetail,
+              players: ps.map((p: any) => ({ key: key(p.athlete.displayName), winner: !!ended && !!p.winner, sets: (p.linescores ?? []).map((l: any) => ({ g: l.value, tb: l.tiebreak, w: l.winner })) })),
             });
             const round = roundCode(c.round?.displayName);
             const start = c.startDate ?? c.date;
@@ -94,7 +99,7 @@ export async function GET(request: Request): Promise<Response> {
         if (!l) return undefined;
         const h = l.players.find((x) => x.key === key(home)), a = l.players.find((x) => x.key === key(away));
         if (!h || !a) return undefined;
-        return { state: l.state, detail: l.detail, home: h.sets, away: a.sets, winner: h.winner ? 'home' : a.winner ? 'away' : undefined };
+        return { state: l.state, ended: l.ended, detail: l.detail, home: h.sets, away: a.sets, winner: h.winner ? 'home' : a.winner ? 'away' : undefined };
       };
       // Un match relevé d'abord sur ESPN (fiche sans cote, peut-être déjà simulée sous cet identifiant) puis coté par
       // Pinnacle : on garde la fiche ESPN, avec la cote Pinnacle.
