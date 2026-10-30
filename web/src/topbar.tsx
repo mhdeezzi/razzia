@@ -1,7 +1,7 @@
 // Barre du haut : îlot de verre fumé qui flotte en haut de page, logo RAZZIA (étoile verte), sports dans une pilule
-// où le verre clair glisse vers le sport choisi, Compte et Méthode à droite (sur téléphone, Compte passe avant les sports).
+// où le verre clair glisse vers le sport choisi, Suivi puis Compte tout à droite.
 import { useRef } from 'react';
-import { Basketball, Info, ListChecks, SoccerBall, TennisBall, UserCircle } from '@phosphor-icons/react';
+import { Basketball, ListChecks, SoccerBall, TennisBall, UserCircle } from '@phosphor-icons/react';
 import { useSlip } from './suivi.ts';
 import { useUnseen } from './suivipage.tsx';
 import { Link, useSlider } from './ui.tsx';
@@ -9,10 +9,9 @@ import logo from './assets/razzia-logo.webp';
 
 export function TopBar({ path }: { path: string }) {
   const tennis = path.startsWith('/tennis');
-  // Simulations, Bilan et Badges restent accessibles par leur adresse ; seule Méthode est dans la barre.
+  // Simulations, Bilan, Badges et Méthode restent accessibles par leur adresse ; à droite : Suivi puis Compte.
   const links = [
     { href: '/compte', label: 'Compte', icon: <UserCircle size={19} />, on: path === '/compte', cls: 'top-account' },
-    { href: '/methode', label: 'Méthode', icon: <Info size={18} />, on: path === '/methode', cls: 'top-methode' },
   ];
   const nav = useRef<HTMLElement>(null);
   const pos = useSlider(nav, '.sport.is-on', tennis);

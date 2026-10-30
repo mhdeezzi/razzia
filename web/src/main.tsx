@@ -5,6 +5,7 @@ import '@fontsource-variable/geist'; // texte, menus et badges
 import '@fontsource-variable/geist-mono'; // heures, cotes, scores
 import '@fontsource-variable/archivo/wdth.css'; // titres très gras et serrés de l'affiche RAZZIA, cote sous le rond
 import '@fontsource-variable/host-grotesk'; // chiffres des cercles de probabilité
+import '@fontsource/pinyon-script'; // « sports analysis specialist » du bandeau, écrit à la plume
 import { CaretRight } from '@phosphor-icons/react';
 import './styles.css';
 import { listSims, loadProgramme, matchPath, type Programme, type SimEntry } from './data.ts';
@@ -18,6 +19,7 @@ import { Toasts } from './toast.tsx';
 import { TennisBilanPage, TennisMatchPage, TennisSchedulePage } from './tennis.tsx';
 import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
 import { AccountPage, PricingPage } from './billing.tsx';
+import { Landing, landingPage } from './landing.tsx';
 import logo from './assets/razzia-logo.webp';
 
 // Compte (connexion) en ligne, sans paiement branché ; abonnement prêt, activé seulement par VITE_BILLING=1 au build.
@@ -53,8 +55,16 @@ function App() {
     <SchedulePage day={search.get('jour')} />
   );
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : path === '/badges' ? 'Badges | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : 'Razzia | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path === '/tennis/bilan' ? 'Bilan tennis | Razzia' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/simulations' ? 'Simulations | Razzia' : path === '/bilan' ? 'Bilan | Razzia' : path === '/badges' ? 'Badges | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : landingPage(path) ? 'Razzia | Simule avant de parier' : 'Razzia | Simulations NBA';
   }, [path]);
+  // Page d'accueil payante : cachée (aucun lien), visible seulement en tapant /accueil, en attendant de l'activer.
+  if (landingPage(path))
+    return (
+      <>
+        <Landing path={path} />
+        <Toasts />
+      </>
+    );
   return (
     <>
       <TopBar path={path} />

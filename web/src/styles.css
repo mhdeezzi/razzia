@@ -217,7 +217,8 @@ main { max-width: 1280px; margin: 0 auto; padding: 0 24px 72px; }
 .hb-top .hb-label:first-child { white-space: nowrap; }
 .hb-right { text-align: right; }
 .hb-title { align-self: end; margin-top: 26px; font: 900 clamp(54px, 9.6vw, 138px)/0.84 var(--display); font-stretch: 76%; letter-spacing: -0.005em; text-transform: uppercase; color: #f7f6f3; text-shadow: 0 2px 24px rgba(0, 0, 0, 0.25); animation: rise 0.28s var(--ease) both; }
-.hb-tag { margin-top: 10px; font: 800 clamp(17px, 1.9vw, 25px)/1 var(--display); font-stretch: 86%; letter-spacing: -0.01em; color: #fff; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.35); }
+/* Accroche écrite à la plume : script fin, un peu plus grand que le reste du bandeau. */
+.hb-tag { margin-top: 6px; font: 400 clamp(30px, 3.2vw, 44px)/1.15 'Pinyon Script', cursive; letter-spacing: 0; color: #fff; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.4); }
 .hb-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-top: 22px; }
 .dash-meta { display: flex; align-items: center; gap: 10px; color: rgba(255, 255, 255, 0.86); font-weight: 500; }
 .dash-meta .count { color: #fff; font: 600 12.5px var(--sans); height: 26px; display: inline-flex; align-items: center; padding: 0 11px; border-radius: 8px; background: rgba(0, 0, 0, 0.32); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
@@ -296,12 +297,11 @@ a.row:active { transform: scale(0.995); }
   transition: background-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.15s var(--ease); }
 .conf-pill b { font: 600 13px var(--mono); letter-spacing: -0.03em; color: inherit; }
 .conf-pill.wait .wait-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
-/* Badge de simulation : texte rouge pile ou face, vert sinon. */
-.conf-pill.sim { --c: var(--c-green); }
+/* Badge de simulation : juste le texte, rouge pile ou face, vert sinon ; pas de contour (comme en grille). */
+.conf-pill.sim { --c: var(--c-green); box-shadow: none; }
 .conf-pill.sim.flip { --c: var(--c-red); }
 .conf-pill.sim > svg { color: var(--c); }
 .conf-pill.fail { --c: var(--c-red); }
-@media (hover: hover) and (pointer: fine) { a.row:hover .conf-pill.sim, a.card:hover .conf-pill.sim { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); } }
 /* « Simuler » : petit bouton de verre. */
 .conf-pill.go { height: 28px; padding: 0 14px; border-radius: 8px; font-weight: 600; color: #fff; }
 .conf-pill.wait { --c: #8e8e93; color: var(--text-2); }
