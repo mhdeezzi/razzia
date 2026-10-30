@@ -5,6 +5,7 @@ import { ArrowLeft, CaretRight, Ghost, HouseLine, HouseSimple, ListBullets, Moun
 import { Callout, Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgress } from './ui.tsx';
 import { PickOdds, PickTabs } from './results.tsx';
 import { MoneyFlow } from './money.tsx';
+import { WarpBg } from './shaders.tsx';
 import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
 
@@ -596,7 +597,8 @@ function TennisHero({ id, r }: { id: string; r?: TennisResult }) {
     );
   };
   return (
-    <header className="hero mesh mesh-atp">
+    <header className="hero mesh mesh-atp has-shader">
+      <WarpBg c1="#2aa873" c2="#2a59cc" />
       <div className="hero-meta">
         <span>
           <TennisBall size={15} /> ATP

@@ -7,7 +7,8 @@ import {
 } from './data.ts';
 import { Results } from './results.tsx';
 import { BookOdds } from './books.tsx';
-import { Empty, Link, SimProgress, TeamMark } from './ui.tsx';
+import { Empty, glow, Link, SimProgress, TeamMark } from './ui.tsx';
+import { WarpBg } from './shaders.tsx';
 
 type Tab = 'apercu' | 'sim';
 
@@ -117,7 +118,8 @@ function Hero({ g }: { g: Game }) {
     </div>
   );
   return (
-    <header className="hero mesh mesh-teams" style={{ '--away': teamColor(g.away), '--home': teamColor(g.home) } as CSSProperties}>
+    <header className="hero mesh mesh-teams has-shader" style={{ '--away': teamColor(g.away), '--home': teamColor(g.home) } as CSSProperties}>
+      <WarpBg c1={glow(teamColor(g.away))} c2={glow(teamColor(g.home))} />
       <div className="hero-meta">
         <span>
           <Basketball size={15} /> NBA

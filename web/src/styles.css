@@ -1248,7 +1248,26 @@ a.row:hover .t-ava { transform: scale(1.06); }
   .top-suivi { width: 40px; height: 40px; padding: 0; justify-content: center; }
   .top-suivi .lbl { display: none; }
   .top-suivi .top-count { position: absolute; top: -4px; right: -4px; }
+  .top-right { gap: 4px; }
   .suivi-leg { grid-template-columns: minmax(0, 1fr) auto auto; }
   .suivi-leg .suivi-rm { grid-column: 3; grid-row: 1; }
   .suivi-leg .suivi-st { grid-column: 1 / -1; justify-self: start; }
 }
+
+/* ——— Fonds WebGL des bandeaux (shaders.tsx) : remplacent le dégradé ——— */
+.has-shader::before { display: none; }
+
+/* ——— Carte de la grille : noms en gros avec les logos ——— */
+.card-a { display: grid; align-content: space-between; gap: 18px; min-height: 230px; container-type: inline-size; }
+.card-a-top { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-a-t { display: grid; gap: 10px; }
+.card-a-team { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.card-a-name { font: 900 min(44px, (100cqi - 62px) / var(--w, 5))/0.9 var(--display); font-stretch: 74%; text-transform: uppercase; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.card-a-name i { font-style: normal; color: #5c5c62; margin-right: 6px; }
+.card-a-score { margin-left: auto; font-size: 18px; color: var(--text-2); }
+.card-a-f { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; }
+.card-a-p { color: var(--c-blue); font-weight: 600; font-size: 14px; }
+.card-a-p.flip { color: #fff; }
+@media (max-width: 720px) { .card-a { min-height: 0; } }
+/* Petit téléphone : Suivi et Compte tiennent dans la barre, le sport non choisi garde seulement son icône. */
+@media (max-width: 430px) { .sport:not(.is-on) .lbl { display: none; } .sport:not(.is-on) { padding: 0 11px; } }
