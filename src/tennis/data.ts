@@ -1,7 +1,7 @@
 // Historique ATP en direct (GitHub Actions) : fichiers TennisMyLife de 2015 à aujourd'hui (circuit principal,
 // Challengers, qualifications, tournois de la semaine), au format Sackmann mais datés au jour du match. Les années
 // passées sont téléchargées une fois ; l'année en cours et la semaine sont relues si elles ont plus de 3 heures.
-import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, renameSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readFiles, sortMatches, type Match } from './history.ts';
 
@@ -13,7 +13,11 @@ async function download(url: string, file: string, maxAgeH: number): Promise<boo
   try {
     const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(60_000) });
     if (!res.ok) return existsSync(file);
-    writeFileSync(file, await res.text());
+    const text = await res.text();
+    // Une page d'erreur servie en 200 (proxy, Cloudflare) ne doit pas remplacer le dernier bon fichier.
+    if (!/^\uFEFF?[a-z_]+,/.test(text)) return existsSync(file);
+    writeFileSync(`${file}.tmp`, text);
+    renameSync(`${file}.tmp`, file); // remplacement d'un coup : jamais de fichier à moitié écrit
     return true;
   } catch {
     return existsSync(file); // hors ligne : on garde la copie en cache

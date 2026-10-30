@@ -28,12 +28,27 @@ function gh(path: string, init: RequestInit = {}): Promise<Response> {
 const noStore = { 'Cache-Control': 'no-store' };
 const bad = (msg: string, status = 400) => Response.json({ error: msg }, { status, headers: noStore });
 
-function matchKey(p: { date?: unknown; away?: unknown; home?: unknown }): { date: string; away: string; home: string; dir: string } | undefined {
-  const date = String(p.date ?? '');
-  const away = String(p.away ?? '').toUpperCase();
-  const home = String(p.home ?? '').toUpperCase();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^[A-Z]{3}$/.test(away) || !/^[A-Z]{3}$/.test(home) || away === home) return undefined;
+const TEAMS = new Set('ATL BOS BKN CHA CHI CLE DAL DEN DET GSW HOU IND LAC LAL MEM MIA MIL MIN NOP NYK OKC ORL PHI PHX POR SAC SAS TOR UTA WAS'.split(' '));
+/** Vraie date du calendrier (pas de 31 février). */
+const realDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && new Date(`${d}T12:00:00Z`).toISOString().slice(0, 10) === d;
+
+function matchKey(p: unknown): { date: string; away: string; home: string; dir: string } | undefined {
+  if (!p || typeof p !== 'object') return undefined;
+  const o = p as { date?: unknown; away?: unknown; home?: unknown };
+  const date = String(o.date ?? '');
+  const away = String(o.away ?? '').toUpperCase();
+  const home = String(o.home ?? '').toUpperCase();
+  if (!realDate(date) || !TEAMS.has(away) || !TEAMS.has(home) || away === home) return undefined;
   return { date, away, home, dir: `${date}_${away}@${home}` };
+}
+
+// Garde-fous du lancement (l'API est publique) : une seule simulation en cours par match, un plafond global de
+// simulations en file, et seulement pour les matchs d'hier à dans 7 jours.
+const MAX_IN_FLIGHT = 40;
+async function inFlight(): Promise<any[]> {
+  const r = await gh(`/actions/workflows/${WORKFLOW}/runs?per_page=100`);
+  if (!r.ok) return [];
+  return ((await r.json()).workflow_runs ?? []).filter((w: any) => w.status !== 'completed');
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -79,6 +94,8 @@ export async function GET(request: Request): Promise<Response> {
       // Une demande en cours pour ce match (relance) passe avant l'ancien résultat.
       if (!req) return Response.json({ status: 'done', result }, { headers: noStore });
       const run = await findRun(req);
+      // Relance terminée en échec : l'ancien résultat reste affiché, mais on le dit.
+      if (run?.status === 'completed' && run.conclusion !== 'success') return Response.json({ status: 'done', result, relaunchFailed: true, url: run.html_url }, { headers: noStore });
       if (!run || run.status === 'completed') return Response.json({ status: 'done', result }, { headers: noStore });
       return Response.json({ status: run.status === 'queued' ? 'queued' : 'running', startedAt: run.run_started_at, previous: result }, { headers: noStore });
     }
@@ -103,9 +120,20 @@ async function findRun(req: string): Promise<any | undefined> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const body = await request.json().catch(() => ({}));
+  const body = await request.json().catch(() => null);
   const k = matchKey(body);
   if (!k) return bad('Paramètres invalides');
+  const days = (Date.parse(`${k.date}T12:00:00Z`) - Date.now()) / 86_400_000;
+  if (days < -1.5 || days > 7.5) return bad('Match hors de la période simulable (d’hier à dans 7 jours)');
+  try {
+    const running = await inFlight();
+    // Déjà en cours pour ce match : on rattache la demande au calcul existant au lieu d'en lancer un deuxième.
+    const same = running.find((w) => String(w.display_title ?? '').startsWith(`Sim ${k.away}@${k.home} ${k.date} · `));
+    if (same) return Response.json({ status: 'queued', req: String(same.display_title).split(' · ').pop() }, { headers: noStore });
+    if (running.length >= MAX_IN_FLIGHT) return bad('Trop de simulations en cours : réessaie dans quelques minutes.', 429);
+  } catch {
+    /* lecture des calculs en cours impossible : on lance quand même */
+  }
   const req = Math.random().toString(36).slice(2, 10);
   try {
     const r = await gh(`/actions/workflows/${WORKFLOW}/dispatches`, {

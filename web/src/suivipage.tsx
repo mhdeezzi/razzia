@@ -383,12 +383,14 @@ function BetSlip({ owner, legs, onPlaced }: { owner: string; legs: Leg[]; onPlac
     if (legs.length < 2 && kind === 'combine') setKind('simple');
   }, [legs.length]);
   // Relit les cotes du moment ; renvoie true si une cote ou une ligne a bougé (ou si un match a commencé).
-  const refresh = async (): Promise<boolean> => {
+  // 'failed' : vérification impossible (réseau) ; la validation attend alors une vérification réussie.
+  const refresh = async (): Promise<boolean | 'failed'> => {
     const cur = slip.list();
     if (!cur.length) return false;
     setChecking(true);
-    const f = await freshOdds(cur).catch(() => ({}) as Awaited<ReturnType<typeof freshOdds>>);
+    const f = await freshOdds(cur).catch(() => undefined);
     setChecking(false);
+    if (!f) return 'failed';
     let changed = false;
     const shut = new Set<string>();
     for (const l of cur) {
@@ -430,7 +432,12 @@ function BetSlip({ owner, legs, onPlaced }: { owner: string; legs: Leg[]; onPlac
   const place = async () => {
     setBusy(true);
     // Dernière vérification des cotes : si elles ont bougé, on montre les nouvelles et on attend une nouvelle validation.
-    if (await refresh()) {
+    const check = await refresh();
+    if (check === 'failed') {
+      setBusy(false);
+      return toast({ tone: 'bad', title: 'Cotes non vérifiées', text: 'Impossible de relire les cotes du moment. Vérifie ta connexion puis valide à nouveau.' });
+    }
+    if (check) {
       setBusy(false);
       return toast({ tone: 'info', title: 'Les cotes ont bougé', text: 'Ton ticket affiche les cotes du moment. Vérifie puis valide à nouveau.' });
     }

@@ -59,7 +59,8 @@ export class Rng {
   /** Loi gamma (Marsaglia-Tsang), paramétrée par moyenne et forme. */
   gammaMean(mean: number, shape: number): number {
     const k = shape;
-    if (k < 1) return this.gammaMean(mean, k + 1) * Math.pow(this.next(), 1 / k);
+    // Forme < 1 : Gamma(k) = Gamma(k + 1) x U^(1/k), à même échelle (moyenne (k + 1) / k fois plus grande avant réduction).
+    if (k < 1) return this.gammaMean((mean * (k + 1)) / k, k + 1) * Math.pow(this.next(), 1 / k);
     const d = k - 1 / 3;
     const c = 1 / Math.sqrt(9 * d);
     for (;;) {

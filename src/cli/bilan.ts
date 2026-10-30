@@ -93,6 +93,8 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   });
   const comp = ev?.competitions?.[0];
   if (!comp?.status?.type?.completed) continue;
+  // Seules les prévisions faites avant le coup d'envoi comptent dans le bilan.
+  if (s.meta?.builtAt && ev.date && Date.parse(s.meta.builtAt) >= Date.parse(ev.date)) continue;
   const hs = Number(comp.competitors.find((x: any) => x.homeAway === 'home').score);
   const as = Number(comp.competitors.find((x: any) => x.homeAway === 'away').score);
   const close = await getMarket(date, home, away).catch(() => undefined);
@@ -140,7 +142,7 @@ const out = {
     roi: withOdds.length ? withOdds.reduce((s, x) => s + x.value!.profit!, 0) / withOdds.length : undefined,
     nOdds: withOdds.length,
   },
-  rows: rows.slice(0, 300),
+  rows: rows.slice(0, 2500), // toute la saison (le bandeau public calcule son bilan sur l'ensemble)
 };
 writeFileSync(join(dir, 'bilan.json'), JSON.stringify(out));
 console.log(`bilan : ${rows.length} matchs, ${vals.length} valeurs signalées`);

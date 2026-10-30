@@ -36,11 +36,31 @@ const ROUND_DAY_SLAM: Record<string, number> = { Q1: -4, Q2: -3, Q3: -2, R128: 1
 const ROUND_DAY: Record<string, number> = { Q1: -2, Q2: -1, Q3: 0, R128: 0, R64: 1, R32: 2, R16: 3, QF: 4, SF: 5, RR: 3, BR: 6, F: 6 };
 export const ROUND_ORDER: Record<string, number> = { Q1: 0, Q2: 1, Q3: 2, R128: 3, R64: 4, R32: 5, R16: 6, RR: 7, QF: 8, SF: 9, BR: 9.5, F: 10 };
 
+/** Une ligne CSV : champs entre guillemets (virgules et guillemets doublés à l'intérieur) acceptés. */
+function cells(l: string): string[] {
+  if (!l.includes('"')) return l.split(',');
+  const out: string[] = [];
+  let cur = '', q = false;
+  for (let i = 0; i < l.length; i++) {
+    const ch = l[i];
+    if (q) {
+      if (ch === '"' && l[i + 1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') q = false;
+      else cur += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ',') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
 function csv(file: string): Array<Record<string, string>> {
-  const [h, ...rows] = readFileSync(file, 'utf8').trim().split('\n');
-  const H = h.split(',');
+  // Fins de ligne Windows (certains fichiers TennisMyLife) et marqueur BOM retirés : sinon la dernière colonne est perdue.
+  const [h, ...rows] = readFileSync(file, 'utf8').replace(/^\uFEFF/, '').replace(/\r/g, '').trim().split('\n');
+  const H = cells(h);
   return rows.map((l) => {
-    const c = l.split(',');
+    const c = cells(l);
     return Object.fromEntries(H.map((k, i) => [k, c[i] ?? '']));
   });
 }
@@ -63,10 +83,18 @@ export function parseScore(score: string): { wSets: number; lSets: number; retir
   const retired = /RET|DEF|ABD|ABN/i.test(score);
   let wSets = 0, lSets = 0;
   for (const s of score.split(' ')) {
+    // Super tie-break de fin de match, « [10-8] » : un set gagné par celui qui atteint 10 avec 2 points d'écart.
+    const tb = /^\[(\d+)-(\d+)\]$/.exec(s);
+    if (tb) {
+      const a = +tb[1], b = +tb[2];
+      if (Math.max(a, b) >= 10 && Math.abs(a - b) >= 2) a > b ? wSets++ : lSets++;
+      continue;
+    }
     const m = /^(\d+)-(\d+)/.exec(s);
     if (!m) continue;
     const a = +m[1], b = +m[2];
-    const done = (a >= 6 || b >= 6) && (Math.abs(a - b) >= 2 || a === 7 || b === 7 || a >= 10 || b >= 10);
+    // Set fini : 6 jeux et 2 d'écart, 7-5, 7-6 (tie-break), ou avantage prolongé (8-6, 12-10…) ; 7-7 ou 10-9 ne sont pas finis.
+    const done = Math.max(a, b) >= 6 && (Math.abs(a - b) >= 2 || (Math.max(a, b) === 7 && Math.min(a, b) === 6));
     if (!done) continue;
     if (a > b) wSets++;
     else lSets++;
@@ -111,7 +139,7 @@ export function readFiles(files: string[], matchDates = false): Match[] {
       });
       out.push({
         key: `${r.tourney_id}-${r.match_num}`, date: new Date(start + offset * 86_400_000).toISOString().slice(0, 10), tid: r.tourney_id, tourney: r.tourney_name,
-        level: r.tourney_level, qual: r.round.startsWith('Q'), surface, indoor: r.indoor ? r.indoor === 'I' : undefined, bo: r.best_of === '5' ? 5 : 3, round: r.round,
+        level: r.tourney_level, qual: /^Q\d$/.test(r.round) /* Q1, Q2, Q3 ; pas QF */, surface, indoor: r.indoor ? r.indoor === 'I' : undefined, bo: r.best_of === '5' ? 5 : 3, round: r.round,
         w: side('winner', 'w'), l: side('loser', 'l'), score: r.score, minutes: num(r.minutes), ...sc,
       });
     }
