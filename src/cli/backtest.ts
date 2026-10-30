@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { CACHE_DIR, readCache, ROOT } from '../data/http.ts';
 import type { GameRecord } from '../data/cdn.ts';
 import { buildGameModel } from '../nba/model/build.ts';
+import { setRecency } from '../nba/model/features.ts';
 import { calibratePace, calibrateStrength, runSims, summarize } from '../nba/engine/montecarlo.ts';
 import type { SimParams } from '../nba/model/types.ts';
 import { getMarket, noVig } from '../data/espn.ts';
@@ -74,6 +75,8 @@ function decompose(r: Box, s: Box) {
 }
 
 export async function backtest(opts: { from: string; to: string; games: number; n: number; params?: Partial<SimParams>; quiet?: boolean; market?: boolean; noStrength?: boolean; fullTables?: boolean; shard?: number; shards?: number }): Promise<BacktestResult> {
+  // Poids saison en cours / précédentes : appliqués avant la construction des profils (pas des paramètres de simulation).
+  setRecency((opts.params ?? {}) as Record<string, number>);
   const ids = readdirSync(join(CACHE_DIR, 'games')).map((f) => f.replace('.json.gz', '')).filter((id) => id.startsWith('002')).sort();
   const pool: GameRecord[] = [];
   for (const id of ids) {
