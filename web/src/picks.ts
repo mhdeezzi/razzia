@@ -49,6 +49,11 @@ export const gamesPlayed = (r: Result) =>
 export const isFlip = (r: Result, p: number) => flipP(p, gamesPlayed(r));
 /** Même règle à partir du seul pourcentage du favori et des matchs joués (programme). */
 export const flipP = (p: number, gp = 99) => shown(p) < FLIP || (gp < EARLY_GAMES && shown(p) < EARLY_FLIP);
+/** « Risqué » (pastille orange) : favori entre 66 et 70 %. Deux saisons testées (1 200 matchs) : il ne gagnait que 59 %
+ * du temps, moins que la tranche 60-66 %. */
+export const RISKY = 0.7;
+/** Teinte de la pastille du favori : rouge pile ou face, orange risqué, sinon rien (vert). */
+export const pillTier = (p: number, gp = 99) => (flipP(p, gp) ? ' flip' : shown(p) < RISKY ? ' risky' : '');
 /** Handicap « plus sûr » : la ligne la plus exigeante qui passe dans au moins 80 % des simulations. */
 // « Razzia assuré » : à 77 % ou plus (un match sur quatre), le moteur a vu juste 84,6 % du temps sur la saison 2025-26.
 export const SURE = 0.77;

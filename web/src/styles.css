@@ -299,6 +299,7 @@ a.row:active { transform: scale(0.995); }
 /* Badge de simulation : juste le texte, rouge pile ou face, vert sinon ; pas de contour (comme en grille). */
 .conf-pill.sim { --c: var(--c-green); box-shadow: none; }
 .conf-pill.sim.flip { --c: var(--c-red); }
+.conf-pill.sim.risky { --c: var(--c-amber); }
 .conf-pill.sim > svg { color: var(--c); }
 .conf-pill.fail { --c: var(--c-red); }
 /* « Simuler » : petit bouton de verre. */
@@ -1229,6 +1230,7 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .card-a-f { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; }
 .card-a-p { color: var(--c-green); font-weight: 600; font-size: 14px; }
 .card-a-p.flip { color: var(--c-red); }
+.card-a-p.risky { color: var(--c-amber); }
 @media (max-width: 720px) { .card-a { min-height: 0; } }
 /* Petit téléphone : Suivi et Compte tiennent dans la barre, le sport non choisi garde seulement son icône. */
 @media (max-width: 430px) { .sport:not(.is-on) .lbl { display: none; } .sport:not(.is-on) { padding: 0 11px; } }
