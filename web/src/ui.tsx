@@ -246,14 +246,17 @@ function season(sport: 'nba' | 'atp'): string {
 }
 
 /**
- * En-tête des programmes façon affiche RAZZIA : marbre lent vert et bleu, petites mentions en haut, titre très gras
+ * En-tête des programmes façon affiche RAZZIA : marbre lent aux couleurs du sport, petites mentions en haut, titre très gras
  * et serré, accroche en dessous ; date, nombre de matchs et affichage en pied.
  */
+/** Couleurs du marbre du bandeau, une paire par sport : ambre et ardoise au basket. */
+const HERO_COLORS = { nba: ['#c98a3d', '#3b4a5e'], atp: ['hsl(145 100% 55%)', 'hsl(205 100% 55%)'] } as const;
+
 export function PageHero({ sport, title, day, count, children }: { sport: 'nba' | 'atp'; title: string; day?: string; count?: number; children?: ReactNode }) {
   const [first, ...rest] = title.split(' ');
   return (
     <header className={`hero-banner mesh mesh-${sport} has-shader`}>
-      <WarpBg c1="hsl(145 100% 55%)" c2="hsl(205 100% 55%)" />
+      <WarpBg c1={HERO_COLORS[sport][0]} c2={HERO_COLORS[sport][1]} />
       <div className="hb-top" aria-hidden="true">
         <span className="hb-label">RAZZIA · Saison {season(sport)}</span>
         <span className="hb-label hb-right">

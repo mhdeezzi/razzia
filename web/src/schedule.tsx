@@ -1,9 +1,9 @@
 // Programme : les matchs des 7 prochains jours (heure de New York), en liste ou en grille, filtrés par statut.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CaretRight, Check, Fire, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
-import { dayLong, isToday, listSims, loadProgramme, matchPath, odds, pct0, simKey, teamColor, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
+import { dayLong, isToday, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
-import { Empty, glow, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
+import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
 import { flipP } from './picks.ts';
 
 type Status = 'pre' | 'in' | 'post';
@@ -126,7 +126,7 @@ export function SchedulePage({ day }: { day: string | null }) {
           {dayGames.length === 0 ? (
             <Empty title="Pas de match NBA ce soir-là." />
           ) : view === 'liste' ? (
-            <section className="league-card lit" key={`${current}-${status}`}>
+            <section className="league-card" key={`${current}-${status}`}>
               <div className="league-top">
                 <h2>NBA</h2>
                 <span className="badge-n">{games.length}</span>
@@ -316,7 +316,7 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
   // Largeur des deux noms en em (police étroite, « @ » compris) : la taille baisse pour les noms longs, la même pour les deux.
   const w = Math.max(g.away.name.length * 0.63, g.home.name.length * 0.63 + 0.9);
   return (
-    <Link href={matchPath(g)} className="card card-a" style={{ '--i': i, '--glow': glow(teamColor(g.home)), '--w': w.toFixed(2) } as CSSProperties}>
+    <Link href={matchPath(g)} className="card card-a" style={{ '--i': i, '--w': w.toFixed(2) } as CSSProperties}>
       <span className="card-a-top mono">
         {g.state === 'pre' ? timeLocal(g.start) : g.detail}
         {g.venue ? ` · ${g.venue}` : ''}

@@ -3,11 +3,14 @@
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabase.ts';
+import { endRecovery, useAuth } from './auth.ts';
+import { useTickets } from './suivi.ts';
+import { WarpBg } from './shaders.tsx';
 import {
   AppleLogo, ArrowUpRight, Bell, CalendarCheck, ChartLineUp, Check, CreditCard, Crown, Envelope, GoogleLogo, Infinity as InfinityIcon,
-  Lightning, LockKey, Receipt, Scales, ShieldCheck, SignOut, Sparkle, Star, UserCircle,
+  Eye, EyeSlash, Lightning, ListChecks, LockKey, Receipt, Scales, ShieldCheck, SignOut, Sparkle, Star, Trophy, UserCircle,
 } from '@phosphor-icons/react';
-import { Link, Segmented } from './ui.tsx';
+import { Link, navigate, Segmented } from './ui.tsx';
 
 // La page Abonnement n'est en ligne qu'avec VITE_BILLING=1 : sans elle, pas de lien vers les formules.
 const PRICING = import.meta.env.VITE_BILLING === '1';
@@ -137,34 +140,45 @@ const AUTH_FR: Record<string, string> = {
   'User already registered': 'Un compte existe déjà avec cet e-mail.',
 };
 const authError = (m: string) => AUTH_FR[m] ?? m;
+// Après connexion, retour à la page demandée (ex. /suivi) ; seulement un chemin du site.
+const nextPath = () => {
+  const n = new URLSearchParams(location.search).get('next');
+  return n && n.startsWith('/') && !n.startsWith('//') ? n : null;
+};
 
 /** Compte : connexion, création, mot de passe oublié (Supabase), puis l'espace du compte. Pas encore de paiement. */
 export function AccountPage() {
-  const [mode, setMode] = useState<AuthMode>('in');
-  const [user, setUser] = useState<User | null>(null);
-  const [ready, setReady] = useState(false);
+  const { ready, user, recovery } = useAuth();
+  const [mode, setMode] = useState<AuthMode>(() => (new URLSearchParams(location.search).get('mode') === 'up' ? 'up' : 'in'));
+  useEffect(() => {
+    if (recovery) setMode('reset');
+  }, [recovery]);
+  // Connecté avec une page de retour : on y va directement.
+  useEffect(() => {
+    const n = nextPath();
+    if (user && !recovery && n) navigate(n);
+  }, [user, recovery]);
+  if (!ready) return <div className="page"><span className="sk sk-hero" aria-busy="true" /></div>;
+  if (user && mode !== 'reset') return <AccountSpace user={user} />;
+  return <AuthScreen mode={mode} setMode={setMode} />;
+}
+
+function AuthScreen({ mode, setMode }: { mode: AuthMode; setMode: (m: AuthMode) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string }>();
-  useEffect(() => {
-    if (!supabase) return setReady(true);
-    void supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-      setReady(true);
-    });
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-      if (event === 'PASSWORD_RECOVERY') setMode('reset');
-    });
-    return () => data.subscription.unsubscribe();
-  }, []);
+  const go = (m: AuthMode) => {
+    setMode(m);
+    setMsg(undefined);
+  };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!supabase) return;
     setBusy(true);
     setMsg(undefined);
-    const back = `${location.origin}/compte`;
+    const back = `${location.origin}/compte${nextPath() ? `?next=${encodeURIComponent(nextPath()!)}` : ''}`;
     const r =
       mode === 'in'
         ? await supabase.auth.signInWithPassword({ email, password })
@@ -178,61 +192,73 @@ export function AccountPage() {
     if (mode === 'up' && !('session' in r.data && r.data.session)) setMsg({ ok: true, text: 'Compte créé : clique sur le lien reçu par e-mail pour le confirmer.' });
     if (mode === 'forgot') setMsg({ ok: true, text: 'Si un compte existe, un lien pour changer le mot de passe vient de partir par e-mail.' });
     if (mode === 'reset') {
+      endRecovery();
       setMsg({ ok: true, text: 'Mot de passe changé.' });
       setMode('in');
     }
     setPassword('');
   };
-  if (!ready) return <div className="page"><span className="sk sk-hero" aria-busy="true" /></div>;
-  if (user && mode !== 'reset')
-    return (
-      <div className="page">
-        <header className="page-head">
-          <span className="caps">Mon compte</span>
-          <h1>Bonjour</h1>
-          <p className="lede">{user.email}</p>
-        </header>
-        <div className="account-grid">
-          <section className="panel account-card">
-            <span className="caps">Formule</span>
-            <p className="account-plan">
-              <Lightning size={18} weight="fill" /> Découverte
-            </p>
-            <p className="muted small">Gratuit. Les abonnements arrivent bientôt.</p>
-            {PRICING && (
-              <div className="account-actions">
-                <Link href="/abonnement" className="btn glass">
-                  Voir les formules
-                </Link>
-              </div>
-            )}
-          </section>
-          <section className="panel account-card">
-            <span className="caps">Compte</span>
-            <p className="muted small">Membre depuis le {new Date(user.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-            <div className="account-actions">
-              <button className="btn glass" onClick={() => void supabase?.auth.signOut()}>
-                <SignOut size={16} /> Se déconnecter
-              </button>
-            </div>
-          </section>
-        </div>
-      </div>
-    );
   const titles: Record<AuthMode, [string, string, string]> = {
-    in: ['Connexion', 'Retrouve tes simulations et ton abonnement.', 'Se connecter'],
-    up: ['Créer un compte', 'Un compte pour simuler sans limite.', 'Créer mon compte'],
+    in: ['Bon retour', 'Connecte-toi pour retrouver ton suivi et ton bilan.', 'Se connecter'],
+    up: ['Créer un compte', 'Gratuit. Ton suivi de paris et ton bilan, sur tous tes appareils.', 'Créer mon compte'],
     forgot: ['Mot de passe oublié', 'On t’envoie un lien par e-mail pour le changer.', 'Envoyer le lien'],
     reset: ['Nouveau mot de passe', 'Choisis ton nouveau mot de passe.', 'Enregistrer'],
   };
   const [title, lede, cta] = titles[mode];
+  const strength = mode === 'up' || mode === 'reset' ? Math.min(3, (password.length >= 8 ? 1 : 0) + (/\d/.test(password) ? 1 : 0) + (/[^A-Za-z0-9]/.test(password) || /[A-Z]/.test(password) ? 1 : 0)) : -1;
   return (
     <div className="page">
-      <div className="auth mesh mesh-auth">
-        <form className="auth-card panel" onSubmit={submit}>
-          <UserCircle size={34} weight="light" className="auth-icon" />
-          <h1>{title}</h1>
-          <p className="muted">{lede}</p>
+      <div className="auth2">
+        <aside className="auth-side mesh has-shader">
+          <WarpBg c1="#2f9a68" c2="#1f3f6e" />
+          <span className="caps">Razzia · compte gratuit</span>
+          <h2>
+            Simule.
+            <br />
+            Suis.
+            <br />
+            <em>Fais le bilan.</em>
+          </h2>
+          <ul className="auth-perks">
+            <li>
+              <span><ChartLineUp size={18} /></span>
+              <div>
+                <b>5 000 simulations par match</b>
+                <p>NBA et ATP, avec les compos et les cotes du moment.</p>
+              </div>
+            </li>
+            <li>
+              <span><ListChecks size={18} /></span>
+              <div>
+                <b>Ton suivi de paris</b>
+                <p>Simples et combinés, validés tout seuls après chaque match.</p>
+              </div>
+            </li>
+            <li>
+              <span><Trophy size={18} /></span>
+              <div>
+                <b>Ton bilan</b>
+                <p>Mises, gains, taux de réussite : tout est compté pour toi.</p>
+              </div>
+            </li>
+          </ul>
+        </aside>
+        <form className="auth-card2" onSubmit={submit}>
+          {(mode === 'in' || mode === 'up') && (
+            <Segmented<AuthMode>
+              ariaLabel="Connexion ou création de compte"
+              value={mode}
+              onChange={go}
+              options={[
+                { value: 'in', label: 'Connexion' },
+                { value: 'up', label: 'Créer un compte' },
+              ]}
+            />
+          )}
+          <div className="auth-head">
+            <h1>{title}</h1>
+            <p className="muted">{lede}</p>
+          </div>
           {!supabase && <p className="auth-msg">Les comptes ne sont pas encore configurés sur ce site.</p>}
           {mode !== 'reset' && (
             <label className="field">
@@ -248,29 +274,146 @@ export function AccountPage() {
               <span>Mot de passe</span>
               <span className="field-in">
                 <LockKey size={18} />
-                <input type="password" required minLength={8} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} placeholder="8 caractères minimum" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <input type={show ? 'text' : 'password'} required minLength={8} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} placeholder="8 caractères minimum" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <button type="button" className="field-eye" onClick={() => setShow(!show)} aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
+                  {show ? <EyeSlash size={18} /> : <Eye size={18} />}
+                </button>
               </span>
             </label>
           )}
+          {strength >= 0 && password && (
+            <div className={`pw-meter s${strength}`} aria-label="Solidité du mot de passe">
+              <span />
+              <span />
+              <span />
+              <em>{['Trop court', 'Faible', 'Correct', 'Solide'][strength]}</em>
+            </div>
+          )}
           {mode === 'in' && (
-            <button type="button" className="auth-link" onClick={() => { setMode('forgot'); setMsg(undefined); }}>
+            <button type="button" className="auth-link" onClick={() => go('forgot')}>
               Mot de passe oublié ?
             </button>
           )}
           {msg && <p className={`auth-msg${msg.ok ? ' ok' : ''}`} role="status">{msg.text}</p>}
-          <button type="submit" className="btn glass glass-brand btn-lg" disabled={busy || !supabase}>
+          <button type="submit" className="btn btn-primary btn-lg auth-go" disabled={busy || !supabase}>
             {busy && <span className="spin" />}
             {cta}
           </button>
-          {mode !== 'reset' && (
-            <p className="auth-switch">
-              {mode === 'in' ? 'Pas encore de compte ?' : 'Déjà un compte ?'}{' '}
-              <button type="button" className="auth-link" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setMsg(undefined); }}>
-                {mode === 'in' ? 'Créer un compte' : 'Se connecter'}
-              </button>
-            </p>
+          {mode === 'up' && <p className="auth-legal">En créant un compte, tu confirmes avoir 18 ans ou plus. Jouer comporte des risques.</p>}
+          {(mode === 'forgot' || mode === 'reset') && (
+            <button type="button" className="auth-link center" onClick={() => go('in')}>
+              Retour à la connexion
+            </button>
           )}
         </form>
+      </div>
+    </div>
+  );
+}
+
+const eur = (v: number) => `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+
+/** Espace du compte : en-tête avec initiale, bilan du suivi, derniers tickets, formule, sécurité. */
+function AccountSpace({ user }: { user: User }) {
+  const { tickets } = useTickets(user.id);
+  const [sent, setSent] = useState<string>();
+  const name = (user.email ?? '').split('@')[0];
+  const done = (tickets ?? []).filter((t) => t.status !== 'pending');
+  const won = done.filter((t) => t.status === 'won');
+  const staked = done.reduce((x, t) => x + t.stake, 0);
+  const profit = won.reduce((x, t) => x + t.stake * t.odds, 0) - staked;
+  const open = (tickets ?? []).filter((t) => t.status === 'pending');
+  const resetPw = async () => {
+    if (!supabase || !user.email) return;
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: `${location.origin}/compte` });
+    setSent(error ? authError(error.message) : `Lien envoyé à ${user.email}.`);
+  };
+  return (
+    <div className="page">
+      <header className="acct-hero mesh has-shader">
+        <WarpBg c1="#2f9a68" c2="#1f3f6e" />
+        <span className="acct-ava" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
+        <div className="acct-id">
+          <span className="caps">Mon compte</span>
+          <h1>{name}</h1>
+          <p>
+            {user.email} · membre depuis {new Date(user.created_at).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+        <span className="acct-plan-tag">
+          <Lightning size={14} weight="fill" /> Découverte
+        </span>
+      </header>
+      <dl className="acct-stats">
+        <div>
+          <dt>Tickets joués</dt>
+          <dd>{tickets ? tickets.length : '-'}</dd>
+        </div>
+        <div>
+          <dt>Réussite</dt>
+          <dd>{done.length ? `${Math.round((won.length / done.length) * 100)} %` : '-'}</dd>
+        </div>
+        <div>
+          <dt>Bilan</dt>
+          <dd className={profit > 0 ? 'up' : profit < 0 ? 'down' : ''}>{done.length ? `${profit > 0 ? '+' : profit < 0 ? '−' : ''}${eur(Math.abs(profit))}` : '-'}</dd>
+        </div>
+        <div>
+          <dt>En cours</dt>
+          <dd>{open.length}</dd>
+        </div>
+      </dl>
+      <div className="account-grid">
+        <section className="panel account-card wide">
+          <div className="acct-row-head">
+            <span className="caps">Derniers tickets</span>
+            <Link href="/suivi" className="btn glass">
+              <ListChecks size={16} /> Ouvrir mon suivi
+            </Link>
+          </div>
+          {tickets && tickets.length === 0 && <p className="muted small">Aucun ticket pour l’instant. Ajoute des paris depuis une fiche de match avec « Suivre ».</p>}
+          <ul className="acct-tk">
+            {(tickets ?? []).slice(0, 4).map((t) => (
+              <li key={t.id}>
+                <span className={`tk-st ${t.status}`}>{t.status === 'won' ? 'Gagné' : t.status === 'lost' ? 'Perdu' : 'En cours'}</span>
+                <span className="acct-tk-t">{t.kind === 'combine' ? `Combiné · ${t.legs.length} sélections` : t.legs[0]?.title}</span>
+                <span className="mono muted">{t.odds.toFixed(2).replace('.', ',')}</span>
+                <span className="mono">{eur(t.stake)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section className="panel account-card">
+          <span className="caps">Formule</span>
+          <p className="account-plan">
+            <Lightning size={18} weight="fill" /> Découverte
+          </p>
+          <ul className="acct-feats">
+            <li><Check size={15} weight="bold" /> Simulations NBA et ATP</li>
+            <li><Check size={15} weight="bold" /> Suivi des paris et combinés</li>
+            <li><Check size={15} weight="bold" /> Bilan automatique</li>
+          </ul>
+          <p className="muted small">Gratuit. Les abonnements arrivent bientôt.</p>
+          {PRICING && (
+            <div className="account-actions">
+              <Link href="/abonnement" className="btn glass">
+                Voir les formules
+              </Link>
+            </div>
+          )}
+        </section>
+        <section className="panel account-card">
+          <span className="caps">Sécurité</span>
+          <p className="muted small">Connecté avec {user.email}.</p>
+          <div className="account-actions">
+            <button className="btn glass" onClick={() => void resetPw()}>
+              <LockKey size={16} /> Changer le mot de passe
+            </button>
+            <button className="btn glass" onClick={() => void supabase?.auth.signOut()}>
+              <SignOut size={16} /> Se déconnecter
+            </button>
+          </div>
+          {sent && <p className="auth-msg ok" role="status">{sent}</p>}
+        </section>
       </div>
     </div>
   );

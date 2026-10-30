@@ -2,7 +2,8 @@
 // où le verre clair glisse vers le sport choisi, Compte et Méthode à droite (sur téléphone, Compte passe avant les sports).
 import { useRef } from 'react';
 import { Basketball, Info, ListChecks, SoccerBall, TennisBall, UserCircle } from '@phosphor-icons/react';
-import { openSuivi, useSuivi } from './suivi.ts';
+import { useSlip } from './suivi.ts';
+import { useUnseen } from './suivipage.tsx';
 import { Link, useSlider } from './ui.tsx';
 import logo from './assets/razzia-logo.webp';
 
@@ -15,7 +16,8 @@ export function TopBar({ path }: { path: string }) {
   ];
   const nav = useRef<HTMLElement>(null);
   const pos = useSlider(nav, '.sport.is-on', tennis);
-  const legs = useSuivi();
+  const legs = useSlip();
+  const unseen = useUnseen();
   return (
     <header className="topbar">
       <div className="topbar-in">
@@ -38,11 +40,12 @@ export function TopBar({ path }: { path: string }) {
           </Link>
         </nav>
         <div className="top-right">
-          <button className="top-link glass top-suivi" onClick={openSuivi} title="Suivi des paris">
+          <Link href="/suivi" className={`top-link glass top-suivi${path === '/suivi' ? ' is-on' : ''}`} aria-current={path === '/suivi' ? 'page' : undefined} title="Suivi des paris">
             <ListChecks size={18} />
             <span className="lbl">Suivi</span>
-            {legs.length > 0 && <span className="top-count">{legs.length}</span>}
-          </button>
+            {legs.length > 0 && <span className="top-count" aria-label={`${legs.length} dans le ticket`}>{legs.length}</span>}
+            {unseen > 0 && <span className="top-dot" aria-label={`${unseen} ticket${unseen > 1 ? 's' : ''} réglé${unseen > 1 ? 's' : ''}`} />}
+          </Link>
           {links.map((l) => (
             <Link key={l.href} href={l.href} className={`top-link glass ${l.cls}${l.on ? ' is-on' : ''}`} aria-current={l.on ? 'page' : undefined} title={l.label}>
               {l.icon}

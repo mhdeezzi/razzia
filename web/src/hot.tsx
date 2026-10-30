@@ -50,7 +50,7 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
   // Jauge : pleine à la plus forte chance du match, pour comparer les joueurs entre eux.
   const top = hot[0].heat!.pBig;
   return (
-    <section className="section feu-sec" aria-label="Joueurs en feu">
+    <section className="section" aria-label="Joueurs en feu">
       <div className="section-head">
         <h3>En feu ce soir</h3>
         <span className="slash">chance de gros match</span>
