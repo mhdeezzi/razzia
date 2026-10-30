@@ -37,7 +37,7 @@ function localApi(): Plugin {
 
 export default defineConfig({
   root: resolve(root, 'web'),
-  publicDir: false,
+  publicDir: resolve(root, 'web', 'public'),
   plugins: [localApi()],
   esbuild: { jsx: 'automatic' },
   server: { port: 5180 },
