@@ -27,7 +27,12 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   const trend = tr('home') || tr('away') ? { home: tr('home'), away: tr('away') } : undefined;
   const top = (s.players ?? []).filter((p: any) => p.heat && p.heat.pBig >= 0.1).sort((a: any, b: any) => b.heat.pBig - a.heat.pBig)[0];
   const hot = top ? { id: top.id, side: top.side, name: top.name } : undefined;
-  out.push({ dir: d.name, pHome, pAway: 1 - pHome, at, gp, ...(cat ? { cat } : {}), ...(trend ? { trend } : {}), ...(hot ? { hot } : {}) });
+  // Star absente (même règle que web/src/stars.ts) : titulaire et meilleur marqueur annoncé absent, pastille d'avertissement.
+  const injured = (s.players ?? [])
+    .filter((p: any) => p.status === 'Out' && (p.form?.minSeason ?? 0) >= 26 && (p.form?.ptsSeason ?? 0) >= 17)
+    .sort((a: any, b: any) => (b.form?.ptsSeason ?? 0) - (a.form?.ptsSeason ?? 0))
+    .map((p: any) => ({ side: p.side === 0 ? 'home' : 'away', name: p.name }));
+  out.push({ dir: d.name, pHome, pAway: 1 - pHome, at, gp, ...(cat ? { cat } : {}), ...(trend ? { trend } : {}), ...(hot ? { hot } : {}), ...(injured.length ? { injured } : {}) });
 }
 out.sort((a, b) => b.at.localeCompare(a.at));
 writeFileSync(file, JSON.stringify(out));

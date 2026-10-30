@@ -1,6 +1,6 @@
 // Programme : les matchs des 7 prochains jours (heure de New York), en liste ou en grille, filtrés par statut.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { CaretRight, Check, Fire, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
+import { CaretRight, Check, Fire, FirstAid, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { dayLong, isToday, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
 import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
@@ -223,6 +223,21 @@ function SimPill({ g, sim, run }: { g: Game; sim?: SimEntry; run?: ItemState }) 
 /** Forme, sans texte : l'équipe en pleine montée ou en baisse (logo + flèche en diagonale), sinon le joueur le plus
  *  chaud (photo + flamme). Vide tant que le match n'est pas simulé. */
 function FormMark({ g, sim }: { g: Game; sim?: SimEntry }) {
+  // Star du cinq de départ absente : passe avant la forme (logo de l'équipe touchée, croix rouge).
+  const hurt = [...new Set((sim?.injured ?? []).map((x) => x.side))];
+  if (hurt.length)
+    return (
+      <span className={`forme${hurt.length === 2 ? ' duo' : ''}`} title={(sim?.injured ?? []).map((x) => `${x.name} (${g[x.side].name}) absent`).join(' · ')}>
+        {hurt.map((k) => (
+          <span key={k} className="forme-item hurt">
+            <TeamMark team={g[k]} size="sm" />
+            <span className="forme-chip">
+              <FirstAid size={10} weight="fill" />
+            </span>
+          </span>
+        ))}
+      </span>
+    );
   const t = sim?.trend;
   const sides = t ? (['away', 'home'] as const).filter((k) => t[k]) : [];
   if (t && sides.length)
