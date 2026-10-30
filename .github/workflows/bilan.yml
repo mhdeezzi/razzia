@@ -19,7 +19,8 @@ jobs:
         run: |
           git config user.name "simbet-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin resultats && git worktree add -B resultats ../res FETCH_HEAD
+          # Historique de la saison : une relance publiée après le coup d'envoi est remplacée par la version d'avant-match.
+          git fetch --shallow-since="$(date -u -d '150 days ago' +%F)" origin resultats && git worktree add -B resultats ../res FETCH_HEAD
           for i in 1 2 3; do
             node src/cli/bilan.ts ../res/sims
             git -C ../res add sims/bilan.json

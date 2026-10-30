@@ -79,6 +79,10 @@ for (const i of [0, 1, 2, 3]) {
     }
 }
 
+// Premier jour du tennis (24 octobre) : simulé avec l'ancien moteur, avant ses corrections (forme, plafond au marché,
+// jours sans jouer). Hors du bilan, comme les premiers matchs NBA de l'ancien moteur.
+const OLD_ENGINE = new Set(['1639081871', '1639017929', '1639065243', '1639121217', '1639121174']);
+
 const rows: Row[] = [];
 let voided = 0, late = 0;
 const seen = new Map<string, { row: Row; built: string }>();
@@ -86,6 +90,7 @@ const simsDir = join(dir, 'sims');
 for (const f of existsSync(simsDir) ? readdirSync(simsDir) : []) {
   if (!f.endsWith('.json')) continue;
   const s = JSON.parse(readFileSync(join(simsDir, f), 'utf8'));
+  if (OLD_ENGINE.has(String(s.id))) continue;
   const kH = nameKey(s.home.name), kA = nameKey(s.away.name);
   // Le match joué entre ces deux joueurs le plus près du jour prévu (de la veille à 3 jours après : pluie, report).
   const t = Date.parse(s.day);

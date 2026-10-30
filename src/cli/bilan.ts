@@ -1,6 +1,7 @@
 // Bilan des simulations publiées, façon parieur pro : pour chaque match terminé, la cote au moment de la simulation
 // contre la cote de clôture (la ligne a-t-elle bougé dans le sens de Razzia ?) et le résultat.
 //   node src/cli/bilan.ts <dossier sims de la branche resultats>   -> écrit <dossier>/bilan.json
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getMarket, getScoreboard, noVig } from '../data/espn.ts';
@@ -60,6 +61,25 @@ function pickOf(s: any, home: string, away: string, hs: number, as: number): Pic
   return { kind: 'vainqueur', won: favMargin > 0 };
 }
 
+/**
+ * Dernière version d'une simulation publiée avant le coup d'envoi, dans l'historique git de la branche resultats : une
+ * relance partie en retard (file d'attente GitHub) remplace la fiche après le début du match ; le pronostic d'avant-match
+ * reste celui qui compte. Rien sans historique : le match reste alors hors du bilan.
+ */
+function beforeTip(name: string, tip: number): any | undefined {
+  const repo = join(dir, '..'), path = `sims/${name}/summary.json`;
+  try {
+    const log = execFileSync('git', ['-C', repo, 'log', '--format=%H', '--', path], { encoding: 'utf8' }).split('\n').filter(Boolean);
+    for (const h of log) {
+      const v = JSON.parse(execFileSync('git', ['-C', repo, 'show', `${h}:${path}`], { encoding: 'utf8', maxBuffer: 256 << 20 }));
+      if (v.meta?.builtAt && Date.parse(v.meta.builtAt) < tip) return v;
+    }
+  } catch {
+    /* pas de dépôt git ou version illisible */
+  }
+  return undefined;
+}
+
 interface Row {
   dir: string;
   date: string;
@@ -84,7 +104,7 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   if (!m) continue;
   const [, date, away, home] = m;
   if (Date.parse(`${date}T12:00:00Z`) > Date.now() - 86_400_000 / 2) continue; // trop récent pour être terminé
-  const s = JSON.parse(readFileSync(f, 'utf8'));
+  let s = JSON.parse(readFileSync(f, 'utf8'));
   if (!finals.has(date)) finals.set(date, await getScoreboard(date, 6).catch(() => []));
   const norm = (t: string) => ({ GS: 'GSW', NY: 'NYK', SA: 'SAS', NO: 'NOP', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX' } as Record<string, string>)[t] ?? t;
   const ev = finals.get(date)!.find((e) => {
@@ -94,7 +114,11 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   const comp = ev?.competitions?.[0];
   if (!comp?.status?.type?.completed) continue;
   // Seules les prévisions faites avant le coup d'envoi comptent dans le bilan.
-  if (s.meta?.builtAt && ev.date && Date.parse(s.meta.builtAt) >= Date.parse(ev.date)) continue;
+  if (s.meta?.builtAt && ev.date && Date.parse(s.meta.builtAt) >= Date.parse(ev.date)) {
+    const prev = beforeTip(d.name, Date.parse(ev.date));
+    if (!prev) continue;
+    s = prev;
+  }
   const hs = Number(comp.competitors.find((x: any) => x.homeAway === 'home').score);
   const as = Number(comp.competitors.find((x: any) => x.homeAway === 'away').score);
   const close = await getMarket(date, home, away).catch(() => undefined);
