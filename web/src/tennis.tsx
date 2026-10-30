@@ -367,7 +367,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
               ))}
             </section>
           ) : (
-            <div className="cards" key={`${current}-${status}`}>
+            <div className="cards" key={`${current}-${status}`} style={{ '--w': tennisNameWidth(shown).toFixed(2) } as CSSProperties}>
               {shown.map((m, i) => (
                 <TennisCard key={m.id} m={m} sim={sims.get(m.id)} players={data.players} running={inRun(m.id)} i={i} />
               ))}
@@ -455,6 +455,22 @@ function Who({ m, side, players, sim, align, size = 'row' }: { m: SlateMatch; si
   );
 }
 
+/** Favori de la simulation et pile ou face. Pile ou face : calculé avec la règle de la fiche lors de la publication
+ * (index) ; pour une simulation indexée avant, la même règle sans la ligne de sets (favori à 80 % ou moins, ou outsider
+ * en hausse). */
+function favFlip(sim: SimIndex) {
+  const fav = sim.pHome >= 0.5 ? { n: sim.home, p: sim.pHome } : { n: sim.away, p: 1 - sim.pHome };
+  const dog = sim.pHome >= 0.5 ? sim.away : sim.home;
+  const flip = sim.flip ?? (sim.cat !== dog && (shown(fav.p) <= T_HEDGE_FIRST || sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up'));
+  return { fav, flip };
+}
+
+/** Nom de famille (tout après le prénom) : « De Minaur », « Auger-Aliassime ». */
+const lastName = (n: string) => n.split(' ').slice(1).join(' ') || n;
+
+/** Comme au basket : une seule taille de noms pour toutes les cartes, choisie pour que le plus long tienne. */
+export const tennisNameWidth = (ms: SlateMatch[]) => Math.max(5, ...ms.flatMap((m) => [lastName(m.home).length * 0.6, lastName(m.away).length * 0.6 + 1.3]));
+
 /** Pastille de simulation, comme au basket : chat noir, favori et son pourcentage ; « Calcul » pendant la journée. */
 function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
   if (running)
@@ -464,11 +480,7 @@ function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
       </span>
     );
   if (!sim) return <span className="conf-pill go">Simuler</span>;
-  const fav = sim.pHome >= 0.5 ? { n: sim.home, p: sim.pHome } : { n: sim.away, p: 1 - sim.pHome };
-  // Pile ou face : calculé avec la règle de la fiche lors de la publication (index) ; pour une simulation indexée avant,
-  // la même règle sans la ligne de sets (favori à 80 % ou moins, ou outsider en hausse).
-  const dog = sim.pHome >= 0.5 ? sim.away : sim.home;
-  const flip = sim.flip ?? (sim.cat !== dog && (shown(fav.p) <= T_HEDGE_FIRST || sim.trend?.[sim.pHome >= 0.5 ? 'away' : 'home'] === 'up'));
+  const { fav, flip } = favFlip(sim);
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
       <span className={`conf-pill sim${flip ? ' flip' : ''}`}>
@@ -496,22 +508,44 @@ function TennisRow({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimIn
   );
 }
 
+/** Carte de la grille, comme au basket : noms de famille en gros avec la photo, heure et tournoi en haut, favori et cotes en pied. */
 function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimIndex; players?: Record<string, PlayerCard>; running: boolean; i: number }) {
   const st = stateOf(m);
+  const round = roundOf(m.league);
+  const ff = sim && !running ? favFlip(sim) : undefined;
+  const who = (side: 'home' | 'away') => {
+    const name = m[side], c = players?.[name];
+    const lost = m.live?.winner && m.live.winner !== side;
+    return (
+      <p className={`card-a-team${lost ? ' t-lost' : ''}`}>
+        <Avatar name={name} photo={c?.atp ? atpHeadshot(c.atp) : undefined} alt={c?.wiki ?? undefined} size="row" />
+        <span className="card-a-name" title={name}>
+          {side === 'away' && <i>vs</i>}
+          {lastName(name)}
+        </span>
+        {st !== 'pre' && m.live && <span className="card-a-score mono">{setsWon(m.live, side)}</span>}
+      </p>
+    );
+  };
   return (
-    <Link href={`/tennis/match/${m.day}/${m.id}`} className="card t-card" style={{ '--i': i } as CSSProperties}>
-      <div className="card-top">
-        <span className="mono strong">{st === 'pre' || !m.live ? timeLocal(m.start) : `${setsWon(m.live, 'home')}-${setsWon(m.live, 'away')}`}</span>
-        <span className="muted small">{tourneyOf(m.league)}</span>
+    <Link href={`/tennis/match/${m.day}/${m.id}`} className="card card-a" style={{ '--i': i } as CSSProperties}>
+      <span className="card-a-top mono">
+        {st === 'pre' || !m.live ? timeLocal(m.start) : st === 'in' ? 'En direct' : 'Terminé'} · {tourneyOf(m.league)}
+        {round ? ` · ${ROUND_SHORT[round] ?? ROUND_FR[round] ?? round}` : ''}
+      </span>
+      <div className="card-a-t">
+        {who('home')}
+        {who('away')}
       </div>
-      <div className="card-vs">
-        <Who m={m} side="home" players={players} sim={sim} size="lg" />
-        <span className="card-x">VS</span>
-        <Who m={m} side="away" players={players} sim={sim} size="lg" />
-      </div>
-      <div className="card-foot">
-        <span>{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : 'Cotes à venir'}</span>
-        <TennisSimPill sim={sim} running={running} />
+      <div className="card-a-f">
+        {ff ? (
+          <span className={`card-a-p${ff.flip ? ' flip' : ''}`}>
+            {lastName(ff.fav.n)} {pct0(ff.fav.p)}
+          </span>
+        ) : (
+          <TennisSimPill sim={sim} running={running} />
+        )}
+        <span className="mono muted">{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : 'Cotes à venir'}</span>
       </div>
     </Link>
   );
