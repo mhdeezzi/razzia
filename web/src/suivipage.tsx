@@ -120,13 +120,9 @@ function SuiviSpace({ owner, legs }: { owner: string; legs: Leg[] }) {
   return (
     <div className="page">
       <header className="suivi-top">
-        <div>
-          <span className="caps">Mon suivi</span>
-          <h1>Suivi</h1>
-        </div>
-        <Stats tickets={tickets} />
+        <h1>Mon suivi</h1>
       </header>
-      <BalanceCurve tickets={tickets} />
+      <BilanLine tickets={tickets} />
       <div className="suivi-layout">
         <section className="suivi-main" aria-label="Mes tickets">
           <div className="suivi-tabs">
@@ -168,82 +164,81 @@ function SuiviSpace({ owner, legs }: { owner: string; legs: Leg[] }) {
   );
 }
 
-/** Courbe du bilan : gains et pertes cumulés ticket après ticket, au-dessus ou en dessous de zéro. */
-function BalanceCurve({ tickets }: { tickets?: Ticket[] }) {
-  const done = (tickets ?? []).filter((t) => t.status !== 'pending').sort((a, b) => (a.settled_at ?? a.created_at).localeCompare(b.settled_at ?? b.created_at));
-  if (done.length < 2) return null;
-  let run = 0;
-  const pts = [0, ...done.map((t) => (run += t.status === 'won' ? t.stake * t.odds - t.stake : -t.stake))];
-  const lo = Math.min(0, ...pts), hi = Math.max(0, ...pts);
-  const W = 600, H = 120, pad = 8;
-  const x = (i: number) => (i / (pts.length - 1)) * W;
-  const y = (v: number) => pad + ((hi - v) / (hi - lo || 1)) * (H - 2 * pad);
-  const line = pts.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const zero = y(0);
-  const up = run >= 0;
-  const day = (t: Ticket) => new Date(t.settled_at ?? t.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+/** Bénéfice d'un ticket réglé (remboursé : zéro). */
+const profitOf = (t: Ticket) => (t.status === 'won' ? gainOf(t) - t.stake : t.status === 'lost' ? -t.stake : 0);
+
+/**
+ * Ligne dédiée au bilan, sous le titre : bénéfice du mois, bénéfice depuis le début (et rendement), réussite, argent
+ * en jeu, et la courbe des gains cumulés ticket après ticket.
+ */
+function BilanLine({ tickets }: { tickets?: Ticket[] }) {
+  const s = useMemo(() => {
+    const done = (tickets ?? []).filter((t) => t.status !== 'pending').sort((a, b) => (a.settled_at ?? a.created_at).localeCompare(b.settled_at ?? b.created_at));
+    const month = new Date().toISOString().slice(0, 7);
+    const won = done.filter((t) => t.status === 'won').length;
+    const staked = done.reduce((x, t) => x + t.stake, 0);
+    const profit = done.reduce((x, t) => x + profitOf(t), 0);
+    const open = (tickets ?? []).filter((t) => t.status === 'pending');
+    let run = 0;
+    const pts = [0, ...done.map((t) => (run += profitOf(t)))];
+    return {
+      n: done.length, won, profit, roi: staked ? profit / staked : undefined, pts,
+      monthProfit: done.filter((t) => (t.settled_at ?? t.created_at).slice(0, 7) === month).reduce((x, t) => x + profitOf(t), 0),
+      inPlay: open.reduce((x, t) => x + t.stake, 0), open: open.length,
+    };
+  }, [tickets]);
+  const tone = (v: number) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
+  const monthName = new Date().toLocaleDateString('fr-FR', { month: 'long' });
   return (
-    <section className="curve" aria-label={`Bilan : ${signed(run)} sur ${done.length} tickets terminés`}>
-      <div className="curve-top">
-        <span className="caps">Mon bilan</span>
-        <b className={up ? 'up' : 'down'}>{signed(run)}</b>
-        <span className="muted small">sur {done.length} tickets terminés</span>
+    <section className="bilan-line" aria-label="Mon bilan">
+      <div>
+        <span>Bilan {/^[aeiou]/.test(monthName) ? 'd’' : 'de '}{monthName}</span>
+        <b className={tone(s.monthProfit)}>{signed(s.monthProfit)}</b>
+        <em>tickets réglés ce mois-ci</em>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img">
-        <defs>
-          <linearGradient id="curve-g" x1="0" y1="0" x2="0" y2={H} gradientUnits="userSpaceOnUse">
-            <stop offset={zero / H} stopColor="#3dd68c" stopOpacity="0.28" />
-            <stop offset={zero / H} stopColor="#e2232b" stopOpacity="0.28" />
-          </linearGradient>
-          <linearGradient id="curve-s" x1="0" y1="0" x2="0" y2={H} gradientUnits="userSpaceOnUse">
-            <stop offset={zero / H} stopColor="#3dd68c" />
-            <stop offset={zero / H} stopColor="#e2232b" />
-          </linearGradient>
-        </defs>
-        <polygon points={`0,${zero} ${line} ${W},${zero}`} fill="url(#curve-g)" />
-        <line x1="0" x2={W} y1={zero} y2={zero} className="curve-zero" />
-        <polyline points={line} className="curve-line" stroke="url(#curve-s)" />
-      </svg>
-      <div className="curve-axis mono">
-        <span>{day(done[0])}</span>
-        <span>{day(done[done.length - 1])}</span>
+      <div>
+        <span>Depuis le début</span>
+        <b className={tone(s.profit)}>{signed(s.profit)}</b>
+        <em>{s.roi != null ? `${s.roi > 0 ? '+' : ''}${Math.round(s.roi * 100)} % de rendement` : 'Aucun ticket terminé'}</em>
       </div>
+      <div>
+        <span>Réussite</span>
+        <b>{s.n ? `${Math.round((s.won / s.n) * 100)} %` : '-'}</b>
+        <em>
+          {s.won} gagné{s.won > 1 ? 's' : ''} sur {s.n}
+        </em>
+      </div>
+      <div>
+        <span>En jeu</span>
+        <b>{eur(s.inPlay)}</b>
+        <em>
+          {s.open} ticket{s.open > 1 ? 's' : ''} en cours
+        </em>
+      </div>
+      {s.pts.length > 2 && <Spark pts={s.pts} />}
     </section>
   );
 }
 
-/** Bilan des tickets terminés : bénéfice, réussite, mises, et ce qui est encore en jeu. */
-function Stats({ tickets }: { tickets?: Ticket[] }) {
-  const s = useMemo(() => {
-    const done = (tickets ?? []).filter((t) => t.status !== 'pending');
-    const won = done.filter((t) => t.status === 'won');
-    const staked = done.reduce((x, t) => x + t.stake, 0);
-    const back = won.reduce((x, t) => x + gainOf(t), 0);
-    const open = (tickets ?? []).filter((t) => t.status === 'pending');
-    return { n: done.length, won: won.length, profit: back - staked, staked, rate: done.length ? won.length / done.length : undefined, roi: staked ? (back - staked) / staked : undefined, inPlay: open.reduce((x, t) => x + t.stake, 0), open: open.length };
-  }, [tickets]);
+/** Courbe des gains cumulés : verte au-dessus de zéro, rouge en dessous. */
+function Spark({ pts }: { pts: number[] }) {
+  const lo = Math.min(0, ...pts), hi = Math.max(0, ...pts);
+  const W = 240, H = 56, pad = 4;
+  const x = (i: number) => (i / (pts.length - 1)) * W;
+  const y = (v: number) => pad + ((hi - v) / (hi - lo || 1)) * (H - 2 * pad);
+  const line = pts.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const zero = y(0);
   return (
-    <dl className="suivi-stats">
-      <div>
-        <dt>Bilan</dt>
-        <dd className={s.profit > 0 ? 'up' : s.profit < 0 ? 'down' : ''}>{signed(s.profit)}</dd>
-        <span>{s.roi != null ? `${s.roi > 0 ? '+' : ''}${Math.round(s.roi * 100)} % de ROI` : 'Aucun ticket terminé'}</span>
-      </div>
-      <div>
-        <dt>Réussite</dt>
-        <dd>{s.rate != null ? `${Math.round(s.rate * 100)} %` : '-'}</dd>
-        <span>
-          {s.won} gagné{s.won > 1 ? 's' : ''} sur {s.n}
-        </span>
-      </div>
-      <div>
-        <dt>En jeu</dt>
-        <dd>{eur(s.inPlay)}</dd>
-        <span>
-          {s.open} ticket{s.open > 1 ? 's' : ''} en cours
-        </span>
-      </div>
-    </dl>
+    <svg className="bilan-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Gains cumulés, ticket après ticket">
+      <defs>
+        <linearGradient id="spark-s" x1="0" y1="0" x2="0" y2={H} gradientUnits="userSpaceOnUse">
+          <stop offset={zero / H} stopColor="#3dd68c" />
+          <stop offset={zero / H} stopColor="#e2232b" />
+        </linearGradient>
+      </defs>
+      <line x1="0" x2={W} y1={zero} y2={zero} className="curve-zero" />
+      <polyline points={line} className="curve-line" stroke="url(#spark-s)" />
+    </svg>
   );
 }
 
@@ -263,7 +258,8 @@ function TicketPill({ state, ls }: { state: LegStatus; ls: LegStatus[] }) {
   if (state === 'won') return <span className="tk-st won" aria-label={label}>{n > 1 ? `${ok}/${n}` : ''}<ThumbsUp size={15} weight="fill" /></span>;
   if (state === 'lost') return <span className="tk-st lost" aria-label={label}>{n > 1 ? `${ok}/${n}` : ''}<ThumbsDown size={15} weight="fill" /></span>;
   if (state === 'void') return <span className="tk-st void" aria-label={label}>Remboursé<Prohibit size={14} weight="bold" /></span>;
-  if (state === 'live') return <span className="tk-st live" aria-label={label}><i />LIVE{n > 1 ? <b>{ok}/{n}</b> : null}</span>;
+  // LIVE seulement quand un match se joue ; sinon (sélections déjà gagnées, les autres à venir) : horloge jaune.
+  if (state === 'live' && ls.includes('live')) return <span className="tk-st live" aria-label={label}><i />LIVE{n > 1 ? <b>{ok}/{n}</b> : null}</span>;
   return <span className="tk-st wait" aria-label={label}>{wait}<Clock size={15} weight="fill" /></span>;
 }
 
@@ -288,30 +284,33 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
   return (
     <article className={`tk ${state}${isNew ? ' is-new' : ''}`} style={{ '--i': i } as CSSProperties}>
       <header className="tk-head">
-        <span className="tk-kind">
-          {t.kind === 'combine' ? <Stack size={16} /> : <TicketIcon size={16} />} {kindLabel(t)}
-        </span>
-        {isNew && <span className="tk-new">Nouveau</span>}
+        <span className="tk-kind">{t.kind === 'combine' ? `Combiné (${t.legs.length})` : 'Simple'}</span>
         <TicketPill state={state} ls={ls} />
+        {isNew && <span className="tk-new">Nouveau</span>}
       </header>
       <ol className="tk-legs">
         {t.legs.map((l, k) => (
           <li key={l.key} className={ls[k]}>
-            <LegMark s={ls[k]} />
+            <span className={`tk-sport ${l.sport}`}>{l.sport === 'nba' ? <Basketball size={22} weight="fill" /> : <TennisBall size={22} weight="fill" />}</span>
             <div className="tk-leg-main">
-              {demo ? (
-                <b>{l.title}</b>
-              ) : (
-                <Link href={l.path} className="tk-leg-t">
-                  {l.title}
-                </Link>
-              )}
-              <span>
-                {l.sport === 'nba' ? <Basketball size={13} /> : <TennisBall size={13} />} {l.match.awayName} – {l.match.homeName}
-                {!demo && ` · ${l.note ?? when(l.start)}`}
+              <span className="tk-comp">
+                {l.sport === 'nba' ? 'NBA' : 'ATP'} · {demo ? 'ce soir' : l.note ?? when(l.start)}
+              </span>
+              <b className="tk-match">
+                {l.match.awayName} - {l.match.homeName}
+              </b>
+              <span className="tk-bet">
+                {demo ? (
+                  <b>{l.title}</b>
+                ) : (
+                  <Link href={l.path} className="tk-leg-t">
+                    {l.title}
+                  </Link>
+                )}{' '}
+                <b className="mono">({ls[k] === 'void' ? '1,00' : l.odds ? dec(l.odds) : '-'})</b>
               </span>
             </div>
-            <span className="tk-odd mono">{ls[k] === 'void' ? '1,00' : l.odds ? dec(l.odds) : '-'}</span>
+            <LegMark s={ls[k]} />
           </li>
         ))}
       </ol>
@@ -331,7 +330,7 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
           <b>{dec(t.odds)}</b>
         </div>
         <div className="tk-gain">
-          <span>{state === 'won' ? 'Gain' : state === 'lost' ? 'Résultat' : 'Gain potentiel'}</span>
+          <span>{state === 'won' ? 'Gain' : state === 'lost' ? 'Résultat' : 'Gain possible'}</span>
           <b className={state}>{state === 'lost' ? signed(-t.stake) : eur(gainOf(t))}</b>
         </div>
         {!demo && owner && (
