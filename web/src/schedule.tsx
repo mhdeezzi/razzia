@@ -6,6 +6,7 @@ import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemSta
 import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
 import { flipP } from './picks.ts';
 import { nbaHype } from './hype.ts';
+import { PublicRecord } from './record.tsx';
 
 type Status = 'pre' | 'in' | 'post';
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -80,6 +81,7 @@ export function SchedulePage({ day }: { day: string | null }) {
           ]}
         />
       </PageHero>
+      <PublicRecord sport="nba" />
 
       {error && (
         <Empty title="Le programme n'a pas pu être chargé.">

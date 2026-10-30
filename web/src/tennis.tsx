@@ -6,6 +6,7 @@ import { Callout, Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgr
 import { PickOdds, PickTabs } from './results.tsx';
 import { MoneyFlow } from './money.tsx';
 import { WarpBg } from './shaders.tsx';
+import { PublicRecord } from './record.tsx';
 import { atpHype } from './hype.ts';
 import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
@@ -277,6 +278,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
           ]}
         />
       </PageHero>
+      <PublicRecord sport="atp" />
 
       {error && (
         <Empty title="Le programme n'a pas pu être chargé.">

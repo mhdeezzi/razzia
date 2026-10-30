@@ -10,6 +10,7 @@ interface BookRow {
   title: string;
   home?: number;
   away?: number;
+  spread?: { point: number; home: number; away: number };
 }
 interface BookGame {
   home: string;
@@ -25,7 +26,7 @@ interface Cotes {
 }
 
 let cotes: Promise<Cotes> | undefined;
-function loadCotes(): Promise<Cotes> {
+export function loadCotes(): Promise<Cotes> {
   cotes ??= fetch('/api/cotes')
     .then(async (r) => {
       const j = await r.json().catch(() => ({}));
@@ -109,4 +110,32 @@ export function BookOdds({ g }: { g: Game }) {
       </div>
     </section>
   );
+}
+
+/**
+ * Meilleure cote française d'un pari du ticket (vainqueur, ou handicap à la même ligne), parmi Betclic, Unibet,
+ * Winamax, Parions Sport, NetBet et PMU. Basket seulement ; rien quand le comparateur n'a pas le match.
+ */
+export function bestFrench(c: Cotes | undefined, l: { sport: string; match: { homeName: string; awayName: string }; bet: { kind: string; side: 'home' | 'away'; line?: number } }) {
+  if (!c || l.sport !== 'nba' || (l.bet.kind !== 'win' && l.bet.kind !== 'spread')) return undefined;
+  const g = c.games?.find((x) => x.home.endsWith(l.match.homeName) && x.away.endsWith(l.match.awayName));
+  if (!g) return undefined;
+  let best: { odds: number; book: string } | undefined;
+  for (const b of g.books) {
+    if (b.key === 'pinnacle') continue;
+    let o: number | undefined;
+    if (l.bet.kind === 'win') o = b[l.bet.side];
+    else if (b.spread && l.bet.line != null && Math.abs((l.bet.side === 'home' ? b.spread.point : -b.spread.point) - l.bet.line) < 0.01) o = b.spread[l.bet.side];
+    if (o && (!best || o > best.odds)) best = { odds: o, book: b.title };
+  }
+  return best;
+}
+
+/** Comparateur chargé une fois (cache 10 minutes côté serveur). */
+export function useCotes(): Cotes | undefined {
+  const [c, setC] = useState<Cotes>();
+  useEffect(() => {
+    void loadCotes().then(setC);
+  }, []);
+  return c;
 }

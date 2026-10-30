@@ -1,6 +1,6 @@
 // Bouton « Suivre » d'un pari (fiche de match, En feu ce soir) : l'ajoute au ticket en préparation ou l'en retire. Quand
 // on complète un ticket simple, il devient « Compléter le ticket » : le pari rejoint ce ticket, même mise, cote du moment.
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { Check, Plus } from '@phosphor-icons/react';
 import { useAuth } from './auth.ts';
 import { freshOdds } from './liveodds.ts';
@@ -48,7 +48,11 @@ export function FollowBtn({ leg, small }: { leg: () => Leg; small?: boolean }) {
     );
   }
   const on = legs.some((l) => l.key === l0.key);
-  const toggle = () => (on ? slip.remove(l0.key) : slip.add({ ...l0, at: new Date().toISOString() }));
+  const toggle = (e: MouseEvent<HTMLButtonElement>) => {
+    if (on) return slip.remove(l0.key);
+    slip.add({ ...l0, at: new Date().toISOString() });
+    flyToSuivi(e.currentTarget);
+  };
   return (
     <span className="follow">
       <button className={`btn glass follow-btn${on ? ' is-on' : ''}${small ? ' sm' : ''}`} onClick={toggle}>
@@ -61,4 +65,32 @@ export function FollowBtn({ leg, small }: { leg: () => Leg; small?: boolean }) {
       )}
     </span>
   );
+}
+
+/** Ajout au ticket : un point vert part du bouton et file jusqu'au bouton Suivi de la barre du haut, qui rebondit. */
+function flyToSuivi(from: HTMLElement) {
+  const to = document.querySelector<HTMLElement>('.top-suivi');
+  if (!to || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+  const dot = document.createElement('span');
+  dot.className = 'fly-dot';
+  dot.style.left = `${a.left + a.width / 2 - 7}px`;
+  dot.style.top = `${a.top + a.height / 2 - 7}px`;
+  document.body.appendChild(dot);
+  const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
+  // Trajet en arc : un peu de hauteur à mi-chemin, puis le point rétrécit en arrivant.
+  const anim = dot.animate(
+    [
+      { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+      { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 60}px) scale(0.9)`, opacity: 1, offset: 0.5 },
+      { transform: `translate(${dx}px, ${dy}px) scale(0.35)`, opacity: 0.6 },
+    ],
+    { duration: 560, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' },
+  );
+  anim.onfinish = () => {
+    dot.remove();
+    to.classList.remove('bump');
+    void to.offsetWidth;
+    to.classList.add('bump');
+  };
 }

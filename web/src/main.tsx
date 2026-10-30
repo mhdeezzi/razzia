@@ -69,7 +69,6 @@ function App() {
       <footer className="foot">
         <div className="foot-brand">
           <img src={logo} alt="Razzia" width={1200} height={645} />
-          <p className="foot-tag">sports analysis specialist</p>
         </div>
         <div className="foot-text">
           <p>

@@ -2,7 +2,7 @@
 // ou en combiné avec une mise, les tickets en cours et terminés (chaque sélection cochée quand elle passe), le bilan.
 // Réservée aux comptes : les tickets sont enregistrés dans le compte. Sans compte, la page invite à se connecter.
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, Basketball, ChartLineUp, Check, CheckCircle, Lightning, ListChecks, Minus, Plus, Stack, TennisBall, Ticket as TicketIcon, Trash, X } from '@phosphor-icons/react';
+import { ArrowDown, ArrowRight, ArrowUp, Basketball, ChartLineUp, Check, CheckCircle, Lightning, ListChecks, Minus, Plus, ShareNetwork, Stack, TennisBall, Ticket as TicketIcon, Trash, X } from '@phosphor-icons/react';
 import { useAuth } from './auth.ts';
 import { supabase } from './supabase.ts';
 import {
@@ -10,6 +10,8 @@ import {
   type Leg, type LegStatus, type SettleEvent, type Ticket,
 } from './suivi.ts';
 import { freshOdds, moved } from './liveodds.ts';
+import { shareTicket, type ShareFormat } from './share.ts';
+import { bestFrench, useCotes } from './books.tsx';
 import { toast } from './toast.tsx';
 import { Empty, Link, navigate, Segmented } from './ui.tsx';
 import { WarpBg } from './shaders.tsx';
@@ -124,6 +126,7 @@ function SuiviSpace({ owner, legs }: { owner: string; legs: Leg[] }) {
         </div>
         <Stats tickets={tickets} />
       </header>
+      <BalanceCurve tickets={tickets} />
       <div className="suivi-layout">
         <section className="suivi-main" aria-label="Mes tickets">
           <div className="suivi-tabs">
@@ -162,6 +165,50 @@ function SuiviSpace({ owner, legs }: { owner: string; legs: Leg[] }) {
         <BetSlip owner={owner} legs={legs} onPlaced={() => setTab('open')} />
       </div>
     </div>
+  );
+}
+
+/** Courbe du bilan : gains et pertes cumulés ticket après ticket, au-dessus ou en dessous de zéro. */
+function BalanceCurve({ tickets }: { tickets?: Ticket[] }) {
+  const done = (tickets ?? []).filter((t) => t.status !== 'pending').sort((a, b) => (a.settled_at ?? a.created_at).localeCompare(b.settled_at ?? b.created_at));
+  if (done.length < 2) return null;
+  let run = 0;
+  const pts = [0, ...done.map((t) => (run += t.status === 'won' ? t.stake * t.odds - t.stake : -t.stake))];
+  const lo = Math.min(0, ...pts), hi = Math.max(0, ...pts);
+  const W = 600, H = 120, pad = 8;
+  const x = (i: number) => (i / (pts.length - 1)) * W;
+  const y = (v: number) => pad + ((hi - v) / (hi - lo || 1)) * (H - 2 * pad);
+  const line = pts.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const zero = y(0);
+  const up = run >= 0;
+  const day = (t: Ticket) => new Date(t.settled_at ?? t.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  return (
+    <section className="curve" aria-label={`Bilan : ${signed(run)} sur ${done.length} tickets terminés`}>
+      <div className="curve-top">
+        <span className="caps">Mon bilan</span>
+        <b className={up ? 'up' : 'down'}>{signed(run)}</b>
+        <span className="muted small">sur {done.length} tickets terminés</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img">
+        <defs>
+          <linearGradient id="curve-g" x1="0" y1="0" x2="0" y2={H} gradientUnits="userSpaceOnUse">
+            <stop offset={zero / H} stopColor="#3dd68c" stopOpacity="0.28" />
+            <stop offset={zero / H} stopColor="#e2232b" stopOpacity="0.28" />
+          </linearGradient>
+          <linearGradient id="curve-s" x1="0" y1="0" x2="0" y2={H} gradientUnits="userSpaceOnUse">
+            <stop offset={zero / H} stopColor="#3dd68c" />
+            <stop offset={zero / H} stopColor="#e2232b" />
+          </linearGradient>
+        </defs>
+        <polygon points={`0,${zero} ${line} ${W},${zero}`} fill="url(#curve-g)" />
+        <line x1="0" x2={W} y1={zero} y2={zero} className="curve-zero" />
+        <polyline points={line} className="curve-line" stroke="url(#curve-s)" />
+      </svg>
+      <div className="curve-axis mono">
+        <span>{day(done[0])}</span>
+        <span>{day(done[done.length - 1])}</span>
+      </div>
+    </section>
   );
 }
 
@@ -214,6 +261,12 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
   const state: LegStatus = t.status === 'won' || t.status === 'lost' ? t.status : ticketState(ls);
   const okN = ls.filter((s) => s === 'won' || s === 'void').length;
   const [confirm, setConfirm] = useState(false);
+  const [share, setShare] = useState(false);
+  const doShare = async (f: ShareFormat) => {
+    setShare(false);
+    const r = await shareTicket(t, live, f).catch((e) => console.error('partage', e));
+    if (r === 'downloaded') toast({ tone: 'info', title: 'Image enregistrée', text: f === 'story' ? 'Ajoute-la à ta story Instagram.' : 'Joins-la au post X qui vient de s’ouvrir.' });
+  };
   // Compléter : un ticket simple encore en cours devient un combiné, avec la même mise.
   const canComplete = !demo && owner && t.kind === 'simple' && t.status === 'pending' && (state === 'pending' || state === 'live');
   const complete = () => {
@@ -271,6 +324,23 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
         </div>
         {!demo && owner && (
           <div className="tk-actions">
+            {!confirm && (
+              <span className="tk-share">
+                <button className="tk-del icon" onClick={() => setShare(!share)} aria-label="Partager le ticket" title="Partager en image (Instagram, X)" aria-expanded={share}>
+                  <ShareNetwork size={15} />
+                </button>
+                {share && (
+                  <span className="tk-share-menu" role="menu">
+                    <button role="menuitem" onClick={() => void doShare('story')}>
+                      Story Instagram
+                    </button>
+                    <button role="menuitem" onClick={() => void doShare('post')}>
+                      Post X
+                    </button>
+                  </span>
+                )}
+              </span>
+            )}
             {canComplete && !confirm && (
               <button className="tk-del tk-more" onClick={complete} title="Ajouter un pari d'un autre match : le ticket devient un combiné, même mise">
                 <Plus size={14} weight="bold" /> Compléter
@@ -308,6 +378,7 @@ function BetSlip({ owner, legs, onPlaced }: { owner: string; legs: Leg[]; onPlac
   const [busy, setBusy] = useState(false);
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [checking, setChecking] = useState(false);
+  const cotes = useCotes();
   useEffect(() => {
     if (legs.length < 2 && kind === 'combine') setKind('simple');
   }, [legs.length]);
@@ -405,7 +476,7 @@ function BetSlip({ owner, legs, onPlaced }: { owner: string; legs: Leg[]; onPlac
           />
           <ul className="slip-legs">
             {legs.map((l) => (
-              <SlipLeg key={l.key} l={l} clash={combine && clash.has(matchKey(l))} shut={closed.has(l.key)} stake={combine ? undefined : stake} />
+              <SlipLeg key={l.key} l={l} clash={combine && clash.has(matchKey(l))} shut={closed.has(l.key)} stake={combine ? undefined : stake} best={bestFrench(cotes, l)} />
             ))}
           </ul>
           {combine && clash.size > 0 && <p className="slip-warn">Deux paris du même match ne peuvent pas être combinés. Retire-en un ou passe en simple.</p>}
@@ -460,7 +531,7 @@ function BetSlip({ owner, legs, onPlaced }: { owner: string; legs: Leg[]; onPlac
   );
 }
 
-function SlipLeg({ l, clash, shut, stake }: { l: Leg; clash: boolean; shut: boolean; stake?: number }) {
+function SlipLeg({ l, clash, shut, stake, best }: { l: Leg; clash: boolean; shut: boolean; stake?: number; best?: { odds: number; book: string } }) {
   const up = l.was != null && l.odds != null && l.odds > l.was;
   const down = l.was != null && l.odds != null && l.odds < l.was;
   return (
@@ -474,6 +545,11 @@ function SlipLeg({ l, clash, shut, stake }: { l: Leg; clash: boolean; shut: bool
         </span>
         {shut && <span className="slip-leg-shut">Match commencé ou plus proposé</span>}
         {!shut && stake != null && stake > 0 && l.odds && <span className="slip-leg-g">Gain potentiel {eur(stake * l.odds)}</span>}
+        {!shut && best && (
+          <span className={`slip-leg-best${l.odds && best.odds > l.odds ? ' up' : ''}`}>
+            Meilleure cote en France : <b>{dec(best.odds)}</b> chez {best.book}
+          </span>
+        )}
       </div>
       <span className={`slip-odd${up ? ' up' : down ? ' down' : ''}`} title={l.fair ? 'Cote juste Razzia (aucune cote publiée)' : 'Cote du moment'}>
         <span>{l.fair ? 'Cote juste' : 'Cote'}</span>
