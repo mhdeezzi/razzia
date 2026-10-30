@@ -38,7 +38,6 @@
   --c-wait: #f8b230;
   --c-live: #ec4d6b;
   --c-void: #8b8f94;
-  --c-feu-gold: #d1a032; /* « En feu ce soir » : or profond, sans éclat blanc */
   /* Camps d'un match dans les graphiques : bleu vif (extérieur, ou favori), rouge vif (domicile). */
   --blue: #3d8bff;
   --cyan: #35d0f2;
@@ -661,9 +660,9 @@ a.row:hover .mark { transform: scale(1.06); }
 .feu-name { font-weight: 650; font-size: 15px; line-height: 1.25; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .feu-team { font-size: 12.5px; color: var(--text-3); }
 .feu-lab { margin-top: 18px; font: 600 10.5px var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
-.feu-p { margin-top: 6px; font: 600 34px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.04em; color: var(--c-feu-gold); }
+.feu-p { margin-top: 6px; font: 600 34px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.04em; color: #fff; }
 .feu-meter { height: 3px; margin-top: 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
-.feu-meter span { display: block; height: 100%; border-radius: inherit; background: var(--c-feu-gold); transform-origin: left; animation: grow 0.28s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms + 80ms); }
+.feu-meter span { display: block; height: 100%; border-radius: inherit; background: #f4f4f2; transform-origin: left; animation: grow 0.28s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms + 80ms); }
 .feu-why { margin-top: 12px; font-size: 12.5px; color: var(--text-3); }
 /* Téléphone : une case par ligne, les trois premiers joueurs seulement. */
 @media (max-width: 720px) { .feu { grid-template-columns: minmax(0, 1fr); } .feu-card:nth-child(n + 4) { display: none; } }
@@ -1636,3 +1635,26 @@ body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
 main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 @keyframes page-in { from { opacity: 0.35; } }
 @media (prefers-reduced-motion: reduce) { .warp-in, main > .page { animation: none; } }
+
+/* Essai : couleurs des équipes en marbre animé sur la fiche de match NBA. Le rond prend le marbre de l'équipe concernée
+   (arc découpé dans le shader de l'en-tête) ; les barres de stats prennent un marbre CSS aux couleurs de chaque camp. */
+@property --p { syntax: '<number>'; inherits: true; initial-value: 0; }
+.ring-marble { transition: --p 1.3s var(--ease); }
+.ring-marble .ring-val { stroke: transparent; filter: none; }
+.ring-marble .ring-num { color: var(--c); }
+.ring-warp { position: absolute; inset: 14px; z-index: 0; isolation: isolate; border-radius: 50%; overflow: hidden;
+  -webkit-mask: conic-gradient(#000 calc(var(--p) * 360deg), transparent 0), radial-gradient(closest-side, transparent 80.5%, #000 81.5%, #000 95.5%, transparent 96.5%);
+  -webkit-mask-composite: source-in; mask: conic-gradient(#000 calc(var(--p) * 360deg), transparent 0), radial-gradient(closest-side, transparent 80.5%, #000 81.5%, #000 95.5%, transparent 96.5%); mask-composite: intersect; }
+.ring-sm .ring-warp { inset: 10px; }
+.team-marble :is(.split-bar span, .duel-bar span:not(.dim), .oc-bar span, .ladder-bar span) {
+  background: linear-gradient(105deg, color-mix(in srgb, var(--k) 38%, #000) 0%, var(--k) 26%, color-mix(in srgb, var(--k) 55%, #fff) 42%, var(--k) 58%, color-mix(in srgb, var(--k) 38%, #000) 82%, var(--k) 100%);
+  background-size: 260% 100%; box-shadow: 0 0 8px color-mix(in srgb, var(--k) 45%, transparent);
+  animation-name: grow, marble-pan; animation-duration: 0.9s, 7s; animation-timing-function: var(--ease), ease-in-out; animation-iteration-count: 1, infinite; animation-direction: normal, alternate; animation-fill-mode: both, none; }
+.team-marble .split-bar span:first-child, .team-marble .duel-bar .a { --k: var(--team-a); }
+.team-marble .split-bar span:last-child, .team-marble .duel-bar .h { --k: var(--team-h); }
+.team-marble .oc-bar span, .team-marble .ladder-bar span { --k: var(--fav); }
+.team-marble .split-bar span:not(.is-fav) { opacity: 0.4; box-shadow: none; }
+@keyframes marble-pan { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+@media (prefers-reduced-motion: reduce) { .team-marble :is(.split-bar span, .duel-bar span, .oc-bar span, .ladder-bar span) { animation: none; } }
+.ring-marble .ring-warp { z-index: 1; }
+.ring-marble .ring-num { z-index: 2; }

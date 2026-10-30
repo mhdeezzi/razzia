@@ -6,12 +6,12 @@ import { starsOut } from './stars.ts';
 import type { Leg } from './suivi.ts';
 import { FollowBtn } from './follow.tsx';
 import { MoneyFlow } from './money.tsx';
-import { line, matchPath, n1, noVig, pct, pct0, type Game, type Result } from './data.ts';
+import { line, matchPath, n1, noVig, pct, pct0, teamColor, type Game, type Result } from './data.ts';
 import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
-import { Callout, Link, Ring, Segmented, TeamMark } from './ui.tsx';
+import { Callout, glow, Link, Ring, Segmented, TeamMark } from './ui.tsx';
 import { HotStrip, LineupNotice } from './hot.tsx';
 
 type Dist = Result['margin'];
@@ -19,8 +19,15 @@ const range = (d: Dist) => `${Math.round(d.p10)}-${Math.round(d.p90)}`;
 const pctInt = (v: number) => `${Math.round(v * 100)} %`;
 
 export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRelaunch: () => void; busy: boolean }) {
+  // Couleurs des équipes, comme le marbre de l'en-tête : barres de stats et ronds animés aux couleurs des camps.
+  const pH = r.market?.blendedHome ?? r.pHome;
+  const marble = {
+    '--team-a': glow(teamColor(g.away)),
+    '--team-h': glow(teamColor(g.home)),
+    '--fav': glow(teamColor(pH >= 0.5 ? g.home : g.away)),
+  } as CSSProperties;
   return (
-    <div className="results">
+    <div className="results team-marble" style={marble}>
       <div className="res-head">
         <span className="slash">{r.n.toLocaleString('fr-FR')} matchs simulés</span>
       </div>
@@ -176,7 +183,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
     <section className={`verdict verdict-${c.tier}`}>
       {win?.warn && <span className={`odds-warn verdict-warn${win.warn === 'Risqué' ? ' risky' : ''}`}>{win.warn}</span>}
       <div className="verdict-ring">
-        <Ring value={pFav} format={pctInt} label="Victoire" />
+        <Ring value={pFav} format={pctInt} label="Victoire" marble={glow(teamColor(fav))} />
       </div>
       <div>
         <span className="caps">Favori Razzia</span>
@@ -369,7 +376,7 @@ function OutcomeCard({ o, n, ctx }: { o: Outcome; n: number; ctx?: MatchCtx }) {
     <article className="pick">
       {o.warn && <span className={`pick-warn${o.warn === 'Risqué' ? ' risky' : ''}`}>{o.warn}</span>}
       {!o.warn && o.safe && <span className="pick-warn safe">{o.safe}</span>}
-      <Ring value={o.p} format={pctInt} label="Fréquence" />
+      <Ring value={o.p} format={pctInt} label="Fréquence" marble={o.who?.tri ? glow(teamColor({ tri: o.who.tri, color: o.who.color })) : undefined} />
       <div>
         <h4>
           {o.who && <PickWho who={o.who} />}
