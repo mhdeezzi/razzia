@@ -61,7 +61,7 @@ function App() {
     );
   return (
     <>
-      <TopBar path={path} />
+      <TopBar />
       <TicketWatcher />
       <main>{page}</main>
       <SlipBar path={path} />

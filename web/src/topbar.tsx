@@ -4,10 +4,11 @@ import { useRef } from 'react';
 import { Basketball, ListChecks, SoccerBall, TennisBall, UserCircle } from '@phosphor-icons/react';
 import { useSlip } from './suivi.ts';
 import { useUnseen } from './suivipage.tsx';
-import { Link, useSlider } from './ui.tsx';
+import { Link, useNowPath, useSlider } from './ui.tsx';
 import logo from './assets/razzia-logo.webp';
 
-export function TopBar({ path }: { path: string }) {
+export function TopBar() {
+  const path = useNowPath();
   // Suivi et Compte ne sont d'aucun sport : aucun sport allumé, c'est leur bouton qui l'est.
   const own = path === '/suivi' || path === '/compte';
   const tennis = path.startsWith('/tennis');

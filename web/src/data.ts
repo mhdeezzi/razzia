@@ -111,11 +111,14 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
 // Programme gardé 5 minutes dans l'onglet (blessures, cotes et scores bougent pendant la soirée).
 let programme: Promise<Programme> | undefined;
 let programmeAt = 0;
+let programmeLast: Programme | undefined;
+/** Dernier programme reçu, pour afficher la page tout de suite au retour (il est relu en arrière-plan). */
+export const programmeCached = () => programmeLast;
 export function loadProgramme(): Promise<Programme> {
   if (programme && Date.now() - programmeAt > 5 * 60_000) programme = undefined;
   if (!programme) {
     programmeAt = Date.now();
-    programme = getJson<Programme>('/api/games?days=7').catch((e) => {
+    programme = getJson<Programme>('/api/games?days=7').then((p) => (programmeLast = p)).catch((e) => {
       programme = undefined;
       throw e;
     });
@@ -138,11 +141,14 @@ export interface SimEntry {
   injured?: Array<{ side: 'home' | 'away'; name: string }>; // stars du cinq de départ absentes (avertissement)
 }
 let sims: Promise<Map<string, SimEntry>> | undefined;
+let simsLast: Map<string, SimEntry> | undefined;
+/** Dernière liste des simulations reçue (même usage que programmeCached). */
+export const simsCached = () => simsLast;
 /** `bust` contourne le cache du CDN (20 s) : sert juste après une publication. */
 export function listSims(fresh = false, bust = false): Promise<Map<string, SimEntry>> {
   if (fresh || !sims)
     sims = getJson<{ sims: SimEntry[] }>(`/api/sim?list=1${bust ? `&v=${Date.now()}` : ''}`)
-      .then((j) => new Map(j.sims.map((e) => [e.dir, e])))
+      .then((j) => (simsLast = new Map(j.sims.map((e) => [e.dir, e]))))
       .catch(() => new Map());
   return sims;
 }

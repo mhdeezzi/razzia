@@ -1,24 +1,47 @@
 // Briques partagées : navigation, pastille d'équipe, onglets à curseur glissant, anneau de probabilité, compteur animé.
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from 'react';
+import { startTransition, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import { CalendarBlank, Check } from '@phosphor-icons/react';
 import { teamColor, teamLogo, type Team } from './data.ts';
 import { WarpBg } from './shaders.tsx';
 
+// Retour en haut demandé par un clic : fait au moment où la nouvelle page s'affiche (pas avant, sur l'ancienne).
+let scrollTop = false;
+
 export function navigate(to: string): void {
   history.pushState(null, '', to);
+  scrollTop = true;
   dispatchEvent(new PopStateEvent('popstate'));
-  window.scrollTo({ top: 0 });
 }
 
+/**
+ * Adresse courante. Le changement de page est une transition React : l'ancienne page reste vivante (boutons
+ * réactifs) pendant que la nouvelle se prépare par petits morceaux, au lieu de figer l'écran le temps du calcul.
+ */
 export function useLocation(): { path: string; search: URLSearchParams } {
   const [loc, setLoc] = useState(() => location.pathname + location.search);
   useEffect(() => {
-    const on = () => setLoc(location.pathname + location.search);
+    const on = () => startTransition(() => setLoc(location.pathname + location.search));
     addEventListener('popstate', on);
     return () => removeEventListener('popstate', on);
   }, []);
+  useLayoutEffect(() => {
+    if (!scrollTop) return;
+    scrollTop = false;
+    window.scrollTo({ top: 0 });
+  }, [loc]);
   const u = new URL(loc, location.origin);
   return { path: u.pathname, search: u.searchParams };
+}
+
+/** Chemin courant mis à jour tout de suite (sans transition) : la barre du haut s'allume dès le clic. */
+export function useNowPath(): string {
+  const [p, setP] = useState(() => location.pathname);
+  useEffect(() => {
+    const on = () => setP(location.pathname);
+    addEventListener('popstate', on);
+    return () => removeEventListener('popstate', on);
+  }, []);
+  return p;
 }
 
 export function Link({ href, className, children, replace, style, ...aria }: {
