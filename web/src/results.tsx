@@ -1,6 +1,7 @@
 // Résultats des 25 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useContext, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { SideColors } from './flags.ts';
 import { ArrowsLeftRight, Check, FirstAid, Plus, Scales, ShieldCheck } from '@phosphor-icons/react';
 import { starsOut } from './stars.ts';
 import type { Leg } from './suivi.ts';
@@ -18,16 +19,17 @@ type Dist = Result['margin'];
 const range = (d: Dist) => `${Math.round(d.p10)}-${Math.round(d.p90)}`;
 const pctInt = (v: number) => `${Math.round(v * 100)} %`;
 
+/** Variables CSS des couleurs des deux camps (équipes ou joueurs) : marbre des ronds, barres, graphiques, cartes de tir. */
+export const marbleVars = (c: { home: string; away: string }, homeFav: boolean) =>
+  ({ '--team-a': c.away, '--team-h': c.home, '--fav': homeFav ? c.home : c.away }) as CSSProperties;
+
 export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRelaunch: () => void; busy: boolean }) {
   // Couleurs des équipes, comme le marbre de l'en-tête : barres de stats et ronds animés aux couleurs des camps.
   const pH = r.market?.blendedHome ?? r.pHome;
-  const marble = {
-    '--team-a': glow(teamColor(g.away)),
-    '--team-h': glow(teamColor(g.home)),
-    '--fav': glow(teamColor(pH >= 0.5 ? g.home : g.away)),
-  } as CSSProperties;
+  const sides = useMemo(() => ({ home: glow(teamColor(g.home)), away: glow(teamColor(g.away)) }), [g]);
   return (
-    <div className="results team-marble" style={marble}>
+    <SideColors.Provider value={sides}>
+    <div className="results team-marble" style={marbleVars(sides, pH >= 0.5)}>
       <div className="res-head">
         <span className="slash">{r.n.toLocaleString('fr-FR')} matchs simulés</span>
       </div>
@@ -62,6 +64,7 @@ export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRela
         Les probabilités décrivent le modèle, pas une certitude : à confronter aux annonces de dernière minute. Jouer comporte des risques.
       </p>
     </div>
+    </SideColors.Provider>
   );
 }
 
@@ -372,11 +375,12 @@ function FollowButton({ o, ctx }: { o: Outcome; ctx: MatchCtx }) {
 }
 
 function OutcomeCard({ o, n, ctx }: { o: Outcome; n: number; ctx?: MatchCtx }) {
+  const sides = useContext(SideColors);
   return (
     <article className="pick">
       {o.warn && <span className={`pick-warn${o.warn === 'Risqué' ? ' risky' : ''}`}>{o.warn}</span>}
       {!o.warn && o.safe && <span className="pick-warn safe">{o.safe}</span>}
-      <Ring value={o.p} format={pctInt} label="Fréquence" marble={o.who?.tri ? glow(teamColor({ tri: o.who.tri, color: o.who.color })) : undefined} />
+      <Ring value={o.p} format={pctInt} label="Fréquence" marble={(o.bet && sides?.[o.bet.side]) ?? (o.who?.tri ? glow(teamColor({ tri: o.who.tri, color: o.who.color })) : undefined)} />
       <div>
         <h4>
           {o.who && <PickWho who={o.who} />}
