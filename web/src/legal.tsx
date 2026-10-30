@@ -37,7 +37,7 @@ export const LEGAL: Record<string, { title: string; body: ReactNode }> = {
         <h2>Objet</h2>
         <p>Les présentes conditions encadrent l'utilisation du site Razzia et de ses services : programme, simulations, suivi des paris, bilan.</p>
         <h2>Accès</h2>
-        <p>L'accès est réservé aux personnes majeures. Certaines fonctions demandent un compte, créé avec une adresse e-mail valide ou un compte Google ou Apple.</p>
+        <p>L'accès est réservé aux personnes majeures. Certaines fonctions demandent un compte, créé avec une adresse e-mail valide ou un compte Google.</p>
         <h2>Nature des informations</h2>
         <p>
           Les simulations et probabilités sont fournies à titre informatif. Elles ne constituent ni un conseil financier ni une garantie de résultat. L'utilisateur reste seul
@@ -83,7 +83,7 @@ export const LEGAL: Record<string, { title: string; body: ReactNode }> = {
       <>
         <h2>Données collectées</h2>
         <p>
-          Adresse e-mail et identifiant de connexion (dont Google ou Apple si tu les utilises), tickets suivis (paris, mises, cotes, résultats), et, une fois les abonnements
+          Adresse e-mail et identifiant de connexion (dont Google si tu l'utilises), tickets suivis (paris, mises, cotes, résultats), et, une fois les abonnements
           ouverts, les informations de facturation tenues par le prestataire de paiement.
         </p>
         <h2>Pourquoi</h2>

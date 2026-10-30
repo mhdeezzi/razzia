@@ -48,7 +48,11 @@ async function atpRecord(): Promise<Record> {
 export function PublicRecord({ sport }: { sport: 'nba' | 'atp' }) {
   const [rec, setRec] = useState<Record>();
   useEffect(() => {
-    (sport === 'nba' ? nbaRecord() : atpRecord()).then(setRec, () => setRec({ rows: [] }));
+    // Relu toutes les 5 minutes tant que la page reste ouverte (le bilan est recalculé tous les quarts d'heure).
+    const load = () => (sport === 'nba' ? nbaRecord() : atpRecord()).then(setRec, () => setRec((r) => r ?? { rows: [] }));
+    void load();
+    const t = setInterval(load, 5 * 60_000);
+    return () => clearInterval(t);
   }, [sport]);
   if (!rec || rec.rows.length < 5) return null;
   const won = rec.rows.filter((r) => r.won).length;

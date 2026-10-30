@@ -649,12 +649,12 @@ a.row:hover .mark { transform: scale(1.06); }
 .feu-photo { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--tc) 30%, #0b0b0d); }
 .feu-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 10%; }
 .feu-face > .mark { position: absolute; right: -5px; bottom: -3px; width: 20px; height: 20px; box-shadow: 0 0 0 2px #000; }
-.feu-name { font-weight: 650; font-size: 15px; line-height: 1.25; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feu-name { color: var(--c-gold); font-weight: 650; font-size: 15px; line-height: 1.25; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .feu-team { font-size: 12.5px; color: var(--text-3); }
 .feu-lab { margin-top: 18px; font: 600 10.5px var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
-.feu-p { margin-top: 6px; font: 600 34px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.04em; color: #fff; }
+.feu-p { margin-top: 6px; font: 600 34px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.04em; color: var(--c-gold); }
 .feu-meter { height: 3px; margin-top: 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
-.feu-meter span { display: block; height: 100%; border-radius: inherit; background: #f4f4f2; transform-origin: left; animation: grow 0.28s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms + 80ms); }
+.feu-meter span { display: block; height: 100%; border-radius: inherit; background: var(--c-gold); transform-origin: left; animation: grow 0.28s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms + 80ms); }
 .feu-why { margin-top: 12px; font-size: 12.5px; color: var(--text-3); }
 /* Téléphone : une case par ligne, les trois premiers joueurs seulement. */
 @media (max-width: 720px) { .feu { grid-template-columns: minmax(0, 1fr); } .feu-card:nth-child(n + 4) { display: none; } }
