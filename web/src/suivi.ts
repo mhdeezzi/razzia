@@ -121,18 +121,31 @@ const tableError = (e: { code?: string; message: string }) =>
       ? 'Accès aux tickets refusé : lance la ligne « grant » de supabase/tickets.sql dans Supabase.'
       : e.message;
 
-/** Relit les tickets du compte connecté (une seule lecture à la fois quand plusieurs composants la demandent). */
-let inflight: Promise<void> | undefined;
+/** Relit les tickets du compte connecté (une seule lecture à la fois par compte quand plusieurs composants la demandent). */
+let inflight: { owner: string; p: Promise<void>; tok: object } | undefined;
 export async function loadTickets(owner: string, fresh = false): Promise<void> {
   if (!supabase) return;
   const sb = supabase;
   // Après un ajout ou une suppression, une lecture déjà partie peut être périmée : on en relance une après elle.
-  if (fresh && inflight) await inflight;
-  inflight ??= (async () => {
-    const { data, error } = await sb.from('tickets').select('*').order('created_at', { ascending: false }).limit(500);
-    setStore(error ? { ...store, owner, error: tableError(error) } : { owner, tickets: (data as Ticket[]).map(num) });
-  })().finally(() => (inflight = undefined));
-  return inflight;
+  if (fresh && inflight) await inflight.p;
+  if (inflight?.owner === owner) return inflight.p;
+  const tok = {};
+  const p = (async () => {
+    // Tous les tickets, par pages de 1 000 (limite d'une réponse Supabase) : le bilan porte sur tout l'historique.
+    const all: Ticket[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await sb.from('tickets').select('*').order('created_at', { ascending: false }).range(from, from + 999);
+      if (error) return void (inflight?.tok === tok && setStore({ ...store, owner, error: tableError(error) }));
+      all.push(...(data as Ticket[]));
+      if (data.length < 1000) break;
+    }
+    // Compte changé pendant la lecture : la réponse de l'ancien compte est ignorée.
+    if (inflight?.tok === tok) setStore({ owner, tickets: all.map(num) });
+  })().finally(() => {
+    if (inflight?.tok === tok) inflight = undefined;
+  });
+  inflight = { owner, p, tok };
+  return p;
 }
 
 /** Tickets du compte (undefined pendant le chargement) ; vidés à la déconnexion. */
@@ -248,6 +261,7 @@ function ptsStatus(leg: Leg, nba?: NbaFinal, box?: BoxLine[]): LegStatus {
   if (nba.state === 'in' || !box) return 'live';
   const p = box.find((x) => plain(x.name) === plain(leg.bet.player ?? ''));
   if (!p || p.dnp || p.min <= 0) return 'void';
+  if (p.pts === (leg.bet.line ?? 0)) return 'void'; // ligne entière atteinte pile : remboursé
   const over = p.pts > (leg.bet.line ?? 0);
   return over === (leg.bet.over ?? true) ? 'won' : 'lost';
 }
@@ -260,7 +274,10 @@ export function statusOf(leg: Leg, nba?: NbaFinal, atp?: AtpFinal): LegStatus {
     if (!nba || nba.state === 'pre') return 'pending';
     if (nba.state === 'in') return 'live';
     const margin = nba[leg.bet.side] - nba[other];
-    if (leg.bet.kind === 'spread') return margin + (leg.bet.line ?? 0) > 0 ? 'won' : 'lost';
+    if (leg.bet.kind === 'spread') {
+      const m = margin + (leg.bet.line ?? 0);
+      return m > 0 ? 'won' : m < 0 ? 'lost' : 'void'; // handicap entier à égalité : remboursé
+    }
     return margin > 0 ? 'won' : 'lost';
   }
   if (!atp || atp.state === 'pre') return 'pending';

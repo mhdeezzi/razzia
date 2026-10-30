@@ -24,7 +24,7 @@ const raw = (path: string, ref: string) => gh(`/contents/${path}?ref=${ref}`, { 
 const noStore = { 'Cache-Control': 'no-store' };
 const bad = (msg: string, status = 400) => Response.json({ error: msg }, { status, headers: noStore });
 const okId = (id: unknown) => /^\d{5,14}$/.test(String(id ?? ''));
-const okDay = (d: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? ''));
+const okDay = (d: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? '')) && new Date(`${d}T12:00:00Z`).toISOString().slice(0, 10) === String(d);
 
 // Tableaux ATP d'ESPN (simple messieurs) : scores des tournois en cours et de la veille, et matchs programmés des
 // 6 prochains jours (ceux que Pinnacle n'a pas encore cotés s'affichent sans cote, simulables avec le moteur seul).
@@ -143,6 +143,7 @@ export async function GET(request: Request): Promise<Response> {
       const result = await file.json();
       if (!req) return Response.json({ status: 'done', result }, { headers: noStore });
       const run = await findRun(req);
+      if (run?.status === 'completed' && run.conclusion !== 'success') return Response.json({ status: 'done', result, relaunchFailed: true, url: run.html_url }, { headers: noStore });
       if (!run || run.status === 'completed') return Response.json({ status: 'done', result }, { headers: noStore });
       return Response.json({ status: run.status === 'queued' ? 'queued' : 'running', startedAt: run.run_started_at, previous: result }, { headers: noStore });
     }
@@ -157,7 +158,8 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const body = await request.json().catch(() => ({}));
+  const raw = await request.json().catch(() => null);
+  const body = raw && typeof raw === 'object' ? raw : {};
   const ids: unknown[] = Array.isArray(body.ids) ? body.ids : [body.id];
   const days: unknown[] = Array.isArray(body.days) ? body.days : [body.day];
   if (!ids.length || ids.length > 64 || days.length !== ids.length || !ids.every(okId) || !days.every(okDay)) return bad('Paramètres invalides');

@@ -99,7 +99,7 @@ export type SimState =
   | { status: 'none' }
   | { status: 'queued' | 'running'; startedAt?: string; url?: string; previous?: Result }
   | { status: 'failed'; url?: string; error?: string }
-  | { status: 'done'; result: Result };
+  | { status: 'done'; result: Result; relaunchFailed?: boolean; url?: string };
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, init);
@@ -108,12 +108,18 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+// Programme gardé 5 minutes dans l'onglet (blessures, cotes et scores bougent pendant la soirée).
 let programme: Promise<Programme> | undefined;
+let programmeAt = 0;
 export function loadProgramme(): Promise<Programme> {
-  programme ??= getJson<Programme>('/api/games?days=7').catch((e) => {
-    programme = undefined;
-    throw e;
-  });
+  if (programme && Date.now() - programmeAt > 5 * 60_000) programme = undefined;
+  if (!programme) {
+    programmeAt = Date.now();
+    programme = getJson<Programme>('/api/games?days=7').catch((e) => {
+      programme = undefined;
+      throw e;
+    });
+  }
   return programme;
 }
 

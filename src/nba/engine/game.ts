@@ -440,8 +440,14 @@ export class GameSim {
       if (!pick.includes(p)) pick.push(p);
     }
     // Moins de 5 joueurs éligibles (effectif court et exclusions pour fautes) : comme en NBA, les exclus restent en jeu.
+    // Jamais un joueur absent du match, sauf effectif impossible (moins de 5 présents : garde-fou pour ne pas planter).
     if (pick.length < 5)
-      for (const p of S.ps.filter((q) => !pick.includes(q)).sort((a, b) => Number(b.active) - Number(a.active) || b.m.expMin - a.m.expMin)) {
+      for (const p of S.ps.filter((q) => !pick.includes(q) && q.active).sort((a, b) => b.m.expMin - a.m.expMin)) {
+        if (pick.length >= 5) break;
+        pick.push(p);
+      }
+    if (pick.length < 5)
+      for (const p of S.ps.filter((q) => !pick.includes(q)).sort((a, b) => b.m.expMin - a.m.expMin)) {
         if (pick.length >= 5) break;
         pick.push(p);
       }
@@ -591,7 +597,7 @@ export class GameSim {
       this.emit({ type: 'period_end', text: period <= 4 ? `End of Q${period}` : `End of OT${period - 4}` });
       for (const side of [0, 1] as const) for (const p of this.onCourt(side)) p.stintStart = this.t;
       if (period >= 4 && this.score[0] !== this.score[1]) break;
-      if (period >= 10) break;
+      if (period >= 8) break; // 4 prolongations au plus : la taille du stockage (MAXQ, batch.ts)
       period++;
     }
     this.emit({ type: 'end', text: 'Final' });
@@ -651,7 +657,15 @@ export class GameSim {
       const dt = Math.min(this.clock, this.r.uniform(1, 4));
       this.tick(dt);
       const target = this.pickWeighted(this.onCourt(off), (p) => Math.sqrt(Math.max(0.05, p.m.usg)) * (1.15 - p.m.ft));
-      const fouler = this.pickWeighted(this.onCourt(def), (p) => (1 + p.m.pfOther * 20) * (p.pf >= 5 ? 0.05 : p.pf >= 4 ? 0.4 : 1));
+      const pickFouler = () => this.pickWeighted(this.onCourt(def), (p) => (1 + p.m.pfOther * 20) * (p.pf >= 5 ? 0.05 : p.pf >= 4 ? 0.4 : 1));
+      if (!this.inBonus(def)) {
+        // Pas encore en pénalité : faute « à donner », remise en jeu, puis on refait faute aussitôt.
+        const first = pickFouler();
+        this.commitFoul(first, def, false);
+        this.emit({ type: 'foul', side: def, pid: first.m.id, pid2: target.m.id, kind: 'take', text: `${first.m.short} fouls ${target.m.short} on purpose (foul to give)` });
+        this.tick(Math.max(0, Math.min(this.clock - 0.1, this.r.uniform(0.5, 2))));
+      }
+      const fouler = pickFouler();
       this.commitFoul(fouler, def, false);
       this.emit({ type: 'foul', side: def, pid: fouler.m.id, pid2: target.m.id, kind: 'take', text: `${fouler.m.short} fouls ${target.m.short} on purpose` });
       return this.freeThrows(target, off, 2, 'foul');
@@ -800,7 +814,13 @@ export class GameSim {
       // Heave : quelques dixièmes au chrono et ballon loin du panier.
       if (this.clock <= 0.05 && dur < 1.5 && pt !== 'OffRebound') {
         const heave = this.r.chance(0.03);
-        if (heave) this.addPoints(off, 3, shooter);
+        shooter.line.fga++;
+        shooter.line.fg3a++;
+        if (heave) {
+          shooter.line.fgm++;
+          shooter.line.fg3m++;
+          this.addPoints(off, 3, shooter);
+        }
         this.emit({ type: 'shot', side: off, pid: shooter.m.id, made: heave, pts: heave ? 3 : 0, zone: 5, x: 0, y: 600, label: 'heave', text: heave ? `${shooter.m.short} banks in a heave!` : `${shooter.m.short} heave no good` });
         return { next: 'start', nextOff: def };
       }
@@ -929,6 +949,8 @@ export class GameSim {
       });
       // Temps de vol du ballon / lutte au rebond.
       this.tick(Math.min(this.clock, this.r.uniform(0.6, 2.0)));
+      // Le temps est écoulé pendant que le ballon est en l'air : pas de rebond, fin de période.
+      if (this.clock <= 0) return { next: 'start', nextOff: def };
       const reb = this.rebound(off, def, z, !!blocker);
       if (reb.side === off) {
         segment++;
@@ -1115,7 +1137,7 @@ export class GameSim {
 
   private freeThrows(p: PState, off: 0 | 1, n: number, why: string): { next: StartKind; nextOff: 0 | 1 } {
     const def: 0 | 1 = off === 0 ? 1 : 0;
-    // Remplaçants possibles avant les lancers (ballon mort).
+    // Pas de changement entre les lancers : le tireur reste ; les remplacements se font au ballon mort suivant.
     let made = 0;
     let lastMade = false;
     for (let i = 0; i < n; i++) {
@@ -1127,10 +1149,11 @@ export class GameSim {
         this.addPoints(off, 1, p);
       }
       lastMade = ok;
-      if (i === 0 && n > 1) this.substitutions();
     }
     this.emit({ type: 'ft', side: off, pid: p.m.id, made: made > 0, pts: made, n, kind: why, text: `${p.m.short} ${made} of ${n} at the line` });
     if (lastMade) return { next: 'ft', nextOff: def };
+    // Lancers tirés après la sirène (faute au buzzer) : la période est finie, pas de rebond.
+    if (this.clock <= 0) return { next: 'start', nextOff: def };
     // Dernier lancer manqué : rebond.
     const oreb = this.r.chance(this.m.league.orebFt);
     const side = oreb ? off : def;

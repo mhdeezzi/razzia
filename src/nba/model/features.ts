@@ -6,7 +6,7 @@ import { readCache, CACHE_DIR } from '../../data/http.ts';
 import type { GameRecord } from '../../data/cdn.ts';
 import { parseGame, shotLabel, START_TYPES, type ParsedGame, type StartType } from './pbp.ts';
 import { ZONES, type Zone } from './zones.ts';
-import { seasonOfGameId, seasonsBetween } from '../seasons.ts';
+import { seasonOfDate, seasonOfGameId, seasonsBetween } from '../seasons.ts';
 
 export const DECAY = 0.97; // demi-vie ≈ 23 matchs joués
 export const PREV_DECAY = 0.993; // saison précédente : demi-vie ≈ 100 matchs
@@ -209,7 +209,8 @@ export function buildFeatures(asOf: string, groupOf: (pid: number) => string): F
   const players = new Map<number, PlayerFeat>();
   const teams = new Map<number, TeamFeat>();
   const astPairs = new Map<number, Map<number, number>>();
-  const curSeason = all.length ? seasonOfGameId(all[all.length - 1].g.gameId) : '';
+  // Saison du match à prévoir (et non du dernier match connu : le soir de la reprise, ce serait encore l'ancienne).
+  const curSeason = seasonOfDate(asOf);
 
   // 1) Index des matchs joués par joueur / par équipe, pour calculer les poids de récence.
   const playerGameIdx = new Map<number, string[]>();

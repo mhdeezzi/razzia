@@ -105,7 +105,9 @@ export function buildCategories(r: Result, g: Game): Category[] {
     const pFav = fav === 'home' ? mk.pHomeCover : 1 - mk.pHomeCover;
     const l = fav === 'home' ? mk.spreadHome : -mk.spreadHome;
     const sp = noVig(o.spreadOddsHome ?? STD_PRICE, o.spreadOddsAway ?? STD_PRICE)!;
-    const price = (fav === 'home' ? o.spreadOddsHome : o.spreadOddsAway) ?? (o.spreadOddsHome == null && o.spreadOddsAway == null ? undefined : STD_PRICE);
+    // Prix du programme seulement s'il porte sur la même ligne que la simulation : sinon, cote d'une autre ligne.
+    const sameLine = o.spreadHome == null || Math.abs(o.spreadHome - mk.spreadHome) < 0.01;
+    const price = !sameLine ? undefined : (fav === 'home' ? o.spreadOddsHome : o.spreadOddsAway) ?? (o.spreadOddsHome == null && o.spreadOddsAway == null ? undefined : STD_PRICE);
     const margin = fav === 'home' ? r.margin.mean : -r.margin.mean;
     if (pFav > winP)
       spreads.push({

@@ -9,6 +9,7 @@ import { Results } from './results.tsx';
 import { BookOdds } from './books.tsx';
 import { Empty, glow, Link, SimProgress, TeamMark } from './ui.tsx';
 import { WarpBg } from './shaders.tsx';
+import { toast } from './toast.tsx';
 
 type Tab = 'apercu' | 'sim';
 
@@ -48,6 +49,8 @@ function useSim(g: Game) {
       setState(s);
       if (s.status === 'queued' || s.status === 'running') timer.current = window.setTimeout(poll, 5000);
       else if (p) {
+        if (s.status === 'done' && s.relaunchFailed)
+          toast({ tone: 'bad', title: 'La relance a échoué', text: 'Les résultats affichés sont ceux de la simulation précédente.' });
         pending.clear(key);
         void listSims(true);
       }

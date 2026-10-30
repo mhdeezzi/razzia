@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import { Sparkline } from './ui.tsx';
 
-/** Matchs NBA simulés par l'ancien moteur, au tout début de la saison : écartés du bilan. */
-const OLD_ENGINE = 6;
+/** Matchs NBA simulés par l'ancien moteur, au tout début de la saison : écartés du bilan (liste fixe, pas « les 6 plus
+ * anciens » : la liste du bilan grandit et ne doit pas déplacer l'exclusion). */
+const OLD_ENGINE = new Set(['2026-10-21_ATL@ORL', '2026-10-21_CHA@BKN', '2026-10-21_MIL@WAS', '2026-10-21_MIN@MIA', '2026-10-22_CLE@PHI', '2026-10-22_DEN@OKC']);
+const SEASON_START = '2026-10-01';
 
 interface Row { key: string; won: boolean; sure: boolean }
 interface Record { rows: Row[] }
@@ -15,8 +17,7 @@ async function nbaRecord(): Promise<Record> {
   const b = await fetch('/api/sim?bilan=1').then((r) => r.json());
   const rows = ((b.rows ?? []) as Array<{ dir: string; date: string; pModel: number; pBlend?: number; pick?: { won: boolean } }>)
     .sort((x, y) => x.date.localeCompare(y.date) || x.dir.localeCompare(y.dir))
-    .slice(OLD_ENGINE)
-    .filter((r) => r.pick)
+    .filter((r) => r.pick && r.date >= SEASON_START && !OLD_ENGINE.has(r.dir))
     .map((r) => {
       const p = r.pBlend ?? r.pModel;
       return { key: r.dir, won: r.pick!.won, sure: Math.max(p, 1 - p) >= 0.77 };

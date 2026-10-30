@@ -51,6 +51,7 @@ for (const m of history) {
 
 const rows: Row[] = [];
 let voided = 0, late = 0;
+const seen = new Map<string, { row: Row; built: string }>();
 const simsDir = join(dir, 'sims');
 for (const f of existsSync(simsDir) ? readdirSync(simsDir) : []) {
   if (!f.endsWith('.json')) continue;
@@ -64,19 +65,27 @@ for (const f of existsSync(simsDir) ? readdirSync(simsDir) : []) {
   if (!m) continue; // pas encore joué (ou pas encore dans TennisMyLife)
   if (m.walkover || m.retired) { voided++; continue; }
   // Une simulation lancée après le début du match ne compte pas (cotes en direct).
-  if (s.start && s.meta?.builtAt && s.meta.builtAt > s.start) { late++; continue; }
+  if (s.start && s.meta?.builtAt && Date.parse(s.meta.builtAt) > Date.parse(s.start)) { late++; continue; }
+  // Un même match simulé sous deux identifiants (ESPN, Pinnacle) : compté une seule fois, la dernière simulation.
+  const prev = seen.get(m.key);
+  if (prev) {
+    if (Date.parse(prev.built) >= Date.parse(s.meta?.builtAt ?? '')) continue;
+    rows.splice(rows.indexOf(prev.row), 1);
+  }
   const homeWon = m.w.id === kH;
   const favHome = s.pHome >= 0.5;
   const favWon = favHome === homeWon;
   const favSets = favWon ? m.wSets : m.lSets;
   const winP = Math.max(s.pHome, 1 - s.pHome);
-  rows.push({
+  const row: Row = {
     id: s.id, day: s.day, start: s.start, tourney: s.tourney, round: s.round, home: s.home.name, away: s.away.name,
     pHome: s.pHome, pMarket: s.market?.pHome, homeWon, score: homeWon ? m.score : m.score.split(' ').map((x) => x.replace(/^(\d+)-(\d+)/, '$2-$1')).join(' '),
     // Pile ou face : exactement quand la fiche met la ligne de sets devant le vainqueur.
     tier: pickOf(s, favWon, favSets).kind === 'sets' ? 'flip' : shown(winP) >= T_SURE ? 'sure' : 'mid',
     pick: pickOf(s, favWon, favSets),
-  });
+  };
+  rows.push(row);
+  seen.set(m.key, { row, built: s.meta?.builtAt ?? '' });
 }
 rows.sort((a, b) => (b.start ?? b.day).localeCompare(a.start ?? a.day));
 
@@ -100,7 +109,7 @@ const out = {
   sets: rate(rows.filter((x) => x.pick.kind === 'sets')),
   accuracy: { razzia: hit('pHome'), market: hit('pMarket') },
   brier: { razzia: brier('pHome'), market: brier('pMarket') },
-  rows: rows.slice(0, 300),
+  rows: rows.slice(0, 2500),
 };
 writeFileSync(join(dir, 'bilan.json'), JSON.stringify(out));
 console.log(`bilan tennis : ${rows.length} matchs terminés, pronostic ${out.pick.won}/${out.pick.n}, Razzia assuré ${out.tiers.sure.won}/${out.tiers.sure.n} (${voided} abandons ou forfaits, ${late} simulés après le début)`);

@@ -619,7 +619,9 @@ function evalProps(m: GameModel, b: Batch, players: PlayerSummary[]): PropEval[]
       if (v > pr.line) over++;
       else if (v < pr.line) under++;
     }
-    const tot = over + under || 1;
+    // Aucune simulation réglable (joueur absent de toutes) : rien à évaluer, pas de faux avantage.
+    if (over + under === 0) continue;
+    const tot = over + under;
     const pm = models.get(normName(pr.player));
     const [confidence, confidenceWhy] = propConfidence(pm);
     const e: PropEval = {

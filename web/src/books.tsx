@@ -25,14 +25,24 @@ interface Cotes {
   error?: string;
 }
 
+// Comparateur gardé 10 minutes dans l'onglet (comme le cache du serveur) ; une erreur n'est pas gardée.
 let cotes: Promise<Cotes> | undefined;
+let cotesAt = 0;
 export function loadCotes(): Promise<Cotes> {
-  cotes ??= fetch('/api/cotes')
-    .then(async (r) => {
-      const j = await r.json().catch(() => ({}));
-      return r.ok ? (j as Cotes) : { games: [], at: '', error: j.error ?? `Erreur ${r.status}` };
-    })
-    .catch((e: Error) => ({ games: [], at: '', error: e.message }));
+  if (cotes && Date.now() - cotesAt > 10 * 60_000) cotes = undefined;
+  if (!cotes) {
+    cotesAt = Date.now();
+    cotes = fetch('/api/cotes')
+      .then(async (r) => {
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) cotes = undefined;
+        return r.ok ? (j as Cotes) : { games: [], at: '', error: j.error ?? `Erreur ${r.status}` };
+      })
+      .catch((e: Error) => {
+        cotes = undefined;
+        return { games: [], at: '', error: e.message };
+      });
+  }
   return cotes;
 }
 
