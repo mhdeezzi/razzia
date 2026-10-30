@@ -22,6 +22,11 @@ export function WarpBg({ c1, c2, ring }: { c1: string; c2: string; ring?: boolea
   // page ne fige plus l'écran le temps de préparer le shader.
   const [on, setOn] = useState(false);
   const [seen, setSeen] = useState(true);
+  // Rond : réglages tirés au hasard à chaque ouverture, pour qu'aucun marbre ne ressemble au précédent.
+  const [v] = useState(() => ({
+    frame: Math.random() * 60_000, rotation: Math.random() * 360, swirl: 0.5 + Math.random() * 0.35, distortion: 0.2 + Math.random() * 0.2,
+    shapeScale: 0.17 + Math.random() * 0.14, proportion: 0.4 + Math.random() * 0.2, light: 0.25 + Math.random() * 0.2,
+  }));
   const box = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     let id = requestAnimationFrame(() => (id = requestAnimationFrame(() => setOn(true))));
@@ -41,7 +46,7 @@ export function WarpBg({ c1, c2, ring }: { c1: string; c2: string; ring?: boolea
         <Suspense fallback={null}>
           {/* Marbre très doux : calculé à faible résolution (le flou ne se voit pas), ce qui le rend bien moins coûteux. */}
           {ring ? (
-            <Warp className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={120_000} colors={[toHex(c1), '#000000', mix(toHex(c1), '#ffffff', 0.35), toHex(c2)]} proportion={0.5} softness={1} distortion={0.3} swirl={0.7} swirlIterations={8} shape="checks" shapeScale={0.24} speed={still() || !seen ? 0 : 0.7} />
+            <Warp className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={120_000} colors={[toHex(c1), '#000000', mix(toHex(c1), '#ffffff', v.light), toHex(c2)]} proportion={v.proportion} softness={1} distortion={v.distortion} swirl={v.swirl} swirlIterations={8} shape="checks" shapeScale={v.shapeScale} rotation={v.rotation} frame={v.frame} speed={still() || !seen ? 0 : 0.7} />
           ) : (
             <Warp className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={320_000} colors={['#000000', toHex(c1), '#000000', toHex(c2)]} proportion={0.45} softness={1} distortion={0.25} swirl={0.6} swirlIterations={8} shape="checks" shapeScale={0.08} speed={still() || !seen ? 0 : 0.4} />
           )}

@@ -1646,17 +1646,12 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
   -webkit-mask: conic-gradient(#000 calc(var(--p) * 360deg), transparent 0), radial-gradient(closest-side, transparent 80.5%, #000 81.5%, #000 95.5%, transparent 96.5%);
   -webkit-mask-composite: source-in; mask: conic-gradient(#000 calc(var(--p) * 360deg), transparent 0), radial-gradient(closest-side, transparent 80.5%, #000 81.5%, #000 95.5%, transparent 96.5%); mask-composite: intersect; }
 .ring-sm .ring-warp { inset: 10px; }
-.team-marble :is(.split-bar span, .duel-bar span:not(.dim), .oc-bar span, .ladder-bar span, .pbar span, .t-sets-bar span, .t-why-bar span) {
-  background: linear-gradient(105deg, color-mix(in srgb, var(--k) 38%, #000) 0%, var(--k) 26%, color-mix(in srgb, var(--k) 55%, #fff) 42%, var(--k) 58%, color-mix(in srgb, var(--k) 38%, #000) 82%, var(--k) 100%);
-  background-size: 260% 100%; box-shadow: 0 0 8px color-mix(in srgb, var(--k) 45%, transparent);
-  animation-name: grow, marble-pan; animation-duration: 0.9s, 7s; animation-timing-function: var(--ease), ease-in-out; animation-iteration-count: 1, infinite; animation-direction: normal, alternate; animation-fill-mode: both, none; }
+.team-marble :is(.split-bar span, .duel-bar span:not(.dim), .oc-bar span, .ladder-bar span, .pbar span, .t-sets-bar span, .t-why-bar span) { background: var(--k); box-shadow: none; }
 .team-marble .split-bar span:first-child, .team-marble .duel-bar .a, .team-marble .pbar.away span, .team-marble .t-sets-bar .a, .team-marble .t-why-bar.a span { --k: var(--team-a); }
 .team-marble .split-bar span:last-child, .team-marble .duel-bar .h, .team-marble .pbar.home span, .team-marble .t-sets-bar .h, .team-marble .t-why-bar.h span { --k: var(--team-h); }
 /* Le reste de la fiche (match typique, cartes et profil de tir, confrontations) : bleu = extérieur, rouge = domicile
    deviennent les couleurs des deux camps. */
 .team-marble { --blue: var(--team-a); --rose: var(--team-h); --rose-soft: color-mix(in srgb, var(--team-h) 16%, transparent); }
-.team-marble .flow-line.home { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--team-h) 80%, transparent)); }
-.team-marble .flow-line.away { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--team-a) 80%, transparent)); }
 .team-marble .flow-side.top, .team-marble .flow-kpi.home b { color: color-mix(in srgb, var(--team-h) 70%, #fff); }
 .team-marble .flow-side.bot, .team-marble .flow-kpi.away b { color: color-mix(in srgb, var(--team-a) 70%, #fff); }
 .team-marble .flow-chart { background: radial-gradient(70% 60% at 50% 0%, color-mix(in srgb, var(--team-h) 9%, transparent), transparent 70%), radial-gradient(70% 60% at 50% 100%, color-mix(in srgb, var(--team-a) 9%, transparent), transparent 70%), #000; }
@@ -1664,7 +1659,50 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .team-marble .t-res.l { color: color-mix(in srgb, var(--team-a) 70%, #fff); background: color-mix(in srgb, var(--team-a) 16%, transparent); }
 .team-marble .oc-bar span, .team-marble .ladder-bar span { --k: var(--fav); }
 .team-marble .split-bar span:not(.is-fav) { opacity: 0.4; box-shadow: none; }
-@keyframes marble-pan { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
-@media (prefers-reduced-motion: reduce) { .team-marble :is(.split-bar span, .duel-bar span, .oc-bar span, .ladder-bar span) { animation: none; } }
 .ring-marble .ring-warp { z-index: 1; }
 .ring-marble .ring-num { z-index: 2; }
+
+/* ——— Passe « unslop » (skill unslop de Damir Sokolovsky, @heydamir, CC BY 4.0) ———
+   Direction : franc, sportif, chiffré ; le parquet et le court de nuit, les couleurs des maillots, le tableau d'affichage.
+   Deux moments en couleur (haut de fiche en marbre, rond du favori), le reste en noir et blanc. Les animations de la
+   simulation (point de « Simuler », reflets et radar pendant le calcul) restent telles quelles. */
+
+/* Type : étiquettes en minuscules normales, sans espacement large ; les titres de l'affiche restent tels quels. */
+.caps, .slash, .day-name, .thead span, .box-head, .info3 dt, .odds-t th, .launch-facts span, .verdict-side dt, .section-head h3,
+.kind, .pick-stats span, .feu-lab, .flow-kpi span, .flow-side, .bilan-line span, .tk-new, .tk-foot span, .slip-odd > span,
+.acct-stats dt, .hb-une-k, .plan-flag {
+  text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 12.5px;
+}
+.section-head h3, .box-head { font-size: 14px; font-weight: 600; color: var(--text); }
+.hb-label { font: 500 13px/1.2 var(--sans); letter-spacing: 0; text-transform: none; }
+.hero-meta { font: 500 13px var(--sans); letter-spacing: 0; text-transform: none; }
+.hero-date { font: 500 13px var(--mono); letter-spacing: 0; text-transform: none; }
+.foot-legal { font: 500 12px var(--sans); letter-spacing: 0; text-transform: none; }
+.flow-side { font-size: 11.5px; }
+
+/* Couleur : plus de lueurs colorées ; la profondeur vient des surfaces et des filets. */
+.ring-val, .flow-line.home, .flow-line.away, .spark-line, .money-line { filter: none; }
+.split-bar span, .split-bar span.is-fav, .oc-bar span, .ladder tr.is-market .ladder-bar span { box-shadow: none; }
+.tag-warn::before, .fly-dot { box-shadow: none; }
+.ring-disc { box-shadow: inset 0 0 0 1px var(--line); }
+
+/* Mouvement : au survol, un léger changement de fond au lieu de grossir ; plus de rebond. */
+@media (hover: hover) and (pointer: fine) {
+  .glass:hover:not(:disabled), .btn-primary:hover:not(:disabled), .btn-ghost:hover:not(:disabled), .tab-big:hover, .btn-soiree:not(:disabled):hover { transform: none; }
+  .slipbar:hover { scale: none; }
+  a.row:hover .mark, a.row:hover .t-ava { transform: none; }
+}
+.top-suivi.bump, .top-suivi.bump .top-count { animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1); }
+.mesh::before { animation: none; }
+
+/* Détails : les compteurs deviennent du texte discret. */
+.dash-meta .count { height: auto; padding: 0; border-radius: 0; background: none; box-shadow: none; font: 500 13px var(--mono); color: var(--text-2); }
+.seg-n { opacity: 0.55; }
+
+/* NBA, compteur « NBA 3 » : texte discret. */
+.badge-n { background: none; box-shadow: none; padding: 0; }
+/* Rond : ombre de départ, du noir au début de l'arc vers une touche claire au bout, qui s'efface après l'ouverture. */
+.ring-shade { z-index: 2; pointer-events: none; background: conic-gradient(rgba(0, 0, 0, 0.78) 0deg, rgba(0, 0, 0, 0.35) calc(var(--p) * 140deg), transparent calc(var(--p) * 230deg), rgba(255, 255, 255, 0.28) calc(var(--p) * 360deg), transparent 0);
+  animation: ring-shade 3.2s cubic-bezier(0.23, 1, 0.32, 1) 1.2s both; }
+@keyframes ring-shade { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ring-shade { animation: none; opacity: 0; } }
