@@ -101,7 +101,7 @@ function play(rng: Rng, pa: number, pb: number, bestOf: 3 | 5): { sa: number; sb
 }
 
 export function simulate(opts: { pA: number; pB: number; bestOf: 3 | 5; target?: number; n?: number; seed?: number; formSd?: number }): SimResult {
-  const n = opts.n ?? 5000, sd = opts.formSd ?? FORM_SD;
+  const n = opts.n ?? 25000, sd = opts.formSd ?? FORM_SD;
   const { pA, pB } = opts.target != null ? calibrate(opts.pA, opts.pB, opts.bestOf, opts.target, sd) : { pA: opts.pA, pB: opts.pB };
   const rng = new Rng(opts.seed ?? 1);
   const scores: Record<string, number> = {};

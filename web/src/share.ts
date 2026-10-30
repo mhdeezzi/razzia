@@ -156,7 +156,7 @@ export async function ticketImage(t: Ticket, live: Record<string, LegStatus>, fo
   // Signature : en bas de la story ; sur le post X, à droite sous l'accroche, pour laisser la hauteur à la carte.
   const sx = story ? pad : 1062, sy = story ? H - 150 : H - 120;
   if (!story) {
-    big('5 000 matchs', 1060, 420, 78);
+    big('25 000 matchs', 1060, 420, 78);
     big('avant le vrai.', 1060, 500, 78, 'rgba(255,255,255,0.55)');
     text('Simulé par Razzia', 1062, 560, 30, C.grey, 500);
   }

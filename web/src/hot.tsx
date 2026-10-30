@@ -1,4 +1,4 @@
-// « En feu ce soir » : les joueurs dont les 5 000 simulations annoncent un gros match, et pourquoi.
+// « En feu ce soir » : les joueurs dont les 25 000 simulations annoncent un gros match, et pourquoi.
 // Et l'avertissement quand la simulation précède l'annonce des compositions officielles.
 import { useState, type CSSProperties } from 'react';
 import { ArrowClockwise, Info, Minus, Plus } from '@phosphor-icons/react';

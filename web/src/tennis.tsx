@@ -1,4 +1,4 @@
-// Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (5 000 matchs point
+// Onglet Tennis (ATP) : programme d'après les cotes Pinnacle notées, fiche de match avec la simulation (25 000 matchs point
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowLeft, CaretRight, PawPrint, HouseLine, HouseSimple, ListBullets, Mountains, Scales, ShieldCheck, SquaresFour, TennisBall, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
@@ -733,7 +733,7 @@ export function TennisMatchPage({ day, id }: { day: string; id: string }) {
           queued={state.status === 'queued'}
           start={since ?? (state.startedAt ? Date.parse(state.startedAt) : undefined)}
           title="On joue le match, point par point."
-          steps={['Demande envoyée', 'Historique ATP, notes des joueurs, cotes Pinnacle', '5 000 matchs simulés', 'Publication des résultats']}
+          steps={['Demande envoyée', 'Historique ATP, notes des joueurs, cotes Pinnacle', '25 000 matchs simulés', 'Publication des résultats']}
           prep={40}
           note="Compter 1 à 3 minutes. La page se met à jour seule, et la simulation continue si vous la quittez."
         />
@@ -750,7 +750,7 @@ export function TennisMatchPage({ day, id }: { day: string; id: string }) {
             </div>
           )}
           <h2>
-            Ce match, <em>joué 5 000 fois.</em>
+            Ce match, <em>joué 25 000 fois.</em>
           </h2>
           <p className="lede">
             Point par point : service et retour de chaque joueur sur cette surface, forme du jour, jeux décisifs. Il en sort la victoire, « Un set », le score en

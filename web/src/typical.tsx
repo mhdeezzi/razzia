@@ -1,4 +1,4 @@
-// Le match typique : la simulation la plus représentative des 5 000 (vainqueur majoritaire, score proche de la
+// Le match typique : la simulation la plus représentative des 25 000 (vainqueur majoritaire, score proche de la
 // médiane, chaque joueur proche de sa moyenne). Score, déroulé, temps forts et feuille de match.
 import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { pct0, type Game, type Typical } from './data.ts';

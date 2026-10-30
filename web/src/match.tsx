@@ -324,7 +324,7 @@ function SimPanel({ g, state, busy, launch, since }: { g: Game } & ReturnType<ty
         </div>
       )}
       <h2>
-        {g.away.name} contre {g.home.name}, <em>joué 5 000 fois.</em>
+        {g.away.name} contre {g.home.name}, <em>joué 25 000 fois.</em>
       </h2>
       <p className="lede">
         Possession par possession : rotations, fautes, fins de match, adresse par zone et défenseurs probables. Il en sort les probabilités de victoire, du
@@ -332,7 +332,7 @@ function SimPanel({ g, state, busy, launch, since }: { g: Game } & ReturnType<ty
       </p>
       <div className="launch-facts">
         <div>
-          <b>5 000</b>
+          <b>25 000</b>
           <span>matchs simulés</span>
         </div>
         <div>
@@ -358,7 +358,7 @@ function Progress({ state, since }: { state: Extract<SimState, { status: 'queued
       queued={state.status === 'queued'}
       start={since ?? (state.startedAt ? Date.parse(state.startedAt) : undefined)}
       title="On joue le match."
-      steps={['Demande envoyée', 'Données du jour : effectifs, absences, cotes', '5 000 simulations', 'Publication des résultats']}
+      steps={['Demande envoyée', 'Données du jour : effectifs, absences, cotes', '25 000 simulations', 'Publication des résultats']}
       prep={70}
       note="Compter 3 à 6 minutes, un peu plus pour la toute première simulation. La page se met à jour seule, et la simulation continue si vous la quittez."
     />

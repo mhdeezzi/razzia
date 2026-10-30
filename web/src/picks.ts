@@ -1,4 +1,4 @@
-// Pronostics par catégorie (vainqueur et handicap) : pour chaque pari, l'issue retenue sur les 5 000 simulations, avec
+// Pronostics par catégorie (vainqueur et handicap) : pour chaque pari, l'issue retenue sur les 25 000 simulations, avec
 // sa fréquence et la cote du bookmaker (ou la cote juste) pour comparaison.
 import { decimal, line, noVig, pct, signed, type Game, type Result } from './data.ts';
 
@@ -94,7 +94,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
       id: 'win', title: `Victoire ${deTeam(g[winSide].name)}`, who: g[winSide], bet: { kind: 'win', side: winSide }, p: winP, fair: 1 / winP,
       odds: (homeWins ? o.mlHome : o.mlAway) != null ? decimal((homeWins ? o.mlHome : o.mlAway)!) : undefined,
       implied: ml ? (homeWins ? ml[0] : ml[1]) : undefined,
-      text: `${g[winSide].city} ${g[winSide].name} gagne ${Math.round(winP * 5000).toLocaleString('fr-FR')} des 5 000 matchs simulés. Score médian : ${g.away.tri} ${Math.round(r.awayPts.p50)}, ${g.home.tri} ${Math.round(r.homePts.p50)}. Prolongation dans ${pct(r.pOT)} des cas.`,
+      text: `${g[winSide].city} ${g[winSide].name} gagne ${Math.round(winP * (r.n || 25000)).toLocaleString('fr-FR')} des ${(r.n || 25000).toLocaleString('fr-FR')} matchs simulés. Score médian : ${g.away.tri} ${Math.round(r.awayPts.p50)}, ${g.home.tri} ${Math.round(r.homePts.p50)}. Prolongation dans ${pct(r.pOT)} des cas.`,
     }],
   });
 

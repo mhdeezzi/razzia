@@ -1,4 +1,4 @@
-// Résultats des 5 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
+// Résultats des 25 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowsLeftRight, Check, Plus, Scales, ShieldCheck } from '@phosphor-icons/react';

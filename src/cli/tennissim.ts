@@ -1,5 +1,5 @@
 // Simulation de matchs ATP à venir, à partir de leur fiche de cotes Pinnacle (branche cotes-tennis) :
-//   node src/cli/tennissim.ts --id 1639121174 --day 2026-10-24 --cotes ../cotes --out out/tennis [--n 5000]
+//   node src/cli/tennissim.ts --id 1639121174 --day 2026-10-24 --cotes ../cotes --out out/tennis [--n 25000]
 //   node src/cli/tennissim.ts --id 1639121174,1639065243 --day 2026-10-24,2026-10-25 ...   (toute une journée)
 // Une liste de jours de même longueur que les ids, ou un seul jour pour tous. Historique TennisMyLife en cache
 // (data/cache/tennis/tml), lu une fois ; photo officielle ATP, Wikipédia en secours. Écrit <out>/<id>.json par match ;
@@ -15,7 +15,7 @@ import { espnFixtures, leagueOf, pairKey, type Fixture } from '../tennis/espn.ts
 import { atpHeadshot, photoOf } from '../tennis/photos.ts';
 
 const arg = (k: string, d?: string) => { const i = process.argv.indexOf(`--${k}`); return i >= 0 ? process.argv[i + 1] : d; };
-const ids = arg('id')!.split(','), days = arg('day')!.split(','), cotes = arg('cotes', 'cotes-tennis')!, out = arg('out', 'out/tennis')!, n = Number(arg('n', '5000'));
+const ids = arg('id')!.split(','), days = arg('day')!.split(','), cotes = arg('cotes', 'cotes-tennis')!, out = arg('out', 'out/tennis')!, n = Number(arg('n', '25000'));
 if (days.length !== 1 && days.length !== ids.length) throw new Error('--day : un seul jour, ou un par match');
 const cache = 'data/cache/tennis';
 const history = await loadHistory(join(cache, 'tml'));
