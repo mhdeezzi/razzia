@@ -8,7 +8,7 @@ export interface Outcome {
   p: number; // fréquence dans les simulations
   odds?: number; // cote décimale de cette issue
   fair?: number; // cote juste (1 / fréquence dans les simulations), quand aucune cote n'est publiée
-  warn?: string; // étiquette rouge (« Déconseillé »)
+  warn?: string; // étiquette rouge « Déconseillé » ou orange « Risqué »
   safe?: string; // étiquette bleue (« Safe ») : plus sûr que le vainqueur
   implied?: number; // probabilité de la cote, marge retirée
   text?: string;
@@ -145,6 +145,9 @@ export function buildCategories(r: Result, g: Game): Category[] {
     win.warn = true;
     win.items = win.items.map((o) => ({ ...o, warn: 'Déconseillé' }));
     cats.push(win);
+  } else if (shown(winP) < RISKY) {
+    // Favori entre 66 et 70 % : le vainqueur reste en tête, avec l'étiquette orange « Risqué ».
+    cats[0].items = cats[0].items.map((o) => ({ ...o, warn: 'Risqué' }));
   }
 
   return cats;
