@@ -1,7 +1,7 @@
 // Programme : les matchs des 7 prochains jours (heure de New York), en liste ou en grille, filtrés par statut.
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CaretRight, Check, Fire, FirstAid, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
-import { dayLong, isToday, listSims, loadProgramme, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
+import { dayLong, isToday, listSims, loadProgramme, programmeCached, simsCached, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
 import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
 import { pillTier } from './picks.ts';
@@ -21,9 +21,10 @@ const storedView = (): View => {
 };
 
 export function SchedulePage({ day }: { day: string | null }) {
-  const [prog, setProg] = useState<Programme>();
+  // Dernières données connues tout de suite (retour sur la page sans écran vide), relues en arrière-plan.
+  const [prog, setProg] = useState<Programme | undefined>(programmeCached);
   const [error, setError] = useState<string>();
-  const [sims, setSims] = useState<Map<string, SimEntry>>(new Map());
+  const [sims, setSims] = useState<Map<string, SimEntry>>(() => simsCached() ?? new Map());
   const [view, setView] = useState<View>(storedView);
   const [status, setStatus] = useState<Status>('pre');
 

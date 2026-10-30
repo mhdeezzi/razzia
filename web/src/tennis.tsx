@@ -232,13 +232,24 @@ const stateOf = (m: SlateMatch): Status => m.live?.state ?? (Date.parse(m.start)
 const setsWon = (l: Live, side: 'home' | 'away') => l[side].filter((x) => x.w).length;
 const storedView = (): View => (store.get('vue') === 'grille' ? 'grille' : 'liste');
 
+type Slate = { matches: SlateMatch[]; sims: SimIndex[]; players?: Record<string, PlayerCard> };
+// Dernier programme ATP reçu : affiché tout de suite au retour sur la page, puis relu.
+let slateLast: Slate | undefined;
+
 export function TennisSchedulePage({ day }: { day: string | null }) {
-  const [data, setData] = useState<{ matches: SlateMatch[]; sims: SimIndex[]; players?: Record<string, PlayerCard> }>();
+  const [data, setData] = useState<Slate | undefined>(() => slateLast);
   const [error, setError] = useState<string>();
   const [view, setView] = useState<View>(storedView);
   const [status, setStatus] = useState<Status>('pre');
   // `fresh` contourne le cache du CDN (60 s) : juste après une simulation, la liste doit déjà la contenir.
-  const load = useCallback((fresh = false) => api(`?slate=1${fresh ? `&v=${Date.now()}` : ''}`).then(setData, (e: Error) => setError(e.message)), []);
+  const load = useCallback(
+    (fresh = false) =>
+      api(`?slate=1${fresh ? `&v=${Date.now()}` : ''}`).then(
+        (d: Slate) => setData((slateLast = d)),
+        (e: Error) => setError(e.message),
+      ),
+    [],
+  );
   useEffect(() => {
     void load();
   }, [load]);
@@ -649,6 +660,8 @@ function useTennisSim(id: string, day: string) {
   }, [poll]);
   const launch = async () => {
     setBusy(true);
+    // Suivi affiché dès le clic, sans attendre la réponse du serveur.
+    setState({ status: 'queued' });
     try {
       const { req } = await api('', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, day }) });
       store.set(pendingKey(id), req);

@@ -188,7 +188,7 @@ input, textarea { caret-color: var(--brand); }
    dans une pilule où un verre clair glisse vers le sport choisi, Méthode à droite. */
 .topbar { position: sticky; top: 12px; z-index: 30; max-width: 1280px; margin: 12px auto 0; padding: 0 24px; pointer-events: none; }
 .topbar-in { pointer-events: auto; height: 66px; padding: 0 12px 0 20px; display: flex; align-items: center; gap: 32px; border-radius: 24px;
-  background: rgba(16, 16, 18, 0.58); -webkit-backdrop-filter: blur(22px) saturate(180%); backdrop-filter: blur(22px) saturate(180%);
+  background: rgba(16, 16, 18, 0.74); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 18px 40px -18px rgba(0, 0, 0, 0.95); }
 .brand { display: inline-flex; align-items: center; flex: none; transition: opacity 0.2s, transform 0.15s var(--ease); }
 .brand:active { transform: scale(0.97); }
@@ -226,7 +226,7 @@ main { max-width: 1280px; margin: 0 auto; padding: 0 24px 72px; }
 .hb-title { align-self: end; margin-top: 26px; font: 900 clamp(54px, 9.6vw, 138px)/0.84 var(--display); font-stretch: 76%; letter-spacing: -0.005em; text-transform: uppercase; color: #f7f6f3; text-shadow: 0 2px 24px rgba(0, 0, 0, 0.25); animation: rise 0.28s var(--ease) both; }
 .hb-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-top: 22px; }
 .dash-meta { display: flex; align-items: center; gap: 10px; color: rgba(255, 255, 255, 0.86); font-weight: 500; }
-.dash-meta .count { color: #fff; font: 600 12.5px var(--sans); height: 26px; display: inline-flex; align-items: center; padding: 0 11px; border-radius: 8px; background: rgba(0, 0, 0, 0.32); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+.dash-meta .count { color: #fff; font: 600 12.5px var(--sans); height: 26px; display: inline-flex; align-items: center; padding: 0 11px; border-radius: 8px; background: rgba(0, 0, 0, 0.32); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
 .filters { display: flex; justify-content: center; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
 .live-dot { width: 6px; height: 6px; border-radius: 99px; background: var(--live); display: inline-block; box-shadow: 0 0 0 0 rgba(212, 82, 76, 0.6); animation: pulse 1.8s infinite; }
 
@@ -242,7 +242,9 @@ main { max-width: 1280px; margin: 0 auto; padding: 0 24px 72px; }
 .day-name { font: 600 10.5px var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-2); }
 .day-date { font: 600 14px var(--mono); letter-spacing: -0.02em; }
 .day-count { font: 500 11px var(--sans); color: var(--text-3); }
-.day.is-on { background: rgba(255, 255, 255, 0.1); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+/* Posés sur le marbre animé des bandeaux : pas de flou d'arrière-plan (recalculé à chaque image, très lourd sur
+   téléphone), juste un fond un peu plus couvrant. */
+.day.is-on { background: rgba(255, 255, 255, 0.13);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 10px 24px -14px rgba(0, 0, 0, 0.8); }
 .day.is-on::before { content: ''; position: absolute; top: 5px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 9px; background: var(--brand); box-shadow: 0 0 8px var(--brand); }
 .day.is-on .day-name { color: var(--text); }
@@ -426,7 +428,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .hero-time { font: 600 15px var(--mono); letter-spacing: -0.02em; padding: 7px 16px; border-radius: 10px; color: #fff; background: rgba(0, 0, 0, 0.28); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
 .hero-score { font: 900 clamp(52px, 7.5vw, 98px)/0.9 var(--display); font-stretch: 80%; letter-spacing: 0; color: #fff; }
 .hero-date { position: relative; text-align: center; margin-top: 34px; font: 600 12px var(--mono); letter-spacing: 0.4em; text-transform: uppercase; color: rgba(255, 255, 255, 0.7); }
-.hero .mark-xl { background: rgba(0, 0, 0, 0.35); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 24px 60px rgba(0, 0, 0, 0.45); }
+.hero .mark-xl { background: rgba(0, 0, 0, 0.45); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 24px 60px rgba(0, 0, 0, 0.45); }
 
 /* Onglets Aperçu / Simulation : grandes pilules de verre ; l'onglet ouvert s'éclaire, Simulation ouverte passe en vert. */
 .tabs-row { display: flex; gap: 10px; align-items: center; margin-bottom: 22px; }
@@ -1000,7 +1002,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .t-ava-md { width: 52px; height: 52px; }
 .t-ava-lg { width: 72px; height: 72px; font-size: 16px; }
 /* Fiche tennis : grandes photos du bandeau, cerclées de verre comme les logos NBA. */
-.t-ava-xl { width: 150px; height: 150px; font-size: 34px; background: rgba(0, 0, 0, 0.35); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), 0 24px 60px rgba(0, 0, 0, 0.45); }
+.t-ava-xl { width: 150px; height: 150px; font-size: 34px; background: rgba(0, 0, 0, 0.45); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), 0 24px 60px rgba(0, 0, 0, 0.45); }
 .hero-team.t-lost { opacity: 0.55; }
 @media (max-width: 720px) { .t-ava-xl { width: 84px; height: 84px; font-size: 20px; } .mesh-atp .hero-name { font-size: 18px; overflow-wrap: anywhere; } }
 .t-row { grid-template-columns: 92px minmax(0, 1fr) 140px 190px 24px; }
@@ -1557,7 +1559,7 @@ body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
 
 /* « À la une » du bandeau : le match le plus suivi du jour, dans une pastille de verre sombre. */
 .hb-une { position: relative; display: inline-flex; align-items: center; gap: 14px; justify-self: start; margin-top: 16px; padding: 8px 12px 8px 8px; border-radius: 14px; color: #fff;
-  background: rgba(0, 0, 0, 0.45); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); transition: background-color 0.2s var(--ease), transform 0.15s var(--ease); }
+  background: rgba(0, 0, 0, 0.58); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); transition: background-color 0.2s var(--ease), transform 0.15s var(--ease); }
 .hb-une:active { transform: scale(0.98); }
 @media (hover: hover) and (pointer: fine) { .hb-une:hover { background: rgba(0, 0, 0, 0.6); } .hb-une:hover .hb-une-go { transform: translateX(2px); } }
 .hb-une-k { font: 600 10.5px var(--sans); letter-spacing: 0.16em; text-transform: uppercase; color: #d4d4d8; padding: 6px 9px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); white-space: nowrap; }
@@ -1627,3 +1629,10 @@ body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
 /* Courbe du bilan (page Suivi) : vert au-dessus de zéro, rouge en dessous. */
 .curve-line { fill: none; stroke-width: 2.4; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
 .curve-zero { stroke: rgba(255, 255, 255, 0.18); stroke-width: 1; stroke-dasharray: 4 5; vector-effect: non-scaling-stroke; }
+
+/* Fluidité : le marbre des bandeaux arrive en fondu ; chaque nouvelle page aussi, sans écran vide. */
+.warp-in { animation: warp-in 0.45s cubic-bezier(0.23, 1, 0.32, 1) both; }
+@keyframes warp-in { from { opacity: 0; } }
+main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
+@keyframes page-in { from { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .warp-in, main > .page { animation: none; } }

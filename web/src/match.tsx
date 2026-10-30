@@ -66,10 +66,11 @@ function useSim(g: Game) {
 
   const launch = async () => {
     setBusy(true);
+    // Suivi affiché dès le clic, sans attendre la réponse du serveur.
+    setState((s) => ({ status: 'queued', previous: s.status === 'done' ? s.result : undefined }));
     try {
       const req = await startSim(g);
       pending.set(key, { req, at: Date.now() });
-      setState((s) => ({ status: 'queued', previous: s.status === 'done' ? s.result : undefined }));
       timer.current = window.setTimeout(poll, 4000);
     } catch (e) {
       setState({ status: 'failed', error: (e as Error).message });
