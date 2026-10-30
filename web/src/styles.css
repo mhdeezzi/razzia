@@ -296,9 +296,9 @@ a.row:active { transform: scale(0.995); }
   transition: background-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.15s var(--ease); }
 .conf-pill b { font: 600 13px var(--mono); letter-spacing: -0.03em; color: inherit; }
 .conf-pill.wait .wait-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
-/* Badge de simulation : texte blanc pile ou face, vert sinon. */
+/* Badge de simulation : texte rouge pile ou face, vert sinon. */
 .conf-pill.sim { --c: var(--c-green); }
-.conf-pill.sim.flip { --c: #f4f4f2; }
+.conf-pill.sim.flip { --c: var(--c-red); }
 .conf-pill.sim > svg { color: var(--c); }
 .conf-pill.fail { --c: var(--c-red); }
 @media (hover: hover) and (pointer: fine) { a.row:hover .conf-pill.sim, a.card:hover .conf-pill.sim { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); } }
@@ -977,9 +977,6 @@ a.row:hover .mark { transform: scale(1.06); }
 .t-group-head { display: flex; align-items: center; gap: 8px; padding: 16px 14px 6px; font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
 /* Pastilles de simulation du programme : toutes de la même largeur. */
 .t-row .conf-pill.sim { min-width: 160px; justify-content: center; }
-.t-card .conf-pill.sim { min-width: 132px; justify-content: center; }
-.t-card .card-foot { gap: 8px; }
-.t-card .card-foot > span:first-child { white-space: nowrap; }
 .t-lost .vs-name { color: var(--text-3); }
 .t-trend { display: inline-flex; margin-left: 6px; vertical-align: -1px; }
 .t-trend.up { color: var(--m-green); }
@@ -987,14 +984,6 @@ a.row:hover .mark { transform: scale(1.06); }
 .t-home { display: inline-flex; margin-left: 6px; vertical-align: -1px; color: var(--home); }
 .t-goal { display: inline-flex; margin-left: 6px; vertical-align: -1px; color: var(--m-blue); }
 /* Cartes (grille) : noms courts, photos à la taille des logos NBA. */
-.t-card .card-vs { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
-.t-card .card-team { min-width: 0; }
-.t-card .card-team > span { min-width: 0; max-width: 100%; }
-.t-card .vs-name { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.t-card .t-lg { display: none; }
-.t-card .t-sm { display: inline; }
-.t-card .t-ava-lg { width: 64px; height: 64px; }
-.t-card .card-top > .muted { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 12px; }
 .t-row .vs-name { display: block; }
 .t-sm { display: none; }
 a.row:hover .t-ava { transform: scale(1.06); }
@@ -1231,10 +1220,12 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .card-a-team { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .card-a-name { font: 900 min(44px, (100cqi - 62px) / var(--w, 5))/0.9 var(--display); font-stretch: 74%; text-transform: uppercase; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .card-a-name i { font-style: normal; color: #5c5c62; margin-right: 6px; }
+.card-a .t-ava { width: 44px; height: 44px; }
+.card-a-team.t-lost .card-a-name { color: var(--text-3); }
 .card-a-score { margin-left: auto; font-size: 18px; color: var(--text-2); }
 .card-a-f { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; }
 .card-a-p { color: var(--c-green); font-weight: 600; font-size: 14px; }
-.card-a-p.flip { color: #fff; }
+.card-a-p.flip { color: var(--c-red); }
 @media (max-width: 720px) { .card-a { min-height: 0; } }
 /* Petit téléphone : Suivi et Compte tiennent dans la barre, le sport non choisi garde seulement son icône. */
 @media (max-width: 430px) { .sport:not(.is-on) .lbl { display: none; } .sport:not(.is-on) { padding: 0 11px; } }
