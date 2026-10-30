@@ -16,7 +16,7 @@ export const WEIGHTS = {
   // Confrontations des 6 dernières années, (victoires A - victoires B) / (matchs + 4) : même sens sur les deux saisons,
   // effet petit (log-loss du moteur 0,5957 -> 0,5952 ; pronostics inchangés une fois mélangés au marché).
   h2h: 0.4458,
-  comeback: 0.15, // retour de longue absence encore en cours (2e au 10e match) ; voir src/dev/tenniscomeback.ts
+  comeback: 0, // retour de longue absence (2e au 10e match) ; 0,15 testé (src/dev/tenniscomeback.ts), pas encore appliqué
 };
 /**
  * Part du marché (Pinnacle sans marge) dans la probabilité Razzia. Deux saisons, pronostics vainqueur / « Un set » :
