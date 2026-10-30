@@ -2,8 +2,8 @@
 // Les affiches de pub (Poster 1 à 6) restent une maquette sans route.
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
-  ArrowRight, ArrowsLeftRight, Basketball, Bell, ChartLineUp, Check, CheckCircle, Crown, Fire, Infinity as InfinityIcon, Lightning, ListChecks,
-  Scales, ShieldCheck, SoccerBall, Stack, TennisBall, Ticket as TicketIcon,
+  ArrowRight, ArrowsLeftRight, Basketball, Bell, ChartLineUp, Check, CheckCircle, Clock, Crown, Fire, Infinity as InfinityIcon, Lightning, ListChecks,
+  Scales, ShieldCheck, SoccerBall, Stack, TennisBall, ThumbsUp, Ticket as TicketIcon,
 } from '@phosphor-icons/react';
 import { Link, Ring, TeamMark } from './ui.tsx';
 import { WarpBg } from './shaders.tsx';
@@ -65,17 +65,21 @@ function LiveTicket({ loop = true }: { loop?: boolean }) {
         <span className="tk-kind">
           <Stack size={16} /> Combiné · 3 sélections
         </span>
-        <span className={`tk-st ${done ? 'won' : 'live'}`}>{done ? 'Gagné' : `${Math.min(k, 3)}/3 validées`}</span>
+        {done ? (
+          <span className="tk-st won">3/3<ThumbsUp size={15} weight="fill" /></span>
+        ) : (
+          <span className="tk-st live"><i />LIVE<b>{Math.min(k, 3)}/3</b></span>
+        )}
       </header>
       <ol className="tk-legs">
         {legs.map(([t, m, o], j) => (
           <li key={t} className={st(j)}>
             {st(j) === 'won' ? (
-              <span className="lm won"><Check size={13} weight="bold" /></span>
+              <span className="lm won"><ThumbsUp size={16} weight="fill" /></span>
             ) : st(j) === 'live' ? (
-              <span className="lm live"><i /></span>
+              <span className="lm live">LIVE</span>
             ) : (
-              <span className="lm" />
+              <span className="lm wait"><Clock size={18} weight="fill" /></span>
             )}
             <div className="tk-leg-main">
               <b>{t}</b>

@@ -8,13 +8,16 @@ import { Link, useSlider } from './ui.tsx';
 import logo from './assets/razzia-logo.webp';
 
 export function TopBar({ path }: { path: string }) {
+  // Suivi et Compte ne sont d'aucun sport : aucun sport allumé, c'est leur bouton qui l'est.
+  const own = path === '/suivi' || path === '/compte';
   const tennis = path.startsWith('/tennis');
+  const nba = !tennis && !own;
   // Simulations, Bilan, Badges et Méthode restent accessibles par leur adresse ; à droite : Suivi puis Compte.
   const links = [
     { href: '/compte', label: 'Compte', icon: <UserCircle size={19} />, on: path === '/compte', cls: 'top-account' },
   ];
   const nav = useRef<HTMLElement>(null);
-  const pos = useSlider(nav, '.sport.is-on', tennis);
+  const pos = useSlider(nav, '.sport.is-on', `${tennis}${nba}`);
   const legs = useSlip();
   const unseen = useUnseen();
   return (
@@ -25,8 +28,8 @@ export function TopBar({ path }: { path: string }) {
         </Link>
         <nav ref={nav} className="sports" aria-label="Sports">
           {pos && <span className="sport-thumb" style={{ left: pos.l, right: pos.r }} aria-hidden="true" />}
-          <Link href="/" className={`sport${tennis ? '' : ' is-on'}`} aria-current={path === '/' ? 'page' : undefined} title="Programme NBA">
-            <Basketball size={18} weight={tennis ? 'regular' : 'bold'} />
+          <Link href="/" className={`sport${nba ? ' is-on' : ''}`} aria-current={path === '/' ? 'page' : undefined} title="Programme NBA">
+            <Basketball size={18} weight={nba ? 'bold' : 'regular'} />
             <span className="lbl">Basketball</span>
           </Link>
           <button className="sport" disabled title="Football : bientôt" aria-label="Football, bientôt">
