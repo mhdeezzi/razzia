@@ -27,6 +27,7 @@ export interface Leg {
   status?: LegStatus; // dans un ticket validé : issue figée une fois le match fini
   oid?: string; // identifiant du pari dans la fiche (win, spread, hedge, sets, straight), pour relire sa cote
   was?: number; // ticket en préparation : cote d'avant, quand elle vient de bouger
+  note?: string; // pari remboursé au tennis : « Abandon · X qualifié », « Forfait · X qualifié »
 }
 
 /** Identifiant du pari dans la fiche (les anciens paris l'ont seulement à la fin de leur clé). */
@@ -265,7 +266,7 @@ function ptsStatus(leg: Leg, nba?: NbaFinal, box?: BoxLine[]): LegStatus {
   const over = p.pts > (leg.bet.line ?? 0);
   return over === (leg.bet.over ?? true) ? 'won' : 'lost';
 }
-interface AtpFinal { state: 'pre' | 'in' | 'post'; sets: { home: number; away: number }; winner?: 'home' | 'away' }
+interface AtpFinal { state: 'pre' | 'in' | 'post'; sets: { home: number; away: number }; winner?: 'home' | 'away'; ended?: 'final' | 'retired' | 'walkover' }
 
 /** Issue d'un pari d'après le score : gagné, perdu, ou pas encore joué / en cours. */
 export function statusOf(leg: Leg, nba?: NbaFinal, atp?: AtpFinal): LegStatus {
@@ -281,7 +282,9 @@ export function statusOf(leg: Leg, nba?: NbaFinal, atp?: AtpFinal): LegStatus {
     return margin > 0 ? 'won' : 'lost';
   }
   if (!atp || atp.state === 'pre') return 'pending';
-  if (atp.state === 'in' && !atp.winner) return 'live';
+  // Abandon ou forfait : pari annulé (remboursé), quel que soit le joueur qui passe au tour suivant.
+  if (atp.ended === 'retired' || atp.ended === 'walkover') return 'void';
+  if (atp.state !== 'post' || !atp.winner) return 'live';
   const mine = atp.sets[leg.bet.side], theirs = atp.sets[other];
   if (leg.bet.kind === 'win') return atp.winner === leg.bet.side ? 'won' : 'lost';
   if (leg.bet.kind === 'sets') return atp.winner === leg.bet.side || mine >= (leg.bet.need ?? 1) ? 'won' : 'lost';
@@ -289,6 +292,9 @@ export function statusOf(leg: Leg, nba?: NbaFinal, atp?: AtpFinal): LegStatus {
 }
 
 /** Statut de chaque pari (clé du pari) d'après les scores : programme NBA du jour du match, programme tennis récent. */
+/** Explication d'un pari tennis remboursé (abandon, forfait), par clé de pari : remplie par fetchStatuses. */
+export const legNotes = new Map<string, string>();
+
 export async function fetchStatuses(legs: Leg[]): Promise<Record<string, LegStatus>> {
   const res: Record<string, LegStatus> = {};
   const nbaDays = [...new Set(legs.filter((l) => l.sport === 'nba').map((l) => l.date))];
@@ -310,7 +316,7 @@ export async function fetchStatuses(legs: Leg[]): Promise<Record<string, LegStat
       for (const m of r.matches ?? []) {
         const l = m.live;
         const won = (side: 'home' | 'away') => (l?.[side] ?? []).filter((x: { w?: boolean }) => x.w).length;
-        atpGames.set(String(m.id), { state: l?.state ?? 'pre', sets: { home: won('home'), away: won('away') }, winner: l?.winner });
+        atpGames.set(String(m.id), { state: l?.state ?? 'pre', sets: { home: won('home'), away: won('away') }, winner: l?.winner, ended: l?.ended });
       }
     } catch {
       /* idem */
@@ -329,8 +335,14 @@ export async function fetchStatuses(legs: Leg[]): Promise<Record<string, LegStat
       }
     }),
   );
-  for (const l of legs)
-    res[l.key] = l.bet.kind === 'pts' ? ptsStatus(l, nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`), boxes.get(l.bet.event ?? '')) : statusOf(l, l.sport === 'nba' ? nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`) : undefined, l.sport === 'atp' ? atpGames.get(l.match.id ?? '') : undefined);
+  for (const l of legs) {
+    const atp = l.sport === 'atp' ? atpGames.get(l.match.id ?? '') : undefined;
+    res[l.key] = l.bet.kind === 'pts' ? ptsStatus(l, nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`), boxes.get(l.bet.event ?? '')) : statusOf(l, l.sport === 'nba' ? nbaGames.get(`${l.date}_${l.match.away}@${l.match.home}`) : undefined, atp);
+    if (atp?.ended === 'retired' || atp?.ended === 'walkover') {
+      const q = atp.winner ? (atp.winner === 'home' ? l.match.homeName : l.match.awayName) : undefined;
+      legNotes.set(l.key, `${atp.ended === 'retired' ? 'Abandon' : 'Forfait'}${q ? ` · ${q} qualifié` : ''}`);
+    }
+  }
   return res;
 }
 
@@ -389,8 +401,9 @@ async function settle(owner: string, tickets: Ticket[]): Promise<SettleEvent[]> 
     const legs = t.legs.map((l) => {
       const s = st[l.key];
       if (final(l.status) || !final(s)) return l;
-      fresh.push({ ...l, status: s });
-      return { ...l, status: s };
+      const note = s === 'void' ? legNotes.get(l.key) : undefined;
+      fresh.push({ ...l, status: s, ...(note ? { note } : {}) });
+      return { ...l, status: s, ...(note ? { note } : {}) };
     });
     if (!fresh.length) continue;
     const fin = ticketState(legs.map((l) => l.status ?? 'pending'));

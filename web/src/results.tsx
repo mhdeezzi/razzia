@@ -1,7 +1,8 @@
 // Résultats des 25 000 simulations : verdict et niveau de confiance d'abord, puis les paris, et le détail (signaux,
 // joueurs à suivre, match typique, duel statistique, profil de tir, joueurs).
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowsLeftRight, Check, Plus, Scales, ShieldCheck } from '@phosphor-icons/react';
+import { ArrowsLeftRight, Check, FirstAid, Plus, Scales, ShieldCheck } from '@phosphor-icons/react';
+import { starsOut } from './stars.ts';
 import type { Leg } from './suivi.ts';
 import { FollowBtn } from './follow.tsx';
 import { MoneyFlow } from './money.tsx';
@@ -118,6 +119,26 @@ function ConfidenceBadge({ c, g }: { c: Confidence; g: Game }) {
   return null;
 }
 
+/** Star du cinq de départ absente : simple avertissement, ne change pas le pronostic. */
+function StarOutBadge({ r, g }: { r: Result; g: Game }) {
+  const out = starsOut(r);
+  if (!out.length) return null;
+  const sides = [...new Set(out.map((x) => x.side))];
+  return (
+    <Callout tone="badge-hurt" icon={<FirstAid size={19} weight="fill" />} title={out.length > 1 ? 'Stars absentes' : 'Star absente'}>
+      <p>
+        {sides
+          .map((k) => {
+            const names = out.filter((x) => x.side === k).map((x) => x.name);
+            return `${names.join(' et ')} (${g[k].name}), ${names.length > 1 ? 'titulaires absents' : 'titulaire absent'} ce soir`;
+          })
+          .join(' ; ')}
+        . Le moteur en tient compte ; c'est un avertissement.
+      </p>
+    </Callout>
+  );
+}
+
 function MarketBadge({ c, g }: { c: Confidence; g: Game }) {
   if (!c.disagree || c.book == null) return null;
   const other = g[c.side === 'home' ? 'away' : 'home'];
@@ -169,6 +190,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
         <PickOdds o={win} />
         <ConfidenceBadge c={c} g={g} />
         <MarketBadge c={c} g={g} />
+        <StarOutBadge r={r} g={g} />
         {c.tier !== 'flip' && c.hedge && (
           // Fin de match serrée : le favori avec des points d'avance couvre aussi une défaite de peu.
           <p className="hedge-line">

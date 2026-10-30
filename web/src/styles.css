@@ -287,6 +287,7 @@ a.row:active { transform: scale(0.995); }
 .forme-item.up .forme-chip { color: var(--m-green); }
 .forme-item.down .forme-chip { color: var(--m-rose); }
 .forme-item.hot .forme-chip { color: var(--m-fire); }
+.forme-item.hurt .forme-chip { color: var(--c-red); }
 .forme-none { color: var(--text-3); }
 /* Badges du programme : pas de fond, contour et texte de la teinte (bleu simulé, vert assuré, ambre pile ou face, rouge
    échec), icône ou point, pourcentage en chiffres à chasse fixe. */
@@ -333,6 +334,9 @@ a.row:active { transform: scale(0.995); }
 .signal-goal, .badge-lineup { --c: var(--c-blue); }
 .badge-fire { --c: var(--c-fire); }
 .badge-info, .signal-tight { --c: #8e8e93; }
+/* Star absente : pastille monochrome, croix rouge. */
+.badge-hurt { --c: #b4b4b9; }
+.badge-hurt .signal-icon svg { color: var(--c-red); }
 /* Chat noir : pastille blanche, chat noir, filet blanc. */
 .signal-cat { --c: #f2f2f4; }
 

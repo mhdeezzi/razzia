@@ -135,6 +135,7 @@ export interface SimEntry {
   gp?: number; // matchs joués par l'équipe qui en a le moins
   trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' }; // équipe en pleine montée ou en baisse
   hot?: { id: number; side: 0 | 1; name: string }; // joueur le plus chaud (side 0 : domicile)
+  injured?: Array<{ side: 'home' | 'away'; name: string }>; // stars du cinq de départ absentes (avertissement)
 }
 let sims: Promise<Map<string, SimEntry>> | undefined;
 /** `bust` contourne le cache du CDN (20 s) : sert juste après une publication. */

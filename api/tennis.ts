@@ -29,7 +29,7 @@ const okDay = (d: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? '')) && new
 // Tableaux ATP d'ESPN (simple messieurs) : scores des tournois en cours et de la veille, et matchs programmés des
 // 6 prochains jours (ceux que Pinnacle n'a pas encore cotés s'affichent sans cote, simulables avec le moteur seul).
 const key = (n: string) => (n ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
-interface Live { state: 'pre' | 'in' | 'post'; detail?: string; players: Array<{ key: string; winner: boolean; sets: Array<{ g: number; tb?: number; w?: boolean }> }> }
+interface Live { state: 'pre' | 'in' | 'post'; ended?: 'final' | 'retired' | 'walkover'; detail?: string; players: Array<{ key: string; winner: boolean; sets: Array<{ g: number; tb?: number; w?: boolean }> }> }
 interface Planned { id: string; event: string; round: string; start: string; home: string; away: string }
 // Tour ESPN -> code des fiches Pinnacle (« ATP Paris - R16 ») ; qualifications ignorées, comme pour les cotes.
 function roundCode(name = ''): string | undefined {
@@ -56,10 +56,15 @@ async function espn(): Promise<{ live: Map<string, Live>; planned: Planned[] }> 
             const ps = (c.competitors ?? []).filter((p: any) => p.athlete?.displayName && p.athlete.displayName !== 'TBD');
             if (ps.length !== 2) continue;
             const pair = ps.map((p: any) => key(p.athlete.displayName)).sort().join('|');
-            const state = c.status?.type?.state ?? 'pre';
+            // Terminé seulement sur un vrai statut de fin (score final, abandon, forfait). Temps mort médical, suspension
+            // ou pluie : le match reste en direct jusqu'à la reprise ou l'abandon.
+            const name = String(c.status?.type?.name ?? '');
+            const ended = name === 'STATUS_FINAL' ? 'final' : name === 'STATUS_RETIRED' ? 'retired' : name === 'STATUS_WALKOVER' ? 'walkover' : undefined;
+            const raw0 = c.status?.type?.state ?? 'pre';
+            const state = raw0 === 'pre' && !ended ? 'pre' : ended ? 'post' : 'in';
             live.set(pair, {
-              state, detail: c.status?.type?.shortDetail,
-              players: ps.map((p: any) => ({ key: key(p.athlete.displayName), winner: !!p.winner, sets: (p.linescores ?? []).map((l: any) => ({ g: l.value, tb: l.tiebreak, w: l.winner })) })),
+              state, ended, detail: ended === 'retired' ? 'Abandon' : ended === 'walkover' ? 'Forfait' : c.status?.type?.shortDetail,
+              players: ps.map((p: any) => ({ key: key(p.athlete.displayName), winner: !!ended && !!p.winner, sets: (p.linescores ?? []).map((l: any) => ({ g: l.value, tb: l.tiebreak, w: l.winner })) })),
             });
             const round = roundCode(c.round?.displayName);
             const start = c.startDate ?? c.date;
@@ -94,7 +99,7 @@ export async function GET(request: Request): Promise<Response> {
         if (!l) return undefined;
         const h = l.players.find((x) => x.key === key(home)), a = l.players.find((x) => x.key === key(away));
         if (!h || !a) return undefined;
-        return { state: l.state, detail: l.detail, home: h.sets, away: a.sets, winner: h.winner ? 'home' : a.winner ? 'away' : undefined };
+        return { state: l.state, ended: l.ended, detail: l.detail, home: h.sets, away: a.sets, winner: h.winner ? 'home' : a.winner ? 'away' : undefined };
       };
       // Un match relevé d'abord sur ESPN (fiche sans cote, peut-être déjà simulée sous cet identifiant) puis coté par
       // Pinnacle : on garde la fiche ESPN, avec la cote Pinnacle.
@@ -124,7 +129,34 @@ export async function GET(request: Request): Promise<Response> {
         const league = `${tourney.get(m.event) ?? `ATP ${m.event}`}${m.round ? ` - ${m.round}` : ''}`;
         matches.push({ id: m.id, day, league, start: m.start, home: m.home, away: m.away, noOdds: true });
       }
-      return Response.json({ matches, sims: s.ok ? await s.json() : [], players: p.ok ? await p.json() : {} }, { headers: { 'Cache-Control': 'public, s-maxage=60' } });
+      // Programme qui a changé avant le match : match décalé (même paire sur deux fiches) ou adversaire remplacé (forfait
+      // avant le début, repêché). On garde la fiche que le tableau ESPN annonce encore ; les fiches commencées restent.
+      const pk = (m: any) => [key(m.home), key(m.away)].sort().join('|');
+      const espnStart = new Map<string, string>([...planned.map((m) => [pk(m), m.start] as [string, string])]);
+      const notStarted = (m: any) => !m.live || m.live.state === 'pre';
+      const tour = (m: any) => String(m.league ?? '').split(' - ')[0];
+      const drop = new Set<any>();
+      // 1) Même paire en double, pas commencée : celle à l'heure d'ESPN, sinon la plus tardive.
+      const byPair = new Map<string, any[]>();
+      for (const m of matches) if (notStarted(m)) byPair.set(pk(m), [...(byPair.get(pk(m)) ?? []), m]);
+      for (const [k, l] of byPair) {
+        if (l.length < 2) continue;
+        const at = espnStart.get(k);
+        const keep = (at && l.find((m) => Math.abs(Date.parse(m.start) - Date.parse(at)) < 3 * 3_600_000)) ?? [...l].sort((a, b) => Date.parse(b.start) - Date.parse(a.start))[0];
+        for (const m of l) if (m !== keep) drop.add(m);
+      }
+      // 2) Un joueur dans deux matchs pas commencés du même tournoi à moins de 36 h : son adversaire a changé. On garde
+      //    celui qu'ESPN annonce ; si ESPN ne tranche pas (indisponible), on ne retire rien.
+      const byPlayer = new Map<string, any[]>();
+      for (const m of matches) if (notStarted(m) && !drop.has(m)) for (const n of [m.home, m.away]) byPlayer.set(`${key(n)}|${tour(m)}`, [...(byPlayer.get(`${key(n)}|${tour(m)}`) ?? []), m]);
+      for (const l of byPlayer.values()) {
+        if (l.length < 2) continue;
+        const close = l.filter((m) => l.some((o) => o !== m && Math.abs(Date.parse(o.start) - Date.parse(m.start)) < 36 * 3_600_000));
+        const listed = close.filter((m) => espnStart.has(pk(m)));
+        if (listed.length >= 1 && listed.length < close.length) for (const m of close) if (!listed.includes(m)) drop.add(m);
+      }
+      const shown = matches.filter((m) => !drop.has(m));
+      return Response.json({ matches: shown, sims: s.ok ? await s.json() : [], players: p.ok ? await p.json() : {} }, { headers: { 'Cache-Control': 'public, s-maxage=60' } });
     }
     if (q.get('bilan')) {
       const b = await raw('tennis/bilan.json', 'resultats');
