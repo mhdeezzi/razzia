@@ -117,6 +117,22 @@ async function tick(): Promise<Response> {
   return Response.json({ at: new Date(now).toISOString(), soon: soon.length, relaunched, bilan, bilanTennis }, { headers: noStore });
 }
 
+/** Calcul en cours pour ce match, quel que soit l'appareil qui l'a lancé (relance d'avant-match comprise). */
+async function liveRun(k: { date: string; away: string; home: string }): Promise<any | undefined> {
+  try {
+    return (await inFlight()).find((w) => String(w.display_title ?? '').startsWith(`Sim ${k.away}@${k.home} ${k.date} · `));
+  } catch {
+    return undefined;
+  }
+}
+/** Réponse « en cours » partagée : l'identifiant de la demande permet à chaque appareil de suivre le même calcul. */
+const shared = (w: any, previous?: unknown) => ({
+  status: w.status === 'in_progress' ? 'running' : 'queued',
+  req: String(w.display_title).split(' · ').pop(),
+  startedAt: w.run_started_at ?? w.created_at,
+  ...(previous ? { previous } : {}),
+});
+
 export async function GET(request: Request): Promise<Response> {
   const q = new URL(request.url).searchParams;
   try {
@@ -161,7 +177,11 @@ export async function GET(request: Request): Promise<Response> {
       const typ = await gh(`/contents/sims/${encodeURIComponent(k.dir)}/typical.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
       if (typ.ok) result.typical = await typ.json();
       // Une demande en cours pour ce match (relance) passe avant l'ancien résultat.
-      if (!req) return Response.json({ status: 'done', result }, { headers: noStore });
+      if (!req) {
+        const live = await liveRun(k);
+        if (live && !(result.meta?.builtAt && Date.parse(result.meta.builtAt) > Date.parse(live.created_at))) return Response.json(shared(live, result), { headers: noStore });
+        return Response.json({ status: 'done', result }, { headers: noStore });
+      }
       const run = await findRun(req);
       // Relance terminée en échec : l'ancien résultat reste affiché, mais on le dit.
       if (run?.status === 'completed' && run.conclusion !== 'success') return Response.json({ status: 'done', result, relaunchFailed: true, url: run.html_url }, { headers: noStore });
@@ -171,7 +191,11 @@ export async function GET(request: Request): Promise<Response> {
       if (result.meta?.builtAt && Date.parse(result.meta.builtAt) > Date.parse(run.created_at)) return Response.json({ status: 'done', result }, { headers: noStore });
       return Response.json({ status: run.status === 'queued' ? 'queued' : 'running', startedAt: run.run_started_at, previous: result }, { headers: noStore });
     }
-    if (!req) return Response.json({ status: 'none' }, { headers: noStore });
+    if (!req) {
+      // Simulation lancée par quelqu'un d'autre (ou sur un autre appareil) : on la suit au lieu d'afficher « aucune ».
+      const live = await liveRun(k);
+      return Response.json(live ? shared(live) : { status: 'none' }, { headers: noStore });
+    }
     const run = await findRun(req);
     if (!run) return Response.json({ status: 'queued' }, { headers: noStore });
     if (run.status === 'completed') {

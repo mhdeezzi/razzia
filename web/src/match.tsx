@@ -47,6 +47,8 @@ function useSim(g: Game) {
     try {
       const s = await simStatus(g, p?.req);
       setState(s);
+      // Calcul lancé ailleurs (autre appareil, autre visiteur, relance d'avant-match) : suivi ici aussi.
+      if (!p && (s.status === 'queued' || s.status === 'running') && s.req) pending.set(key, { req: s.req, at: s.startedAt ? Date.parse(s.startedAt) : Date.now() });
       if (s.status === 'queued' || s.status === 'running') timer.current = window.setTimeout(poll, 5000);
       else if (p) {
         if (s.status === 'done' && s.relaunchFailed)
