@@ -25,6 +25,7 @@ export interface Category {
   label: string;
   items: Outcome[];
   warn?: boolean; // déconseillé (point rouge sur l'onglet)
+  risky?: boolean; // risqué (point orange sur l'onglet)
   good?: boolean; // plus sûr que le vainqueur (point bleu sur l'onglet)
 }
 
@@ -165,7 +166,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
     const side = hot.side === 0 ? 'home' : 'away';
     const ln = l.toFixed(1).replace('.', ',');
     cats.push({
-      id: 'scorer', label: 'Marqueur',
+      id: 'scorer', label: 'Marqueur', ...(side !== winSide ? { risky: true } : {}),
       items: [{
         // Joueur de l'équipe donnée perdante : pastille orange « Risqué ».
         ...(side !== winSide ? { warn: 'Risqué' } : {}),
