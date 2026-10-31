@@ -130,6 +130,38 @@ async function tick(): Promise<Response> {
       if (d.ok) relaunched.push(dir);
     }
   }
+  // Tennis : même règle. Un match simulé sans cote (index : noOdds) qui en a une maintenant (fichier de cotes du jour) est
+  // relancé une fois, de 20 h à 30 min avant le début (jamais une fois commencé).
+  try {
+    const ti = await gh(`/contents/tennis/index.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
+    const tIndex: Array<{ id: string; day: string; start: string; noOdds?: boolean }> = ti.ok ? await ti.json() : [];
+    const todo = tIndex.filter((e) => e.noOdds && Date.parse(e.start) - now > 30 * 60_000 && Date.parse(e.start) - now <= 20 * 3_600_000);
+    if (todo.length) {
+      const odds = new Map<string, any>();
+      for (const day of new Set(todo.map((e) => e.day))) {
+        const r = await gh(`/contents/atp/${day}.json?ref=cotes-tennis`, { headers: { Accept: 'application/vnd.github.raw+json' } });
+        odds.set(day, r.ok ? await r.json() : {});
+      }
+      const tr = await gh(`/actions/workflows/simulate-tennis.yml/runs?per_page=50`);
+      const tRunning: any[] = tr.ok ? ((await tr.json()).workflow_runs ?? []).filter((w: any) => w.status !== 'completed') : [];
+      const ids = todo.filter((e) => {
+        const o = odds.get(e.day)?.[e.id];
+        const ml = o?.last?.ml ?? o?.first?.ml;
+        return ml && !tRunning.some((w) => String(w.display_title ?? '').split(' ')[1]?.split(',').includes(e.id));
+      });
+      const byDay = new Map<string, string[]>();
+      for (const e of ids) byDay.set(e.day, [...(byDay.get(e.day) ?? []), e.id]);
+      for (const [day, list] of byDay) {
+        const d = await gh(`/actions/workflows/simulate-tennis.yml/dispatches`, {
+          method: 'POST',
+          body: JSON.stringify({ ref: 'main', inputs: { id: list.join(','), day, request_id: 'cotes' } }),
+        });
+        if (d.ok) relaunched.push(...list.map((x) => `tennis ${x} (cotes)`));
+      }
+    }
+  } catch {
+    /* tennis indisponible : le basket continue */
+  }
   const [bilan, bilanTennis] = await Promise.all([refreshBilan('bilan.yml', undefined, 14), refreshBilan('bilan-tennis.yml', undefined, 14)]);
   return Response.json({ at: new Date(now).toISOString(), soon: near.length, relaunched, bilan, bilanTennis }, { headers: noStore });
 }
