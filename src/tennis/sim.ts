@@ -22,6 +22,8 @@ const NODES = (() => {
 // Variation de forme d'un set à l'autre (logit des points de service, en plus de la forme du jour) : un joueur traverse un
 // set sans réussite puis se reprend. Réglable ; 0 par défaut (comportement d'avant).
 export let SET_SD = 0;
+// Correction de l'outsider qui prend un set (logit, au sommet vers 85 % de favori) : circuit en 3 sets, Grand Chelem.
+const DOG_SET_BO3 = 0.39, DOG_SET_BO5 = 0.27;
 export function setSetSd(v: number): void { SET_SD = v; }
 const NODES12 = (() => {
   const n = 12, xs: Array<[number, number]> = [];
@@ -219,13 +221,35 @@ export function simulate(opts: { pA: number; pB: number; bestOf: 3 | 5; target?:
   const gamesLadder: SimResult['gamesLadder'] = [];
   for (let line = -15.5; line <= 15.5; line++) gamesLadder.push({ line, pACover: diff.filter((d) => d + line > 0).length / n });
   const favA = (opts.target ?? win / n) >= 0.5;
-  const typical = typicalMatch({
-    pA, pB, bestOf: opts.bestOf, sd, seed, favA, scores, setsA, setsB, games: games0, diff, form, tbA,
-    pDogSet: (favA ? b1 : a1) / n, pTb: tbs / n,
-  });
   for (const k of Object.keys(scores)) scores[k] /= n;
+  // Outsider qui prend un set face à un gros favori : la simulation le sous-estimait (ATP 2025-2026, 2 962 matchs :
+  // favori à 80-90 % qui gagne, l'outsider avait pris un set 30,6 % du temps, 24,2 % prévus). Correction apprise sur
+  // une année et vérifiée sur l'autre (log-perte -3,3 ‰ et -2,9 ‰), maximale vers 85 %, nulle sous 70 % et à 100 %.
+  // La victoire et les jeux décisifs ne bougent pas : une part des victoires sans perdre de set passe aux victoires
+  // avec un set perdu.
+  const pFav = Math.max(opts.target ?? win / n, 1 - (opts.target ?? win / n));
+  const bump = (opts.bestOf === 5 ? DOG_SET_BO5 : DOG_SET_BO3) * Math.max(0, 1 - Math.abs(pFav - 0.85) / 0.15);
+  const at1: [number, number] = [a1 / n, b1 / n], straight: [number, number] = [aS / n, bS / n];
+  const dog = favA ? 1 : 0, fav = 1 - dog;
+  if (bump > 0 && at1[dog] > 0 && at1[dog] < 1) {
+    const moved = Math.min(straight[fav], Sg(Lg(at1[dog]) + bump) - at1[dog]);
+    const need = opts.bestOf === 5 ? 3 : 2;
+    const sweep = favA ? `${need}-0` : `0-${need}`;
+    const close = Object.keys(scores).filter((k) => { const [x, y] = k.split('-').map(Number); return favA ? x === need && y >= 1 : y === need && x >= 1; });
+    const closeTot = close.reduce((t, k) => t + scores[k], 0);
+    if (moved > 0 && scores[sweep] != null && closeTot > 0) {
+      scores[sweep] -= moved;
+      for (const k of close) scores[k] += (moved * scores[k]) / closeTot;
+      at1[dog] += moved;
+      straight[fav] -= moved;
+    }
+  }
+  const typical = typicalMatch({
+    pA, pB, bestOf: opts.bestOf, sd, seed, favA, scores: Object.fromEntries(Object.entries(scores).map(([k, v]) => [k, v * n])), setsA, setsB, games: games0, diff, form, tbA,
+    pDogSet: at1[dog], pTb: tbs / n,
+  });
   return {
-    n, pA, pB, win: win / n, firstSet: first / n, scores, atLeast1: [a1 / n, b1 / n], atLeast2: [a2 / n, b2 / n], straight: [aS / n, bS / n],
+    n, pA, pB, win: win / n, firstSet: first / n, scores, atLeast1: at1, atLeast2: [a2 / n, b2 / n], straight,
     tiebreak: tbs / n, games: { mean: games.reduce((s, x) => s + x, 0) / n, p10: q(0.1), p50: q(0.5), p90: q(0.9) }, gamesLadder, typical,
   };
 }
