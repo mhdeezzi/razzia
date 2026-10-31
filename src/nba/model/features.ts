@@ -16,10 +16,11 @@ export const PLAYOFF_DISCOUNT = 0.8;
  *   prevDiscount : escompte d'un match de la saison précédente ;
  *   prevFade     : en plus, chaque match joué cette saison retire cette part aux matchs des saisons précédentes.
  */
-// Contrôle de justesse (600 matchs, débuts de saison 2024-25 et 2025-26) : actuel (0,8 / 1) 69,7 % de bons vainqueurs,
-// Brier 0,2009 ; saison précédente à 0,3 et fondu 0,9 : 70,5 %, Brier 0,1988. Retenu.
+// Contrôle de justesse (600 matchs, débuts de saison 2024-25 et 2025-26) : 0,8 / 1 69,7 % de bons vainqueurs ; 0,3 / 0,9
+// 70,5 %, retenu le 30/10. Mais sur la saison 2025-26 complète (1 230 matchs, 31/10), 0,3 / 0,9 perdait 15 bons
+// vainqueurs (853 contre 868) avec des probabilités moins justes sur les deux moitiés de saison : retour à 0,8 / 1.
 export const RECENCY = {
-  decay: DECAY, prevDiscount: 0.3, prevDecay: PREV_DECAY, prevFade: 0.9,
+  decay: DECAY, prevDiscount: 0.8, prevDecay: PREV_DECAY, prevFade: 1,
   // Mémoires propres (réglables pour le contrôle de justesse ; NaN = celle ci-dessus) : le rôle d'un joueur (volume,
   // possessions, pertes, rebonds, fautes, présence) change vite d'une saison à l'autre, son adresse beaucoup moins.
   rolePrevDiscount: NaN, rolePrevFade: NaN, shootPrevDiscount: NaN, shootPrevFade: NaN,
