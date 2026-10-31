@@ -4,7 +4,8 @@
 // 1,05 au set, la valeur qui reproduit les vrais taux « au moins un set / deux sets » (2024-2025).
 // La force est calée pour que la victoire moyenne égale la probabilité visée (moteur + marché).
 import { Rng } from '../core/rng.ts';
-import { hold, match as matchProb, tiebreak } from './score.ts';
+import { hold, match as matchProb, seriesWin, set as setProb, tiebreak } from './score.ts';
+void setProb;
 
 export const FORM_SD = 0.165;
 
@@ -18,10 +19,56 @@ const NODES = (() => {
   return xs.map(([z, w]) => [z, w / t] as [number, number]);
 })();
 
+// Variation de forme d'un set à l'autre (logit des points de service, en plus de la forme du jour) : un joueur traverse un
+// set sans réussite puis se reprend. Réglable ; 0 par défaut (comportement d'avant).
+export let SET_SD = 0;
+export function setSetSd(v: number): void { SET_SD = v; }
+const NODES12 = (() => {
+  const n = 12, xs: Array<[number, number]> = [];
+  let t = 0;
+  for (let i = 0; i < n; i++) { const z = -3 + (6 * (i + 0.5)) / n, w = Math.exp((-z * z) / 2); xs.push([z, w]); t += w; }
+  return xs.map(([z, w]) => [z, w / t] as [number, number]);
+})();
+/** Set gagné par A (A sert le premier jeu), en tableaux plutôt qu'en dictionnaire : appelé des milliers de fois au calage. */
+function setFast(pA: number, pB: number, tb = 7): number {
+  const hA = hold(pA), hB = hold(pB);
+  const P = new Float64Array(64);
+  P[0] = 1;
+  let total = 0;
+  for (let n = 0; n < 12; n++) {
+    for (let a = 0; a <= n; a++) {
+      const b = n - a;
+      if (a > 7 || b > 7) continue;
+      const pr = P[a * 8 + b];
+      if (!pr) continue;
+      if ((a === 6 && b <= 4) || (b === 6 && a <= 4) || a === 7 || b === 7) continue;
+      const w = n % 2 === 0 ? hA : 1 - hB;
+      const na = a + 1, nb = b + 1;
+      if ((na === 6 && b <= 4) || (na === 7 && b === 5)) total += pr * w;
+      else P[na * 8 + b] += pr * w;
+      if (!((nb === 6 && a <= 4) || (nb === 7 && a === 5))) P[a * 8 + nb] += pr * (1 - w);
+    }
+  }
+  return total + P[6 * 8 + 6] * tiebreak(pA, pB, tb);
+}
+
+/** Match gagné par A, chaque set ayant sa propre variation de forme (sets indépendants à forme du jour donnée). */
+function matchWithSetNoise(pa: number, pb: number, bestOf: 3 | 5, ss: number): number {
+  if (!ss) return matchProb(pa, pb, bestOf);
+  let s = 0, last = 0;
+  for (const [z, w] of NODES12) {
+    const a = Sg(Lg(pa) + ss * z), b = Sg(Lg(pb) - ss * z);
+    const sx = (setFast(a, b) + 1 - setFast(b, a)) / 2;
+    s += w * sx;
+    last += w * (bestOf === 5 ? (setFast(a, b, 10) + 1 - setFast(b, a, 10)) / 2 : sx);
+  }
+  return seriesWin(s, last, bestOf);
+}
+
 /** Victoire moyenne de A sur toutes les formes du jour. */
 export function expectedWin(pA: number, pB: number, bestOf: 3 | 5, sd = FORM_SD): number {
   let e = 0;
-  for (const [z, w] of NODES) e += w * matchProb(Sg(Lg(pA) + sd * z), Sg(Lg(pB) - sd * z), bestOf);
+  for (const [z, w] of NODES) e += w * matchWithSetNoise(Sg(Lg(pA) + sd * z), Sg(Lg(pB) - sd * z), bestOf, SET_SD);
   return e;
 }
 
@@ -78,9 +125,15 @@ function play(rng: Rng, pa: number, pb: number, bestOf: 3 | 5, log?: Log): { sa:
   const need = bestOf === 5 ? 3 : 2;
   let sa = 0, sb = 0, ga = 0, gb = 0, tb = 0, first = -1;
   let aServes = rng.next() < 0.5;
+  const pa0 = pa, pb0 = pb;
   while (sa < need && sb < need) {
     let a = 0, b = 0;
     const decisive = sa === need - 1 && sb === need - 1;
+    if (SET_SD) {
+      const e = rng.normal(0, SET_SD);
+      pa = Sg(Lg(pa0) + e);
+      pb = Sg(Lg(pb0) - e);
+    }
     for (;;) {
       if (a === 6 && b === 6) {
         // Jeu décisif à 7 points (10 dans le set décisif d'un Grand Chelem), services alternés tous les deux points.
