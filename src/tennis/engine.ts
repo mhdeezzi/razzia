@@ -40,7 +40,8 @@ export function engineProb(R: Ratings, a: Snapshot, b: Snapshot, surface: Surfac
   const factors: Factor[] = [
     { key: 'elo', label: 'Niveau (Elo général et surface)', z: WEIGHTS.elo * Lg(elo) },
     { key: 'point', label: 'Service et retour', z: WEIGHTS.point * Lg(point) },
-    { key: 'age', label: 'Âge (progression des jeunes)', z: WEIGHTS.age * (v(a.age) - v(b.age)) },
+    // Âge inconnu d'un des deux : pas d'écart d'âge (compté 0, il valait un joueur de 0 an : 28 ans contre inconnu = 28 %).
+    { key: 'age', label: 'Âge (progression des jeunes)', z: a.age && b.age ? WEIGHTS.age * (a.age - b.age) : 0 },
     { key: 'experience', label: 'Expérience', z: WEIGHTS.experience * (Math.log(1 + a.n) - Math.log(1 + b.n)) },
     { key: 'layoff', label: 'Retour après une longue absence', z: WEIGHTS.layoff * (layoff(b) - layoff(a)) },
     { key: 'played14', label: 'Rythme (matchs sur 14 jours)', z: WEIGHTS.played14 * (a.played14 - b.played14) },

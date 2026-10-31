@@ -555,6 +555,12 @@ export function summarize(m: GameModel, b: Batch): Summary {
           for (let i = 0; i < n; i++) if (margin[i] + shift + r.line > 0) c++;
           r.pHomeCover = c / n;
         }
+        // Handicap du bookmaker aussi (il était resté calculé avant le plafond, en désaccord avec les lignes ci-dessus).
+        if (mk.spreadHome != null) {
+          let c = 0;
+          for (let i = 0; i < n; i++) if (margin[i] + shift + mk.spreadHome > 0) c++;
+          market.pHomeCover = c / n;
+        }
       }
       // Cote d'ouverture gardée aussi pour mesurer la valeur de clôture.
       if (mk.pHomeOpen != null) market.bookHomeOpen = mk.pHomeOpen;
