@@ -85,6 +85,24 @@ async function findRun(req: string): Promise<any | undefined> {
   return ((await r.json()).workflow_runs ?? []).find((w: any) => String(w.display_title ?? '').endsWith(`· ${req}`));
 }
 
+/**
+ * GitHub saute la plupart des tâches planifiées (le bilan « tous les quarts d'heure » passait toutes les 3 à 6 heures) :
+ * quand quelqu'un lit un bilan vieux de plus de 20 minutes, on relance son calcul, sauf s'il tourne déjà ou vient d'être
+ * lancé. Sans effet sur la réponse (le bilan à jour arrive à la lecture suivante) ; une erreur ici n'empêche rien.
+ */
+async function refreshBilan(workflow: string, at: string | undefined): Promise<void> {
+  if (at && Date.now() - Date.parse(at) < 20 * 60_000) return;
+  try {
+    const r = await gh(`/actions/workflows/${workflow}/runs?per_page=3`);
+    if (!r.ok) return;
+    const runs: any[] = (await r.json()).workflow_runs ?? [];
+    if (runs.some((w) => w.status !== 'completed' || Date.now() - Date.parse(w.created_at) < 10 * 60_000)) return;
+    await gh(`/actions/workflows/${workflow}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main' }) });
+  } catch {
+    /* GitHub injoignable : le bilan reste tel quel */
+  }
+}
+
 export async function GET(request: Request): Promise<Response> {
   const q = new URL(request.url).searchParams;
   try {
@@ -160,7 +178,10 @@ export async function GET(request: Request): Promise<Response> {
     }
     if (q.get('bilan')) {
       const b = await raw('tennis/bilan.json', 'resultats');
-      return b.ok ? Response.json(await b.json(), { headers: { 'Cache-Control': 'public, s-maxage=60' } }) : Response.json({ games: 0 }, { headers: noStore });
+      if (!b.ok) return Response.json({ games: 0 }, { headers: noStore });
+      const j = await b.json();
+      await refreshBilan('bilan-tennis.yml', j.at);
+      return Response.json(j, { headers: { 'Cache-Control': 'public, s-maxage=60' } });
     }
     const id = q.get('id'), day = q.get('day'), req = q.get('req');
     if (!id && req && /^[a-z0-9]{4,12}$/.test(req)) {
