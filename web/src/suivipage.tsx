@@ -246,11 +246,11 @@ function Spark({ pts }: { pts: number[] }) {
 
 /** État d'une sélection, en rond plein : pouce vert gagné, pouce rouge perdu, horloge jaune à venir, LIVE en direct, interdit gris annulé. */
 function LegMark({ s }: { s: LegStatus }) {
-  if (s === 'won') return <span className="lm won" aria-label="Gagné"><ThumbsUp size={16} weight="fill" /></span>;
-  if (s === 'lost') return <span className="lm lost" aria-label="Perdu"><ThumbsDown size={16} weight="fill" /></span>;
+  if (s === 'won') return <span className="lm won" aria-label="Gagné"><ThumbsUp size={14} weight="fill" /></span>;
+  if (s === 'lost') return <span className="lm lost" aria-label="Perdu"><ThumbsDown size={14} weight="fill" /></span>;
   if (s === 'live') return <span className="lm live" aria-label="En direct">LIVE</span>;
-  if (s === 'void') return <span className="lm void" aria-label="Annulé, remboursé"><Prohibit size={17} weight="bold" /></span>;
-  return <span className="lm wait" aria-label="À venir"><Clock size={18} weight="fill" /></span>;
+  if (s === 'void') return <span className="lm void" aria-label="Annulé, remboursé"><Prohibit size={15} weight="bold" /></span>;
+  return <span className="lm wait" aria-label="À venir"><Clock size={16} weight="fill" /></span>;
 }
 
 /** Pastille du ticket, à côté de son nom : 3/3 et pouce, 1/3 et pouce rouge, sélections à venir et horloge, LIVE, annulé. */
