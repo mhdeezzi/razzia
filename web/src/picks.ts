@@ -167,6 +167,8 @@ export function buildCategories(r: Result, g: Game): Category[] {
     cats.push({
       id: 'scorer', label: 'Marqueur',
       items: [{
+        // Joueur de l'équipe donnée perdante : pastille orange « Risqué ».
+        ...(side !== winSide ? { warn: 'Risqué' } : {}),
         id: `pts-${hot.id}`, title: `${hot.name}\u00a0: plus de ${ln}\u00a0pts`, p: pOver, fair: 1 / pOver, dist: d,
         who: { name: hot.name, photo: `https://cdn.nba.com/headshots/nba/latest/260x190/${hot.id}.png` },
         bet: { kind: 'pts', side, line: l, over: true, player: hot.name, event: g.id },
