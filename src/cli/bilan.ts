@@ -96,7 +96,15 @@ interface Row {
 }
 
 const rows: Row[] = [];
-const finals = new Map<string, any[]>();
+const finals = new Map<string, any[] | undefined>();
+// Bilan précédent : un jour dont ESPN ne répond pas garde ses lignes au lieu de sortir du bilan (un raté réseau faisait
+// disparaître toute une soirée, et ses « Razzia assuré » avec).
+const prevRows = new Map<string, Row>();
+try {
+  for (const r of JSON.parse(readFileSync(join(dir, 'bilan.json'), 'utf8')).rows ?? []) prevRows.set(r.dir, r);
+} catch {
+  /* pas encore de bilan */
+}
 for (const d of readdirSync(dir, { withFileTypes: true })) {
   const f = join(dir, d.name, 'summary.json');
   if (!d.isDirectory() || !existsSync(f)) continue;
@@ -105,9 +113,15 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   const [, date, away, home] = m;
   if (Date.parse(`${date}T12:00:00Z`) > Date.now() - 86_400_000 / 2) continue; // trop récent pour être terminé
   let s = JSON.parse(readFileSync(f, 'utf8'));
-  if (!finals.has(date)) finals.set(date, await getScoreboard(date, 6).catch(() => []));
+  if (!finals.has(date)) finals.set(date, await getScoreboard(date, 6).catch(() => undefined));
+  const board = finals.get(date);
+  if (!board) {
+    const old = prevRows.get(d.name);
+    if (old) rows.push(old);
+    continue;
+  }
   const norm = (t: string) => ({ GS: 'GSW', NY: 'NYK', SA: 'SAS', NO: 'NOP', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX' } as Record<string, string>)[t] ?? t;
-  const ev = finals.get(date)!.find((e) => {
+  const ev = board.find((e) => {
     const c = e.competitions?.[0]?.competitors ?? [];
     return norm(c.find((x: any) => x.homeAway === 'home')?.team?.abbreviation ?? '') === home && norm(c.find((x: any) => x.homeAway === 'away')?.team?.abbreviation ?? '') === away;
   });
