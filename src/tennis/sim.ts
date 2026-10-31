@@ -138,14 +138,14 @@ export function simulate(opts: { pA: number; pB: number; bestOf: 3 | 5; target?:
   const scores: Record<string, number> = {};
   const games: number[] = [];
   const diff: number[] = [];
-  const setsA = new Int8Array(n), setsB = new Int8Array(n), form = new Float32Array(n);
+  const setsA = new Int8Array(n), setsB = new Int8Array(n), tbA = new Int8Array(n), form = new Float32Array(n);
   let win = 0, first = 0, tbs = 0, a1 = 0, b1 = 0, a2 = 0, b2 = 0, aS = 0, bS = 0;
   for (let i = 0; i < n; i++) {
     // Un générateur par match simulé : n'importe lequel se rejoue à l'identique (match typique).
     const rng = simRng(seed, i);
     const e = rng.normal(0, sd);
     const r = play(rng, Sg(Lg(pA) + e), Sg(Lg(pB) - e), opts.bestOf);
-    setsA[i] = r.sa; setsB[i] = r.sb; form[i] = e;
+    setsA[i] = r.sa; setsB[i] = r.sb; tbA[i] = r.tb ? 1 : 0; form[i] = e;
     const k = `${r.sa}-${r.sb}`;
     scores[k] = (scores[k] ?? 0) + 1;
     if (r.sa > r.sb) win++;
@@ -165,7 +165,11 @@ export function simulate(opts: { pA: number; pB: number; bestOf: 3 | 5; target?:
   const q = (f: number) => games[Math.min(n - 1, Math.floor(f * n))];
   const gamesLadder: SimResult['gamesLadder'] = [];
   for (let line = -15.5; line <= 15.5; line++) gamesLadder.push({ line, pACover: diff.filter((d) => d + line > 0).length / n });
-  const typical = typicalMatch({ pA, pB, bestOf: opts.bestOf, sd, seed, favA: (opts.target ?? win / n) >= 0.5, scores, setsA, setsB, games: games0, diff, form });
+  const favA = (opts.target ?? win / n) >= 0.5;
+  const typical = typicalMatch({
+    pA, pB, bestOf: opts.bestOf, sd, seed, favA, scores, setsA, setsB, games: games0, diff, form, tbA,
+    pDogSet: (favA ? b1 : a1) / n, pTb: tbs / n,
+  });
   for (const k of Object.keys(scores)) scores[k] /= n;
   return {
     n, pA, pB, win: win / n, firstSet: first / n, scores, atLeast1: [a1 / n, b1 / n], atLeast2: [a2 / n, b2 / n], straight: [aS / n, bS / n],
@@ -176,18 +180,27 @@ export function simulate(opts: { pA: number; pB: number; bestOf: 3 | 5; target?:
 const simRng = (seed: number, i: number) => new Rng((Math.imul(seed >>> 0, 0x85ebca6b) ^ Math.imul(i + 1, 0x9e3779b9)) >>> 0);
 
 /**
- * Match typique : le vainqueur du pronostic affiché, son score en sets le plus fréquent, un nombre de jeux et un écart
- * proches de la médiane de ces matchs, et une forme du jour proche de la normale. Rejoué point par point.
+ * Match typique : le vainqueur du pronostic affiché, puis ce qui est le plus probable trait par trait. L'outsider prend un
+ * set plus d'une fois sur deux : le match typique se joue en 3 sets (ou 4-5 en Grand Chelem) ; un jeu décisif plus d'une
+ * fois sur deux : il en a un. Ensuite le score en sets le plus fréquent, un nombre de jeux et un écart proches de la
+ * médiane de ces matchs, et une forme du jour proche de la normale. Rejoué point par point. (Avant : toujours la victoire
+ * la plus fréquente du favori, presque toujours 6-3 6-4, même quand l'outsider prenait un set une fois sur deux.)
  */
 function typicalMatch(o: {
   pA: number; pB: number; bestOf: 3 | 5; sd: number; seed: number; favA: boolean; scores: Record<string, number>;
-  setsA: Int8Array; setsB: Int8Array; games: number[]; diff: number[]; form: Float32Array;
+  setsA: Int8Array; setsB: Int8Array; games: number[]; diff: number[]; form: Float32Array; tbA: Int8Array; pDogSet: number; pTb: number;
 }): TypicalMatch {
   const n = o.setsA.length;
   const favWins = (i: number) => (o.setsA[i] > o.setsB[i]) === o.favA;
-  const key = Object.entries(o.scores).filter(([k]) => { const [a, b] = k.split('-').map(Number); return (a > b) === o.favA; }).sort((x, y) => y[1] - x[1])[0]?.[0];
-  const pool: number[] = [];
+  const dogSets = (k: string) => { const [a, b] = k.split('-').map(Number); return o.favA ? b : a; };
+  const keys = Object.entries(o.scores).filter(([k]) => { const [a, b] = k.split('-').map(Number); return (a > b) === o.favA; });
+  const wantSet = o.pDogSet >= 0.5;
+  const key = (keys.filter(([k]) => (dogSets(k) >= 1) === wantSet).length ? keys.filter(([k]) => (dogSets(k) >= 1) === wantSet) : keys).sort((x, y) => y[1] - x[1])[0]?.[0];
+  let pool: number[] = [];
   for (let i = 0; i < n; i++) if (favWins(i) && `${o.setsA[i]}-${o.setsB[i]}` === key) pool.push(i);
+  const wantTb = o.pTb >= 0.5;
+  const withTb = pool.filter((i) => (o.tbA[i] === 1) === wantTb);
+  if (withTb.length) pool = withTb;
   const med = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)] ?? 0; };
   const sdOf = (xs: number[]) => { const m = xs.reduce((s, x) => s + x, 0) / (xs.length || 1); return Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / (xs.length || 1)) || 1; };
   const tot = pool.map((i) => o.games[i]), dif = pool.map((i) => o.diff[i]);
