@@ -175,6 +175,13 @@ export function rapmAsOf(date: string): Map<number, Rapm> {
 // A priori d'un joueur peu utilisé : 200 minutes (pondérées) d'un remplaçant type. Testé sur 2025-26 (écart prédit
 // avec les minutes réelles) : sans 14,515 ; vers -1,0/-0,5 14,470 ; vers -2,0/-1,0 14,425, bon vainqueur 70,4 -> 70,6 %.
 const PRIOR_SEC = 200 * 60;
+// Joueur nouveau dans la ligue (moins de 600 minutes pondérées en carrière, rookie compris) : ses stats sont crues plus
+// vite (réglable pour le contrôle de justesse ; même valeur que les autres par défaut).
+export const RAPM_OPTS = { newPriorSec: PRIOR_SEC / 60 };
+export function setRapmOpts(p: Partial<typeof RAPM_OPTS>): void {
+  if (typeof p.newPriorSec === 'number') RAPM_OPTS.newPriorSec = p.newPriorSec;
+  memo.clear();
+}
 const REPLACEMENT = { o: -2.0, d: -1.0 };
 // Les stats de l'a priori ont une mémoire longue (demi-vie 2 ans) : un joueur qui revient de blessure garde son niveau
 // au lieu d'être jugé sur ses quelques matchs récents. 2025-26 : erreur 14,425 (120 j) -> 14,415, bon vainqueur 70,7 %.
@@ -224,7 +231,7 @@ function boxPrior(games: Array<{ g: GameRecord; pg: ParsedGame }>, asOf: string,
     const x = feat(e);
     const dot = (c: number[]) => c.reduce((a, v, i) => a + v * x[i], 0);
     // Des stats par 36 min tirées de peu de minutes sont bruitées : rétrécies vers un remplaçant type.
-    const k = e.sec / (e.sec + PRIOR_SEC);
+    const k = e.sec / (e.sec + (e.sec < 600 * 60 ? RAPM_OPTS.newPriorSec * 60 : PRIOR_SEC));
     out.set(id, { o: k * dot(bo) + (1 - k) * REPLACEMENT.o, d: k * dot(bd) + (1 - k) * REPLACEMENT.d, poss: 0 });
   }
   return out;
