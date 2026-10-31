@@ -97,7 +97,7 @@ export type Result = Summary & {
 export type SimState =
   | { status: 'loading' }
   | { status: 'none' }
-  | { status: 'queued' | 'running'; startedAt?: string; url?: string; previous?: Result }
+  | { status: 'queued' | 'running'; startedAt?: string; url?: string; previous?: Result; req?: string }
   | { status: 'failed'; url?: string; error?: string }
   | { status: 'done'; result: Result; relaunchFailed?: boolean; url?: string };
 

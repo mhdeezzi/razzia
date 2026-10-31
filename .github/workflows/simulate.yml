@@ -12,7 +12,7 @@ on:
       request_id: { description: "Identifiant de la demande (suivi depuis l'app)", required: false, default: manuel }
       fresh: { description: "Relire le rapport de blessures à l'instant (relance d'avant-match)", required: false, default: 'false' }
 concurrency: { group: "sim-${{ inputs.date }}-${{ inputs.away }}-${{ inputs.home }}", cancel-in-progress: false }
-permissions: { contents: write }
+permissions: { contents: write, actions: read }
 jobs:
   sim:
     runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
@@ -24,21 +24,40 @@ jobs:
       DATE: ${{ inputs.date }}
       DIR: "${{ inputs.date }}_${{ inputs.away }}@${{ inputs.home }}"
     steps:
+      # Deux demandes du même match à quelques secondes d'écart (deux appareils) : la seconde attend la première (même
+      # groupe), puis s'arrête si un résultat a été publié depuis qu'elle a été demandée. Rien n'est recalculé deux fois.
+      - name: Déjà calculé ?
+        id: deja
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          asked=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at)
+          at=$(gh api "repos/$GITHUB_REPOSITORY/contents/sims/index.json?ref=resultats" -H "Accept: application/vnd.github.raw+json" 2>/dev/null \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const e=JSON.parse(s).find(x=>x.dir===process.env.DIR);console.log(e?.at??"")}catch{console.log("")}})')
+          echo "demandé $asked, dernier résultat ${at:-aucun}"
+          if [ -n "$at" ] && [ "$(date -d "$at" +%s)" -gt "$(date -d "$asked" +%s)" ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; echo "Résultat publié après la demande : rien à refaire."; fi
       - uses: actions/checkout@v4
+        if: steps.deja.outputs.skip != '1'
         with: { ref: main }
       - uses: actions/setup-node@v4
+        if: steps.deja.outputs.skip != '1'
         with: { node-version: 24, cache: npm }
-      - run: npm ci --no-audit --no-fund
+      - if: steps.deja.outputs.skip != '1'
+        run: npm ci --no-audit --no-fund
       # Play-by-play déjà téléchargé (~2 600 matchs) : gardé d'une simulation à l'autre.
       - uses: actions/cache@v4
+        if: steps.deja.outputs.skip != '1'
         with:
           path: data/cache
           key: nba-cache-${{ github.run_id }}
           restore-keys: nba-cache-
-      - run: npm run snapshot -- --pull
-      - run: npm run ingest -- --games
-      - run: npm run sim -- --game "$AWAY@$HOME_TEAM" --date "$DATE" ${{ inputs.fresh == 'true' && '--fresh' || '' }}
+      - if: steps.deja.outputs.skip != '1'
+        run: npm run snapshot -- --pull
+      - if: steps.deja.outputs.skip != '1'
+        run: npm run ingest -- --games
+      - if: steps.deja.outputs.skip != '1'
+        run: npm run sim -- --game "$AWAY@$HOME_TEAM" --date "$DATE" ${{ inputs.fresh == 'true' && '--fresh' || '' }}
       - name: Publication sur la branche resultats
+        if: steps.deja.outputs.skip != '1'
         run: |
           git config user.name "simbet-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
