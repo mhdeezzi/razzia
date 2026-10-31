@@ -1,7 +1,11 @@
-// Pages légales (mentions, CGU, CGV, confidentialité) et page introuvable. Forme juridique, siège, SIRET et e-mail de
-// contact sont en cours de validation : à compléter avant l'ouverture des abonnements.
+// Pages légales (mentions, CGU, CGV, confidentialité) et page introuvable. Forme juridique, siège et SIRET sont en cours de
+// validation : à compléter avant l'ouverture des abonnements.
 import type { ReactNode } from 'react';
 import { Link } from './ui.tsx';
+
+/** Adresse de contact de Razzia (pages légales, pied de page, espace compte). */
+export const CONTACT = 'razzia.support@gmail.com';
+const Mail = () => <a href={`mailto:${CONTACT}`}>{CONTACT}</a>;
 
 export const LEGAL: Record<string, { title: string; body: ReactNode }> = {
   '/mentions-legales': {
@@ -11,7 +15,7 @@ export const LEGAL: Record<string, { title: string; body: ReactNode }> = {
         <h2>Éditeur</h2>
         <p>
           Razzia est édité par la société Razzia. Forme juridique et capital : en cours de validation. Siège social : en cours de validation. Numéro SIRET : en
-          cours de validation. Directeur de la publication : M. H. Contact : adresse e-mail bientôt disponible.
+          cours de validation. Directeur de la publication : M. H. Contact : <Mail />.
         </p>
         <h2>Hébergement</h2>
         <p>Le site est hébergé par Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis. Les comptes et les tickets sont stockés chez Supabase Inc.</p>
@@ -44,7 +48,7 @@ export const LEGAL: Record<string, { title: string; body: ReactNode }> = {
           responsable de ses décisions et de ses paris, placés chez des opérateurs agréés.
         </p>
         <h2>Compte</h2>
-        <p>L'utilisateur garde ses identifiants confidentiels. Il peut supprimer son compte à tout moment en écrivant à l'adresse de contact (bientôt disponible).</p>
+        <p>L'utilisateur garde ses identifiants confidentiels. Il peut supprimer son compte à tout moment en écrivant à <Mail />.</p>
         <h2>Disponibilité</h2>
         <p>L'éditeur fait son possible pour assurer l'accès au site, sans pouvoir garantir une disponibilité continue (maintenance, données des fournisseurs, réseau).</p>
         <h2>Droit applicable</h2>
@@ -73,7 +77,7 @@ export const LEGAL: Record<string, { title: string; body: ReactNode }> = {
           droit pour la période entamée, conformément à l'article L221-28 du Code de la consommation.
         </p>
         <h2>Contact</h2>
-        <p>Pour toute question sur un paiement : adresse de contact bientôt disponible.</p>
+        <p>Pour toute question sur un paiement : <Mail />.</p>
       </>
     ),
   },
@@ -94,7 +98,7 @@ export const LEGAL: Record<string, { title: string; body: ReactNode }> = {
         <p>Le site garde dans ton navigateur ton ticket en préparation et tes préférences d'affichage. Il n'utilise pas de cookies publicitaires.</p>
         <h2>Tes droits</h2>
         <p>
-          Tu peux accéder à tes données, les corriger, les supprimer ou les récupérer en écrivant à l'adresse de contact (bientôt disponible). Tu peux aussi saisir la CNIL (cnil.fr).
+          Tu peux accéder à tes données, les corriger, les supprimer ou les récupérer en écrivant à <Mail />. Tu peux aussi saisir la CNIL (cnil.fr).
         </p>
       </>
     ),
@@ -136,6 +140,7 @@ export function LegalLinks() {
       <Link href="/cgu">CGU</Link>
       <Link href="/cgv">CGV</Link>
       <Link href="/confidentialite">Confidentialité</Link>
+      <a href={`mailto:${CONTACT}`}>Contact</a>
     </nav>
   );
 }

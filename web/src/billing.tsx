@@ -12,6 +12,7 @@ import {
   Eye, EyeSlash, Lightning, ListChecks, LockKey, Receipt, Scales, ShieldCheck, SignOut, Sparkle, Star, Trophy, UserCircle,
 } from '@phosphor-icons/react';
 import { Link, navigate, Segmented } from './ui.tsx';
+import { CONTACT } from './legal.tsx';
 
 // La page Abonnement n'est en ligne qu'avec VITE_BILLING=1 : sans elle, pas de lien vers les formules.
 const PRICING = import.meta.env.VITE_BILLING === '1';
@@ -448,6 +449,9 @@ function AccountSpace({ user }: { user: User }) {
             <button className="btn glass" onClick={() => void resetPw()}>
               <LockKey size={16} /> Changer le mot de passe
             </button>
+            <a className="btn glass" href={`mailto:${CONTACT}`}>
+              <Envelope size={16} /> Contact
+            </a>
             <button className="btn glass" onClick={() => void supabase?.auth.signOut()}>
               <SignOut size={16} /> Se déconnecter
             </button>
