@@ -1407,7 +1407,7 @@ body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
 .slip-leg { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.03); box-shadow: inset 0 0 0 1px var(--line-2); }
 .slip-leg.clash { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-red) 70%, transparent); }
 .slip-leg-main { display: grid; gap: 3px; min-width: 0; }
-.slip-leg-t { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slip-leg-t { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
 .slip-leg-main > span { display: block; font-size: 12px; line-height: 1.45; color: var(--text-3); }
 .slip-leg-main > span svg { vertical-align: -2px; margin-right: 3px; }
 .slip-leg-main > .slip-leg-g { color: var(--text-2); }
@@ -1418,6 +1418,9 @@ body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
 .slip-odd.up b { color: var(--c-green); }
 .slip-odd.down b { color: var(--c-red); }
 .slip-leg-main > .slip-leg-shut { color: var(--c-red); }
+.slip-leg-main > .slip-pts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.slip-pts .feu-step { height: 34px; }
+.slip-pts-p { font-size: 12px; color: var(--text-3); }
 .slip-live { display: inline-block; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: var(--c-green); vertical-align: 1px; }
 .slip-live.on { animation: lm-pulse 0.8s ease-in-out infinite; }
 .tk-more { display: inline-flex; align-items: center; gap: 5px; color: #fff; }
@@ -1432,7 +1435,6 @@ body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
 /* En feu : le pari du joueur (plus ou moins de N,5 points), sous ses raisons. */
 .feu-bet { display: grid; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .feu-bet .follow { margin-top: 0; }
-.feu-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .feu-ou { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: #121214; }
 .feu-ou button { height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: 600 12.5px var(--sans); cursor: pointer; }
 .feu-ou button.is-on { background: #ededed; color: #0a0a0a; }
@@ -1440,8 +1442,6 @@ body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
 .feu-step button { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--text-2); cursor: pointer; }
 .feu-step button:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
 .feu-step b { min-width: 42px; text-align: center; font-size: 14px; }
-.feu-odds { font-size: 12.5px; color: var(--text-3); }
-.feu-odds b { color: var(--text); font-size: 13.5px; }
 .slip-rm { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 8px; background: none; color: var(--text-3); cursor: pointer; }
 .slip-rm:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
 .slip-warn { font-size: 13px; color: var(--c-red); }

@@ -28,6 +28,7 @@ export interface Leg {
   oid?: string; // identifiant du pari dans la fiche (win, spread, hedge, sets, straight), pour relire sa cote
   was?: number; // ticket en préparation : cote d'avant, quand elle vient de bouger
   note?: string; // pari remboursé au tennis : « Abandon · X qualifié », « Forfait · X qualifié »
+  dist?: { mean: number; sd: number; p10: number; p25: number; p50: number; p75: number; p90: number }; // points d'un joueur : de quoi régler la ligne dans le ticket
 }
 
 /** Identifiant du pari dans la fiche (les anciens paris l'ont seulement à la fin de leur clé). */
