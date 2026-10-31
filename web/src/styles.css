@@ -952,8 +952,8 @@ a.row:hover .mark { transform: scale(1.06); }
   .delta { font-size: 15px; }
   .section { padding: 20px 16px; }
   .pick { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 26px 18px; gap: 18px; }
-  .pick:has(.pick-warn) { padding-top: 48px; }
-  .pick-warn { top: 14px; right: 14px; }
+  .pick:has(.pick-warn) { padding-top: 58px; }
+  .pick-warn { top: 16px; right: 50%; transform: translateX(50%); }
   .pick-tags, .pick-stats { justify-content: center; }
   .tiles, .ladders { grid-template-columns: 1fr; }
   .notice { flex-wrap: wrap; }
