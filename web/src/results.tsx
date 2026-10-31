@@ -371,7 +371,7 @@ function PickWho({ who }: { who: NonNullable<Outcome['who']> }) {
 /** « Suivre » : ajoute ce pari au ticket en préparation (page Suivi), ou l'en retire ; complète un ticket au besoin. */
 function FollowButton({ o, ctx }: { o: Outcome; ctx: MatchCtx }) {
   const key = `${ctx.sport}:${ctx.date}:${ctx.match.id ?? `${ctx.match.away}@${ctx.match.home}`}:${o.id}`;
-  return <FollowBtn leg={() => ({ ...ctx, key, oid: o.id, title: o.title, odds: o.odds ?? o.fair, fair: o.odds == null, p: o.p, bet: o.bet!, at: '' })} />;
+  return <FollowBtn leg={() => ({ ...ctx, key, oid: o.id, title: o.title, odds: o.odds ?? o.fair, fair: o.odds == null, p: o.p, bet: o.bet!, at: '', ...(o.dist ? { dist: o.dist } : {}) })} />;
 }
 
 function OutcomeCard({ o, n, ctx }: { o: Outcome; n: number; ctx?: MatchCtx }) {
