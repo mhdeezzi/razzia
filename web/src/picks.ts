@@ -25,6 +25,7 @@ export interface Category {
   label: string;
   items: Outcome[];
   warn?: boolean; // déconseillé (point rouge sur l'onglet)
+  risky?: boolean; // risqué (point orange sur l'onglet)
   good?: boolean; // plus sûr que le vainqueur (point bleu sur l'onglet)
 }
 
@@ -165,8 +166,10 @@ export function buildCategories(r: Result, g: Game): Category[] {
     const side = hot.side === 0 ? 'home' : 'away';
     const ln = l.toFixed(1).replace('.', ',');
     cats.push({
-      id: 'scorer', label: 'Marqueur',
+      id: 'scorer', label: 'Marqueur', ...(side !== winSide ? { risky: true } : {}),
       items: [{
+        // Joueur de l'équipe donnée perdante : pastille orange « Risqué ».
+        ...(side !== winSide ? { warn: 'Risqué' } : {}),
         id: `pts-${hot.id}`, title: `${hot.name}\u00a0: plus de ${ln}\u00a0pts`, p: pOver, fair: 1 / pOver, dist: d,
         who: { name: hot.name, photo: `https://cdn.nba.com/headshots/nba/latest/260x190/${hot.id}.png` },
         bet: { kind: 'pts', side, line: l, over: true, player: hot.name, event: g.id },

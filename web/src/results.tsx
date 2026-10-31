@@ -321,10 +321,10 @@ export function PickTabs({ cats, n, ctx }: { cats: Category[]; n: number; ctx?: 
           onChange={setId}
           options={cats.map((c) => ({
             value: c.id,
-            label: c.warn || c.good ? (
+            label: c.warn || c.good || c.risky ? (
               <>
                 {c.label}
-                <span className={`tab-dot${c.good ? ' good' : ''}`} aria-label={c.good ? 'plus sûr que le vainqueur' : 'déconseillé'} />
+                <span className={`tab-dot${c.good ? ' good' : c.risky && !c.warn ? ' risky' : ''}`} aria-label={c.good ? 'plus sûr que le vainqueur' : c.warn ? 'déconseillé' : 'risqué'} />
               </>
             ) : (
               c.label
