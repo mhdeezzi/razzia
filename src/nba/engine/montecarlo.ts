@@ -173,6 +173,10 @@ function contextShift(m: GameModel): number {
     shift += cw * (m.home.continuity - m.away.continuity) * Math.max(fade(m.home), fade(m.away));
   }
   shift += absenceShift(m);
+  // Équipe qui tire beaucoup à 3 points : le moteur la surestimait (2 saisons, hors échantillon, environ 0,1 à 0,16 pt
+  // par point de % d'écart). Réglage à valider avant de l'activer.
+  const tw = m.params.threeRateWeight ?? 0;
+  if (tw && m.home.threeRate != null && m.away.threeRate != null) shift -= tw * 100 * (m.home.threeRate - m.away.threeRate);
   // Début de saison : l'équipe qui bat nettement les lignes du marché depuis la reprise continue de le faire. Plein effet
   // jusqu'au 8e match de l'équipe qui en a le moins, éteint au 12e.
   const ew = m.params.earlyFormWeight ?? 0;

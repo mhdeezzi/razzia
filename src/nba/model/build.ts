@@ -1045,7 +1045,19 @@ function teamModel(ctx: Ctx, info: TeamInfo, players: PlayerModel[], date: strin
   const lgPP = league.ppg / league.pace;
   const sos: [number, number] = sw > 0 ? [oppD / sw - lgPP, oppO / sw - lgPP] : [0, 0];
 
+  // Part de tirs à 3 points attendue ce soir (joueurs disponibles, pesés par leurs minutes attendues).
+  let t3 = 0, tAll = 0;
+  for (const p of players) {
+    const pf = f.players.get(p.id);
+    if (!pf || pf.sec <= 0 || p.avail <= 0) continue;
+    const k = (p.expMin * 60 * p.avail) / pf.sec;
+    t3 += k * (pf.fga[3] + pf.fga[4] + pf.fga[5]);
+    tAll += k * sum(pf.fga);
+  }
+  const threeRate = tAll > 0 ? t3 / tAll : undefined;
+
   return {
+    threeRate,
     ortg: T && T.poss > 0 ? T.pts / T.poss : league.ppg / league.pace,
     drtg: T && T.defPoss > 0 ? T.ptsAllowed / T.defPoss : league.ppg / league.pace,
     continuity,
