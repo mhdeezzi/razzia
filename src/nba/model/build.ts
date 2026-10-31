@@ -514,10 +514,12 @@ function buildPlayer(ctx: Ctx, pid: number, info: { name: string; jersey: string
   }
 
   // --- Zones et adresse (forme récente) ---
-  const fga = pf?.fga ?? ([0, 0, 0, 0, 0, 0] as ZoneArr);
-  const fgm = pf?.fgm ?? ([0, 0, 0, 0, 0, 0] as ZoneArr);
-  const totFga = sum(fga);
-  const P = norm6(fga.map((v, z) => v + 8 * ctx.groupZone[g][z]));
+  // Carte de tir (volumes) avec la mémoire du rôle ; réussite par zone avec celle de l'adresse.
+  const fgaVol = pf?.fga ?? ([0, 0, 0, 0, 0, 0] as ZoneArr);
+  const fga = pf?.fgaS ?? ([0, 0, 0, 0, 0, 0] as ZoneArr);
+  const fgm = pf?.fgmS ?? ([0, 0, 0, 0, 0, 0] as ZoneArr);
+  const totFga = sum(fgaVol);
+  const P = norm6(fgaVol.map((v, z) => v + 8 * ctx.groupZone[g][z]));
   const gfg = ctx.groupFg[g];
   const fg = [0, 0, 0, 0, 0, 0] as Z6;
   fg[0] = (fgm[0] + 40 * gfg[0]) / (fga[0] + 40);
@@ -553,7 +555,8 @@ function buildPlayer(ctx: Ctx, pid: number, info: { name: string; jersey: string
   if (wsum > 0) for (const p of PT_LIST) if (eff[p].adj !== 0) eff[p].adj -= asum / wsum;
 
   // Assisté : probabilité réelle du joueur par zone, et prior moyen de type de jeu de ses paniers (normalisation).
-  const astd = fgm.map((m, z) => clamp(((pf?.astdM[z] ?? 0) + 15 * league.zoneAstd[z]) / (m + 15), 0.02, 0.98)) as Z6;
+  // Part assistée : paniers assistés / paniers, tous deux avec la mémoire du rôle.
+  const astd = (pf?.fgm ?? fgm).map((m, z) => clamp(((pf?.astdM[z] ?? 0) + 15 * league.zoneAstd[z]) / (m + 15), 0.02, 0.98)) as Z6;
   const astNorm = fg.map((_, z) => {
     let num = 0, den = 0;
     for (const k of PT_LIST) {
@@ -564,7 +567,7 @@ function buildPlayer(ctx: Ctx, pid: number, info: { name: string; jersey: string
     return den > 0 ? num / den : 0.5;
   }) as Z6;
 
-  const ft = ((pf?.ftm ?? 0) + 40 * league.ft) / ((pf?.fta ?? 0) + 40);
+  const ft = ((pf?.ftmS ?? 0) + 40 * league.ft) / ((pf?.ftaS ?? 0) + 40);
 
   // Rebonds.
   const gr = ctx.groupReb[g];
@@ -1711,7 +1714,7 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
     const [o, d] = k.split(':').map(Number);
     const pf = feats.players.get(o);
     const fga = pf ? sum(pf.fga) : 0;
-    const p0 = fga > 20 ? sum(pf!.fgm) / fga : 0.46;
+    const p0 = fga > 20 ? sum(pf!.fgmS) / Math.max(1e-6, sum(pf!.fgaS)) : 0.46;
     if (a.fga < 3) continue;
     const adj = logit((a.fgm + 50 * p0) / (a.fga + 50)) - logit(p0);
     (duel[o] ??= {})[d] = clamp(adj, -0.3, 0.3);
