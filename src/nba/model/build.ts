@@ -1146,6 +1146,34 @@ function teamMomentum(f: FeatureSet, teamId: number, date: string, homeMargin: n
   return out;
 }
 
+/**
+ * Écart moyen entre le résultat réel et la ligne de clôture du marché, sur les matchs de la saison en cours (points,
+ * du point de vue de l'équipe). Une équipe qui bat nettement ce qu'on attendait d'elle en début de saison continue de le
+ * faire plus que le marché ne le croit (2024-25 et 2025-26, matchs 3 à 10).
+ */
+async function seasonSurprise(f: FeatureSet, teamId: number, date: string): Promise<{ n: number; mean: number } | undefined> {
+  const season = seasonOfDate(date);
+  const games = (teamLogOf(f).get(teamId) ?? []).filter((g) => g.date < date && seasonOfDate(g.date) === season);
+  const me = teamById(teamId)?.tri;
+  if (!me || games.length < 3) return undefined;
+  const vals = await Promise.all(
+    games.map(async (g) => {
+      const opp = teamById(g.opp)?.tri;
+      if (!opp) return undefined;
+      const mk = await getMarket(g.date, g.home ? me : opp, g.home ? opp : me).catch(() => undefined);
+      let exp: number | undefined = mk?.spreadHome != null ? -mk.spreadHome : undefined;
+      if (exp == null && mk?.mlHome != null && mk.mlAway != null) {
+        const p = Math.min(0.97, Math.max(0.03, noVig(mk.mlHome, mk.mlAway)[0]));
+        exp = Math.log(p / (1 - p)) / 0.121;
+      }
+      if (exp == null) return undefined;
+      return g.margin - (g.home ? exp : -exp);
+    }),
+  );
+  const ok = vals.filter((v): v is number => v != null);
+  return ok.length >= 3 ? { n: ok.length, mean: sum(ok) / ok.length } : undefined;
+}
+
 // Journal des occasions (calculé une fois pour tous les matchs du cache ; chaque usage filtre les matchs antérieurs).
 let occCache: Map<number, OccGame[]> | undefined;
 function occLogsBefore(_date: string): Map<number, OccGame[]> {
@@ -1631,6 +1659,9 @@ export async function buildGameModel(opts: BuildOpts): Promise<GameModel> {
   // Avantage du terrain propre à l'équipe qui reçoit (deux dernières saisons) : écart domicile - extérieur comparé à
   // celui de la ligue. Il se répète en partie (corrélation 0,24 entre deux moitiés de saison) : part retenue réglable.
   home.hcaDev = teamHomeEdge(feats, home.id, opts.date, ctx.league.homeMargin);
+  // Début de saison : ce que chaque équipe fait vraiment face à ce que le marché attendait d'elle (écart réel - écart
+  // annoncé par la ligne de clôture, match par match). Lu seulement sur les 12 premiers matchs, où il compte.
+  for (const t of [home, away]) if (t.gpCur >= 3 && t.gpCur <= 12) t.surprise = await seasonSurprise(feats, t.id, opts.date);
   for (const t of [home, away]) t.coreCohesion = coreCohesion(t.id, t.players.filter((p) => p.starter).map((p) => p.id), opts.date);
   let teamH2h = teamH2H(feats, home, away, opts.date, ctx.league.homeMargin);
   const sh = styleEffect(home.id, away.id, opts.date);

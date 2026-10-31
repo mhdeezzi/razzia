@@ -173,6 +173,14 @@ function contextShift(m: GameModel): number {
     shift += cw * (m.home.continuity - m.away.continuity) * Math.max(fade(m.home), fade(m.away));
   }
   shift += absenceShift(m);
+  // Début de saison : l'équipe qui bat nettement les lignes du marché depuis la reprise continue de le faire. Plein effet
+  // jusqu'au 8e match de l'équipe qui en a le moins, éteint au 12e.
+  const ew = m.params.earlyFormWeight ?? 0;
+  if (ew && m.home.surprise && m.away.surprise) {
+    const gp = Math.min(m.home.gpCur ?? 99, m.away.gpCur ?? 99);
+    const fade = Math.max(0, Math.min(1, (12 - gp) / 4));
+    shift += ew * fade * (m.home.surprise.mean - m.away.surprise.mean);
+  }
   // Avantage du terrain propre à l'équipe qui reçoit (une salle qui pèse plus, ou moins, que la moyenne).
   const hw = m.params.hcaWeight ?? 0;
   if (hw && m.home.hcaDev != null) shift += hw * m.home.hcaDev;

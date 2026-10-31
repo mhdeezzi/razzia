@@ -2,7 +2,7 @@
 // ou en combiné avec une mise, les tickets en cours et terminés (chaque sélection cochée quand elle passe), le bilan.
 // Réservée aux comptes : les tickets sont enregistrés dans le compte. Sans compte, la page invite à se connecter.
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, Basketball, ChartLineUp, CheckCircle, Clock, Lightning, ListChecks, Plus, Prohibit, ShareNetwork, Stack, TennisBall, ThumbsDown, ThumbsUp, Ticket as TicketIcon, Trash, X } from '@phosphor-icons/react';
+import { ArrowDown, ArrowRight, ArrowUp, Basketball, ChartLineUp, CheckCircle, Clock, Lightning, ListChecks, Minus, Plus, Prohibit, ShareNetwork, Stack, TennisBall, ThumbsDown, ThumbsUp, Ticket as TicketIcon, Trash, X } from '@phosphor-icons/react';
 import { useAuth } from './auth.ts';
 import { supabase } from './supabase.ts';
 import {
@@ -10,6 +10,8 @@ import {
   type Leg, type LegStatus, type SettleEvent, type Ticket,
 } from './suivi.ts';
 import { freshOdds, moved } from './liveodds.ts';
+import { pOverPts } from './picks.ts';
+import { ptsTitle } from './hot.tsx';
 import { shareTicket, type ShareFormat } from './share.ts';
 import { bestFrench, useCotes } from './books.tsx';
 import { toast } from './toast.tsx';
@@ -244,11 +246,11 @@ function Spark({ pts }: { pts: number[] }) {
 
 /** État d'une sélection, en rond plein : pouce vert gagné, pouce rouge perdu, horloge jaune à venir, LIVE en direct, interdit gris annulé. */
 function LegMark({ s }: { s: LegStatus }) {
-  if (s === 'won') return <span className="lm won" aria-label="Gagné"><ThumbsUp size={16} weight="fill" /></span>;
-  if (s === 'lost') return <span className="lm lost" aria-label="Perdu"><ThumbsDown size={16} weight="fill" /></span>;
+  if (s === 'won') return <span className="lm won" aria-label="Gagné"><ThumbsUp size={14} weight="fill" /></span>;
+  if (s === 'lost') return <span className="lm lost" aria-label="Perdu"><ThumbsDown size={14} weight="fill" /></span>;
   if (s === 'live') return <span className="lm live" aria-label="En direct">LIVE</span>;
-  if (s === 'void') return <span className="lm void" aria-label="Annulé, remboursé"><Prohibit size={17} weight="bold" /></span>;
-  return <span className="lm wait" aria-label="À venir"><Clock size={18} weight="fill" /></span>;
+  if (s === 'void') return <span className="lm void" aria-label="Annulé, remboursé"><Prohibit size={15} weight="bold" /></span>;
+  return <span className="lm wait" aria-label="À venir"><Clock size={16} weight="fill" /></span>;
 }
 
 /** Pastille du ticket, à côté de son nom : 3/3 et pouce, 1/3 et pouce rouge, sélections à venir et horloge, LIVE, annulé. */
@@ -562,6 +564,7 @@ function SlipLeg({ l, clash, shut, stake, best }: { l: Leg; clash: boolean; shut
           {l.sport === 'nba' ? <Basketball size={13} /> : <TennisBall size={13} />} {l.match.awayName} – {l.match.homeName} · {whenShort(l.start)}
         </span>
         {shut && <span className="slip-leg-shut">Match commencé ou plus proposé</span>}
+        {!shut && l.bet.kind === 'pts' && l.dist && l.bet.line != null && <PtsTune l={l} />}
         {!shut && stake != null && stake > 0 && l.odds && <span className="slip-leg-g">Gain potentiel {eur(stake * l.odds)}</span>}
         {!shut && best && (
           <span className={`slip-leg-best${l.odds && best.odds > l.odds ? ' up' : ''}`}>
@@ -582,6 +585,41 @@ function SlipLeg({ l, clash, shut, stake, best }: { l: Leg; clash: boolean; shut
         <X size={14} />
       </button>
     </li>
+  );
+}
+
+/**
+ * Pari sur les points d'un joueur (venu d'« En feu ce soir ») : plus ou moins, et la ligne, réglés ici. La cote juste
+ * suit, d'après les simulations du match ; la clé du pari ne change pas (un seul pari par joueur dans le ticket).
+ */
+function PtsTune({ l }: { l: Leg }) {
+  const line = l.bet.line!, over = l.bet.over !== false;
+  const set = (o: boolean, v: number) => {
+    const pOver = pOverPts(l.dist!, v);
+    const p = o ? pOver : 1 - pOver;
+    slip.update(l.key, { bet: { ...l.bet, over: o, line: v }, p, odds: Math.round((1 / p) * 100) / 100, title: ptsTitle(l.bet.player ?? '', o, v), was: undefined });
+  };
+  return (
+    <span className="slip-pts">
+      <span className="feu-ou" role="group" aria-label="Plus ou moins">
+        <button className={over ? 'is-on' : ''} onClick={() => set(true, line)}>
+          Plus
+        </button>
+        <button className={!over ? 'is-on' : ''} onClick={() => set(false, line)}>
+          Moins
+        </button>
+      </span>
+      <span className="feu-step">
+        <button onClick={() => set(over, Math.max(0.5, line - 1))} aria-label="Un point de moins">
+          <Minus size={13} weight="bold" />
+        </button>
+        <b className="mono">{line.toFixed(1).replace('.', ',')}</b>
+        <button onClick={() => set(over, line + 1)} aria-label="Un point de plus">
+          <Plus size={13} weight="bold" />
+        </button>
+      </span>
+      <span className="slip-pts-p">{Math.round(l.p * 100)} % des simulations</span>
+    </span>
   );
 }
 

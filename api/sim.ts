@@ -4,6 +4,7 @@
 //   GET  /api/sim?reqs=a,b,c                   -> état de plusieurs demandes en un appel (simulation de toute une soirée)
 //   GET  /api/sim?list=1                       -> simulations disponibles [{dir, pHome, pAway, at}]
 //   GET  /api/sim?bilan=1                      -> bilan des simulations (valeur de clôture, résultats)
+//   GET  /api/sim?tick=1                       -> horloge : relance d'avant-match et bilans (tâche planifiée Supabase)
 // Variables Vercel : GH_TOKEN (jeton GitHub avec Actions: write et Contents: read sur le dépôt), GH_REPO (optionnel).
 const REPO = process.env.GH_REPO ?? 'mhdeezzi/razzia';
 const WORKFLOW = 'simulate.yml';
@@ -53,25 +54,73 @@ async function inFlight(): Promise<any[]> {
 
 /**
  * GitHub saute la plupart des tâches planifiées (le bilan « tous les quarts d'heure » passait toutes les 3 à 6 heures) :
- * quand quelqu'un lit un bilan vieux de plus de 20 minutes, on relance son calcul, sauf s'il tourne déjà ou vient d'être
- * lancé. Sans effet sur la réponse (le bilan à jour arrive à la lecture suivante) ; une erreur ici n'empêche rien.
+ * quand quelqu'un lit un bilan vieux de plus de 20 minutes, ou à chaque battement de l'horloge (?tick=1), on relance son
+ * calcul, sauf s'il tourne déjà ou vient d'être lancé. Une erreur ici n'empêche rien.
  */
-async function refreshBilan(workflow: string, at: string | undefined): Promise<void> {
-  if (at && Date.now() - Date.parse(at) < 20 * 60_000) return;
+async function refreshBilan(workflow: string, at: string | undefined, gapMin = 10): Promise<boolean> {
+  if (at && Date.now() - Date.parse(at) < 20 * 60_000) return false;
   try {
     const r = await gh(`/actions/workflows/${workflow}/runs?per_page=3`);
-    if (!r.ok) return;
+    if (!r.ok) return false;
     const runs: any[] = (await r.json()).workflow_runs ?? [];
-    if (runs.some((w) => w.status !== 'completed' || Date.now() - Date.parse(w.created_at) < 10 * 60_000)) return;
-    await gh(`/actions/workflows/${workflow}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main' }) });
+    if (runs.some((w) => w.status !== 'completed' || Date.now() - Date.parse(w.created_at) < gapMin * 60_000)) return false;
+    return (await gh(`/actions/workflows/${workflow}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main' }) })).ok;
   } catch {
-    /* GitHub injoignable : le bilan reste tel quel */
+    return false; /* GitHub injoignable : le bilan reste tel quel */
   }
+}
+
+const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
+const ESPN_TRI: Record<string, string> = { GS: 'GSW', NY: 'NYK', SA: 'SAS', NO: 'NOP', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX' };
+const etDate = (t: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(t));
+
+/**
+ * Battement de l'horloge (GET /api/sim?tick=1), appelé toutes les 5 minutes par une tâche planifiée Supabase : les
+ * tâches planifiées GitHub partent avec des heures de retard. Relance chaque match qui débute dans 5 à 30 minutes
+ * (compositions annoncées ~30 min avant, simulation en 2 à 3 min), une seule fois : rien si une simulation a été publiée
+ * depuis 35 minutes avant le match ou si une est en cours. Recalcule aussi les bilans NBA et tennis (au plus tous les
+ * quarts d'heure).
+ */
+async function tick(): Promise<Response> {
+  const now = Date.now();
+  const relaunched: string[] = [];
+  const days = [...new Set([etDate(now), etDate(now + 6 * 3_600_000)])];
+  const boards = await Promise.all(
+    days.map((d) => fetch(`${ESPN}/scoreboard?dates=${d.replaceAll('-', '')}`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : { events: [] }), () => ({ events: [] }))),
+  );
+  const soon = boards
+    .flatMap((b: any) => b.events ?? [])
+    .map((e: any) => {
+      const c = e.competitions?.[0];
+      const side = (ha: string) => c?.competitors?.find((x: any) => x.homeAway === ha)?.team?.abbreviation ?? '';
+      const tip = Date.parse(e.date);
+      const tri = (a: string) => ESPN_TRI[a] ?? a;
+      return { tip, state: c?.status?.type?.state, away: tri(side('away')), home: tri(side('home')), date: etDate(tip) };
+    })
+    .filter((g) => g.state === 'pre' && g.tip - now >= 5 * 60_000 && g.tip - now <= 30 * 60_000);
+  if (soon.length) {
+    const r = await gh(`/contents/sims/index.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
+    const index: Array<{ dir: string; at: string }> = r.ok ? await r.json() : [];
+    const running = await inFlight();
+    for (const g of soon) {
+      const dir = `${g.date}_${g.away}@${g.home}`;
+      if (index.some((e) => e.dir === dir && Date.parse(e.at) >= g.tip - 35 * 60_000)) continue;
+      if (running.some((w) => String(w.display_title ?? '').startsWith(`Sim ${g.away}@${g.home} ${g.date} · `))) continue;
+      const d = await gh(`/actions/workflows/${WORKFLOW}/dispatches`, {
+        method: 'POST',
+        body: JSON.stringify({ ref: 'main', inputs: { date: g.date, away: g.away, home: g.home, request_id: 'avant-match', fresh: 'true' } }),
+      });
+      if (d.ok) relaunched.push(dir);
+    }
+  }
+  const [bilan, bilanTennis] = await Promise.all([refreshBilan('bilan.yml', undefined, 14), refreshBilan('bilan-tennis.yml', undefined, 14)]);
+  return Response.json({ at: new Date(now).toISOString(), soon: soon.length, relaunched, bilan, bilanTennis }, { headers: noStore });
 }
 
 export async function GET(request: Request): Promise<Response> {
   const q = new URL(request.url).searchParams;
   try {
+    if (q.get('tick')) return await tick();
     if (q.get('bilan')) {
       const r = await gh(`/contents/sims/bilan.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
       if (!r.ok) return Response.json({ error: 'Bilan pas encore calculé (une fois par jour, matchs terminés).' }, { status: 404, headers: noStore });

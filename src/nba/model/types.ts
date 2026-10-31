@@ -100,6 +100,7 @@ export interface TeamModel {
   zoneDefFg: Z6; // résidu logit concédé par zone (schéma)
   foulRate: number; // fautes défensives hors tir par possession adverse
   switchRate: number;
+  surprise?: { n: number; mean: number }; // début de saison : écart moyen réel - ligne de clôture (points)
   hcaDev?: number; // avantage du terrain propre (pts, écart à la ligue, deux dernières saisons)
   coreCohesion?: number; // cohésion entre joueurs du cinq de départ (possessions ensemble par paire, 0 à 1)
   restDays: number;
@@ -240,6 +241,7 @@ export interface SimParams {
   moveWeight?: number; // part du mouvement de cote (ouverture -> maintenant, en logit) ajoutée à la probabilité Razzia
   openWeight?: number; // part de la cote d'ouverture sans marge mélangée (logit) au moteur sans les absences du soir
   starWeight?: number; // points par point de Game Score (au-dessus de 8) de la star absente
+  earlyFormWeight?: number; // points par point d'écart « réel - ligne de clôture » entre les deux équipes, matchs 3 à 12 de la saison
   hcaWeight?: number; // part de l'avantage du terrain propre à l'équipe qui reçoit (écart à la ligue) retenue
   strengthPull?: number; // part de l'écart entre la force simulée joueur par joueur et la force visée qui est comblée
   playerMomentum?: number; // part de la forme récente de chaque joueur ajoutée à sa note d'impact

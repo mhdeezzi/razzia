@@ -1,7 +1,7 @@
 // « En feu ce soir » : les joueurs dont les 25 000 simulations annoncent un gros match, et pourquoi.
 // Et l'avertissement quand la simulation précède l'annonce des compositions officielles.
 import { useState, type CSSProperties } from 'react';
-import { ArrowClockwise, Info, Minus, Plus } from '@phosphor-icons/react';
+import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { matchPath, n1, pct0, teamColor, type Game, type Result } from './data.ts';
 import { FollowBtn } from './follow.tsx';
 import { pOverPts } from './picks.ts';
@@ -68,18 +68,16 @@ export function HotStrip({ r, g }: { r: Result; g: Game }) {
 
 const fmt = (v: number) => v.toFixed(1).replace('.', ',');
 
-/** Carte d'un joueur en feu, avec son pari : plus ou moins de N,5 points (ligne réglable), cote juste des simulations. */
+/**
+ * Carte d'un joueur en feu, avec le seul bouton « Suivre » : le pari part dans le ticket sur ses points (plus de la
+ * ligne médiane des simulations, à 50 % environ) ; le plus ou moins et la ligne se règlent ensuite dans le ticket.
+ */
 function FeuCard({ p, g, i, top }: { p: Player; g: Game; i: number; top: number }) {
   const h = p.heat!;
   const team = p.side === 0 ? g.home : g.away;
-  // Même ligne de départ pour tous : 19,5 points, à régler ensuite.
-  const [line, setLine] = useState(19.5);
-  const [over, setOver] = useState(true);
   const d = p.stats?.pts;
-  const pOver = d ? pOverPts(d, line) : undefined;
-  const pBet = pOver == null ? undefined : over ? pOver : 1 - pOver;
-  const odds = pBet ? Math.round((1 / pBet) * 100) / 100 : undefined;
-  const title = `${p.name} : ${over ? 'plus' : 'moins'} de ${fmt(line)} pts`;
+  const line = d ? Math.max(0.5, Math.floor(d.p50) + 0.5) : undefined;
+  const pBet = d && line != null ? pOverPts(d, line) : undefined;
   return (
     <li className="feu-card" style={{ '--i': i, '--tc': teamColor(team) } as CSSProperties}>
       <div className="feu-who">
@@ -97,38 +95,16 @@ function FeuCard({ p, g, i, top }: { p: Player; g: Game; i: number; top: number 
         <span style={{ width: `${Math.max(6, (100 * h.pBig) / top)}%` }} />
       </div>
       {h.reasons.length > 0 && <p className="feu-why">{h.reasons.slice(0, 3).map((t) => (detail(t) ? `${short(t)} : ${detail(t)}` : short(t))).join(' · ')}</p>}
-      {pBet != null && odds != null && (
+      {d && line != null && pBet != null && (
         <div className="feu-bet">
-          <div className="feu-line">
-            <div className="feu-ou" role="group" aria-label="Plus ou moins">
-              <button className={over ? 'is-on' : ''} onClick={() => setOver(true)}>
-                Plus
-              </button>
-              <button className={!over ? 'is-on' : ''} onClick={() => setOver(false)}>
-                Moins
-              </button>
-            </div>
-            <div className="feu-step">
-              <button onClick={() => setLine(Math.max(0.5, line - 1))} aria-label="Un point de moins">
-                <Minus size={13} weight="bold" />
-              </button>
-              <b className="mono">{fmt(line)}</b>
-              <button onClick={() => setLine(line + 1)} aria-label="Un point de plus">
-                <Plus size={13} weight="bold" />
-              </button>
-            </div>
-            <span className="feu-odds">
-              {pct0(pBet)} · cote juste <b className="mono">{odds.toFixed(2).replace('.', ',')}</b>
-            </span>
-          </div>
           <FollowBtn
             small
             leg={() => ({
-              key: `nba:${g.date}:${g.away.tri}@${g.home.tri}:pts-${p.id}-${over ? 'p' : 'm'}${line}`,
+              key: `nba:${g.date}:${g.away.tri}@${g.home.tri}:pts-${p.id}`,
               sport: 'nba', date: g.date, start: g.start, path: matchPath(g),
               match: { home: g.home.tri, away: g.away.tri, homeName: g.home.name, awayName: g.away.name },
-              oid: 'pts', title, odds, fair: true, p: pBet, at: '',
-              bet: { kind: 'pts', side: p.side === 0 ? 'home' : 'away', line, over, player: p.name, event: g.id },
+              oid: 'pts', title: ptsTitle(p.name, true, line), odds: Math.round((1 / pBet) * 100) / 100, fair: true, p: pBet, at: '', dist: d,
+              bet: { kind: 'pts', side: p.side === 0 ? 'home' : 'away', line, over: true, player: p.name, event: g.id },
             })}
           />
         </div>
@@ -136,6 +112,9 @@ function FeuCard({ p, g, i, top }: { p: Player; g: Game; i: number; top: number 
     </li>
   );
 }
+
+/** Libellé d'un pari sur les points d'un joueur : « Stephen Curry : plus de 24,5 pts ». */
+export const ptsTitle = (name: string, over: boolean, line: number) => `${name} : ${over ? 'plus' : 'moins'} de ${fmt(line)} pts`;
 
 /** Les cinq de départ sont annoncés environ 30 minutes avant le match. */
 export function LineupNotice({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRelaunch: () => void; busy: boolean }) {
