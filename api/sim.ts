@@ -84,7 +84,7 @@ const etDate = (t: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Amer
 async function tick(): Promise<Response> {
   const now = Date.now();
   const relaunched: string[] = [];
-  const days = [...new Set([etDate(now), etDate(now + 6 * 3_600_000)])];
+  const days = [...new Set([etDate(now), etDate(now + 6 * 3_600_000), etDate(now + 20 * 3_600_000)])];
   const boards = await Promise.all(
     days.map((d) => fetch(`${ESPN}/scoreboard?dates=${d.replaceAll('-', '')}`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : { events: [] }), () => ({ events: [] }))),
   );
@@ -95,14 +95,31 @@ async function tick(): Promise<Response> {
       const side = (ha: string) => c?.competitors?.find((x: any) => x.homeAway === ha)?.team?.abbreviation ?? '';
       const tip = Date.parse(e.date);
       const tri = (a: string) => ESPN_TRI[a] ?? a;
-      return { tip, state: c?.status?.type?.state, away: tri(side('away')), home: tri(side('home')), date: etDate(tip) };
+      const odds = c?.odds?.[0];
+      const hasOdds = !!(odds && (odds.moneyline || odds.homeTeamOdds?.moneyLine != null || odds.details));
+      return { tip, state: c?.status?.type?.state, away: tri(side('away')), home: tri(side('home')), date: etDate(tip), hasOdds };
     })
-    .filter((g) => g.state === 'pre' && g.tip - now >= 5 * 60_000 && g.tip - now <= 30 * 60_000);
-  if (soon.length) {
+    .filter((g) => g.state === 'pre');
+  const upcoming = soon;
+  const near = upcoming.filter((g) => g.tip - now >= 5 * 60_000 && g.tip - now <= 30 * 60_000);
+  // Simulée avant la publication des cotes (index : noOdds) et cotes parues depuis : relancée une fois, plus de 30 min
+  // avant le match (ensuite c'est la relance d'avant-match qui s'en charge).
+  const later = upcoming.filter((g) => g.hasOdds && g.tip - now > 30 * 60_000 && g.tip - now <= 20 * 3_600_000);
+  if (near.length || later.length) {
     const r = await gh(`/contents/sims/index.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
-    const index: Array<{ dir: string; at: string }> = r.ok ? await r.json() : [];
+    const index: Array<{ dir: string; at: string; noOdds?: boolean }> = r.ok ? await r.json() : [];
     const running = await inFlight();
-    for (const g of soon) {
+    for (const g of later) {
+      const dir = `${g.date}_${g.away}@${g.home}`;
+      if (!index.some((e) => e.dir === dir && e.noOdds)) continue;
+      if (running.some((w) => String(w.display_title ?? '').startsWith(`Sim ${g.away}@${g.home} ${g.date} · `))) continue;
+      const d = await gh(`/actions/workflows/${WORKFLOW}/dispatches`, {
+        method: 'POST',
+        body: JSON.stringify({ ref: 'main', inputs: { date: g.date, away: g.away, home: g.home, request_id: 'cotes' } }),
+      });
+      if (d.ok) relaunched.push(`${dir} (cotes)`);
+    }
+    for (const g of near) {
       const dir = `${g.date}_${g.away}@${g.home}`;
       if (index.some((e) => e.dir === dir && Date.parse(e.at) >= g.tip - 35 * 60_000)) continue;
       if (running.some((w) => String(w.display_title ?? '').startsWith(`Sim ${g.away}@${g.home} ${g.date} · `))) continue;
@@ -114,7 +131,7 @@ async function tick(): Promise<Response> {
     }
   }
   const [bilan, bilanTennis] = await Promise.all([refreshBilan('bilan.yml', undefined, 14), refreshBilan('bilan-tennis.yml', undefined, 14)]);
-  return Response.json({ at: new Date(now).toISOString(), soon: soon.length, relaunched, bilan, bilanTennis }, { headers: noStore });
+  return Response.json({ at: new Date(now).toISOString(), soon: near.length, relaunched, bilan, bilanTennis }, { headers: noStore });
 }
 
 /** Calcul en cours pour ce match, quel que soit l'appareil qui l'a lancé (relance d'avant-match comprise). */
