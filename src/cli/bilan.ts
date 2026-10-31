@@ -80,6 +80,29 @@ function beforeTip(name: string, tip: number): any | undefined {
   return undefined;
 }
 
+/**
+ * Toutes les versions publiées d'une simulation avant le coup d'envoi (historique git) : heure, compositions confirmées,
+ * probabilité Razzia, et joueur de rotation incertain (questionable, day-to-day...). Sert à comparer la prévision du
+ * matin à celle d'après l'annonce des cinq de départ.
+ */
+function versionsBefore(name: string, tip: number): Array<{ at: number; lineups: boolean; p: number; doubt: boolean }> {
+  const repo = join(dir, '..'), path = `sims/${name}/summary.json`;
+  const out: Array<{ at: number; lineups: boolean; p: number; doubt: boolean }> = [];
+  try {
+    const log = execFileSync('git', ['-C', repo, 'log', '--format=%H', '--', path], { encoding: 'utf8' }).split('\n').filter(Boolean);
+    for (const h of log) {
+      const v = JSON.parse(execFileSync('git', ['-C', repo, 'show', `${h}:${path}`], { encoding: 'utf8', maxBuffer: 256 << 20 }));
+      const at = Date.parse(v.meta?.builtAt ?? '');
+      if (!(at < tip)) continue;
+      const doubt = (v.players ?? []).some((x: any) => /questionable|day-to-day|doubtful/i.test(String(x.status ?? '')) && (x.form?.minL10 ?? 0) >= 20);
+      out.push({ at, lineups: !!v.meta?.lineupsConfirmed, p: v.market?.blendedHome ?? v.pHome, doubt });
+    }
+  } catch {
+    /* pas d'historique */
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+
 interface Row {
   dir: string;
   date: string;
@@ -93,6 +116,8 @@ interface Row {
   score: string;
   pick: Pick;
   value?: { side: 'home' | 'away'; edge: number; clv?: number; odds?: number; won: boolean; profit?: number };
+  // Prévision du matin (plus d'une heure avant) et d'après les compositions (moins de 35 min avant), si les deux existent.
+  compos?: { early: number; late: number; lineups: boolean; doubt: boolean };
 }
 
 const rows: Row[] = [];
@@ -150,6 +175,13 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
       profit: ml != null ? (won ? decimal(ml) - 1 : -1) : undefined,
     };
   }
+  if (ev.date) {
+    const tip = Date.parse(ev.date);
+    const vs = versionsBefore(d.name, tip);
+    const early = vs.filter((v) => v.at < tip - 60 * 60_000).at(-1);
+    const late = vs.filter((v) => v.at >= tip - 35 * 60_000).at(-1);
+    if (early && late) row.compos = { early: early.p, late: late.p, lineups: late.lineups, doubt: early.doubt };
+  }
   rows.push(row);
 }
 rows.sort((a, b) => b.date.localeCompare(a.date));
@@ -180,7 +212,17 @@ const out = {
     roi: withOdds.length ? withOdds.reduce((s, x) => s + x.value!.profit!, 0) / withOdds.length : undefined,
     nOdds: withOdds.length,
   },
+  // Matin contre après les compositions, sur les mêmes matchs : bons vainqueurs et log-perte (plus bas = mieux).
+  compos: (() => {
+    const c = rows.filter((x) => x.compos);
+    const score = (l: Row[], k: 'early' | 'late') => ({
+      ok: l.filter((x) => (x.compos![k] >= 0.5) === x.homeWon).length,
+      ll: l.length ? -l.reduce((a, x) => a + Math.log(Math.max(1e-6, x.homeWon ? x.compos![k] : 1 - x.compos![k])), 0) / l.length : undefined,
+    });
+    const d = c.filter((x) => x.compos!.doubt);
+    return { n: c.length, early: score(c, 'early'), late: score(c, 'late'), doubtN: d.length, doubtEarly: score(d, 'early'), doubtLate: score(d, 'late') };
+  })(),
   rows: rows.slice(0, 2500), // toute la saison (le bandeau public calcule son bilan sur l'ensemble)
 };
 writeFileSync(join(dir, 'bilan.json'), JSON.stringify(out));
-console.log(`bilan : ${rows.length} matchs, ${vals.length} valeurs signalées`);
+console.log(`bilan : ${rows.length} matchs, ${vals.length} valeurs signalées ; matin / compos : ${JSON.stringify(out.compos)}`);

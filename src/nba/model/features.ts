@@ -18,7 +18,12 @@ export const PLAYOFF_DISCOUNT = 0.8;
  */
 // Contrôle de justesse (600 matchs, débuts de saison 2024-25 et 2025-26) : actuel (0,8 / 1) 69,7 % de bons vainqueurs,
 // Brier 0,2009 ; saison précédente à 0,3 et fondu 0,9 : 70,5 %, Brier 0,1988. Retenu.
-export const RECENCY = { decay: DECAY, prevDiscount: 0.3, prevDecay: PREV_DECAY, prevFade: 0.9 };
+export const RECENCY = {
+  decay: DECAY, prevDiscount: 0.3, prevDecay: PREV_DECAY, prevFade: 0.9,
+  // Mémoires propres (réglables pour le contrôle de justesse ; NaN = celle ci-dessus) : le rôle d'un joueur (volume,
+  // possessions, pertes, rebonds, fautes, présence) change vite d'une saison à l'autre, son adresse beaucoup moins.
+  rolePrevDiscount: NaN, rolePrevFade: NaN, shootPrevDiscount: NaN, shootPrevFade: NaN,
+};
 export function setRecency(p: Partial<typeof RECENCY>): void {
   for (const k of Object.keys(RECENCY) as Array<keyof typeof RECENCY>) if (typeof p[k] === 'number') RECENCY[k] = p[k]!;
 }
@@ -62,6 +67,11 @@ export interface PlayerFeat {
   astdM: ZoneArr; // paniers assistés
   fta: number;
   ftm: number;
+  // Les mêmes, pondérés avec la mémoire de l'adresse (réussite) ; les volumes ci-dessus suivent celle du rôle.
+  fgaS: ZoneArr;
+  fgmS: ZoneArr;
+  ftaS: number;
+  ftmS: number;
   tov: number;
   tovLive: number;
   stl: number;
@@ -174,7 +184,7 @@ export function loadGames(): Array<{ g: GameRecord; pg: ParsedGame }> {
 
 function emptyPlayer(id: number): PlayerFeat {
   return {
-    id, lastTeam: 0, games: [], w: 0, sec: 0, offPoss: 0, defPoss: 0, fga: zArr(), fgm: zArr(), astdM: zArr(), fta: 0, ftm: 0,
+    id, lastTeam: 0, games: [], w: 0, sec: 0, offPoss: 0, defPoss: 0, fga: zArr(), fgm: zArr(), astdM: zArr(), fta: 0, ftm: 0, fgaS: zArr(), fgmS: zArr(), ftaS: 0, ftmS: 0,
     tov: 0, tovLive: 0, stl: 0, blk: zArr(), oppFgaOn: zArr(), pfShoot: 0, pfOther: 0, pfOff: 0, fdShoot: 0, fdOther: 0, fdBonus: 0, oreb: 0, orebOpp: 0,
     dreb: 0, drebOpp: 0, and1: 0, putbacks: 0, stintSum: 0, stintN: 0, spots: ZONES.map(() => []), labels: ZONES.map(() => new Map()),
     presenceByTeam: new Map(), rawFga: 0,
@@ -230,7 +240,7 @@ export function buildFeatures(asOf: string, groupOf: (pid: number) => string): F
   }
   // Poids de récence : décroissance « forme » sur la saison en cours ; la saison précédente est lissée
   // (l'intersaison casse la notion de forme) et ses playoffs légèrement escomptés (défenses d'élite, rotations courtes).
-  const weightOf = (list: string[] | undefined, gameId: string): number => {
+  const weightOf = (list: string[] | undefined, gameId: string, kind: 'team' | 'role' | 'shoot' = 'team'): number => {
     if (!list) return 0;
     const i = list.lastIndexOf(gameId);
     if (i < 0) return 0;
@@ -245,7 +255,10 @@ export function buildFeatures(asOf: string, groupOf: (pid: number) => string): F
     if (gs === curSeason) return R.decay ** curAfter;
     const po = gameId.startsWith('004') ? PLAYOFF_DISCOUNT : 1;
     const back = Math.max(1, seasonsBetween(gs, curSeason));
-    return R.prevDiscount ** back * (R.decay * R.prevFade) ** curAfter * R.prevDecay ** prevAfter * po;
+    const pick = (own: number, def: number) => (Number.isNaN(own) ? def : own);
+    const disc = kind === 'role' ? pick(R.rolePrevDiscount, R.prevDiscount) : kind === 'shoot' ? pick(R.shootPrevDiscount, R.prevDiscount) : R.prevDiscount;
+    const fade = kind === 'role' ? pick(R.rolePrevFade, R.prevFade) : kind === 'shoot' ? pick(R.shootPrevFade, R.prevFade) : R.prevFade;
+    return disc ** back * (R.decay * fade) ** curAfter * R.prevDecay ** prevAfter * po;
   };
 
   // Ligue (non pondéré : saison précédente + saison en cours).
@@ -305,13 +318,16 @@ export function buildFeatures(asOf: string, groupOf: (pid: number) => string): F
       if (r.sec <= 0) continue;
       const f = players.get(r.pid);
       if (!f) continue;
-      const w = weightOf(playerGameIdx.get(r.pid), g.gameId);
+      const w = weightOf(playerGameIdx.get(r.pid), g.gameId, 'role');
+      const wS = weightOf(playerGameIdx.get(r.pid), g.gameId, 'shoot');
       f.w += w;
       f.sec += w * r.sec;
       f.offPoss += w * r.offPoss;
       f.defPoss += w * r.defPoss;
       f.fta += w * r.fta;
       f.ftm += w * r.ftm;
+      f.ftaS += wS * r.fta;
+      f.ftmS += wS * r.ftm;
       f.tov += w * r.tov;
       f.tovLive += w * r.tovLive;
       f.stl += w * r.stl;
@@ -359,9 +375,12 @@ export function buildFeatures(asOf: string, groupOf: (pid: number) => string): F
       LX.groupZoneFga[grp][z]++;
       LX.groupZoneFgm[grp][z] += s.made;
       if (!f) continue;
-      const w = weightOf(playerGameIdx.get(s.pid), g.gameId);
+      const w = weightOf(playerGameIdx.get(s.pid), g.gameId, 'role');
+      const wS = weightOf(playerGameIdx.get(s.pid), g.gameId, 'shoot');
       f.fga[z] += w;
       f.fgm[z] += w * s.made;
+      f.fgaS[z] += wS;
+      f.fgmS[z] += wS * s.made;
       f.rawFga++;
       if (s.made && s.ast) f.astdM[z] += w;
       if (s.and1) f.and1 += w;

@@ -14,6 +14,36 @@ const preload = () => void import('@paper-design/shaders-react');
 if (typeof window !== 'undefined') (window.requestIdleCallback ?? ((f: () => void) => setTimeout(f, 300)))(preload);
 
 /**
+ * Page affichée ou non. Sur iPhone, Safari coupe les dessins WebGL d'une page passée en arrière-plan (autre appli) et
+ * pouvait la laisser toute noire au retour : les marbres sont libérés quand la page est cachée et recréés au retour.
+ */
+let pageShown = typeof document === 'undefined' || document.visibilityState === 'visible';
+const shownSubs = new Set<(v: boolean) => void>();
+if (typeof document !== 'undefined') {
+  const update = () => {
+    pageShown = document.visibilityState === 'visible';
+    shownSubs.forEach((f) => f(pageShown));
+  };
+  document.addEventListener('visibilitychange', update);
+  // Retour arrière depuis le cache de Safari : la page revient telle quelle, ses dessins WebGL peuvent avoir disparu.
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) {
+      shownSubs.forEach((f) => f(false));
+      update();
+    }
+  });
+}
+function usePageShown() {
+  const [v, setV] = useState(pageShown);
+  useEffect(() => {
+    shownSubs.add(setV);
+    setV(pageShown);
+    return () => void shownSubs.delete(setV);
+  }, []);
+  return v;
+}
+
+/**
  * `ring` : version des ronds de probabilité. Un seul quart de noir, en taches plus petites et plus mobiles, pour que la
  * couleur domine dès l'ouverture (sinon tout un côté du cercle reste noir quelques secondes).
  */
@@ -28,9 +58,24 @@ export function WarpBg({ c1, c2, ring }: { c1: string; c2: string; ring?: boolea
     shapeScale: 0.17 + Math.random() * 0.14, proportion: 0.4 + Math.random() * 0.2, light: 0.25 + Math.random() * 0.2,
   }));
   const box = useRef<HTMLSpanElement>(null);
+  const shown = usePageShown();
+  // Dessin recréé (nouvelle clé) si Safari le coupe en cours de route.
+  const [gen, setGen] = useState(0);
   useEffect(() => {
+    if (!shown) return setOn(false);
     let id = requestAnimationFrame(() => (id = requestAnimationFrame(() => setOn(true))));
     return () => cancelAnimationFrame(id);
+  }, [shown]);
+  useEffect(() => {
+    const el = box.current?.parentElement;
+    if (!el) return;
+    const lost = (e: Event) => {
+      e.preventDefault(); // autorise la restauration
+      setGen((g) => g + 1);
+    };
+    // L'événement ne remonte pas : écouté en phase de capture sur le bandeau qui contient le dessin.
+    el.addEventListener('webglcontextlost', lost, true);
+    return () => el.removeEventListener('webglcontextlost', lost, true);
   }, []);
   // Hors de l'écran (page descendue), le marbre s'arrête : la carte graphique reste libre pour le défilement et les clics.
   useEffect(() => {
@@ -46,9 +91,9 @@ export function WarpBg({ c1, c2, ring }: { c1: string; c2: string; ring?: boolea
         <Suspense fallback={null}>
           {/* Marbre très doux : calculé à faible résolution (le flou ne se voit pas), ce qui le rend bien moins coûteux. */}
           {ring ? (
-            <Warp className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={120_000} colors={[toHex(c1), '#000000', mix(toHex(c1), '#ffffff', v.light), toHex(c2)]} proportion={v.proportion} softness={1} distortion={v.distortion} swirl={v.swirl} swirlIterations={8} shape="checks" shapeScale={v.shapeScale} rotation={v.rotation} frame={v.frame} speed={still() || !seen ? 0 : 0.7} />
+            <Warp key={gen} className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={120_000} colors={[toHex(c1), '#000000', mix(toHex(c1), '#ffffff', v.light), toHex(c2)]} proportion={v.proportion} softness={1} distortion={v.distortion} swirl={v.swirl} swirlIterations={8} shape="checks" shapeScale={v.shapeScale} rotation={v.rotation} frame={v.frame} speed={still() || !seen ? 0 : 0.7} />
           ) : (
-            <Warp className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={320_000} colors={['#000000', toHex(c1), '#000000', toHex(c2)]} proportion={0.45} softness={1} distortion={0.25} swirl={0.6} swirlIterations={8} shape="checks" shapeScale={0.08} speed={still() || !seen ? 0 : 0.4} />
+            <Warp key={gen} className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={320_000} colors={['#000000', toHex(c1), '#000000', toHex(c2)]} proportion={0.45} softness={1} distortion={0.25} swirl={0.6} swirlIterations={8} shape="checks" shapeScale={0.08} speed={still() || !seen ? 0 : 0.4} />
           )}
         </Suspense>
       )}
