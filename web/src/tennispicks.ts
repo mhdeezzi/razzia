@@ -16,7 +16,7 @@ export const T_SURE = 0.8;
 
 /** « de Fils », « d'Arthur Fils » : élision devant une voyelle ou un h. */
 const de = (name: string) => (/^[aeiouyhâéèêîôûAEIOUYHÂÉÈÊÎÔÛ]/.test(name) ? `d'${name}` : `de ${name}`);
-const pct = (v: number) => `${(v * 100).toFixed(1).replace('.', ',')} %`;
+const pct = (v: number) => `${(v * 100).toFixed(1).replace('.', ',')}\u00a0%`;
 const noVig = (a?: number, b?: number) => (a && b ? (1 / a) / (1 / a + 1 / b) : undefined);
 
 export function favOf(r: TennisResult): { side: 'home' | 'away'; p: number } {
@@ -80,11 +80,32 @@ export function buildTennisCategories(r: TennisResult): Category[] {
     text: `${fav.name} gagne sans perdre de set dans ${pct(r.sim.straight[i])} des simulations : cote plus haute, risque plus grand.`,
   };
 
+  // L'outsider prend au moins un set plus d'une fois sur deux : proposé à part, à côté de la victoire et du handicap
+  // (Fritz à 72 % contre Vacherot : Vacherot prenait un set dans 53 % des simulations).
+  const j = 1 - i, dogSide = side === 'home' ? 'away' : 'home';
+  const dogP = r.sim.atLeast1[j];
+  const dogLine = r.bestOf === 5 ? 2.5 : 1.5;
+  const dogOdds = (() => {
+    const x = o.sets?.find((s) => s.line === (dogSide === 'home' ? dogLine : -dogLine));
+    return x ? { odds: dogSide === 'home' ? x.home : x.away, implied: noVig(dogSide === 'home' ? x.home : x.away, dogSide === 'home' ? x.away : x.home) } : {};
+  })();
+  const dogSet: Category | undefined = dogP >= 0.5
+    ? {
+        id: 'dogset', label: "Set de l'outsider",
+        items: [{
+          id: 'dogset', title: `${dog.name} gagne au moins un set`, who: { name: dog.name, photo: dog.photo, alt: dog.photoAlt },
+          bet: { kind: 'sets', side: dogSide, need: 1 }, p: dogP, fair: 1 / dogP, ...dogOdds,
+          text: `Même s'il perd, ${dog.name} prend au moins un set à ${fav.name} dans ${pct(dogP)} des simulations.`,
+        }],
+      }
+    : undefined;
+  const plus = (cats: Category[]) => (dogSet ? [...cats, dogSet] : cats);
+
   if (flipOf(r))
-    return [
+    return plus([
       { id: 'sets', label: L!.label, items: [sets!] },
       { id: 'win', label: 'Vainqueur', items: [{ ...win, warn: shown(winP) > T_RISKY ? 'Risqué' : 'Déconseillé' }], warn: true },
-    ];
-  if (sets) return [{ id: 'win', label: 'Vainqueur', items: [win] }, { id: 'sets', label: L!.label, items: [{ ...sets, safe: 'Safe' }], good: true }];
-  return [{ id: 'win', label: 'Vainqueur', items: [win] }, { id: 'straight', label: `${need}-0`, items: [straight] }];
+    ]);
+  if (sets) return plus([{ id: 'win', label: 'Vainqueur', items: [win] }, { id: 'sets', label: L!.label, items: [{ ...sets, safe: 'Safe' }], good: true }]);
+  return plus([{ id: 'win', label: 'Vainqueur', items: [win] }, { id: 'straight', label: `${need}-0`, items: [straight] }]);
 }

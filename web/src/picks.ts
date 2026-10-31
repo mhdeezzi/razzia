@@ -17,6 +17,7 @@ export interface Outcome {
   // Le pari en clair, pour le suivi : vainqueur, handicap (points donnés à ce camp), au moins N sets, N-0, ou points d'un
   // joueur au-dessus / en dessous d'une ligne (player : son nom, event : identifiant ESPN du match pour la feuille).
   bet?: { kind: 'win' | 'spread' | 'sets' | 'straight' | 'pts'; side: 'home' | 'away'; line?: number; need?: number; over?: boolean; player?: string; event?: string };
+  dist?: { mean: number; sd: number; p10: number; p25: number; p50: number; p75: number; p90: number }; // points d'un joueur (ligne réglable dans le ticket)
 }
 
 export interface Category {
@@ -148,6 +149,30 @@ export function buildCategories(r: Result, g: Game): Category[] {
   } else if (shown(winP) < RISKY) {
     // Favori entre 66 et 70 % : le vainqueur reste en tête, avec l'étiquette orange « Risqué ».
     cats[0].items = cats[0].items.map((o) => ({ ...o, warn: 'Risqué' }));
+  }
+
+  // Marqueur : parmi les joueurs « En feu ce soir » (mêmes quatre), celui qui a la plus grande chance de gros match ; le
+  // pari : plus de points que sa moyenne habituelle.
+  const hot = r.players
+    .filter((p) => p.heat && p.heat.pBig >= 0.1 && p.stats?.pts)
+    .sort((a, b) => b.heat!.index - a.heat!.index)
+    .slice(0, 4)
+    .sort((a, b) => b.heat!.pBig - a.heat!.pBig)[0];
+  if (hot) {
+    const d = hot.stats.pts, h = hot.heat!;
+    const l = Math.max(0.5, Math.floor(h.base) + 0.5);
+    const pOver = pOverPts(d, l);
+    const side = hot.side === 0 ? 'home' : 'away';
+    const ln = l.toFixed(1).replace('.', ',');
+    cats.push({
+      id: 'scorer', label: 'Marqueur',
+      items: [{
+        id: `pts-${hot.id}`, title: `${hot.name}\u00a0: plus de ${ln}\u00a0pts`, p: pOver, fair: 1 / pOver, dist: d,
+        who: { name: hot.name, photo: `https://cdn.nba.com/headshots/nba/latest/260x190/${hot.id}.png` },
+        bet: { kind: 'pts', side, line: l, over: true, player: hot.name, event: g.id },
+        text: `Le joueur d'« En feu ce soir » le plus proche d'un gros match : plus de ${ln} points (sa moyenne habituelle) dans ${pct(pOver)} des simulations, ${h.threshold} points ou plus dans ${pct(h.pBig)}.`,
+      }],
+    });
   }
 
   return cats;

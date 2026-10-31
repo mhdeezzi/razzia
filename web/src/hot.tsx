@@ -114,7 +114,7 @@ function FeuCard({ p, g, i, top }: { p: Player; g: Game; i: number; top: number 
 }
 
 /** Libellé d'un pari sur les points d'un joueur : « Stephen Curry : plus de 24,5 pts ». */
-export const ptsTitle = (name: string, over: boolean, line: number) => `${name} : ${over ? 'plus' : 'moins'} de ${fmt(line)} pts`;
+export const ptsTitle = (name: string, over: boolean, line: number) => `${name}\u00a0: ${over ? 'plus' : 'moins'} de ${fmt(line)}\u00a0pts`;
 
 /** Les cinq de départ sont annoncés environ 30 minutes avant le match. */
 export function LineupNotice({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRelaunch: () => void; busy: boolean }) {
