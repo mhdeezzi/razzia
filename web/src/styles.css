@@ -1706,3 +1706,6 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
   animation: ring-shade 3.2s cubic-bezier(0.23, 1, 0.32, 1) 1.2s both; }
 @keyframes ring-shade { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .ring-shade { animation: none; opacity: 0; } }
+
+/* Sous-titre de la page Suivi */
+.suivi-sub { margin: 6px 0 0; font-size: 14px; color: var(--text-3); }

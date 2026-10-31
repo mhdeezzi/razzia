@@ -123,6 +123,7 @@ function SuiviSpace({ owner, legs }: { owner: string; legs: Leg[] }) {
     <div className="page">
       <header className="suivi-top">
         <h1>Mon suivi</h1>
+        <p className="suivi-sub">Tickets fictifs de suivi</p>
       </header>
       <BilanLine tickets={tickets} />
       <div className="suivi-layout">
