@@ -32,7 +32,9 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
     .filter((p: any) => p.status === 'Out' && (p.form?.minSeason ?? 0) >= 26 && (p.form?.ptsSeason ?? 0) >= 17 && p.form?.missed != null && p.form.missed <= 15)
     .sort((a: any, b: any) => (b.form?.ptsSeason ?? 0) - (a.form?.ptsSeason ?? 0))
     .map((p: any) => ({ side: p.side === 0 ? 'home' : 'away', name: p.name }));
-  out.push({ dir: d.name, pHome, pAway: 1 - pHome, at, gp, ...(cat ? { cat } : {}), ...(trend ? { trend } : {}), ...(hot ? { hot } : {}), ...(injured.length ? { injured } : {}) });
+  // Simulée avant la publication des cotes : l'horloge la relance dès qu'elles paraissent.
+  const noOdds = s.market?.bookHome == null;
+  out.push({ dir: d.name, pHome, pAway: 1 - pHome, at, gp, ...(noOdds ? { noOdds } : {}), ...(cat ? { cat } : {}), ...(trend ? { trend } : {}), ...(hot ? { hot } : {}), ...(injured.length ? { injured } : {}) });
 }
 out.sort((a, b) => b.at.localeCompare(a.at));
 writeFileSync(file, JSON.stringify(out));

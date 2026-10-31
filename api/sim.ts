@@ -84,7 +84,7 @@ const etDate = (t: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Amer
 async function tick(): Promise<Response> {
   const now = Date.now();
   const relaunched: string[] = [];
-  const days = [...new Set([etDate(now), etDate(now + 6 * 3_600_000)])];
+  const days = [...new Set([etDate(now), etDate(now + 6 * 3_600_000), etDate(now + 20 * 3_600_000)])];
   const boards = await Promise.all(
     days.map((d) => fetch(`${ESPN}/scoreboard?dates=${d.replaceAll('-', '')}`, { signal: AbortSignal.timeout(10_000) }).then((r) => (r.ok ? r.json() : { events: [] }), () => ({ events: [] }))),
   );
@@ -95,14 +95,31 @@ async function tick(): Promise<Response> {
       const side = (ha: string) => c?.competitors?.find((x: any) => x.homeAway === ha)?.team?.abbreviation ?? '';
       const tip = Date.parse(e.date);
       const tri = (a: string) => ESPN_TRI[a] ?? a;
-      return { tip, state: c?.status?.type?.state, away: tri(side('away')), home: tri(side('home')), date: etDate(tip) };
+      const odds = c?.odds?.[0];
+      const hasOdds = !!(odds && (odds.moneyline || odds.homeTeamOdds?.moneyLine != null || odds.details));
+      return { tip, state: c?.status?.type?.state, away: tri(side('away')), home: tri(side('home')), date: etDate(tip), hasOdds };
     })
-    .filter((g) => g.state === 'pre' && g.tip - now >= 5 * 60_000 && g.tip - now <= 30 * 60_000);
-  if (soon.length) {
+    .filter((g) => g.state === 'pre');
+  const upcoming = soon;
+  const near = upcoming.filter((g) => g.tip - now >= 5 * 60_000 && g.tip - now <= 30 * 60_000);
+  // Simulée avant la publication des cotes (index : noOdds) et cotes parues depuis : relancée une fois, plus de 30 min
+  // avant le match (ensuite c'est la relance d'avant-match qui s'en charge).
+  const later = upcoming.filter((g) => g.hasOdds && g.tip - now > 30 * 60_000 && g.tip - now <= 20 * 3_600_000);
+  if (near.length || later.length) {
     const r = await gh(`/contents/sims/index.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
-    const index: Array<{ dir: string; at: string }> = r.ok ? await r.json() : [];
+    const index: Array<{ dir: string; at: string; noOdds?: boolean }> = r.ok ? await r.json() : [];
     const running = await inFlight();
-    for (const g of soon) {
+    for (const g of later) {
+      const dir = `${g.date}_${g.away}@${g.home}`;
+      if (!index.some((e) => e.dir === dir && e.noOdds)) continue;
+      if (running.some((w) => String(w.display_title ?? '').startsWith(`Sim ${g.away}@${g.home} ${g.date} · `))) continue;
+      const d = await gh(`/actions/workflows/${WORKFLOW}/dispatches`, {
+        method: 'POST',
+        body: JSON.stringify({ ref: 'main', inputs: { date: g.date, away: g.away, home: g.home, request_id: 'cotes' } }),
+      });
+      if (d.ok) relaunched.push(`${dir} (cotes)`);
+    }
+    for (const g of near) {
       const dir = `${g.date}_${g.away}@${g.home}`;
       if (index.some((e) => e.dir === dir && Date.parse(e.at) >= g.tip - 35 * 60_000)) continue;
       if (running.some((w) => String(w.display_title ?? '').startsWith(`Sim ${g.away}@${g.home} ${g.date} · `))) continue;
@@ -113,8 +130,40 @@ async function tick(): Promise<Response> {
       if (d.ok) relaunched.push(dir);
     }
   }
+  // Tennis : même règle. Un match simulé sans cote (index : noOdds) qui en a une maintenant (fichier de cotes du jour) est
+  // relancé une fois, de 20 h à 30 min avant le début (jamais une fois commencé).
+  try {
+    const ti = await gh(`/contents/tennis/index.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
+    const tIndex: Array<{ id: string; day: string; start: string; noOdds?: boolean }> = ti.ok ? await ti.json() : [];
+    const todo = tIndex.filter((e) => e.noOdds && Date.parse(e.start) - now > 30 * 60_000 && Date.parse(e.start) - now <= 20 * 3_600_000);
+    if (todo.length) {
+      const odds = new Map<string, any>();
+      for (const day of new Set(todo.map((e) => e.day))) {
+        const r = await gh(`/contents/atp/${day}.json?ref=cotes-tennis`, { headers: { Accept: 'application/vnd.github.raw+json' } });
+        odds.set(day, r.ok ? await r.json() : {});
+      }
+      const tr = await gh(`/actions/workflows/simulate-tennis.yml/runs?per_page=50`);
+      const tRunning: any[] = tr.ok ? ((await tr.json()).workflow_runs ?? []).filter((w: any) => w.status !== 'completed') : [];
+      const ids = todo.filter((e) => {
+        const o = odds.get(e.day)?.[e.id];
+        const ml = o?.last?.ml ?? o?.first?.ml;
+        return ml && !tRunning.some((w) => String(w.display_title ?? '').split(' ')[1]?.split(',').includes(e.id));
+      });
+      const byDay = new Map<string, string[]>();
+      for (const e of ids) byDay.set(e.day, [...(byDay.get(e.day) ?? []), e.id]);
+      for (const [day, list] of byDay) {
+        const d = await gh(`/actions/workflows/simulate-tennis.yml/dispatches`, {
+          method: 'POST',
+          body: JSON.stringify({ ref: 'main', inputs: { id: list.join(','), day, request_id: 'cotes' } }),
+        });
+        if (d.ok) relaunched.push(...list.map((x) => `tennis ${x} (cotes)`));
+      }
+    }
+  } catch {
+    /* tennis indisponible : le basket continue */
+  }
   const [bilan, bilanTennis] = await Promise.all([refreshBilan('bilan.yml', undefined, 14), refreshBilan('bilan-tennis.yml', undefined, 14)]);
-  return Response.json({ at: new Date(now).toISOString(), soon: soon.length, relaunched, bilan, bilanTennis }, { headers: noStore });
+  return Response.json({ at: new Date(now).toISOString(), soon: near.length, relaunched, bilan, bilanTennis }, { headers: noStore });
 }
 
 /** Calcul en cours pour ce match, quel que soit l'appareil qui l'a lancé (relance d'avant-match comprise). */
