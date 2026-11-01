@@ -28,6 +28,9 @@ const okDay = (d: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? '')) && new
 
 // Tableaux ATP d'ESPN (simple messieurs) : scores des tournois en cours et de la veille, et matchs programmés des
 // 6 prochains jours (ceux que Pinnacle n'a pas encore cotés s'affichent sans cote, simulables avec le moteur seul).
+// Matchs retirés du programme à la main (peu intéressants) : « joueur a|joueur b », noms en minuscules sans accents, dans
+// l'ordre alphabétique (sans le jour : le match reste retiré si ESPN le décale).
+const HIDDEN = new Set(['luca van assche|mariano navone', 'alex molcan|titouan droguet']);
 const key = (n: string) => (n ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
 interface Live { state: 'pre' | 'in' | 'post'; ended?: 'final' | 'retired' | 'walkover'; detail?: string; players: Array<{ key: string; winner: boolean; sets: Array<{ g: number; tb?: number; w?: boolean }> }> }
 interface Planned { id: string; event: string; round: string; start: string; home: string; away: string }
@@ -119,17 +122,29 @@ export async function GET(request: Request): Promise<Response> {
         if (!h || !a) return undefined;
         return { state: l.state, ended: l.ended, detail: l.detail, home: h.sets, away: a.sets, winner: h.winner ? 'home' : a.winner ? 'away' : undefined };
       };
+      // Même joueur écrit autrement par Pinnacle (« Daniel Merida Aguilar ») et par ESPN (« Daniel Merida ») : les fiches
+      // Pinnacle prennent l'orthographe d'ESPN (photo, score en direct), sinon le match s'affichait deux fois.
+      const espnNames = new Map<string, string>();
+      for (const n of [...planned.flatMap((m) => [m.home, m.away]), ...files.flatMap((f) => (f ? Object.values(f[1] as Record<string, any>).filter((x) => x.source === 'espn').flatMap((x) => [x.home, x.away]) : []))]) espnNames.set(key(n), n);
+      const spelled = (n: string) => {
+        const k = key(n);
+        if (espnNames.has(k)) return n;
+        const near = [...espnNames.keys()].filter((e) => e.startsWith(`${k} `) || k.startsWith(`${e} `));
+        return near.length === 1 ? espnNames.get(near[0])! : n;
+      };
+      for (const f of files) if (f) for (const x of Object.values(f[1] as Record<string, any>)) if (x.source !== 'espn') Object.assign(x, { home: spelled(x.home), away: spelled(x.away) });
       // Un match relevé d'abord sur ESPN (fiche sans cote, peut-être déjà simulée sous cet identifiant) puis coté par
       // Pinnacle : on garde la fiche ESPN, avec la cote Pinnacle.
-      for (const f of files) {
-        if (!f) continue;
-        const list = Object.values(f[1] as Record<string, any>);
-        for (const m of list.filter((x) => x.source === 'espn')) {
-          const twin = list.find((x) => x.source !== 'espn' && x.last?.ml && [key(x.home), key(x.away)].sort().join('|') === [key(m.home), key(m.away)].sort().join('|'));
-          if (!twin) continue;
-          if (!m.last?.ml) Object.assign(m, { first: twin.first, last: twin.last, moves: twin.moves });
-          delete (f[1] as Record<string, any>)[twin.id];
-        }
+      // Le jour peut différer : ESPN décale un match au lendemain (ordre de jeu) quand Pinnacle le cote encore la veille.
+      const all = files.flatMap((f) => (f ? Object.values(f[1] as Record<string, any>).map((m) => ({ m, f: f[1] as Record<string, any> })) : []));
+      const pairOf = (m: any) => [key(m.home), key(m.away)].sort().join('|');
+      for (const { m } of all.filter((x) => x.m.source === 'espn')) {
+        const t = all.find((x) => x.m.source !== 'espn' && x.m.last?.ml && x.f[x.m.id] && pairOf(x.m) === pairOf(m) && Math.abs(Date.parse(x.m.start) - Date.parse(m.start)) < 48 * 3_600_000);
+        if (!t) continue;
+        // Cote [domicile, extérieur] dans l'ordre de Pinnacle : les joueurs de la fiche ESPN prennent cet ordre.
+        if (!m.last?.ml) Object.assign(m, { first: t.m.first, last: t.m.last, moves: t.m.moves });
+        if (key(m.home) !== key(t.m.home)) Object.assign(m, { home: m.away, away: m.home });
+        delete t.f[t.m.id];
       }
       const matches: any[] = files.flatMap((f) => (f ? Object.values(f[1] as Record<string, any>).map((m) => ({ id: String(m.id), day: f[0], league: m.league, start: m.start, home: m.home, away: m.away, odds: m.last, oddsOpen: m.first, live: score(m.home, m.away), noOdds: !m.last?.ml })) : []));
       // Matchs programmés pas encore relevés par la collecte (fiche sans cote) : nom de tournoi repris des fiches cotées du
@@ -161,6 +176,12 @@ export async function GET(request: Request): Promise<Response> {
         if (l.length < 2) continue;
         const at = espnStart.get(k);
         const keep = (at && l.find((m) => Math.abs(Date.parse(m.start) - Date.parse(at)) < 3 * 3_600_000)) ?? [...l].sort((a, b) => Date.parse(b.start) - Date.parse(a.start))[0];
+        // Match déplacé d'un jour par ESPN : la fiche gardée reprend la cote de l'autre (dans l'ordre de cette cote).
+        const priced = l.find((m) => !m.noOdds);
+        if (keep.noOdds && priced) {
+          const flip = key(keep.home) !== key(priced.home);
+          Object.assign(keep, { odds: priced.odds, oddsOpen: priced.oddsOpen, noOdds: false }, flip ? { home: keep.away, away: keep.home } : {});
+        }
         for (const m of l) if (m !== keep) drop.add(m);
       }
       // 2) Un joueur dans deux matchs pas commencés du même tournoi à moins de 36 h : son adversaire a changé. On garde
@@ -173,7 +194,7 @@ export async function GET(request: Request): Promise<Response> {
         const listed = close.filter((m) => espnStart.has(pk(m)));
         if (listed.length >= 1 && listed.length < close.length) for (const m of close) if (!listed.includes(m)) drop.add(m);
       }
-      const shown = matches.filter((m) => !drop.has(m));
+      const shown = matches.filter((m) => !drop.has(m) && !HIDDEN.has(pk(m)));
       return Response.json({ matches: shown, sims: s.ok ? await s.json() : [], players: p.ok ? await p.json() : {} }, { headers: { 'Cache-Control': 'public, s-maxage=60' } });
     }
     if (q.get('bilan')) {
