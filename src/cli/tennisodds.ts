@@ -30,10 +30,24 @@ interface Entry {
 }
 
 const decimal = (american: number) => +(american > 0 ? 1 + american / 100 : 1 + 100 / -american).toFixed(3);
+// Pinnacle tombe parfois quelques instants (503) : jusqu'à 3 nouveaux essais espacés de 15, 30 puis 45 s avant
+// d'abandonner le relevé (les passages de GitHub sont espacés de plusieurs heures, un échec coûte cher).
 async function getJson(path: string): Promise<any> {
-  const res = await fetch(`${API}${path}`, { headers: UA, signal: AbortSignal.timeout(20_000) });
-  if (!res.ok) throw new Error(`Pinnacle ${path} : ${res.status}`);
-  return res.json();
+  for (let attempt = 0; ; attempt++) {
+    let error: Error;
+    try {
+      const res = await fetch(`${API}${path}`, { headers: UA, signal: AbortSignal.timeout(20_000) });
+      if (res.ok) return await res.json();
+      error = new Error(`Pinnacle ${path} : ${res.status}`);
+      if (res.status < 500 && res.status !== 429) throw error;
+    } catch (e) {
+      error = e as Error;
+      if (/: 4\d\d$/.test(error.message) && !/: 429$/.test(error.message)) throw error;
+    }
+    if (attempt >= 3) throw error;
+    console.log(`${error.message}, nouvel essai dans ${15 * (attempt + 1)} s`);
+    await new Promise((r) => setTimeout(r, 15_000 * (attempt + 1)));
+  }
 }
 
 const matchups: any[] = await getJson('/matchups?withSpecials=false');
