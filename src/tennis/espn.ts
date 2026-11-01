@@ -4,6 +4,10 @@
 
 export const nameKey = (n: string) => (n ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
 export const pairKey = (a: string, b: string) => [nameKey(a), nameKey(b)].sort().join('|');
+/** Même joueur malgré une orthographe plus longue d'un côté (« Daniel Merida » / « Daniel Merida Aguilar »). */
+export const samePlayer = (a: string, b: string) => { const x = nameKey(a), y = nameKey(b); return x === y || x.startsWith(`${y} `) || y.startsWith(`${x} `); };
+export const samePair = (m: { home: string; away: string }, n: { home: string; away: string }) =>
+  (samePlayer(m.home, n.home) && samePlayer(m.away, n.away)) || (samePlayer(m.home, n.away) && samePlayer(m.away, n.home));
 
 /** Tour ESPN -> code des fiches Pinnacle (« ATP Paris - R16 ») ; undefined : qualifications. */
 export function roundCode(name = ''): string | undefined {
