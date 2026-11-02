@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { Link } from './ui.tsx';
 
 /** Adresse de contact de Razzia (pages légales, pied de page, espace compte). */
-export const CONTACT = 'razzia.support@gmail.com';
+export const CONTACT = 'contact@razzia.me';
 const Mail = () => <a href={`mailto:${CONTACT}`}>{CONTACT}</a>;
 
 export const LEGAL: Record<string, { title: string; body: ReactNode }> = {
