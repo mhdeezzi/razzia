@@ -257,11 +257,11 @@ export function simulate(opts: { pA: number; pB: number; bestOf: 3 | 5; target?:
 const simRng = (seed: number, i: number) => new Rng((Math.imul(seed >>> 0, 0x85ebca6b) ^ Math.imul(i + 1, 0x9e3779b9)) >>> 0);
 
 /**
- * Match typique : le vainqueur du pronostic affiché, puis ce qui est le plus probable trait par trait. L'outsider prend un
- * set plus d'une fois sur deux : le match typique se joue en 3 sets (ou 4-5 en Grand Chelem) ; un jeu décisif plus d'une
- * fois sur deux : il en a un. Ensuite le score en sets le plus fréquent, un nombre de jeux et un écart proches de la
- * médiane de ces matchs, et une forme du jour proche de la normale. Rejoué point par point. (Avant : toujours la victoire
- * la plus fréquente du favori, presque toujours 6-3 6-4, même quand l'outsider prenait un set une fois sur deux.)
+ * Match typique : le vainqueur du pronostic affiché, puis le score en sets le plus fréquent de ses victoires (2-0 si
+ * c'est lui, 2-1 sinon ; après la correction « l'outsider prend un set »), pour qu'il colle au score exact le plus
+ * probable. Parmi ces matchs : jeu décisif si plus d'un sur deux en a un, nombre de jeux et écart proches de la
+ * médiane, forme du jour proche de la normale. Rejoué point par point. (Avant : 3 sets dès que l'outsider prenait un set
+ * une fois sur deux, même quand 2-0 restait le score le plus fréquent.)
  */
 function typicalMatch(o: {
   pA: number; pB: number; bestOf: 3 | 5; sd: number; seed: number; favA: boolean; scores: Record<string, number>;
@@ -269,13 +269,12 @@ function typicalMatch(o: {
 }): TypicalMatch {
   const n = o.setsA.length;
   const favWins = (i: number) => (o.setsA[i] > o.setsB[i]) === o.favA;
-  const dogSets = (k: string) => { const [a, b] = k.split('-').map(Number); return o.favA ? b : a; };
   const keys = Object.entries(o.scores).filter(([k]) => { const [a, b] = k.split('-').map(Number); return (a > b) === o.favA; });
-  const wantSet = o.pDogSet >= 0.5;
-  const key = (keys.filter(([k]) => (dogSets(k) >= 1) === wantSet).length ? keys.filter(([k]) => (dogSets(k) >= 1) === wantSet) : keys).sort((x, y) => y[1] - x[1])[0]?.[0];
+  const key = keys.sort((x, y) => y[1] - x[1])[0]?.[0];
   let pool: number[] = [];
   for (let i = 0; i < n; i++) if (favWins(i) && `${o.setsA[i]}-${o.setsB[i]}` === key) pool.push(i);
-  const wantTb = o.pTb >= 0.5;
+  // Jeu décisif selon ces matchs-là (un 2-0 en a moins souvent qu'un 2-1).
+  const wantTb = pool.filter((i) => o.tbA[i] === 1).length * 2 > pool.length;
   const withTb = pool.filter((i) => (o.tbA[i] === 1) === wantTb);
   if (withTb.length) pool = withTb;
   const med = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)] ?? 0; };
