@@ -5,7 +5,7 @@ import logoUrl from './assets/razzia-logo.webp';
 import { ticketState, type LegStatus, type Ticket } from './suivi.ts';
 
 export type ShareFormat = 'story' | 'post';
-const SITE = 'https://simbet-mu.vercel.app';
+const SITE = 'https://razzia.me';
 const C = { green: '#3dd68c', red: '#e2232b', orange: '#f5a524', white: '#f4f4f2', grey: '#a3a3a8', dim: '#74747a' };
 const dec = (v: number) => v.toFixed(2).replace('.', ',');
 const eur = (v: number) => `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
@@ -161,7 +161,7 @@ export async function ticketImage(t: Ticket, live: Record<string, LegStatus>, fo
     text('Simulé par Razzia', 1062, 560, 30, C.grey, 500);
   }
   text('razzia · simule avant de parier', sx, sy, story ? 34 : 28, C.white, 600);
-  text(story ? 'simbet-mu.vercel.app · 18+ · jouer comporte des risques' : 'simbet-mu.vercel.app · 18+', sx, sy + (story ? 50 : 38), story ? 24 : 20, C.dim, 500);
+  text(story ? 'razzia.me · 18+ · jouer comporte des risques' : 'razzia.me · 18+', sx, sy + (story ? 50 : 38), story ? 24 : 20, C.dim, 500);
   return new Promise((ok) => cv.toBlob((b) => ok(b!), 'image/png'));
 }
 

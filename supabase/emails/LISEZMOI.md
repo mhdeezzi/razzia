@@ -9,4 +9,4 @@ Dans Supabase : Authentication, puis Emails (ou Email Templates). Pour chaque mo
 | Magic link | magic-link.html | Ton lien de connexion Razzia |
 | Change email address | change-email.html | Confirme ta nouvelle adresse |
 
-Le logo et le marbre viennent du site (simbet-mu.vercel.app/email/). `{{ .ConfirmationURL }}` est remplacé par Supabase.
+Le logo et le marbre viennent du site (razzia.me/email/). `{{ .ConfirmationURL }}` est remplacé par Supabase.

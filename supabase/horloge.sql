@@ -14,7 +14,7 @@ select cron.unschedule('razzia-horloge') where exists (select 1 from cron.job wh
 select cron.schedule(
   'razzia-horloge',
   '*/5 * * * *',
-  $$ select net.http_get(url := 'https://simbet-mu.vercel.app/api/sim?tick=1', timeout_milliseconds := 25000) $$
+  $$ select net.http_get(url := 'https://razzia.me/api/sim?tick=1', timeout_milliseconds := 25000) $$
 );
 
 -- Vérifier que l'horloge tourne (après 5 à 10 minutes) : les derniers appels et leur réponse.
