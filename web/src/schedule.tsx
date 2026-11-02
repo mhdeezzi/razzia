@@ -12,11 +12,12 @@ type Status = 'pre' | 'in' | 'post';
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 type View = 'liste' | 'grille';
 
+// Grille à chaque arrivée sur le site ; le choix Liste tient le temps de la visite (onglet ouvert), pas d'une fois sur l'autre.
 const storedView = (): View => {
   try {
-    return localStorage.getItem('vue') === 'grille' ? 'grille' : 'liste';
+    return sessionStorage.getItem('vue') === 'liste' ? 'liste' : 'grille';
   } catch {
-    return 'liste';
+    return 'grille';
   }
 };
 
@@ -44,7 +45,7 @@ export function SchedulePage({ day }: { day: string | null }) {
   const runOf = (g: Game): ItemState | undefined => batch?.items.find((i) => i.key === simKey(g))?.state;
   useEffect(() => {
     try {
-      localStorage.setItem('vue', view);
+      sessionStorage.setItem('vue', view);
     } catch {
       /* préférence non mémorisée */
     }

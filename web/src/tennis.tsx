@@ -231,7 +231,14 @@ const dayLongOf = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('f
 /** État du match : celui d'ESPN, sinon d'après l'heure (en direct jusqu'à 4 heures après le début). */
 const stateOf = (m: SlateMatch): Status => m.live?.state ?? (Date.parse(m.start) > Date.now() ? 'pre' : Date.now() - Date.parse(m.start) < 4 * 3_600_000 ? 'in' : 'post');
 const setsWon = (l: Live, side: 'home' | 'away') => l[side].filter((x) => x.w).length;
-const storedView = (): View => (store.get('vue') === 'grille' ? 'grille' : 'liste');
+// Grille à chaque arrivée sur le site ; le choix Liste tient le temps de la visite (onglet ouvert).
+const storedView = (): View => {
+  try {
+    return sessionStorage.getItem('vue') === 'liste' ? 'liste' : 'grille';
+  } catch {
+    return 'grille';
+  }
+};
 
 type Slate = { matches: SlateMatch[]; sims: SimIndex[]; players?: Record<string, PlayerCard> };
 // Dernier programme ATP reçu : affiché tout de suite au retour sur la page, puis relu.
@@ -254,7 +261,13 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
   useEffect(() => {
     void load();
   }, [load]);
-  useEffect(() => store.set('vue', view), [view]);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('vue', view);
+    } catch {
+      /* préférence non mémorisée */
+    }
+  }, [view]);
   const reload = useCallback(() => void load(true), [load]);
   const { run, start, dismiss } = useDayRun(reload);
   const busy = !ended(run);
