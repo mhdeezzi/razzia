@@ -85,8 +85,10 @@ export function ladder(r: Result): Result['spreadLadder'] {
 }
 
 export function buildCategories(r: Result, g: Game): Category[] {
-  const o = g.odds ?? {};
   const mk = r.market;
+  // ESPN retire les cotes dès le coup d'envoi : on reprend alors celles notées au moment de la simulation (sinon la
+  // fiche affichait la cote juste du moteur à la place de celle du bookmaker).
+  const o = { ...g.odds, mlHome: g.odds?.mlHome ?? mk?.mlHome, mlAway: g.odds?.mlAway ?? mk?.mlAway };
   const cats: Category[] = [];
 
   // Vainqueur : la probabilité affichée en tête de fiche (moteur, avec le mouvement de cote).
