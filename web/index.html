@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#08080a" />
     <meta name="description" content="Razzia, sports analysis specialist : chaque match NBA et ATP rejoué 25 000 fois avec les effectifs, les absences et les cotes du moment." />
-    <link rel="icon" type="image/png" href="/src/assets/favicon.png" />
-    <link rel="apple-touch-icon" href="/src/assets/apple-touch-icon.png" />
+    <!-- Icônes à la racine du site (et pas seulement dans /assets avec un nom haché) : Safari, Google et les anciens
+         navigateurs les cherchent à ces adresses fixes. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" href="/favicon.png" sizes="96x96" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-title" content="Razzia" />
     <!-- Aperçu des liens partagés (X, réseaux) : le héros de l'accueil, 1200 × 630. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Razzia" />
