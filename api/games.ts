@@ -11,10 +11,21 @@ const tri = (a: string) => TRI[a] ?? a;
 const etDate = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(d);
 const num = (v: unknown) => (v === 'EVEN' ? 100 : v == null || v === '' || Number.isNaN(Number(v)) ? undefined : Number(v));
 
+// ESPN refuse parfois les serveurs de Vercel (403) : en-tête de navigateur, deux essais, puis l'autre adresse d'ESPN.
+const UA = { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15' };
 async function json(url: string): Promise<any> {
-  const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(12_000) });
-  if (!r.ok) throw new Error(`ESPN ${r.status}`);
-  return r.json();
+  let last = 0;
+  for (const u of [url, url, url.replace('site.api.espn.com', 'site.web.api.espn.com')]) {
+    try {
+      const r = await fetch(u, { headers: UA, signal: AbortSignal.timeout(12_000) });
+      if (r.ok) return await r.json();
+      last = r.status;
+      if (r.status === 400 || r.status === 404) break;
+    } catch {
+      last = 0;
+    }
+  }
+  throw new Error(`ESPN ${last || 'injoignable'}`);
 }
 
 /** Feuille de match ESPN : état du match et, pour chaque joueur, points, minutes, et s'il n'a pas joué. */
@@ -50,7 +61,12 @@ export async function GET(request: Request): Promise<Response> {
   try {
     // Une requête par jour : ESPN refuse les plages de dates (400).
     const [days, inj] = await Promise.all([
-      Promise.all(dates.map((d) => json(`${SITE}/scoreboard?dates=${d.replaceAll('-', '')}`))),
+      // Un jour qui échoue ne bloque plus tout le programme : il reste vide ; tous en échec, l'erreur remonte.
+      Promise.allSettled(dates.map((d) => json(`${SITE}/scoreboard?dates=${d.replaceAll('-', '')}`))).then((rs) => {
+        const ok = rs.filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled').map((r) => r.value);
+        if (!ok.length) throw (rs[0] as PromiseRejectedResult).reason;
+        return ok;
+      }),
       json(`${SITE}/injuries`).catch(() => ({ injuries: [] })),
     ]);
     const events = days.flatMap((b) => b.events ?? []).filter((e: any, i: number, all: any[]) => all.findIndex((x) => x.id === e.id) === i);
