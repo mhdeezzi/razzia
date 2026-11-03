@@ -76,9 +76,9 @@ const etDate = (t: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Amer
 
 /**
  * Battement de l'horloge (GET /api/sim?tick=1), appelé toutes les 5 minutes par une tâche planifiée Supabase : les
- * tâches planifiées GitHub partent avec des heures de retard. Relance chaque match qui débute dans 5 à 30 minutes
- * (compositions annoncées ~30 min avant, simulation en 2 à 3 min), une seule fois : rien si une simulation a été publiée
- * depuis 35 minutes avant le match ou si une est en cours. Recalcule aussi les bilans NBA et tennis (au plus tous les
+ * tâches planifiées GitHub partent avec des heures de retard. Relance chaque match qui débute dans 5 à 15 minutes
+ *  (titulaires confirmés par NBA.com souvent moins de 30 min avant, simulation en 2 à 3 min), une seule fois : rien si une
+ * simulation a été publiée depuis 17 minutes avant le match ou si une est en cours. Recalcule aussi les bilans NBA et tennis (au plus tous les
  * quarts d'heure).
  */
 async function tick(): Promise<Response> {
@@ -101,7 +101,9 @@ async function tick(): Promise<Response> {
     })
     .filter((g) => g.state === 'pre');
   const upcoming = soon;
-  const near = upcoming.filter((g) => g.tip - now >= 5 * 60_000 && g.tip - now <= 30 * 60_000);
+  // 5 à 15 min avant : NBA.com confirme souvent les titulaires moins de 30 min avant le match (à 30 min, la relance
+  // prenait encore les compositions « probables »). La simulation prend environ 2 minutes.
+  const near = upcoming.filter((g) => g.tip - now >= 5 * 60_000 && g.tip - now <= 15 * 60_000);
   // Simulée avant la publication des cotes (index : noOdds) et cotes parues depuis : relancée une fois, plus de 30 min
   // avant le match (ensuite c'est la relance d'avant-match qui s'en charge).
   const later = upcoming.filter((g) => g.hasOdds && g.tip - now > 30 * 60_000 && g.tip - now <= 20 * 3_600_000);
@@ -121,7 +123,7 @@ async function tick(): Promise<Response> {
     }
     for (const g of near) {
       const dir = `${g.date}_${g.away}@${g.home}`;
-      if (index.some((e) => e.dir === dir && Date.parse(e.at) >= g.tip - 35 * 60_000)) continue;
+      if (index.some((e) => e.dir === dir && Date.parse(e.at) >= g.tip - 17 * 60_000)) continue;
       if (running.some((w) => String(w.display_title ?? '').startsWith(`Sim ${g.away}@${g.home} ${g.date} · `))) continue;
       const d = await gh(`/actions/workflows/${WORKFLOW}/dispatches`, {
         method: 'POST',
