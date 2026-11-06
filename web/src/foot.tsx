@@ -236,7 +236,7 @@ export function FootSchedulePage({ day }: { day: string | null }) {
 
   return (
     <div className="page">
-      <PageHero sport="foot" title="Programme Football" day={cap(dayLongOf(current))} count={dayMatches.length} feature={<FootUne matches={dayMatches} sims={sims} />}>
+      <PageHero sport="foot" title="Programme Foot" day={cap(dayLongOf(current))} count={dayMatches.length} feature={<FootUne matches={dayMatches} sims={sims} />}>
         <Segmented<View>
           tone="dark"
           ariaLabel="Affichage"
