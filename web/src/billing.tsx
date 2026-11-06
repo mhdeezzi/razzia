@@ -4,7 +4,7 @@ import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabase.ts';
 import { endRecovery, useAuth } from './auth.ts';
-import { ticketState, useTickets } from './suivi.ts';
+import { isRefunded, ticketState, useTickets } from './suivi.ts';
 import { TicketPill } from './suivipage.tsx';
 import { WarpBg } from './shaders.tsx';
 import {
@@ -391,7 +391,8 @@ function AccountSpace({ user }: { user: User }) {
         </div>
         <div>
           <dt>Réussite</dt>
-          <dd>{done.length ? `${Math.round((won.length / done.length) * 100)} %` : '-'}</dd>
+          {/* Même règle que la page Suivi : un ticket remboursé ne compte ni gagné ni perdu. */}
+          <dd>{(() => { const n = done.filter((t) => !isRefunded(t)).length, w = won.filter((t) => !isRefunded(t)).length; return n ? `${Math.round((w / n) * 100)} %` : '-'; })()}</dd>
         </div>
         <div>
           <dt>Bilan</dt>

@@ -45,9 +45,16 @@ export const comboOdds = (legs: Leg[]) => legs.reduce((x, l) => x * (l.odds ?? 1
 const KEY = 'razzia-suivi';
 const EVENT = 'razzia-suivi';
 
+// Copie en mémoire : si le navigateur refuse d'écrire (navigation privée, stockage plein), le ticket reste le temps
+// de la page au lieu de perdre la sélection.
+let mem: Leg[] | undefined;
+/** Sélection valide seulement : une valeur abîmée (objet, liste de n'importe quoi) faisait planter la page Suivi. */
+const valid = (x: unknown): Leg[] =>
+  Array.isArray(x) ? x.filter((l): l is Leg => !!l && typeof l === 'object' && typeof (l as Leg).key === 'string' && typeof (l as Leg).title === 'string' && !!(l as Leg).bet) : [];
 function read(): Leg[] {
+  if (mem) return mem;
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? '[]') as Leg[];
+    return valid(JSON.parse(localStorage.getItem(KEY) ?? '[]'));
   } catch {
     return [];
   }
@@ -55,8 +62,9 @@ function read(): Leg[] {
 function write(legs: Leg[]) {
   try {
     localStorage.setItem(KEY, JSON.stringify(legs));
+    mem = undefined;
   } catch {
-    /* stockage indisponible : le ticket reste le temps de la page */
+    mem = legs; /* stockage indisponible : le ticket reste le temps de la page */
   }
   dispatchEvent(new Event(EVENT));
 }

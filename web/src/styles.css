@@ -545,7 +545,7 @@ a.row:hover .mark { transform: scale(1.06); }
 /* Piste déterminée : la part publiée se remplit ; le reflet ne court que dans la part remplie. */
 
 /* Résultats */
-.results { display: grid; gap: 22px; }
+.results { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; } /* minmax(0) : un bloc trop large ne pousse plus toute la fiche hors de l’écran (320 px) */
 .res-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 /* Verdict : carte noire, contour, filet aux couleurs des deux équipes. */
 .verdict { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.9fr); gap: 32px; align-items: center; padding: 32px; border-radius: var(--r-hero);
@@ -589,7 +589,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .split-legend { display: flex; justify-content: space-between; font: 500 12.5px var(--sans); font-variant-numeric: tabular-nums; color: var(--text-3); margin-top: 9px; }
 .split-legend .is-fav { color: var(--text); font-weight: 600; }
 
-.section { display: grid; gap: 16px; padding: 28px; border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--panel); animation: rise 0.6s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 28px; border: 1px solid var(--line-2); border-radius: var(--r-card); background: var(--panel); animation: rise 0.6s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
 .section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
 .section-head h3 { font-size: 13px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
 .section-head .slash { font-size: 13px; }
@@ -680,8 +680,8 @@ a.row:hover .mark { transform: scale(1.06); }
 .notice .btn { flex: none; }
 
 /* Match typique */
-.typ { display: grid; gap: 22px; }
-.typ-score { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; }
+.typ { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
+.typ-score { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 20px; }
 .typ-side { display: flex; align-items: center; gap: 14px; color: var(--text-3); }
 .typ-side.home { justify-content: flex-end; }
 .typ-side.won { color: var(--text); }
@@ -965,7 +965,7 @@ a.row:hover .mark { transform: scale(1.06); }
   .oc-freq { grid-column: 1 / -1; grid-row: 2; }
   .outcomes li > span:last-child { grid-column: 2; grid-row: 1; justify-self: end; }
   .oc-odds { display: none; }
-  .typ-score { grid-template-columns: 1fr 1fr; }
+  .typ-score { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
   .typ-final { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
   .typ-name { display: none; }
   .moments li { grid-template-columns: 1fr auto; }
@@ -1846,3 +1846,10 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .card-a-go { position: absolute; top: 19px; right: 14px; color: #6e6e73; transition: transform 0.2s var(--ease), color 0.2s var(--ease); }
 .card-a .card-a-top { padding-right: 22px; }
 @media (hover: hover) and (pointer: fine) { a.card-a:hover .card-a-go { color: #d4d4d8; transform: translateX(2px); } }
+
+/* Très petits téléphones (320 px) : le score du match typique tient dans la largeur. */
+@media (max-width: 360px) {
+  .typ-side { gap: 8px; }
+  .typ-side .mark-lg { width: 44px; height: 44px; }
+  .typ-pts { font-size: 36px; }
+}
