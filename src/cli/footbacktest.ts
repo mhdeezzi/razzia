@@ -116,7 +116,7 @@ if (import.meta.main ?? process.argv[1]?.endsWith('footbacktest.ts')) {
         if (f) { const ok = MARKETS.find((m) => m.id === f.id)!.win(i, j); add(`T${T} mis en avant`, f.p, ok); add(`T${T} champ ${r.g.lg}`, f.p, ok); add(`T${T} saison ${r.g.season}`, f.p, ok); add(`T${T} ${f.id.replace(/^(1X|X2)/, 'DC').replace(/^[12](?=\+|$)/, 'V')}`, f.p, MARKETS.find((m) => m.id === f.id)!.win(i, j)); }
         else add(`T${T} aucun`, 0, false);
       }
-      out.push({ id: r.g.id, lg: r.g.lg, date: r.g.date, h: r.g.home.name, a: r.g.away.name, score: r.g.score, p: Object.fromEntries([...pm].map(([k, v]) => [k, +v.toFixed(4)])) });
+      out.push({ id: r.g.id, lg: r.g.lg, date: r.g.date, h: r.g.home.name, a: r.g.away.name, score: r.g.score, p: Object.fromEntries([...pm].map(([k, v]) => [k, +v.toFixed(4)])), engine: fg.engine, odds: r.g.odds, closing: r.g.closing });
     }
     log(`simulation : ${nn} matchs en ${((Date.now() - t0) / 1000).toFixed(0)} s ; 1N2 log-perte simulation+marché ${(llS / nn).toFixed(4)}, Poisson+marché ${(llP / nn).toFixed(4)}`);
     for (const [k, s] of [...stats].sort()) console.log(`${k.padEnd(28)} n=${String(s.n).padStart(5)}  réussite ${(100 * s.win / s.n).toFixed(1).padStart(5)} %  proba moyenne ${(100 * s.p / s.n).toFixed(1).padStart(5)} %`);

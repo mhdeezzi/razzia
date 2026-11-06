@@ -59,11 +59,14 @@ for (const P of res) {
       const t = z[0] + z[1] + z[2];
       return z.map((x) => r4(x / t));
     });
-    // Scénario le plus fréquent du score le plus probable : ordre des buts et minute moyenne de chacun.
-    const top = scores[0];
+    // Scénario : celui d'une victoire du favori (son score le plus probable), plus parlant que le 1-1 qui sort presque
+    // toujours en tête des scores ; le nul seulement s'il est l'issue la plus probable.
+    const favSide = P.final.h >= P.final.a ? 'home' : 'away';
+    const drawFirst = P.final.d > Math.max(P.final.h, P.final.a);
+    const top = scores.find((x) => (drawFirst ? x.h === x.a : favSide === 'home' ? x.h > x.a : x.a > x.h)) ?? scores[0];
     const bySeq = top ? P.sim.seqs.get(`${top.h}-${top.a}`) : undefined;
     const best = bySeq ? [...bySeq].sort((x, y) => y[1].n - x[1].n)[0] : undefined;
-    const typical = best && top ? { score: [top.h, top.a], share: r4(best[1].n / [...bySeq!.values()].reduce((t, e) => t + e.n, 0)), goals: [...best[0]].map((side, i) => ({ side: side === 'H' ? 'home' : 'away', min: Math.round(best[1].min[i] / best[1].n) })) } : undefined;
+    const typical = best && top ? { given: drawFirst ? 'draw' : favSide, p: top.p, score: [top.h, top.a], share: r4(best[1].n / [...bySeq!.values()].reduce((t, e) => t + e.n, 0)), goals: [...best[0]].map((side, i) => ({ side: side === 'H' ? 'home' : 'away', min: Math.round(best[1].min[i] / best[1].n) })) } : undefined;
     // Confrontations : les derniers matchs entre les deux équipes, toutes compétitions suivies.
     const h2h = games
       .filter((g) => (g.home.id === f.home.id && g.away.id === f.away.id) || (g.home.id === f.away.id && g.away.id === f.home.id))
@@ -78,7 +81,7 @@ for (const P of res) {
       market: o ? { odds: o, src: o.src } : undefined,
       probs: Object.fromEntries([...P.probs].map(([k, v]) => [k, r4(v)])),
       labels: Object.fromEntries([...P.probs.keys()].map((k) => [k, label(k)])),
-      scores: scores.slice(0, 12), firstGoal: P.sim.firstGoal.map(r4), ht: P.sim.ht.map((row) => row.map(r4)),
+      scores: scores.slice(0, 30), firstGoal: P.sim.firstGoal.map(r4), ht: P.sim.ht.map((row) => row.map(r4)),
       pick: pickBest ? { id: pickBest.id, label: label(pickBest.id), p: r4(pickBest.p) } : null,
       combo: { id: c.id, label: label(c.id), p: r4(c.p), risky: c.risky },
       tier: tier(P.probs, pickBest), T: P.T, scorers, n, flow, typical, h2h,

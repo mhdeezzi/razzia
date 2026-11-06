@@ -27,7 +27,7 @@ export interface FootResult {
   tier: Tier; T: number; scorers: Array<{ id: number; name: string; side: 'home' | 'away'; p: number }>; n: number;
   meta: { builtAt: string; gamesUsed: number; model?: string };
   flow?: Array<[number, number, number]>; // toutes les 5 minutes : domicile mène, nul, extérieur mène
-  typical?: { score: [number, number]; share: number; goals: Array<{ side: 'home' | 'away'; min: number }> };
+  typical?: { given?: 'home' | 'away' | 'draw'; p?: number; score: [number, number]; share: number; goals: Array<{ side: 'home' | 'away'; min: number }> };
   h2h?: Array<{ date: string; lg: number; league?: string; home: number; away: number; score: [number, number] }>;
 }
 interface SlateMatch { id: string; lg: number; league: string; round?: string; start: string; home: { id: number; name: string }; away: { id: number; name: string }; state: 'pre' | 'in' | 'post'; score?: [number, number]; minute?: string; odds?: Odds }
@@ -743,8 +743,10 @@ function buildFootCategories(r: FootResult): Category[] {
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
     ...(bigFav ? [] : [{ id: 'double', label: 'Double chance', items: double }]),
   ];
-  // Score exact : le plus probable, toujours « Déconseillé » (même le plus fréquent ne tombe qu'une fois sur huit environ).
-  const sc = r.scores[0];
+  // Score exact : le plus probable du côté du favori (« Arsenal 2-0 »), le nul seulement s'il est l'issue la plus probable ;
+  // toujours « Déconseillé » (même le plus fréquent ne tombe qu'une fois sur huit environ).
+  const drawFirst = r.final.d > Math.max(r.final.h, r.final.a);
+  const sc = r.scores.find((x) => (drawFirst ? x.h === x.a : homeFav ? x.h > x.a : x.a > x.h)) ?? r.scores[0];
   if (sc) {
     const side = sc.h > sc.a ? r.home : sc.h < sc.a ? r.away : undefined;
     cats.push({ id: 'exact', label: 'Score exact', warn: true, items: [{
@@ -859,19 +861,37 @@ function FootResults({ r }: { r: FootResult }) {
           </Section>
         )}
         <Section title="Scores probables" tag={`${r.n.toLocaleString('fr-FR')} matchs simulés`}>
-          <ul className="f-scores">
-            {r.scores.slice(0, 9).map((s) => (
-              <li key={`${s.h}-${s.a}`} className={s.h > s.a ? 'h' : s.h < s.a ? 'a' : 'd'}>
-                <b className="mono">
-                  {s.h}-{s.a}
-                </b>
-                <span className="f-bar">
-                  <span style={{ width: `${(s.p / maxScore) * 100}%` }} />
-                </span>
-                <span className="mono muted">{pct(s.p)}</span>
-              </li>
+          {/* Trois colonnes : victoire domicile, nul, victoire extérieur, chacune avec son total et ses scores les plus
+              probables : les 2-0, 3-1, 2-1… se voient autant que le 1-1. */}
+          <div className="f-cols">
+            {(
+              [
+                ['h', `Victoire ${short(r.home.name)}`, r.final.h, (x: { h: number; a: number }) => x.h > x.a],
+                ['d', 'Match nul', r.final.d, (x: { h: number; a: number }) => x.h === x.a],
+                ['a', `Victoire ${short(r.away.name)}`, r.final.a, (x: { h: number; a: number }) => x.a > x.h],
+              ] as const
+            ).map(([k, label, tot, f]) => (
+              <div key={k} className={`f-col ${k}`}>
+                <p className="f-col-head">
+                  <span>{label}</span>
+                  <b className="mono">{pct0(tot)}</b>
+                </p>
+                <ul className="f-scores">
+                  {r.scores.filter(f).slice(0, 4).map((s) => (
+                    <li key={`${s.h}-${s.a}`} className={k}>
+                      <b className="mono">
+                        {s.h}-{s.a}
+                      </b>
+                      <span className="f-bar">
+                        <span style={{ width: `${(s.p / maxScore) * 100}%` }} />
+                      </span>
+                      <span className="mono muted">{pct(s.p)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </Section>
         <Section title="Premier but" tag="qui ouvre le score">
           <FirstGoal r={r} />
@@ -1000,7 +1020,19 @@ function FootFlow({ r }: { r: FootResult }) {
     <div className="f-flow">
       {t && (
         <p className="f-flow-lede">
-          Score le plus probable : <b>{short(r.home.name)} {t.score[0]}-{t.score[1]} {short(r.away.name)}</b>.{' '}
+          {t.given === 'home' || t.given === 'away' ? (
+            <>
+              Si {short(r[t.given].name)} gagne ({pct0(t.given === 'home' ? r.final.h : r.final.a)}), le score le plus probable est{' '}
+              <b>
+                {short(r.home.name)} {t.score[0]}-{t.score[1]} {short(r.away.name)}
+              </b>
+              .{' '}
+            </>
+          ) : (
+            <>
+              Score le plus probable : <b>{short(r.home.name)} {t.score[0]}-{t.score[1]} {short(r.away.name)}</b>.{' '}
+            </>
+          )}
           {goals.length === 0
             ? 'Aucun but de tout le match.'
             : `Le plus souvent : ${goals.map((g) => `${short(r[g.side].name)} ${g.kind} vers la ${g.min}e`).join(', ')}.`}
