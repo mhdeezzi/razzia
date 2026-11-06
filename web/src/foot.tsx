@@ -110,7 +110,27 @@ const COLOR: Record<number, string> = {
   8402: '#ffd200', 9789: '#fde100', 8342: '#0067ce', 9773: '#00428c', 8695: '#163962', 10235: '#e30613', 8637: '#a90432', 9977: '#6b6b6b',
   8640: '#ed1c24', 178475: '#dd0741', 951893: '#2c6fb7', 9728: '#f07d00', 7787: '#c8102e', 6019: '#4aa3df', 9768: '#00804a', 10269: '#e32219', 8478: '#0b5aa6',
 };
-const colorOf = (id: number) => glow(COLOR[id] ?? '#5a5f69');
+/** Seconde couleur des clubs dont la principale est neutre (noir, blanc, gris) ou proche d'un rival fréquent. */
+const ALT: Record<number, string> = {
+  9879: '#cc1f2f', 9885: '#c9a227', 8600: '#d4a017', 8121: '#c8a24a', 9977: '#c8102e', 10261: '#41a7e0', 8456: '#1c2c5b', 9875: '#0b3d91',
+  8633: '#6c4fa3', 9823: '#0a3f86', 8650: '#00a398', 10260: '#fbe122', 8634: '#004d98', 9825: '#9c824a', 8455: '#d1d3d4', 8564: '#e8e8e8',
+  8636: '#c9a227', 9847: '#da291c', 8592: '#ffffff', 9748: '#da291c', 8586: '#ffffff', 9906: '#262e61',
+};
+const hex = (c: string) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+const near = (a: string, b: string) => Math.hypot(...hex(a).map((x, i) => x - hex(b)[i])) < 90;
+const NEUTRAL = '#5a5f69';
+/** Couleurs des deux clubs d'un match : jamais deux fois la même (ni deux gris) ; le domicile prend sa seconde couleur,
+ * sinon l'extérieur la sienne, sinon un bleu (ou un or). */
+function pairColors(h: number, a: number): { home: string; away: string } {
+  let ch = COLOR[h] ?? NEUTRAL, ca = COLOR[a] ?? NEUTRAL;
+  if (near(ch, ca)) {
+    if (ALT[h] && !near(ALT[h], ca)) ch = ALT[h];
+    else if (ALT[a] && !near(ch, ALT[a])) ca = ALT[a];
+    else ca = near(ch, '#3b6fd6') ? '#d4a017' : '#3b6fd6';
+  }
+  return { home: glow(ch), away: glow(ca) };
+}
+const colorOf = (id: number) => glow(COLOR[id] ?? NEUTRAL);
 const logoOf = (id: number) => `https://images.fotmob.com/image_resources/logo/teamlogo/${id}.png`;
 /** Pastille du club : logo FotMob. Le code « f<id> » ne croise aucune équipe NBA (couleur donnée à la main). */
 const markOf = (t: { id: number; logo?: string }) => ({ tri: `f${t.id}`, color: COLOR[t.id] ?? '#5a5f69', logo: t.logo ?? logoOf(t.id) });
@@ -575,7 +595,7 @@ function FootHero({ id, r }: { id: string; r?: FootResult }) {
   };
   return (
     <header className="hero mesh mesh-foot has-shader">
-      <WarpBg c1={colorOf(home.id)} c2={colorOf(away.id)} />
+      <WarpBg c1={pairColors(home.id, away.id).home} c2={pairColors(home.id, away.id).away} />
       <div className="hero-meta">
         <span>
           <SoccerBall size={15} /> {leagueOf(r?.lg ?? m!.lg, r?.league ?? m?.league)}
@@ -675,6 +695,7 @@ function buildFootCategories(r: FootResult): Category[] {
   const P = r.probs, L = r.labels;
   const o = r.market?.odds;
   const homeFav = r.final.h >= r.final.a;
+  const pc = pairColors(r.home.id, r.away.id);
   const nv = o ? (() => { const s = 1 / o.h + 1 / o.d + 1 / o.a; return { '1': 1 / o.h / s, X: 1 / o.d / s, '2': 1 / o.a / s } as Record<string, number>; })() : undefined;
   const oddsOf: Record<string, number | undefined> = { '1': o?.h, X: o?.d, '2': o?.a, 'o2.5': o?.over25, 'u2.5': o?.under25 };
   const whoOf = (id: string): Outcome['who'] => {
@@ -687,8 +708,8 @@ function buildFootCategories(r: FootResult): Category[] {
     if (p == null || !L[id]) return undefined;
     const who = whoOf(id);
     // Rond au marbre du club concerné ; issue commune aux deux (nul, l'un ou l'autre, les deux marquent) : les deux couleurs.
-    const marble = colorOf(who && who.tri === `f${r.away.id}` ? r.away.id : r.home.id);
-    const out: Outcome = { id, title: L[id], p, who, fair: p > 0 ? 1 / p : undefined, odds: oddsOf[id], implied: nv?.[id], marble, marble2: who ? undefined : colorOf(r.away.id) };
+    const marble = who && who.tri === `f${r.away.id}` ? pc.away : pc.home;
+    const out: Outcome = { id, title: L[id], p, who, fair: p > 0 ? 1 / p : undefined, odds: oddsOf[id], implied: nv?.[id], marble, marble2: who ? undefined : pc.away };
     if (r.pick?.id === id) out.safe = r.tier === 'sure' ? 'Razzia assuré' : 'Pronostic Razzia';
     if (r.combo.id === id) {
       if (r.combo.risky) out.warn = 'Risqué';
@@ -723,7 +744,7 @@ function buildFootCategories(r: FootResult): Category[] {
     const side = sc.h > sc.a ? r.home : sc.h < sc.a ? r.away : undefined;
     cats.push({ id: 'exact', label: 'Score exact', warn: true, items: [{
       id: `exact-${sc.h}-${sc.a}`, title: `${short(r.home.name)} ${sc.h}-${sc.a} ${short(r.away.name)}`, p: sc.p, fair: 1 / sc.p, warn: 'Déconseillé',
-      who: side ? { ...markOf(side), name: side.name } : undefined, marble: colorOf(side ? side.id : r.home.id), marble2: side ? undefined : colorOf(r.away.id),
+      who: side ? { ...markOf(side), name: side.name } : undefined, marble: side === r.away ? pc.away : pc.home, marble2: side ? undefined : pc.away,
     }] });
   }
   // LDEM (les deux équipes marquent) : seulement quand c'est à plus de 65 %.
@@ -745,7 +766,7 @@ function FootVerdict({ r }: { r: FootResult }) {
       {r.tier === 'risky' && <span className="odds-warn verdict-warn risky">Risqué</span>}
       {r.tier === 'flip' && <span className="odds-warn verdict-warn">Déconseillé</span>}
       <div className="verdict-ring">
-        <Ring value={p} format={pct0} label={r.pick ? 'Pronostic' : 'Double chance'} marble={colorOf(fav.id)} />
+        <Ring value={p} format={pct0} label={r.pick ? 'Pronostic' : 'Double chance'} marble={homeFav ? pairColors(r.home.id, r.away.id).home : pairColors(r.home.id, r.away.id).away} />
       </div>
       <div>
         <span className="caps">{r.pick ? 'Pronostic Razzia' : 'Favori Razzia'}</span>
@@ -809,7 +830,7 @@ const WHY: Record<string, string> = { injury: 'Blessé', suspension: 'Suspendu',
 
 function FootResults({ r }: { r: FootResult }) {
   const cats = useMemo(() => buildFootCategories(r), [r]);
-  const cols = useMemo(() => ({ home: colorOf(r.home.id), away: colorOf(r.away.id) }), [r]);
+  const cols = useMemo(() => pairColors(r.home.id, r.away.id), [r]);
   const homeFav = r.final.h >= r.final.a;
   const maxScore = r.scores[0]?.p ?? 1;
   const maxScorer = r.scorers[0]?.p ?? 1;

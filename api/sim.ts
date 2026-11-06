@@ -197,8 +197,13 @@ async function tick(): Promise<Response> {
   } catch {
     /* foot indisponible : le reste continue */
   }
-  const [bilan, bilanTennis, bilanFoot] = await Promise.all([refreshBilan('bilan.yml', undefined, 14), refreshBilan('bilan-tennis.yml', undefined, 14), refreshBilan('bilan-foot.yml', undefined, 14)]);
-  return Response.json({ at: new Date(now).toISOString(), soon: near.length, relaunched, bilan, bilanTennis, bilanFoot, footData }, { headers: noStore });
+  // Cotes ATP : relevé toutes les heures. La tâche planifiée de GitHub ne part en pratique que toutes les 4 à 8 heures
+  // (relevés du 6 novembre à 0 h 18 puis 7 h 57) : l'horloge la lance si aucun relevé n'a eu lieu depuis une heure.
+  const [bilan, bilanTennis, bilanFoot, oddsTennis] = await Promise.all([
+    refreshBilan('bilan.yml', undefined, 14), refreshBilan('bilan-tennis.yml', undefined, 14), refreshBilan('bilan-foot.yml', undefined, 14),
+    refreshBilan('cotes-tennis.yml', undefined, 60),
+  ]);
+  return Response.json({ at: new Date(now).toISOString(), soon: near.length, relaunched, bilan, bilanTennis, bilanFoot, footData, oddsTennis }, { headers: noStore });
 }
 
 /** Calcul en cours pour ce match, quel que soit l'appareil qui l'a lancé (relance d'avant-match comprise). */
