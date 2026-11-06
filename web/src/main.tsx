@@ -35,7 +35,7 @@ function App() {
     <TennisMatchPage key={path} day={t[1]} id={t[2]} />
   ) : f ? (
     <FootMatchPage key={path} id={f[2]} />
-  ) : path === '/foot' ? (
+  ) : path === '/' || path === '/foot' ? (
     <FootSchedulePage day={search.get('jour')} />
   ) : path === '/tennis' ? (
     <TennisSchedulePage day={search.get('jour')} />
@@ -49,13 +49,13 @@ function App() {
     <SuiviPage />
   ) : LEGAL[path] ? (
     <LegalPage path={path} />
-  ) : path === '/' ? (
+  ) : path === '/basket' ? (
     <SchedulePage day={search.get('jour')} />
   ) : (
     <NotFound />
   );
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path.startsWith('/foot') ? 'Razzia | Football' : path === '/simulations' ? 'Simulations | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : landingPage(path) ? 'Razzia | Simule avant de parier' : LEGAL[path] ? `${LEGAL[path].title} | Razzia` : 'Razzia | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/' || path.startsWith('/foot') ? 'Razzia | Football' : path === '/simulations' ? 'Simulations | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : landingPage(path) ? 'Razzia | Simule avant de parier' : LEGAL[path] ? `${LEGAL[path].title} | Razzia` : 'Razzia | Simulations NBA';
   }, [path]);
   // Page d'accueil payante : cachée (aucun lien), visible seulement en tapant /accueil, en attendant de l'activer.
   if (landingPage(path))

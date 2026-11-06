@@ -18,7 +18,8 @@
       "donnees-tennis": false,
       "donnees-stats": false,
       "donnees-matchs": false,
-      "controles": false
+      "controles": false,
+      "donnees-foot": false
     }
   }
 }

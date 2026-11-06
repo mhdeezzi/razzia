@@ -619,7 +619,7 @@ export function FootMatchPage({ id }: { id: string }) {
   const { state, busy, launch, since } = useFootSim(id);
   return (
     <div className="page">
-      <Link href="/foot" className="back">
+      <Link href="/" className="back">
         <ArrowLeft size={16} /> Programme Football
       </Link>
       {state.status !== 'loading' && <FootHero id={id} r={state.status === 'done' ? state.result : undefined} />}
@@ -711,6 +711,15 @@ function buildFootCategories(r: FootResult): Category[] {
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
     { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky },
   ];
+  // Score exact : le plus probable, toujours « Déconseillé » (même le plus fréquent ne tombe qu'une fois sur huit environ).
+  const sc = r.scores[0];
+  if (sc) {
+    const side = sc.h > sc.a ? r.home : sc.h < sc.a ? r.away : undefined;
+    cats.push({ id: 'exact', label: 'Score exact', warn: true, items: [{
+      id: `exact-${sc.h}-${sc.a}`, title: `${short(r.home.name)} ${sc.h}-${sc.a} ${short(r.away.name)}`, p: sc.p, fair: 1 / sc.p, warn: 'Déconseillé',
+      who: side ? { ...markOf(side), name: side.name } : undefined, marble: colorOf(side ? side.id : r.home.id), marble2: side ? undefined : colorOf(r.away.id),
+    }] });
+  }
   // LDEM (les deux équipes marquent) : seulement quand c'est à plus de 65 %.
   if ((P.btts ?? 0) > LDEM_MIN) cats.push({ id: 'btts', label: 'LDEM', items: list(['btts']) });
   // L'onglet du pronostic mis en avant passe en premier, avec le point bleu.
@@ -824,7 +833,7 @@ function FootResults({ r }: { r: FootResult }) {
           <PickTabs cats={cats} n={r.n} />
         </Section>
         {r.flow && (
-          <Section title="Le match minute par minute" tag="qui mène, et le scénario le plus probable">
+          <Section title="Le déroulé du match" tag="scénario le plus probable">
             <FootFlow r={r} />
           </Section>
         )}
@@ -935,78 +944,85 @@ function FirstGoal({ r }: { r: FootResult }) {
 }
 
 /**
- * Le match minute par minute : part des simulations où chaque équipe mène (en haut le domicile, en bas l'extérieur, le
- * nul au milieu), et par-dessus le scénario le plus fréquent du score le plus probable, but par but.
+ * Le déroulé le plus probable : le scénario le plus fréquent du score le plus probable, sur une frise de 0 à 90 minutes
+ * (buts du domicile au-dessus, de l'extérieur en dessous, la frise prend la couleur de l'équipe qui mène), puis qui mène
+ * à la mi-temps et à la fin sur l'ensemble des simulations.
  */
 function FootFlow({ r }: { r: FootResult }) {
   const flow = r.flow!;
-  const W = 600, H = 220, T = 95;
-  const x = (min: number) => (min / T) * W;
-  // Points : coup d'envoi (nul partout), puis la fin de chaque tranche de 5 minutes.
-  const pts = [{ m: 0, h: 0, d: 1 }, ...flow.map((f, i) => ({ m: Math.min(T, (i + 1) * 5), h: f[0], d: f[1] }))];
-  const line = (f: (p: (typeof pts)[number]) => number) => pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.m).toFixed(1)},${(f(p) * H).toFixed(1)}`).join(' ');
-  const back = (f: (p: (typeof pts)[number]) => number) => [...pts].reverse().map((p) => `L${x(p.m).toFixed(1)},${(f(p) * H).toFixed(1)}`).join(' ');
-  const homeArea = `M0,0 L${W},0 ${back((p) => p.h)} Z`;
-  const drawArea = `${line((p) => p.h)} ${back((p) => p.h + p.d)} Z`;
-  const awayArea = `${line((p) => p.h + p.d)} L${W},${H} L0,${H} Z`;
   const t = r.typical;
+  const pos = (m: number) => `${(Math.min(m, 90) / 90) * 100}%`;
   let gh = 0, ga = 0;
   const goals = (t?.goals ?? []).map((g) => {
-    const d0 = g.side === 'home' ? gh - ga : ga - gh; // écart du buteur avant son but
+    const d0 = g.side === 'home' ? gh - ga : ga - gh;
     const first = gh + ga === 0;
     if (g.side === 'home') gh++;
     else ga++;
     const kind = first ? 'ouvre le score' : d0 === -1 ? 'égalise' : d0 === 0 ? 'repasse devant' : d0 > 0 ? "creuse l'écart" : "réduit l'écart";
-    return { ...g, score: `${gh}-${ga}`, kind };
+    return { ...g, score: `${gh}-${ga}`, kind, lead: gh > ga ? 'h' : gh < ga ? 'a' : 'd' };
   });
-  const end = flow.at(-1)!;
+  // Tronçons de la frise : de but en but, à la couleur de l'équipe qui mène.
+  const cuts = [0, ...goals.map((g) => Math.min(g.min, 90)), 90];
+  const segs = cuts.slice(0, -1).map((from, k) => ({ from, to: cuts[k + 1], lead: k === 0 ? 'd' : goals[k - 1].lead }));
+  const ht = flow[8], ft = flow[flow.length - 1];
+  const bar = (f: [number, number, number], label: string) => (
+    <div className="f-lead">
+      <span className="f-lead-k">{label}</span>
+      <div className="f-lead-bar">
+        <span className="h" style={{ flexGrow: f[0] }}>{f[0] >= 0.12 && `${tri(r.home.name)} ${pct0(f[0])}`}</span>
+        <span className="d" style={{ flexGrow: f[1] }}>{f[1] >= 0.12 && `Nul ${pct0(f[1])}`}</span>
+        <span className="a" style={{ flexGrow: f[2] }}>{f[2] >= 0.12 && `${tri(r.away.name)} ${pct0(f[2])}`}</span>
+      </div>
+    </div>
+  );
   return (
     <div className="f-flow">
-      <div className="f-flow-chart">
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Qui mène au fil du match">
-          <path d={homeArea} className="h" />
-          <path d={drawArea} className="d" />
-          <path d={awayArea} className="a" />
-          <line x1={x(45)} x2={x(45)} y1={0} y2={H} className="f-flow-ht" />
-        </svg>
-        {goals.map((g, i) => (
-          <span key={i} className={`f-flow-goal ${g.side === 'home' ? 'h' : 'a'}`} style={{ left: `${(g.min / T) * 100}%` }}>
-            <span className="f-flow-pin">
-              <SoccerBall size={13} weight="fill" /> {g.score}
-            </span>
-            <i />
-          </span>
-        ))}
-        <span className="f-flow-k h">{tri(r.home.name)} mène</span>
-        <span className="f-flow-k a">{tri(r.away.name)} mène</span>
-      </div>
-      <div className="f-flow-axis mono">
-        <span>0'</span>
-        <span style={{ left: `${(45 / T) * 100}%` }}>Mi-temps</span>
-        <span>90'</span>
-      </div>
-      <div className="f-flow-legend">
-        <span><i className="h" /> {short(r.home.name)} mène · {pct0(end[0])} au coup de sifflet</span>
-        <span><i className="d" /> Nul · {pct0(end[1])}</span>
-        <span><i className="a" /> {short(r.away.name)} mène · {pct0(end[2])}</span>
-      </div>
       {t && (
-        <ol className="f-story">
-          <li className="f-story-k">
-            Scénario le plus fréquent du <b>{t.score[0]}-{t.score[1]}</b>, score le plus probable ({pct0(t.share)} des {t.score[0]}-{t.score[1]}) :
-          </li>
-          {goals.length === 0 && <li>aucun but, 0-0 jusqu'au bout.</li>}
-          {goals.map((g, i) => (
-            <li key={i} className={g.side === 'home' ? 'h' : 'a'}>
-              <span className="mono">{g.min}'</span>
-              <Crest t={r[g.side]} size="sm" />
-              <span>
-                <b>{short(r[g.side].name)}</b> {g.kind} <span className="muted">({g.score})</span>
-              </span>
-            </li>
-          ))}
-        </ol>
+        <p className="f-flow-lede">
+          Score le plus probable : <b>{short(r.home.name)} {t.score[0]}-{t.score[1]} {short(r.away.name)}</b>.{' '}
+          {goals.length === 0
+            ? 'Aucun but de tout le match.'
+            : `Le plus souvent : ${goals.map((g) => `${short(r[g.side].name)} ${g.kind} vers la ${g.min}e`).join(', ')}.`}
+        </p>
       )}
+      <div className="f-tl">
+        <div className="f-tl-row h">
+          {goals.filter((g) => g.side === 'home').map((g, i) => (
+            <span key={i} className="f-tl-goal" style={{ left: pos(g.min) }}>
+              <Crest t={r.home} size="sm" />
+              <b className="mono">{g.min}'</b>
+              <span className="f-tl-score mono">{g.score}</span>
+              <i />
+            </span>
+          ))}
+        </div>
+        <div className="f-tl-track">
+          {segs.map((sg, i) => (
+            <span key={i} className={sg.lead} style={{ left: pos(sg.from), width: `${((sg.to - sg.from) / 90) * 100}%` }} />
+          ))}
+          <em style={{ left: '50%' }} />
+        </div>
+        <div className="f-tl-row a">
+          {goals.filter((g) => g.side === 'away').map((g, i) => (
+            <span key={i} className="f-tl-goal" style={{ left: pos(g.min) }}>
+              <i />
+              <Crest t={r.away} size="sm" />
+              <b className="mono">{g.min}'</b>
+              <span className="f-tl-score mono">{g.score}</span>
+            </span>
+          ))}
+        </div>
+        <div className="f-tl-axis mono">
+          <span>Coup d'envoi</span>
+          <span>Mi-temps</span>
+          <span>90'</span>
+        </div>
+      </div>
+      <div className="f-leads">
+        <p className="f-leads-k">Qui mène, sur les {r.n.toLocaleString('fr-FR')} matchs simulés</p>
+        {bar(ht, 'À la mi-temps')}
+        {bar(ft, 'À la fin')}
+      </div>
     </div>
   );
 }
