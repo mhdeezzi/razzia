@@ -182,8 +182,11 @@ export async function match(f: Fixture): Promise<MatchRec | undefined> {
   if (existsSync(file)) return JSON.parse(readFileSync(file, 'utf8'));
   const d = await getJson(`https://www.fotmob.com/api/data/matchDetails?matchId=${f.id}`);
   const rec = compact(d, f);
-  if (rec) writeFileSync(file, JSON.stringify(rec));
-  return rec;
+  // Fiche relevée juste après le coup de sifflet, avant que FotMob publie les xG : pas gardée, relue au passage suivant
+  // (toutes les 2 heures) pendant 3 jours ; au-delà, gardée telle quelle (match sans xG chez FotMob).
+  const recent = Date.now() - Date.parse(f.date) < 3 * 864e5;
+  if (rec && (rec.xg || !recent)) writeFileSync(file, JSON.stringify(rec));
+  return rec && (rec.xg || !recent) ? rec : undefined;
 }
 
 /** Détail brut (avant-match : compositions probables/officielles, absences). */
