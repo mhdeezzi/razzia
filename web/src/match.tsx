@@ -309,6 +309,16 @@ function SimPanel({ g, state, busy, launch, since }: { g: Game } & ReturnType<ty
   if (state.status === 'loading') return <span className="sk sk-panel" aria-busy="true" />;
   if (state.status === 'done') return <Results r={state.result} g={g} onRelaunch={launch} busy={busy} />;
   if (state.status === 'queued' || state.status === 'running') return <Progress state={state} since={since} />;
+  // Match déjà commencé sans simulation : on ne simule jamais un match commencé.
+  if (state.status === 'none' && g.state !== 'pre')
+    return (
+      <section className="launch">
+        <h2>
+          Match commencé, <em>pas de simulation.</em>
+        </h2>
+        <p className="lede">Ce match n'a pas été simulé avant le coup d'envoi. Razzia ne simule jamais un match déjà commencé.</p>
+      </section>
+    );
 
   return (
     <section className="launch">

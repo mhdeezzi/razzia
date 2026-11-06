@@ -645,6 +645,11 @@ function FootHero({ id, r }: { id: string; r?: FootResult }) {
 
 export function FootMatchPage({ id }: { id: string }) {
   const { state, busy, launch, since } = useFootSim(id);
+  // Match déjà commencé (programme du jour) : plus de bouton pour le simuler.
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    api('?slate=1').then((d: { matches?: SlateMatch[] }) => setStarted(!!d.matches?.some((x) => x.id === id && stateOf(x) !== 'pre')), () => undefined);
+  }, [id]);
   return (
     <div className="page">
       <Link href="/" className="back">
@@ -663,7 +668,15 @@ export function FootMatchPage({ id }: { id: string }) {
           note="Compter 2 à 4 minutes. La page se met à jour seule, et la simulation continue si vous la quittez."
         />
       )}
-      {(state.status === 'none' || state.status === 'failed') && (
+      {state.status === 'none' && started && (
+        <section className="launch">
+          <h2>
+            Match commencé, <em>pas de simulation.</em>
+          </h2>
+          <p className="lede">Ce match n'a pas été simulé avant le coup d'envoi. Razzia ne simule jamais un match déjà commencé.</p>
+        </section>
+      )}
+      {(state.status === 'failed' || (state.status === 'none' && !started)) && (
         <section className="launch">
           {state.status === 'failed' && (
             <div className="alert" role="alert">
