@@ -1,19 +1,24 @@
 /**
- * Score exact « le plus juste » : pas le score le plus fréquent (presque toujours 1-0, 2-1 ou 1-1), mais celui qui colle
- * à la physionomie du match. On prend, dans les simulations où l'issue la plus probable se produit (victoire du favori,
- * ou nul s'il est devant), le nombre moyen de buts de chaque équipe, arrondi au-dessus à partir de ,6. Un match
- * ouvert donne 3-1 ou 2-2, un match fermé 1-0.
+ * Score exact « le plus juste » : pas toujours le score le plus fréquent (sinon 1-0 et 2-1 partout, jamais de nul ni de
+ * 3-1), mais le score qui colle à la physionomie de chaque match, avec sur une saison autant de 1-0, 1-1, 2-2, 3-1… qu'en
+ * vrai. Chaque score possible du match (victoire du favori ou nul) reçoit sa probabilité multipliée par un poids par
+ * score : poids réglés sur 3 569 matchs affichés de 2024 à 2026 pour que la répartition des scores affichés suive celle
+ * des vrais résultats (réglé sur 2024-2025, vérifié sur 2025-2026 avec le garde-fou : 1-0 350 affichés pour 286 vrais,
+ * 1-1 228 pour 204, 2-2 100 pour 94, 3-1 129 pour 133 ; 10,6 % de scores exacts trouvés).
  */
+const W: Record<string, number> = { '1-0': 0.0, '2-1': 0.067, '2-0': 0.246, '1-1': -0.237, '3-1': 0.581, '3-0': 0.663, '2-2': 0.338, '0-0': 0.236, '3-2': 0.849, '4-0': 1.166, '4-1': 1.163, '4-2': 1.5, '5-1': 1.749, '3-3': 1.357, '5-0': 1.606, '4-3': 1.983, '5-2': 2.141 };
+/** Garde-fou : le score affiché garde au moins 40 % de la probabilité du score le plus fréquent (pas de 5-2 à 2 %). */
+const GUARD = 0.4;
+
 export function fairScore(scores: Array<{ h: number; a: number; p: number }>, fin: { h: number; d: number; a: number }): { h: number; a: number; p: number } | undefined {
-  const homeFav = fin.h >= fin.a, drawFirst = fin.d > Math.max(fin.h, fin.a);
-  const ok = (x: { h: number; a: number }) => (drawFirst ? x.h === x.a : homeFav ? x.h > x.a : x.a > x.h);
-  const S = scores.filter(ok), t = S.reduce((s, x) => s + x.p, 0);
-  if (!t) return scores[0];
-  const r = (v: number) => Math.floor(v + 0.4);
-  const eh = S.reduce((s, x) => s + x.h * x.p, 0) / t, ea = S.reduce((s, x) => s + x.a * x.p, 0) / t;
-  let h = r(eh), a = r(ea);
-  if (drawFirst) h = a = r((eh + ea) / 2);
-  else if (homeFav && h <= a) h = a + 1;
-  else if (!homeFav && a <= h) a = h + 1;
-  return scores.find((x) => x.h === h && x.a === a) ?? S[0];
+  const homeFav = fin.h >= fin.a;
+  const side = (x: { h: number; a: number; p: number }) => x.p > 0 && !(homeFav ? x.a > x.h : x.h > x.a) && W[`${Math.max(x.h, x.a)}-${Math.min(x.h, x.a)}`] != null;
+  const floor = GUARD * Math.max(0, ...scores.filter(side).map((x) => x.p));
+  let best: { h: number; a: number; p: number } | undefined, bestV = -Infinity;
+  for (const x of scores) {
+    if (!side(x) || x.p < floor) continue;
+    const v = Math.log(x.p) + W[`${Math.max(x.h, x.a)}-${Math.min(x.h, x.a)}`];
+    if (v > bestV) (bestV = v), (best = x);
+  }
+  return best ?? scores[0];
 }

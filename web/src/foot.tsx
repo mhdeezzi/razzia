@@ -760,8 +760,8 @@ function buildFootCategories(r: FootResult): Category[] {
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
     ...(bigFav ? [] : [{ id: 'double', label: 'Double chance', items: double }]),
   ];
-  // Score exact : le plus juste, pas le plus prudent (fairScore : buts moyens de chaque équipe quand l'issue la plus
-  // probable se produit, donc 3-1 dans un match ouvert, 1-0 dans un match fermé) ; toujours « Déconseillé ».
+  // Score exact : le plus juste, pas le plus prudent (fairScore : 3-1 dans un match ouvert, 1-1 dans un match équilibré,
+  // 1-0 dans un match fermé, réglé pour suivre la vraie répartition des scores) ; toujours « Déconseillé ».
   const sc = fairScore(r.scores, r.final);
   if (sc) {
     const side = sc.h > sc.a ? r.home : sc.h < sc.a ? r.away : undefined;

@@ -60,14 +60,12 @@ for (const P of res) {
       const t = z[0] + z[1] + z[2];
       return z.map((x) => r4(x / t));
     });
-    // Scénario : le score « le plus juste » (fairScore, le même que le score exact de la fiche), du côté de l'issue la plus
-    // probable : victoire du favori, ou nul s'il est devant.
+    // Scénario : le score « le plus juste » (fairScore, le même que le score exact de la fiche), victoire du favori ou nul.
     const favSide = P.final.h >= P.final.a ? 'home' : 'away';
-    const drawFirst = P.final.d > Math.max(P.final.h, P.final.a);
     const top = fairScore(scores, P.final);
     const bySeq = top ? P.sim.seqs.get(`${top.h}-${top.a}`) : undefined;
     const best = bySeq ? [...bySeq].sort((x, y) => y[1].n - x[1].n)[0] : undefined;
-    const typical = best && top ? { given: drawFirst ? 'draw' : favSide, p: top.p, score: [top.h, top.a], share: r4(best[1].n / [...bySeq!.values()].reduce((t, e) => t + e.n, 0)), goals: [...best[0]].map((side, i) => ({ side: side === 'H' ? 'home' : 'away', min: Math.round(best[1].min[i] / best[1].n) })) } : undefined;
+    const typical = best && top ? { given: top.h === top.a ? 'draw' : favSide, p: top.p, score: [top.h, top.a], share: r4(best[1].n / [...bySeq!.values()].reduce((t, e) => t + e.n, 0)), goals: [...best[0]].map((side, i) => ({ side: side === 'H' ? 'home' : 'away', min: Math.round(best[1].min[i] / best[1].n) })) } : undefined;
     // Confrontations : les derniers matchs entre les deux équipes, toutes compétitions suivies.
     const h2h = games
       .filter((g) => (g.home.id === f.home.id && g.away.id === f.away.id) || (g.home.id === f.away.id && g.away.id === f.home.id))
