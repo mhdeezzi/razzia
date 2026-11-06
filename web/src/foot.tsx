@@ -731,7 +731,7 @@ function buildFootCategories(r: FootResult): Category[] {
     // Rond au marbre du club concerné ; issue commune aux deux (nul, l'un ou l'autre, les deux marquent) : les deux couleurs.
     const marble = who && who.tri === `f${r.away.id}` ? pc.away : pc.home;
     const out: Outcome = { id, title: L[id], p, who, fair: p > 0 ? 1 / p : undefined, odds: oddsOf[id], implied: nv?.[id], marble, marble2: who ? undefined : pc.away };
-    if (r.pick?.id === id) out.safe = r.tier === 'sure' ? 'Razzia assuré' : 'Pronostic Razzia';
+    if (r.pick?.id === id) if (r.tier === 'sure') out.safe = 'Razzia assuré';
     if (r.combo.id === id) {
       if (r.combo.risky) out.warn = 'Risqué';
       else if (!out.safe) out.safe = 'Combiné rattaché';
@@ -753,7 +753,7 @@ function buildFootCategories(r: FootResult): Category[] {
   // combiné rattaché va alors chercher la valeur (victoire + buts, victoire par 2 buts ou plus).
   const favOdds = o ? (homeFav ? o.h : o.a) : undefined;
   const bigFav = favOdds != null ? favOdds < BIG_FAV_ODDS : (homeFav ? r.final.h : r.final.a) >= 0.8;
-  // Ordre fixe : combiné (qui contient parfois un handicap), vainqueur, double chance, puis score exact et LDEM.
+  // Ordre d'affichage : décidé par PickTabs (du plus probable au moins probable, jamais une cote sous 1,20 en premier).
   const cats: Category[] = [
     { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky },
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
@@ -855,7 +855,6 @@ function FootResults({ r }: { r: FootResult }) {
   const cats = useMemo(() => buildFootCategories(r), [r]);
   const cols = useMemo(() => pairColors(r.home.id, r.away.id), [r]);
   const homeFav = r.final.h >= r.final.a;
-  const maxScore = r.scores[0]?.p ?? 1;
   const maxScorer = r.scorers[0]?.p ?? 1;
   return (
     <SideColors.Provider value={cols}>
@@ -876,39 +875,6 @@ function FootResults({ r }: { r: FootResult }) {
             <FootFlow r={r} />
           </Section>
         )}
-        <Section title="Scores probables" tag={`${r.n.toLocaleString('fr-FR')} matchs simulés`}>
-          {/* Trois colonnes : victoire domicile, nul, victoire extérieur, chacune avec son total et ses scores les plus
-              probables : les 2-0, 3-1, 2-1… se voient autant que le 1-1. */}
-          <div className="f-cols">
-            {(
-              [
-                ['h', `Victoire ${short(r.home.name)}`, r.final.h, (x: { h: number; a: number }) => x.h > x.a],
-                ['d', 'Match nul', r.final.d, (x: { h: number; a: number }) => x.h === x.a],
-                ['a', `Victoire ${short(r.away.name)}`, r.final.a, (x: { h: number; a: number }) => x.a > x.h],
-              ] as const
-            ).map(([k, label, tot, f]) => (
-              <div key={k} className={`f-col ${k}`}>
-                <p className="f-col-head">
-                  <span>{label}</span>
-                  <b className="mono">{pct0(tot)}</b>
-                </p>
-                <ul className="f-scores">
-                  {r.scores.filter(f).slice(0, 4).map((s) => (
-                    <li key={`${s.h}-${s.a}`} className={k}>
-                      <b className="mono">
-                        {s.h}-{s.a}
-                      </b>
-                      <span className="f-bar">
-                        <span style={{ width: `${(s.p / maxScore) * 100}%` }} />
-                      </span>
-                      <span className="mono muted">{pct(s.p)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </Section>
         <Section title="Premier but" tag="qui ouvre le score">
           <FirstGoal r={r} />
         </Section>

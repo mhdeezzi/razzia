@@ -10,6 +10,7 @@ export interface Outcome {
   fair?: number; // cote juste (1 / fréquence dans les simulations), quand aucune cote n'est publiée
   warn?: string; // étiquette rouge « Déconseillé » ou orange « Risqué »
   safe?: string; // étiquette bleue (« Safe ») : plus sûr que le vainqueur
+  value?: boolean; // pastille bleue « Value » : cote d'au moins 1,30 et 65 % ou plus
   implied?: number; // probabilité de la cote, marge retirée
   text?: string;
   // Qui porte le pari : logo de l'équipe (basket) ou photo du joueur (tennis), à gauche du titre.
@@ -29,6 +30,41 @@ export interface Category {
   warn?: boolean; // déconseillé (point rouge sur l'onglet)
   risky?: boolean; // risqué (point orange sur l'onglet)
   good?: boolean; // plus sûr que le vainqueur (point bleu sur l'onglet)
+}
+
+/** Cote d'un pari (bookmaker, sinon cote juste) : à 1,20 ou moins, la catégorie est masquée (trop peu à gagner). */
+const LOW_ODDS = 1.2;
+const catP = (c: Category) => Math.max(0, ...c.items.map((o) => o.p));
+const catOdds = (c: Category) => { const o = c.items[0]; return o?.odds ?? o?.fair ?? (o?.p ? 1 / o.p : undefined); };
+
+/**
+ * Ordre des onglets, pour les trois sports : les value en tête, puis du plus haut pourcentage au plus petit. Si le premier a une cote sous 1,20,
+ * le combiné passe devant (sinon le plus probable à 1,20 ou plus), le reste garde l'ordre des pourcentages.
+ */
+const VALUE_ODDS = 1.3, VALUE_P = 0.65;
+/** Value : assez probable (65 % ou plus) avec une cote qui rapporte encore (1,30 ou plus), ni risqué ni déconseillé. */
+export const isValue = (o: Outcome) => !o.warn && o.p >= VALUE_P && (o.odds ?? o.fair ?? 1 / o.p) >= VALUE_ODDS;
+
+export function orderCats(input: Category[]): Category[] {
+  // Cote de 1,20 ou moins : la catégorie n'est pas affichée (trop peu à gagner). S'il ne reste alors aucun pari conseillé,
+  // on garde quand même le mieux payé d'entre eux, pour proposer au moins un choix.
+  const tooLow = (c: Category) => (catOdds(c) ?? Infinity) <= LOW_ODDS;
+  const shown = input.filter((c) => !tooLow(c));
+  const best = [...input].filter((c) => tooLow(c) && !c.warn).sort((a, b) => (catOdds(b) ?? 0) - (catOdds(a) ?? 0))[0];
+  const cats = (shown.some((c) => !c.warn) || !best ? shown : [best, ...shown]).map((c) => (c.warn ? c : { ...c, items: c.items.map((o) => (isValue(o) ? { ...o, value: true } : o)) }));
+  // Les value d'abord (de la plus probable à la moins probable), puis les autres.
+  const val = (c: Category) => c.items.some((o) => o.value);
+  const vals = cats.filter(val).sort((a, b) => catP(b) - catP(a));
+  if (vals.length) return [...vals, ...orderRest(cats.filter((c) => !val(c)))];
+  return orderRest(cats);
+}
+
+function orderRest(cats: Category[]): Category[] {
+  const sorted = [...cats].sort((a, b) => catP(b) - catP(a));
+  const low = (c: Category) => (catOdds(c) ?? Infinity) < LOW_ODDS;
+  if (!sorted[0] || !low(sorted[0])) return sorted;
+  const lead = sorted.find((c) => c.id === 'combo' && !low(c) && !c.warn) ?? sorted.find((c) => !low(c) && !c.warn);
+  return lead ? [lead, ...sorted.filter((c) => c !== lead)] : sorted;
 }
 
 /** « des Knicks », « du Heat » : les noms de franchise au singulier prennent « du ». */
