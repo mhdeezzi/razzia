@@ -892,6 +892,7 @@ function TennisResults({ r }: { r: TennisResult }) {
       <TennisVerdict r={r} win={cats.flatMap((c) => c.items).find((o) => o.id === 'win')} />
       <Section title="Pronostics par catégorie" tag="issue la plus fréquente">
         <PickTabs
+          keepOrder
           cats={cats}
           n={r.sim.n}
           ctx={{ sport: 'atp', date: r.day, start: r.start, path: `/tennis/match/${r.day}/${r.id}`, match: { id: r.id, home: r.home.name, away: r.away.name, homeName: r.home.name, awayName: r.away.name } }}

@@ -45,7 +45,9 @@ const VALUE_ODDS = 1.3, VALUE_P = 0.65;
 /** Value : assez probable (65 % ou plus) avec une cote qui rapporte encore (1,30 ou plus), ni risqué ni déconseillé. */
 export const isValue = (o: Outcome) => !o.warn && o.p >= VALUE_P && (o.odds ?? o.fair ?? 1 / o.p) >= VALUE_ODDS;
 
-export function orderCats(input: Category[]): Category[] {
+export function orderCats(input: Category[], opts: { keepOrder?: boolean } = {}): Category[] {
+  // Tennis : ordre de la fiche gardé tel quel, rien de masqué (trois paris seulement) ; seule la pastille Value s'ajoute.
+  if (opts.keepOrder) return input.map((c) => (c.warn ? c : { ...c, items: c.items.map((o) => (isValue(o) ? { ...o, value: true } : o)) }));
   // Cote de 1,20 ou moins : la catégorie n'est pas affichée (trop peu à gagner). S'il ne reste alors aucun pari conseillé,
   // on garde quand même le mieux payé d'entre eux, pour proposer au moins un choix.
   const tooLow = (c: Category) => (catOdds(c) ?? Infinity) <= LOW_ODDS;
