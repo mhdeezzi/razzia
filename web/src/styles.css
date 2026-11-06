@@ -1577,6 +1577,9 @@ body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
   .hb-une-m { grid-column: 1 / -1; }
   .hb-une-m b { font-size: 17px; }
   .hb-une-go { grid-column: 3; grid-row: 3; justify-self: end; }
+  /* Le pronostic passe sur sa propre ligne, coupé proprement s'il reste trop long (« Everton ou nul 79 % »). */
+  .hb-une-t { grid-column: 1 / 3; grid-row: 3; overflow: hidden; text-overflow: ellipsis; }
+  .hb-une .card-a-p { grid-column: 1 / -1; grid-row: 4; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* Pied de page : liens légaux. Pages légales et page introuvable. */

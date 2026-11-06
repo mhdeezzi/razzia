@@ -111,7 +111,7 @@ function simPill(sim: SimIndex) {
       base === '1' ? short(sim.home) : base === '2' ? short(sim.away) : base === '1X' ? `${short(sim.home)} ou nul` : base === 'X2' ? `${short(sim.away)} ou nul` : base === '12' ? 'Pas de nul' : '';
     return { text: text ? `${text}${id.includes('+') ? ' +' : ''}` : sim.pick.label, p: sim.pick.p, cls };
   }
-  return { text: sim.tier === 'flip' ? 'Pile ou face' : `${fav} ou nul`, p: homeFav ? sim.final.h + sim.final.d : sim.final.a + sim.final.d, cls };
+  return { text: `${fav} ou nul`, p: homeFav ? sim.final.h + sim.final.d : sim.final.a + sim.final.d, cls };
 }
 
 // ——— Programme ———
@@ -135,10 +135,17 @@ const matchPath = (m: { id: string; start: string }) => `/foot/match/${m.start.s
 // Dernier programme reçu : affiché tout de suite au retour sur la page, puis relu.
 let slateLast: Slate | undefined;
 
-/** Affiche du jour : la Ligue des Champions et les grands clubs d'abord. */
-const BIG = new Set([9847, 8633, 8634, 9823, 8456, 8650, 9825, 8455, 10260, 9885, 8636, 8564, 9906, 9789, 8592, 9875, 8586, 10261]);
-const hypeOf = (m: SlateMatch) => (({ 42: 3, 47: 2.5, 87: 2, 55: 2, 53: 2 }) as Record<number, number>)[m.lg] ?? 1;
-const score = (m: SlateMatch) => hypeOf(m) + (BIG.has(m.home.id) ? 2 : 0) + (BIG.has(m.away.id) ? 2 : 0) + (BIG.has(m.home.id) && BIG.has(m.away.id) ? 3 : 0);
+/** Affiche du jour : Ligue des Champions et grands clubs d'abord ; entre petits matchs, la Ligue 1 (site français). Mêmes
+ * niveaux que le tri du programme (footslate.ts) : 3 les géants, 2 les clubs très suivis, 1 les autres. */
+const POP: Record<number, number> = {
+  9847: 3, 8633: 3, 8634: 3, 9823: 3, 8456: 3, 8650: 3, 9825: 3, 8455: 3, 10260: 3, 9885: 3, 8636: 3, 8564: 3,
+  9906: 2, 8586: 2, 10261: 2, 9789: 2, 8592: 2, 9875: 2, 8686: 2, 9748: 2, 9829: 2, 10252: 2, 8524: 2, 8639: 2, 10171: 2,
+  8302: 2, 8315: 2, 8560: 2, 10205: 2, 8588: 2, 9831: 2, 9773: 2, 9768: 2, 8637: 2, 8695: 2, 8640: 2, 10235: 2,
+  178475: 2, 10269: 2, 9851: 2, 8543: 2,
+};
+const pop = (id: number) => POP[id] ?? 1;
+const LG_BONUS: Record<number, number> = { 42: 3, 53: 1.5, 47: 0.35, 87: 0.3, 55: 0.25 };
+const score = (m: SlateMatch) => pop(m.home.id) + pop(m.away.id) + (pop(m.home.id) >= 2 && pop(m.away.id) >= 2 ? 1 : 0) + (LG_BONUS[m.lg] ?? 0);
 
 export function FootSchedulePage({ day }: { day: string | null }) {
   const [data, setData] = useState<Slate | undefined>(() => slateLast);
@@ -637,6 +644,8 @@ export function FootMatchPage({ id }: { id: string }) {
 }
 
 // ——— Résultats ———
+/** Vainqueur seul : déconseillé sous 60 %, risqué de 60 à 70 % (pastilles rouge et orange, comme au basket et au tennis). */
+const WIN_FLIP = 0.6, WIN_RISKY = 0.7;
 const SURE_TEXT = 'À 85 % ou plus, ce pronostic est passé 91 % du temps sur 2024 à 2026 (un match sur cinq).';
 
 /** Catégories de paris : double chance, vainqueur, combinés (le combiné rattaché en tête). */
@@ -663,14 +672,19 @@ function buildFootCategories(r: FootResult): Category[] {
     return out;
   };
   const list = (ids: string[]) => ids.map(item).filter((x): x is Outcome => !!x);
-  const winner = list(homeFav ? ['1', 'X', '2'] : ['2', 'X', '1']);
-  const dc = homeFav ? '1X' : 'X2';
-  // Une seule double chance : celle du pronostic s'il en est une, sinon celle du favori.
-  const double = list([r.pick && ['1X', 'X2', '12'].includes(r.pick.id) ? r.pick.id : dc]);
-  const combos = list([r.combo.id, ...Object.keys(P).filter((k) => (k.startsWith(`${dc}+`) || k === `${homeFav ? '1' : '2'}+o1.5`) && k !== r.combo.id).sort((a, b) => P[b] - P[a]).slice(0, 4)]);
+  // Un seul choix par catégorie, celui qui tombe le plus souvent : le vainqueur le plus probable, la double chance la
+  // plus probable, le combiné rattaché au match.
+  const top = (ids: string[]) => ids.reduce((a, b) => ((P[b] ?? 0) > (P[a] ?? 0) ? b : a));
+  const winner = list([top(homeFav ? ['1', '2', 'X'] : ['2', '1', 'X'])]);
+  // Vainqueur comme au basket et au tennis : déconseillé (rouge) sous 60 %, risqué (orange) de 60 à 70 %.
+  const wp = winner[0]?.p ?? 0;
+  const winWarn = wp < WIN_FLIP ? 'Déconseillé' : wp < WIN_RISKY ? 'Risqué' : undefined;
+  if (winner[0] && winWarn && !winner[0].warn) winner[0] = { ...winner[0], warn: winWarn, safe: undefined };
+  const double = list([top(['1X', 'X2', '12'])]);
+  const combos = list([r.combo.id]);
   const cats: Category[] = [
     { id: 'double', label: 'Double chance', items: double },
-    { id: 'win', label: 'Vainqueur', items: winner },
+    { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
     { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky },
   ];
   // L'onglet du pronostic mis en avant passe en premier, avec le point bleu.
@@ -692,7 +706,7 @@ function FootVerdict({ r }: { r: FootResult }) {
   return (
     <section className={`verdict verdict-${cls}`}>
       {r.tier === 'risky' && <span className="odds-warn verdict-warn risky">Risqué</span>}
-      {r.tier === 'flip' && <span className="odds-warn verdict-warn">Pile ou face</span>}
+      {r.tier === 'flip' && <span className="odds-warn verdict-warn">Déconseillé</span>}
       <div className="verdict-ring">
         <Ring value={p} format={pct0} label={r.pick ? 'Pronostic' : 'Double chance'} marble={colorOf(fav.id)} />
       </div>
