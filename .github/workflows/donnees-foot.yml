@@ -1,9 +1,9 @@
-# Données foot tenues à jour toutes les 2 heures : nouveaux matchs joués (fiches FotMob : xG, tirs, compositions),
+# Données foot tenues à jour toutes les heures : nouveaux matchs joués (fiches FotMob : xG, tirs, compositions),
 # calendriers, cotes football-data de la saison, puis programme des prochains jours (slate.json) que l'app lit. Le tout
 # repoussé sur la branche donnees-foot (archive seule, sans historique).
 name: Données foot
 on:
-  schedule: [{ cron: '41 */2 * * *' }]
+  schedule: [{ cron: '41 * * * *' }]
   workflow_dispatch:
 concurrency: { group: donnees-foot, cancel-in-progress: false }
 permissions: { contents: write }
