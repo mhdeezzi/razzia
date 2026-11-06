@@ -405,7 +405,8 @@ function TimeCell({ m }: { m: SlateMatch }) {
 function Who({ m, side, align }: { m: SlateMatch; side: 'home' | 'away'; align?: 'away' }) {
   const t = m[side];
   const st = stateOf(m);
-  const lost = st === 'post' && m.score && (side === 'home' ? m.score[0] < m.score[1] : m.score[1] < m.score[0]);
+  // Perdu ou match nul : nom en gris (un nul aux deux noms blancs ressemblait à un match pas commencé).
+  const lost = st === 'post' && m.score && (side === 'home' ? m.score[0] <= m.score[1] : m.score[1] <= m.score[0]);
   const label = (
     <span className={lost ? 't-lost' : undefined}>
       <span className="vs-name">
@@ -496,7 +497,7 @@ function FootCard({ m, sim, running, i }: { m: SlateMatch; sim?: SimIndex; runni
   const p = sim && !running ? simPill(sim) : undefined;
   const who = (side: 'home' | 'away') => {
     const t = m[side];
-    const lost = st === 'post' && m.score && (side === 'home' ? m.score[0] < m.score[1] : m.score[1] < m.score[0]);
+    const lost = st === 'post' && m.score && (side === 'home' ? m.score[0] <= m.score[1] : m.score[1] <= m.score[0]);
     return (
       <p className={`card-a-team${lost ? ' t-lost' : ''}`}>
         <Crest t={t} size="sm" />
@@ -591,7 +592,7 @@ function FootHero({ id, r }: { id: string; r?: FootResult }) {
   const start = r?.start ?? m!.start;
   const round = r?.round ?? m?.round;
   const team = (t: Team, k: 'home' | 'away') => {
-    const lost = st === 'post' && m?.score && (k === 'home' ? m.score[0] < m.score[1] : m.score[1] < m.score[0]);
+    const lost = st === 'post' && m?.score && (k === 'home' ? m.score[0] <= m.score[1] : m.score[1] <= m.score[0]);
     return (
       <div className={`hero-team ${k}${lost ? ' t-lost' : ''}`}>
         <Crest t={t} size="xl" />
