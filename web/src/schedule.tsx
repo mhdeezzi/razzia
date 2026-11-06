@@ -341,6 +341,7 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
   );
   return (
     <Link href={matchPath(g)} className="card card-a" style={{ '--i': i } as CSSProperties}>
+      <CaretRight size={16} weight="bold" className="card-a-go" aria-hidden="true" />
       <span className="card-a-top mono">
         {g.state === 'pre' ? timeLocal(g.start) : g.detail}
         {g.venue ? ` · ${g.venue}` : ''}

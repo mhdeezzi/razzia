@@ -507,6 +507,7 @@ function FootCard({ m, sim, running, i }: { m: SlateMatch; sim?: SimIndex; runni
   };
   return (
     <Link href={matchPath(m)} className="card card-a" style={{ '--i': i } as CSSProperties}>
+      <CaretRight size={16} weight="bold" className="card-a-go" aria-hidden="true" />
       <span className="card-a-top mono">
         {st === 'pre' ? timeLocal(m.start) : st === 'in' ? `En direct${m.minute ? ` · ${m.minute}` : ''}` : 'Terminé'} · {leagueOf(m.lg, m.league)}
         {m.round && /^\d+$/.test(m.round) ? ` · ${roundFr(m.round, true)}` : ''}

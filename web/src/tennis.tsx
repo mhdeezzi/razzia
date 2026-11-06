@@ -629,6 +629,7 @@ function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimI
   };
   return (
     <Link href={`/tennis/match/${m.day}/${m.id}`} className="card card-a" style={{ '--i': i } as CSSProperties}>
+      <CaretRight size={16} weight="bold" className="card-a-go" aria-hidden="true" />
       <span className="card-a-top mono">
         {st === 'pre' || !m.live ? timeLocal(m.start) : st === 'in' ? 'En direct' : m.live.ended === 'retired' || m.live.ended === 'walkover' ? `${m.live.ended === 'retired' ? 'Abandon' : 'Forfait'}${m.live.winner ? ` · ${short(m[m.live.winner])} qualifié` : ''}` : 'Terminé'} · {tourneyOf(m.league)}
         {round ? ` · ${ROUND_SHORT[round] ?? ROUND_FR[round] ?? round}` : ''}

@@ -1840,3 +1840,8 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .f-col .f-scores { grid-template-columns: 1fr; }
 .f-col .f-scores li { grid-template-columns: 38px 1fr 54px; gap: 10px; }
 @media (max-width: 720px) { .f-cols { grid-template-columns: 1fr; } }
+
+/* Flèche grise en haut à droite des cartes de match : on peut cliquer pour ouvrir la fiche. */
+.card-a-go { position: absolute; top: 19px; right: 14px; color: #6e6e73; transition: transform 0.2s var(--ease), color 0.2s var(--ease); }
+.card-a .card-a-top { padding-right: 22px; }
+@media (hover: hover) and (pointer: fine) { a.card-a:hover .card-a-go { color: #d4d4d8; transform: translateX(2px); } }
