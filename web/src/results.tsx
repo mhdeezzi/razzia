@@ -308,8 +308,8 @@ function Categories({ r, g }: { r: Result; g: Game }) {
 /** Le match d'un pari, pour l'ajouter au suivi. */
 export type MatchCtx = Pick<Leg, 'sport' | 'date' | 'start' | 'match' | 'path'>;
 
-export function PickTabs({ cats: raw, n, ctx }: { cats: Category[]; n: number; ctx?: MatchCtx }) {
-  const cats = useMemo(() => orderCats(raw), [raw]);
+export function PickTabs({ cats: raw, n, ctx, keepOrder }: { cats: Category[]; n: number; ctx?: MatchCtx; keepOrder?: boolean }) {
+  const cats = useMemo(() => orderCats(raw, { keepOrder }), [raw, keepOrder]);
   const [id, setId] = useState(cats[0]?.id);
   const cat = cats.find((c) => c.id === id) ?? cats[0];
   if (!cat) return null;
