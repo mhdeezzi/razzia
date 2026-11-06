@@ -271,7 +271,13 @@ function typicalMatch(o: {
   const favWins = (i: number) => (o.setsA[i] > o.setsB[i]) === o.favA;
   const dogSets = (k: string) => { const [a, b] = k.split('-').map(Number); return o.favA ? b : a; };
   const keys = Object.entries(o.scores).filter(([k]) => { const [a, b] = k.split('-').map(Number); return (a > b) === o.favA; });
-  const wantSet = o.pDogSet >= 0.5;
+  // Parmi les victoires du favori seulement (avant : chance de l'outsider de prendre un set, victoires de l'outsider
+  // comprises, d'où un match typique en 3 sets 39 fois sur 43 alors que le favori gagne deux fois sur trois en 2 sets).
+  // Seuil réglé pour que le match typique se joue en 3 sets aussi souvent qu'en vrai (31 % sur 125 matchs simulés, 33 %
+  // des victoires du favori en vrai) ; Grand Chelem : le cas le plus fréquent.
+  const favTot = keys.reduce((t, [, v]) => t + v, 0) || 1;
+  const condDog = keys.filter(([k]) => dogSets(k) >= 1).reduce((t, [, v]) => t + v, 0) / favTot;
+  const wantSet = condDog >= (o.bestOf === 5 ? 0.5 : 0.375);
   const key = (keys.filter(([k]) => (dogSets(k) >= 1) === wantSet).length ? keys.filter(([k]) => (dogSets(k) >= 1) === wantSet) : keys).sort((x, y) => y[1] - x[1])[0]?.[0];
   let pool: number[] = [];
   for (let i = 0; i < n; i++) if (favWins(i) && `${o.setsA[i]}-${o.setsB[i]}` === key) pool.push(i);

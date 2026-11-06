@@ -2,6 +2,13 @@
 // FotMob, publiés en out/foot/<id>.json. Infos du match et cotes : programme du jour (slate.json), sinon FotMob.
 //   node src/cli/footrun.ts --ids 4813123,4813124 [--slate data/cache/foot/slate.json] [--out out/foot] [--sims 25000]
 import { fairScore } from '../foot/fairscore.ts';
+
+// Calibrage vérifié sur les vrais résultats (audit 2024-2026). Les deux équipes marquent : au-dessus de 55 %, la
+// simulation en promettait trop (annoncé 68 %, réel 62 % sur 406 matchs) ; on garde 60 % de l'écart au-dessus de 55 %
+// (meilleur sur les deux saisons, 62,8 % affichés pour 62,3 % réels). Buteurs : au-dessus de 20 %, la chance de marquer
+// était trop haute (annoncé 40-50 %, réel 32 % sur 600 matchs de 2025-2026) ; on garde 62 % de l'écart au-dessus de 20 %.
+const calBtts = (p: number) => (p < 0.55 ? p : 0.55 + (p - 0.55) * 0.6);
+const calScorer = (p: number) => (p < 0.2 ? p : 0.2 + (p - 0.2) * 0.62);
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadGames } from '../foot/data.ts';
@@ -50,7 +57,7 @@ for (const P of res) {
     const names = new Map<number, [string, 'home' | 'away']>();
     P.shooters[0].forEach((s) => names.set(s.id, [s.name, 'home']));
     P.shooters[1].forEach((s) => names.set(s.id, [s.name, 'away']));
-    const scorers = [...P.sim.scorers].filter(([id]) => names.has(id)).map(([id, p]) => ({ id, name: names.get(id)![0], side: names.get(id)![1], p: r4(p) })).sort((a, b) => b.p - a.p).slice(0, 10);
+    const scorers = [...P.sim.scorers].filter(([id]) => names.has(id)).map(([id, p]) => ({ id, name: names.get(id)![0], side: names.get(id)![1], p: r4(calScorer(p)) })).sort((a, b) => b.p - a.p).slice(0, 10);
     const o = L.odds;
     // Déroulé du match : qui mène à chaque tranche de 5 minutes, calé en fin de match sur les probabilités affichées.
     const raw = P.sim.flow.at(-1)!, fin = [P.final.h, P.final.d, P.final.a];
@@ -78,7 +85,7 @@ for (const P of res) {
       lineups: P.side.map((s) => ({ formation: s?.formation, coach: s?.coach?.name, starters: (s?.starters ?? []).map((p) => p[1]), out: (s?.unavailable ?? []).map((p) => ({ name: p[1], why: p[2] })) })),
       lambda: P.lambda.map(r4), engine: { h: r4(P.engine.h), d: r4(P.engine.d), a: r4(P.engine.a) }, final: { h: r4(P.final.h), d: r4(P.final.d), a: r4(P.final.a) },
       market: o ? { odds: o, src: o.src } : undefined,
-      probs: Object.fromEntries([...P.probs].map(([k, v]) => [k, r4(v)])),
+      probs: Object.fromEntries([...P.probs].map(([k, v]) => [k, r4(k === 'btts' ? calBtts(v) : k === 'nobtts' ? 1 - calBtts(1 - v) : v)])),
       labels: Object.fromEntries([...P.probs.keys()].map((k) => [k, label(k)])),
       scores: scores.slice(0, 30), firstGoal: P.sim.firstGoal.map(r4), ht: P.sim.ht.map((row) => row.map(r4)),
       pick: pickBest ? { id: pickBest.id, label: label(pickBest.id), p: r4(pickBest.p) } : null,

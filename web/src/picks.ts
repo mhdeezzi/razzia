@@ -97,6 +97,17 @@ export const pillTier = (p: number, gp = 99) => (flipP(p, gp) ? ' flip' : shown(
 /** Handicap « plus sûr » : la ligne la plus exigeante qui passe dans au moins 80 % des simulations. */
 // « Razzia assuré » : à 77 % ou plus (un match sur quatre), le moteur a vu juste 84,6 % du temps sur la saison 2025-26.
 export const SURE = 0.77;
+
+// Calibrages mesurés sur les 113 matchs simulés et joués de la saison 2026-2027 (audit du 6 novembre 2026).
+const lgt = (p: number) => Math.log(Math.min(0.99, Math.max(0.01, p)) / (1 - Math.min(0.99, Math.max(0.01, p))));
+const sgm = (x: number) => 1 / (1 + Math.exp(-x));
+/** Joueur « En feu » au-dessus de sa moyenne habituelle : la simulation promettait trop (annoncé 64 %, réel 57 % ; 74 %
+ * annoncés, 51 % réels ; 1 068 joueurs). */
+export const calHot = (p: number) => sgm(-0.22 + 0.58 * lgt(p));
+/** Chance de gros match (« En feu ») : annoncé 21 %, réel 16 % ; corrigée elle colle par tranche (12 % pour 13 %, 32 % pour 33 %). */
+export const calBig = (p: number) => sgm(-0.6 + 0.8 * lgt(p));
+/** Prolongation : la simulation en voyait 2,2 %, il y en a eu 6,2 % (7 sur 113), proche des 6 % habituels en NBA. */
+export const calOT = (p: number) => Math.min(0.2, p * 2.5);
 export const SAFE_COVER = 0.8;
 /** Probabilité arrondie comme à l'écran (une décimale), pour que les seuils suivent le pourcentage affiché. */
 export const shown = (p: number) => Math.round(p * 1000) / 1000;
@@ -141,7 +152,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
       id: 'win', title: `Victoire ${deTeam(g[winSide].name)}`, who: g[winSide], bet: { kind: 'win', side: winSide }, p: winP, fair: 1 / winP,
       odds: (homeWins ? o.mlHome : o.mlAway) != null ? decimal((homeWins ? o.mlHome : o.mlAway)!) : undefined,
       implied: ml ? (homeWins ? ml[0] : ml[1]) : undefined,
-      text: `${g[winSide].city} ${g[winSide].name} gagne ${Math.round(winP * (r.n || 25000)).toLocaleString('fr-FR')} des ${(r.n || 25000).toLocaleString('fr-FR')} matchs simulés. Score médian : ${g.away.tri} ${Math.round(r.awayPts.p50)}, ${g.home.tri} ${Math.round(r.homePts.p50)}. Prolongation dans ${pct(r.pOT)} des cas.`,
+      text: `${g[winSide].city} ${g[winSide].name} gagne ${Math.round(winP * (r.n || 25000)).toLocaleString('fr-FR')} des ${(r.n || 25000).toLocaleString('fr-FR')} matchs simulés. Score médian : ${g.away.tri} ${Math.round(r.awayPts.p50)}, ${g.home.tri} ${Math.round(r.homePts.p50)}. Prolongation dans ${pct(calOT(r.pOT))} des cas.`,
     }],
   });
 
@@ -202,7 +213,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
   if (hot) {
     const d = hot.stats.pts, h = hot.heat!;
     const l = Math.max(0.5, Math.floor(h.base) + 0.5);
-    const pOver = pOverPts(d, l);
+    const pOver = calHot(pOverPts(d, l));
     const side = hot.side === 0 ? 'home' : 'away';
     const ln = l.toFixed(1).replace('.', ',');
     cats.push({
@@ -213,7 +224,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
         id: `pts-${hot.id}`, title: `${hot.name}\u00a0: plus de ${ln}\u00a0pts`, p: pOver, fair: 1 / pOver, dist: d,
         who: { name: hot.name, photo: `https://cdn.nba.com/headshots/nba/latest/260x190/${hot.id}.png` },
         bet: { kind: 'pts', side, line: l, over: true, player: hot.name, event: g.id },
-        text: `Le joueur d'« En feu ce soir » le plus proche d'un gros match : plus de ${ln} points (sa moyenne habituelle) dans ${pct(pOver)} des simulations, ${h.threshold} points ou plus dans ${pct(h.pBig)}.`,
+        text: `Le joueur d'« En feu ce soir » le plus proche d'un gros match : plus de ${ln} points (sa moyenne habituelle) dans ${pct(pOver)} des cas, ${h.threshold} points ou plus dans ${pct(calBig(h.pBig))}.`,
       }],
     });
   }

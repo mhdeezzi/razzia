@@ -241,8 +241,8 @@ export function FootSchedulePage({ day }: { day: string | null }) {
     return m;
   }, [data, dates]);
   const today = dates[1];
-  const firstWithMatches = dates.slice(1).find((d) => (byDay.get(d)?.length ?? 0) > 0) ?? today;
-  const current = day && byDay.has(day) ? day : firstWithMatches;
+  // Toujours aujourd'hui par défaut, même sans match : ouvrir le lendemain tout seul faisait croire que c'était le jour.
+  const current = day && byDay.has(day) ? day : today;
   const dayMatches = byDay.get(current) ?? [];
   const count = (st: Status) => dayMatches.filter((m) => stateOf(m) === st).length;
   useEffect(() => {
@@ -339,7 +339,7 @@ export function FootSchedulePage({ day }: { day: string | null }) {
           {run && run.day === current && <DayTracker run={run} sims={sims} onClose={dismiss} wait="deux à quatre minutes" />}
 
           {dayMatches.length === 0 ? (
-            <Empty title="Pas de match ce jour-là dans les championnats suivis." />
+            <Empty title={current === today ? "Aucun match aujourd'hui dans les championnats suivis." : 'Pas de match ce jour-là dans les championnats suivis.'}>{current === today && <p>Choisis un autre jour dans le calendrier ci-dessus.</p>}</Empty>
           ) : view === 'liste' ? (
             <section className="league-card" key={`${current}-${status}`}>
               <div className="league-top">
