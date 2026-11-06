@@ -797,13 +797,6 @@ function FootVerdict({ r }: { r: FootResult }) {
           </dd>
         </div>
         <div>
-          <dt>Buts par match, en moyenne</dt>
-          <dd className="f-goals">
-            <span>{tri(r.home.name)} <b>{r.lambda[0].toFixed(1).replace('.', ',')}</b></span>
-            <span>{tri(r.away.name)} <b>{r.lambda[1].toFixed(1).replace('.', ',')}</b></span>
-          </dd>
-        </div>
-        <div>
           <dt>Les deux marquent</dt>
           <dd>{pct0(r.probs.btts ?? 0)}</dd>
         </div>
