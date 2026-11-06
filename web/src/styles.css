@@ -179,7 +179,7 @@ input, textarea { caret-color: var(--brand); }
 .mesh::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.16); }
 .mesh-nba { --g1: #f2661f; --g2: #1f7fd8; --g3: #f1c9dc; }
 .mesh-atp { --g1: #2aa873; --g2: #2a59cc; --g3: #dff0c4; }
-.mesh-foot { --g1: #12b5d6; --g2: #cc2e66; --g3: #f3d9e6; }
+.mesh-foot { --g1: #3f9a4c; --g2: #3d5570; --g3: #dfeedd; }
 .mesh-auth { --g1: #2aa873; --g2: #f2661f; --g3: #e9e4ff; }
 .mesh-teams { --g1: color-mix(in srgb, var(--away, #3a5bd7) 88%, white 12%); --g2: color-mix(in srgb, var(--home, #d7563a) 88%, white 12%); --g3: rgba(255, 255, 255, 0.3); }
 @keyframes drift { from { transform: translate3d(-1.5%, 1%, 0) scale(1); } to { transform: translate3d(1.5%, -1%, 0) scale(1.04); } }
