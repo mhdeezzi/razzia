@@ -711,14 +711,11 @@ function buildFootCategories(r: FootResult): Category[] {
   // combiné rattaché va alors chercher la valeur (victoire + buts, victoire par 2 buts ou plus).
   const favOdds = o ? (homeFav ? o.h : o.a) : undefined;
   const bigFav = favOdds != null ? favOdds < BIG_FAV_ODDS : (homeFav ? r.final.h : r.final.a) >= 0.8;
-  // Match trop risqué (orange ou rouge) : le handicap du favori, « ne perd pas, ou d'un seul but ».
-  const hcp = r.tier === 'risky' || r.tier === 'flip' ? list([homeFav ? 'h+1.5' : 'a+1.5']) : [];
-  // Ordre fixe : double chance, combiné, vainqueur, handicap, puis score exact et LDEM.
+  // Ordre fixe : combiné (qui contient parfois un handicap), vainqueur, double chance, puis score exact et LDEM.
   const cats: Category[] = [
-    ...(bigFav ? [] : [{ id: 'double', label: 'Double chance', items: double }]),
     { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky },
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
-    ...(hcp.length ? [{ id: 'hcp', label: 'Handicap', items: hcp }] : []),
+    ...(bigFav ? [] : [{ id: 'double', label: 'Double chance', items: double }]),
   ];
   // Score exact : le plus probable, toujours « Déconseillé » (même le plus fréquent ne tombe qu'une fois sur huit environ).
   const sc = r.scores[0];
