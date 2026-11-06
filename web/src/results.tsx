@@ -8,7 +8,7 @@ import type { Leg } from './suivi.ts';
 import { FollowBtn } from './follow.tsx';
 import { MoneyFlow } from './money.tsx';
 import { line, matchPath, n1, noVig, pct, pct0, teamColor, type Game, type Result } from './data.ts';
-import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
+import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, orderCats, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
@@ -308,7 +308,8 @@ function Categories({ r, g }: { r: Result; g: Game }) {
 /** Le match d'un pari, pour l'ajouter au suivi. */
 export type MatchCtx = Pick<Leg, 'sport' | 'date' | 'start' | 'match' | 'path'>;
 
-export function PickTabs({ cats, n, ctx }: { cats: Category[]; n: number; ctx?: MatchCtx }) {
+export function PickTabs({ cats: raw, n, ctx }: { cats: Category[]; n: number; ctx?: MatchCtx }) {
+  const cats = useMemo(() => orderCats(raw), [raw]);
   const [id, setId] = useState(cats[0]?.id);
   const cat = cats.find((c) => c.id === id) ?? cats[0];
   if (!cat) return null;

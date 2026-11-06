@@ -31,6 +31,23 @@ export interface Category {
   good?: boolean; // plus sûr que le vainqueur (point bleu sur l'onglet)
 }
 
+/** Cote d'un pari (bookmaker, sinon cote juste) : sous 1,20, il ne passe jamais en premier (trop peu à gagner). */
+const LOW_ODDS = 1.2;
+const catP = (c: Category) => Math.max(0, ...c.items.map((o) => o.p));
+const catOdds = (c: Category) => { const o = c.items[0]; return o?.odds ?? o?.fair ?? (o?.p ? 1 / o.p : undefined); };
+
+/**
+ * Ordre des onglets, pour les trois sports : du plus haut pourcentage au plus petit. Si le premier a une cote sous 1,20,
+ * le combiné passe devant (sinon le plus probable à 1,20 ou plus), le reste garde l'ordre des pourcentages.
+ */
+export function orderCats(cats: Category[]): Category[] {
+  const sorted = [...cats].sort((a, b) => catP(b) - catP(a));
+  const low = (c: Category) => (catOdds(c) ?? Infinity) < LOW_ODDS;
+  if (!sorted[0] || !low(sorted[0])) return sorted;
+  const lead = sorted.find((c) => c.id === 'combo' && !low(c)) ?? sorted.find((c) => !low(c));
+  return lead ? [lead, ...sorted.filter((c) => c !== lead)] : sorted;
+}
+
 /** « des Knicks », « du Heat » : les noms de franchise au singulier prennent « du ». */
 const deTeam = (name: string) => (['Heat', 'Magic', 'Thunder', 'Jazz'].includes(name) ? `du ${name}` : `des ${name}`);
 const STD_PRICE = -110; // prix standard quand la cote du handicap ou du total n'est pas publiée

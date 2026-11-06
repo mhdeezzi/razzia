@@ -1763,8 +1763,8 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .f-fg-side.a { justify-content: flex-end; text-align: right; }
 .f-fg-side > div, .f-fg-mid { display: grid; gap: 2px; min-width: 0; }
 .f-fg-side b { font-size: 30px; letter-spacing: -0.04em; line-height: 1; }
-.f-fg-side.h b { color: var(--team-h); color: color-mix(in srgb, var(--team-h) 70%, white 30%); }
-.f-fg-side.a b { color: var(--team-a); color: color-mix(in srgb, var(--team-a) 70%, white 30%); }
+.f-fg-side.h b { color: var(--team-h); }
+.f-fg-side.a b { color: var(--team-a); }
 .f-fg-side span, .f-fg-mid span { color: var(--text-3); font-size: 12.5px; }
 .f-fg-mid { text-align: center; }
 .f-fg-mid b { font-size: 18px; color: var(--text-2); }
