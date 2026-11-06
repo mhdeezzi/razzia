@@ -282,7 +282,7 @@ function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: R
   const canComplete = !demo && owner && t.kind === 'simple' && t.status === 'pending' && (state === 'pending' || state === 'live');
   const complete = () => {
     completing.set({ id: t.id, stake: t.stake, odds: t.odds, matches: t.legs.map(matchKey) });
-    navigate(t.legs[0]?.sport === 'atp' ? '/tennis' : '/');
+    navigate(t.legs[0]?.sport === 'atp' ? '/tennis' : t.legs[0]?.sport === 'nba' ? '/basket' : '/');
   };
   return (
     <article className={`tk ${state}${isNew ? ' is-new' : ''}`} style={{ '--i': i } as CSSProperties}>

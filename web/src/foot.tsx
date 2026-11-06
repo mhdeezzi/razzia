@@ -26,6 +26,9 @@ export interface FootResult {
   pick: { id: string; label: string; p: number } | null; combo: { id: string; label: string; p: number; risky: boolean };
   tier: Tier; T: number; scorers: Array<{ id: number; name: string; side: 'home' | 'away'; p: number }>; n: number;
   meta: { builtAt: string; gamesUsed: number; model?: string };
+  flow?: Array<[number, number, number]>; // toutes les 5 minutes : domicile mène, nul, extérieur mène
+  typical?: { score: [number, number]; share: number; goals: Array<{ side: 'home' | 'away'; min: number }> };
+  h2h?: Array<{ date: string; lg: number; league?: string; home: number; away: number; score: [number, number] }>;
 }
 interface SlateMatch { id: string; lg: number; league: string; round?: string; start: string; home: { id: number; name: string }; away: { id: number; name: string }; state: 'pre' | 'in' | 'post'; score?: [number, number]; minute?: string; odds?: Odds }
 interface SimIndex { id: string; lg: number; start: string; home: string; away: string; final: { h: number; d: number; a: number }; tier: Tier; pick: { id?: string; label: string; p: number } | null; at: string; noOdds?: boolean }
@@ -75,6 +78,23 @@ const SHORT: Record<string, string> = {
   'Bodø/Glimt': 'Bodø/Glimt', 'AEK Athens': 'AEK Athènes', 'Athletic Club': 'Bilbao', 'Celta Vigo': 'Celta', 'Real Betis': 'Betis', 'Sabah FK': 'Sabah',
 };
 const short = (n: string) => SHORT[n] ?? n;
+/** Sigles des clubs (pastilles du programme) : « TLS ou nul 70 % ». */
+const TRI: Record<string, string> = {
+  'AEK Athens': 'AEK', 'AFC Bournemouth': 'BOU', Angers: 'ANG', Arsenal: 'ARS', 'Aston Villa': 'AVL', Atalanta: 'ATA', 'Athletic Club': 'ATH',
+  'Atlético Madrid': 'ATM', Auxerre: 'AJA', Barcelona: 'BAR', 'Bayern München': 'BAY', 'Bodø/Glimt': 'BOD', Bologna: 'BOL', 'Borussia Dortmund': 'BVB',
+  Brentford: 'BRE', Brest: 'BRE', 'Brighton & Hove Albion': 'BHA', Cagliari: 'CAG', 'Celta Vigo': 'CEL', Chelsea: 'CHE', 'Club Brugge': 'BRU', Como: 'COM',
+  'Coventry City': 'COV', 'Crystal Palace': 'CRY', 'Deportivo A Coruña': 'DEP', 'Deportivo Alavés': 'ALA', Elche: 'ELC', Espanyol: 'ESP', Everton: 'EVE',
+  'FC Porto': 'POR', Fenerbahçe: 'FEN', Feyenoord: 'FEY', Fiorentina: 'FIO', Frosinone: 'FRO', Fulham: 'FUL', Galatasaray: 'GAL', Genoa: 'GEN',
+  Getafe: 'GET', 'Hull City': 'HUL', Inter: 'INT', 'Ipswich Town': 'IPS', Juventus: 'JUV', LASK: 'LASK', Lazio: 'LAZ', 'Le Havre': 'HAC', 'Le Mans': 'LEM',
+  Lecce: 'LEC', 'Leeds United': 'LEE', Lens: 'RCL', Levante: 'LEV', Lille: 'LIL', Liverpool: 'LIV', Lorient: 'LOR', Lyon: 'OL', 'Manchester City': 'MCI',
+  'Manchester United': 'MUN', Marseille: 'OM', Milan: 'MIL', Monaco: 'ASM', Monza: 'MON', Málaga: 'MAL', Napoli: 'NAP', 'Newcastle United': 'NEW',
+  Nice: 'NIC', 'Nottingham Forest': 'NFO', Osasuna: 'OSA', 'PSV Eindhoven': 'PSV', 'Paris FC': 'PFC', 'Paris Saint-Germain': 'PSG', Parma: 'PAR',
+  'RB Leipzig': 'RBL', 'Racing Santander': 'RAC', 'Rayo Vallecano': 'RAY', 'Real Betis': 'BET', 'Real Madrid': 'RMA', 'Real Sociedad': 'RSO', Rennes: 'SRFC',
+  Roma: 'ROM', 'Sabah FK': 'SAB', Sassuolo: 'SAS', Sevilla: 'SEV', 'Shakhtar Donetsk': 'SHA', 'Slavia Prague': 'SLA', 'Slovan Bratislava': 'SLO',
+  'Sporting CP': 'SCP', Strasbourg: 'RCSA', Sunderland: 'SUN', Torino: 'TOR', 'Tottenham Hotspur': 'TOT', Toulouse: 'TLS', Troyes: 'ESTAC', Udinese: 'UDI',
+  Valencia: 'VAL', Venezia: 'VEN', 'VfB Stuttgart': 'VFB', Viking: 'VIK', Villarreal: 'VIL',
+};
+const tri = (n: string) => TRI[n] ?? n.replace(/[^A-Za-zÀ-ÿ]/g, '').slice(0, 3).toUpperCase();
 /** Couleur principale de chaque club (identifiant FotMob) : marbre du bandeau, ronds et barres. Sinon gris. */
 const COLOR: Record<number, string> = {
   9825: '#db0007', 10252: '#7a1f3d', 8678: '#d71920', 9937: '#e30613', 10204: '#0057b8', 8455: '#034694', 8669: '#5fb4e5', 9826: '#1b458f',
@@ -102,13 +122,13 @@ function Crest({ t, size = 'md' }: { t: { id: number; logo?: string }; size?: 's
 /** Pastille du programme : le pronostic mis en avant (ou le favori ou nul quand il n'y en a pas) et sa couleur. */
 function simPill(sim: SimIndex) {
   const homeFav = sim.final.h >= sim.final.a;
-  const fav = short(homeFav ? sim.home : sim.away);
+  const fav = tri(homeFav ? sim.home : sim.away);
   const cls = sim.tier === 'flip' ? ' flip' : sim.tier === 'risky' ? ' risky' : '';
   if (sim.pick) {
     const id = sim.pick.id ?? '';
     const base = id.split('+')[0];
     const text =
-      base === '1' ? short(sim.home) : base === '2' ? short(sim.away) : base === '1X' ? `${short(sim.home)} ou nul` : base === 'X2' ? `${short(sim.away)} ou nul` : base === '12' ? 'Pas de nul' : '';
+      base === '1' ? tri(sim.home) : base === '2' ? tri(sim.away) : base === '1X' ? `${tri(sim.home)} ou nul` : base === 'X2' ? `${tri(sim.away)} ou nul` : base === '12' ? 'Pas de nul' : '';
     return { text: text ? `${text}${id.includes('+') ? ' +' : ''}` : sim.pick.label, p: sim.pick.p, cls };
   }
   return { text: `${fav} ou nul`, p: homeFav ? sim.final.h + sim.final.d : sim.final.a + sim.final.d, cls };
@@ -599,7 +619,7 @@ export function FootMatchPage({ id }: { id: string }) {
   const { state, busy, launch, since } = useFootSim(id);
   return (
     <div className="page">
-      <Link href="/foot" className="back">
+      <Link href="/" className="back">
         <ArrowLeft size={16} /> Programme Football
       </Link>
       {state.status !== 'loading' && <FootHero id={id} r={state.status === 'done' ? state.result : undefined} />}
@@ -646,6 +666,7 @@ export function FootMatchPage({ id }: { id: string }) {
 // ——— Résultats ———
 /** Vainqueur seul : déconseillé sous 60 %, risqué de 60 à 70 % (pastilles rouge et orange, comme au basket et au tennis). */
 const WIN_FLIP = 0.6, WIN_RISKY = 0.7;
+const LDEM_MIN = 0.65;
 const SURE_TEXT = 'À 85 % ou plus, ce pronostic est passé 91 % du temps sur 2024 à 2026 (un match sur cinq).';
 
 /** Catégories de paris : double chance, vainqueur, combinés (le combiné rattaché en tête). */
@@ -663,7 +684,10 @@ function buildFootCategories(r: FootResult): Category[] {
   const item = (id: string): Outcome | undefined => {
     const p = P[id];
     if (p == null || !L[id]) return undefined;
-    const out: Outcome = { id, title: L[id], p, who: whoOf(id), fair: p > 0 ? 1 / p : undefined, odds: oddsOf[id], implied: nv?.[id] };
+    const who = whoOf(id);
+    // Rond au marbre du club concerné ; issue commune aux deux (nul, l'un ou l'autre, les deux marquent) : les deux couleurs.
+    const marble = colorOf(who && who.tri === `f${r.away.id}` ? r.away.id : r.home.id);
+    const out: Outcome = { id, title: L[id], p, who, fair: p > 0 ? 1 / p : undefined, odds: oddsOf[id], implied: nv?.[id], marble, marble2: who ? undefined : colorOf(r.away.id) };
     if (r.pick?.id === id) out.safe = r.tier === 'sure' ? 'Razzia assuré' : 'Pronostic Razzia';
     if (r.combo.id === id) {
       if (r.combo.risky) out.warn = 'Risqué';
@@ -687,6 +711,17 @@ function buildFootCategories(r: FootResult): Category[] {
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
     { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky },
   ];
+  // Score exact : le plus probable, toujours « Déconseillé » (même le plus fréquent ne tombe qu'une fois sur huit environ).
+  const sc = r.scores[0];
+  if (sc) {
+    const side = sc.h > sc.a ? r.home : sc.h < sc.a ? r.away : undefined;
+    cats.push({ id: 'exact', label: 'Score exact', warn: true, items: [{
+      id: `exact-${sc.h}-${sc.a}`, title: `${short(r.home.name)} ${sc.h}-${sc.a} ${short(r.away.name)}`, p: sc.p, fair: 1 / sc.p, warn: 'Déconseillé',
+      who: side ? { ...markOf(side), name: side.name } : undefined, marble: colorOf(side ? side.id : r.home.id), marble2: side ? undefined : colorOf(r.away.id),
+    }] });
+  }
+  // LDEM (les deux équipes marquent) : seulement quand c'est à plus de 65 %.
+  if ((P.btts ?? 0) > LDEM_MIN) cats.push({ id: 'btts', label: 'LDEM', items: list(['btts']) });
   // L'onglet du pronostic mis en avant passe en premier, avec le point bleu.
   const at = cats.findIndex((c) => c.items.some((x) => x.id === r.pick?.id));
   if (at >= 0) cats[at] = { ...cats[at], good: true };
@@ -760,9 +795,10 @@ function FootVerdict({ r }: { r: FootResult }) {
           </dd>
         </div>
         <div>
-          <dt>Buts attendus</dt>
-          <dd>
-            {r.lambda[0].toFixed(1).replace('.', ',')} - {r.lambda[1].toFixed(1).replace('.', ',')}
+          <dt>Buts par match, en moyenne</dt>
+          <dd className="f-goals">
+            <span>{tri(r.home.name)} <b>{r.lambda[0].toFixed(1).replace('.', ',')}</b></span>
+            <span>{tri(r.away.name)} <b>{r.lambda[1].toFixed(1).replace('.', ',')}</b></span>
           </dd>
         </div>
         <div>
@@ -796,6 +832,11 @@ function FootResults({ r }: { r: FootResult }) {
         <Section title="Pronostics par catégorie" tag="issue la plus fréquente">
           <PickTabs cats={cats} n={r.n} />
         </Section>
+        {r.flow && (
+          <Section title="Le déroulé du match" tag="scénario le plus probable">
+            <FootFlow r={r} />
+          </Section>
+        )}
         <Section title="Scores probables" tag={`${r.n.toLocaleString('fr-FR')} matchs simulés`}>
           <ul className="f-scores">
             {r.scores.slice(0, 9).map((s) => (
@@ -812,20 +853,7 @@ function FootResults({ r }: { r: FootResult }) {
           </ul>
         </Section>
         <Section title="Premier but" tag="qui ouvre le score">
-          <div className="f-first">
-            {(
-              [
-                [r.home.name, r.firstGoal[0], 'h'],
-                ['Pas de but', r.firstGoal[2], 'd'],
-                [r.away.name, r.firstGoal[1], 'a'],
-              ] as const
-            ).map(([name, p, k]) => (
-              <div key={k} className={`f-first-i ${k}`}>
-                <span>{short(name)}</span>
-                <b className="mono">{pct0(p)}</b>
-              </div>
-            ))}
-          </div>
+          <FirstGoal r={r} />
         </Section>
         {r.scorers.length > 0 && (
           <Section title="Buteurs probables" tag="marque au moins un but">
@@ -870,6 +898,7 @@ function FootResults({ r }: { r: FootResult }) {
             })}
           </div>
         </Section>
+        {r.h2h && r.h2h.length > 0 && <H2H r={r} />}
         <p className="footnote">
           Données jusqu'au {new Date(r.meta.builtAt).toLocaleDateString('fr-FR')} : {r.meta.gamesUsed.toLocaleString('fr-FR')} matchs (FotMob : buts, xG, tirs, compositions)
           {r.market ? `, cotes ${r.market.src === 'pinnacle' ? 'Pinnacle' : 'moyennes'} (football-data)` : ''}. Probabilité Razzia : 80 % marché, 20 % moteur en championnat quand une cote
@@ -877,5 +906,158 @@ function FootResults({ r }: { r: FootResult }) {
         </p>
       </div>
     </SideColors.Provider>
+  );
+}
+
+/** Premier but : barre aux couleurs des deux clubs (pas de but au milieu), logo et pourcentage de chaque côté. */
+function FirstGoal({ r }: { r: FootResult }) {
+  const [h, a, none] = r.firstGoal;
+  return (
+    <div className="f-fg">
+      <div className="f-fg-bar" role="img" aria-label={`${r.home.name} ${pct0(h)}, pas de but ${pct0(none)}, ${r.away.name} ${pct0(a)}`}>
+        <span className="h" style={{ flexGrow: h }} />
+        <span className="d" style={{ flexGrow: none }} />
+        <span className="a" style={{ flexGrow: a }} />
+      </div>
+      <div className="f-fg-legend">
+        <div className="f-fg-side h">
+          <Crest t={r.home} size="md" />
+          <div>
+            <b className="mono">{pct0(h)}</b>
+            <span><span className="t-lg">{short(r.home.name)}</span><span className="t-sm">{tri(r.home.name)}</span> marque en premier</span>
+          </div>
+        </div>
+        <div className="f-fg-mid">
+          <b className="mono">{pct0(none)}</b>
+          <span>Pas de but</span>
+        </div>
+        <div className="f-fg-side a">
+          <div>
+            <b className="mono">{pct0(a)}</b>
+            <span><span className="t-lg">{short(r.away.name)}</span><span className="t-sm">{tri(r.away.name)}</span> marque en premier</span>
+          </div>
+          <Crest t={r.away} size="md" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Le déroulé le plus probable : le scénario le plus fréquent du score le plus probable, sur une frise de 0 à 90 minutes
+ * (buts du domicile au-dessus, de l'extérieur en dessous, la frise prend la couleur de l'équipe qui mène), puis qui mène
+ * à la mi-temps et à la fin sur l'ensemble des simulations.
+ */
+function FootFlow({ r }: { r: FootResult }) {
+  const flow = r.flow!;
+  const t = r.typical;
+  const pos = (m: number) => `${(Math.min(m, 90) / 90) * 100}%`;
+  let gh = 0, ga = 0;
+  const goals = (t?.goals ?? []).map((g) => {
+    const d0 = g.side === 'home' ? gh - ga : ga - gh;
+    const first = gh + ga === 0;
+    if (g.side === 'home') gh++;
+    else ga++;
+    const kind = first ? 'ouvre le score' : d0 === -1 ? 'égalise' : d0 === 0 ? 'repasse devant' : d0 > 0 ? "creuse l'écart" : "réduit l'écart";
+    return { ...g, score: `${gh}-${ga}`, kind, lead: gh > ga ? 'h' : gh < ga ? 'a' : 'd' };
+  });
+  // Tronçons de la frise : de but en but, à la couleur de l'équipe qui mène.
+  const cuts = [0, ...goals.map((g) => Math.min(g.min, 90)), 90];
+  const segs = cuts.slice(0, -1).map((from, k) => ({ from, to: cuts[k + 1], lead: k === 0 ? 'd' : goals[k - 1].lead }));
+  const ht = flow[8], ft = flow[flow.length - 1];
+  const bar = (f: [number, number, number], label: string) => (
+    <div className="f-lead">
+      <span className="f-lead-k">{label}</span>
+      <div className="f-lead-bar">
+        <span className="h" style={{ flexGrow: f[0] }}>{f[0] >= 0.12 && `${tri(r.home.name)} ${pct0(f[0])}`}</span>
+        <span className="d" style={{ flexGrow: f[1] }}>{f[1] >= 0.12 && `Nul ${pct0(f[1])}`}</span>
+        <span className="a" style={{ flexGrow: f[2] }}>{f[2] >= 0.12 && `${tri(r.away.name)} ${pct0(f[2])}`}</span>
+      </div>
+    </div>
+  );
+  return (
+    <div className="f-flow">
+      {t && (
+        <p className="f-flow-lede">
+          Score le plus probable : <b>{short(r.home.name)} {t.score[0]}-{t.score[1]} {short(r.away.name)}</b>.{' '}
+          {goals.length === 0
+            ? 'Aucun but de tout le match.'
+            : `Le plus souvent : ${goals.map((g) => `${short(r[g.side].name)} ${g.kind} vers la ${g.min}e`).join(', ')}.`}
+        </p>
+      )}
+      <div className="f-tl">
+        <div className="f-tl-row h">
+          {goals.filter((g) => g.side === 'home').map((g, i) => (
+            <span key={i} className="f-tl-goal" style={{ left: pos(g.min) }}>
+              <Crest t={r.home} size="sm" />
+              <b className="mono">{g.min}'</b>
+              <span className="f-tl-score mono">{g.score}</span>
+              <i />
+            </span>
+          ))}
+        </div>
+        <div className="f-tl-track">
+          {segs.map((sg, i) => (
+            <span key={i} className={sg.lead} style={{ left: pos(sg.from), width: `${((sg.to - sg.from) / 90) * 100}%` }} />
+          ))}
+          <em style={{ left: '50%' }} />
+        </div>
+        <div className="f-tl-row a">
+          {goals.filter((g) => g.side === 'away').map((g, i) => (
+            <span key={i} className="f-tl-goal" style={{ left: pos(g.min) }}>
+              <i />
+              <Crest t={r.away} size="sm" />
+              <b className="mono">{g.min}'</b>
+              <span className="f-tl-score mono">{g.score}</span>
+            </span>
+          ))}
+        </div>
+        <div className="f-tl-axis mono">
+          <span>Coup d'envoi</span>
+          <span>Mi-temps</span>
+          <span>90'</span>
+        </div>
+      </div>
+      <div className="f-leads">
+        <p className="f-leads-k">Qui mène, sur les {r.n.toLocaleString('fr-FR')} matchs simulés</p>
+        {bar(ht, 'À la mi-temps')}
+        {bar(ft, 'À la fin')}
+      </div>
+    </div>
+  );
+}
+
+/** Confrontations : les derniers matchs entre les deux équipes, score en clair, vainqueur en gras. */
+function H2H({ r }: { r: FootResult }) {
+  const list = r.h2h!;
+  const name = (id: number) => (id === r.home.id ? r.home.name : r.away.name);
+  let wh = 0, wa = 0, d = 0;
+  for (const g of list) {
+    const w = g.score[0] > g.score[1] ? g.home : g.score[0] < g.score[1] ? g.away : 0;
+    if (!w) d++;
+    else if (w === r.home.id) wh++;
+    else wa++;
+  }
+  return (
+    <Section title="Confrontations" tag={`${tri(r.home.name)} ${wh} · nuls ${d} · ${tri(r.away.name)} ${wa}`}>
+      <ul className="f-h2h">
+        {list.map((g) => {
+          const hw = g.score[0] > g.score[1], aw = g.score[0] < g.score[1];
+          return (
+            <li key={g.date}>
+              <span className="mono muted">{new Date(g.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              <span className="f-h2h-m">
+                <span className={hw ? 'w' : undefined}>{short(name(g.home))}</span>
+                <b className="mono">
+                  {g.score[0]}-{g.score[1]}
+                </b>
+                <span className={aw ? 'w' : undefined}>{short(name(g.away))}</span>
+              </span>
+              <span className="muted small">{leagueOf(g.lg, g.league)}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
   );
 }

@@ -182,7 +182,7 @@ export function CountUp({ value, format, duration = 1100 }: { value: number; for
  * Anneau de probabilité. Avec `marble` (couleur d'une équipe), l'arc est le marbre animé de l'en-tête de la fiche, à la
  * couleur de cette équipe, au lieu du dégradé bleu.
  */
-export function Ring({ value, tone = 'blue', label, format, marble }: { value: number; tone?: 'blue' | 'rose'; label?: string; format: (v: number) => string; marble?: string }) {
+export function Ring({ value, tone = 'blue', label, format, marble, marble2 }: { value: number; tone?: 'blue' | 'rose'; label?: string; format: (v: number) => string; marble?: string; marble2?: string }) {
   const r = 44;
   const c = 2 * Math.PI * r;
   const [shown, setShown] = useState(reduced() ? value : 0);
@@ -196,7 +196,7 @@ export function Ring({ value, tone = 'blue', label, format, marble }: { value: n
       <div className="ring-disc">
         {marble && (
           <span className="ring-warp" aria-hidden="true">
-            <WarpBg c1={marble} c2={marble} ring />
+            <WarpBg c1={marble} c2={marble2 ?? marble} ring />
           </span>
         )}
         {/* À l'ouverture : début de l'arc assombri, puis de plus en plus clair jusqu'au bout ; l'ombre s'efface ensuite. */}
@@ -286,8 +286,8 @@ function season(sport: 'nba' | 'atp' | 'foot'): string {
  * En-tête des programmes façon affiche RAZZIA : marbre lent aux couleurs du sport, petites mentions en haut, titre très gras
  * et serré, le match à la une dessous ; date, nombre de matchs et affichage en pied.
  */
-/** Couleurs du marbre du bandeau, une paire par sport : ambre et ardoise au basket, bleu nuit et violet au tennis, turquoise et framboise au foot. */
-const HERO_COLORS = { nba: ['#c98a3d', '#3b4a5e'], atp: ['#2a4f9a', '#7a3a6e'], foot: ['#13a08f', '#a3324e'] } as const;
+/** Couleurs du marbre du bandeau, une paire par sport : ambre et ardoise au basket, bleu nuit et violet au tennis, cyan et magenta au foot. */
+const HERO_COLORS = { nba: ['#c98a3d', '#3b4a5e'], atp: ['#2a4f9a', '#7a3a6e'], foot: ['#0ea5c6', '#c2255c'] } as const;
 
 export function PageHero({ sport, title, day, count, feature, children }: { sport: 'nba' | 'atp' | 'foot'; title: string; day?: string; count?: number; feature?: ReactNode; children?: ReactNode }) {
   const [first, ...rest] = title.split(' ');

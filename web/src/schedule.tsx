@@ -116,7 +116,7 @@ export function SchedulePage({ day }: { day: string | null }) {
               const n = byDay.get(d)?.length ?? 0;
               const name = isToday(d) ? "Aujourd'hui" : i === 1 && isToday(prog.dates[0]) ? 'Demain' : new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short' });
               return (
-                <Link key={d} href={`/?jour=${d}`} replace className={`day${d === current ? ' is-on' : ''}${n ? '' : ' is-empty'}`}>
+                <Link key={d} href={`/basket?jour=${d}`} replace className={`day${d === current ? ' is-on' : ''}${n ? '' : ' is-empty'}`}>
                   <span className="day-name">{name}</span>
                   <span className="day-date">{new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
                   <span className="day-count">{n ? `${n} match${n > 1 ? 's' : ''}` : 'repos'}</span>
@@ -419,7 +419,7 @@ function SheetBar({ day, games, batch, sims }: { day: string; games: Game[]; bat
       {elsewhere && (
         <p className="sheet-hint">
           Une soirée est déjà en calcul ({shortDay(batch.date)}).{' '}
-          <Link href={`/?jour=${batch.date}`} replace>
+          <Link href={`/basket?jour=${batch.date}`} replace>
             Voir
           </Link>
         </p>

@@ -13,6 +13,8 @@ export interface Outcome {
   implied?: number; // probabilité de la cote, marge retirée
   text?: string;
   // Qui porte le pari : logo de l'équipe (basket) ou photo du joueur (tennis), à gauche du titre.
+  marble?: string; // couleur du rond (marbre) ; marble2 : seconde couleur, pour une issue commune aux deux camps
+  marble2?: string;
   who?: { tri?: string; color?: string; logo?: string; name?: string; photo?: string; alt?: string };
   // Le pari en clair, pour le suivi : vainqueur, handicap (points donnés à ce camp), au moins N sets, N-0, ou points d'un
   // joueur au-dessus / en dessous d'une ligne (player : son nom, event : identifiant ESPN du match pour la feuille).
