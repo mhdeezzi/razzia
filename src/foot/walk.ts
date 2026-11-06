@@ -102,6 +102,12 @@ export function walk(games: Game[], from: string, p: RatingParams = DEFAULT_RATI
         red: [(reds.get(g.home.id)?.[0] ?? 0.1) / (reds.get(g.home.id)?.[1] ?? 1), (reds.get(g.away.id)?.[0] ?? 0.1) / (reds.get(g.away.id)?.[1] ?? 1)],
       });
     }
+    // Match à venir (score 0-0 fictif) : il ne compte que pour les jours de repos, jamais comme un résultat (sinon un lot
+    // de plusieurs jours apprenait les premiers matchs du lot comme des 0-0 joués).
+    if ((g as Game & { pending?: boolean }).pending) {
+      for (const id of [g.home.id, g.away.id]) { last.set(id, g.date); if (CUPS.has(g.lg)) lastCup.set(id, g.date); }
+      continue;
+    }
     // Mise à jour de l'historique après le match.
     const exp = R ? expectedGoals(R, g.lg, g.home.id, g.away.id, p.newcomer) : undefined;
     for (const side of [0, 1] as const) {

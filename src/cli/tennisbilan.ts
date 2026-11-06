@@ -8,6 +8,10 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadHistory } from '../tennis/data.ts';
 import { nameKey, parseScore, type Match } from '../tennis/history.ts';
+// Règles de la fiche, chargées telles quelles (le contrôle de types du moteur ne lit pas les fichiers du site).
+const WEB = '../../web/src/';
+const { buildTennisCategories } = await import(`${WEB}tennispicks.ts`);
+const { orderCats } = await import(`${WEB}picks.ts`);
 
 const dir = process.argv[2];
 if (!dir) throw new Error('Usage : node src/cli/tennisbilan.ts <dossier tennis>');
@@ -19,7 +23,7 @@ const MIN_ODDS = 1.15; // ligne de sets proposée seulement si sa cote juste dé
 const shown = (p: number) => Math.round(p * 1000) / 1000;
 
 type Tier = 'sure' | 'mid' | 'flip';
-type Pick = { kind: 'vainqueur' | 'sets'; need?: number; label: string; won: boolean };
+type Pick = { kind: 'vainqueur' | 'sets' | 'sec' | 'outsider'; need?: number; label: string; won: boolean };
 interface Row {
   id: string; day: string; start: string; tourney: string; round: string; home: string; away: string;
   pHome: number; pMarket?: number; homeWon: boolean; score: string; tier: Tier; pick: Pick;
@@ -41,6 +45,21 @@ function pickOf(s: any, favWon: boolean, favSets: number): Pick {
   if (L && !catFav && (dogUp(s) || shown(winP) <= T_HEDGE_FIRST))
     return { kind: 'sets', need: L.need, label: `${fav} au moins ${L.need === 1 ? 'un set' : 'deux sets'}`, won: favWon || favSets >= L.need };
   return { kind: 'vainqueur', label: fav, won: favWon };
+}
+
+/** Pronostic compté : exactement le premier onglet de la fiche (mêmes catégories et même ordre que le site). */
+function firstPick(s: any, homeSets: number, awaySets: number): Pick | undefined {
+  try {
+    const c = orderCats(buildTennisCategories(s))[0], it = c?.items[0], b = it?.bet;
+    if (!b) return undefined;
+    const mine = b.side === 'home' ? homeSets : awaySets, other = b.side === 'home' ? awaySets : homeSets;
+    if (b.kind === 'win') return { kind: 'vainqueur', label: it.title, won: mine > other };
+    if (b.kind === 'sets') return { kind: c.id === 'dogset' ? 'outsider' : 'sets', need: b.need, label: it.title, won: mine >= (b.need ?? 1) };
+    if (b.kind === 'straight') return { kind: 'sec', label: it.title, won: mine > other && other === 0 };
+  } catch {
+    /* ancienne simulation incomplète : règle d'avant */
+  }
+  return undefined;
 }
 
 const history = await loadHistory('data/cache/tennis/tml', new Date().getUTCFullYear() - 1);
@@ -123,7 +142,7 @@ for (const f of existsSync(simsDir) ? readdirSync(simsDir) : []) {
     pHome: s.pHome, pMarket: s.market?.pHome, homeWon, score: homeWon ? m.score : m.score.split(' ').map((x) => x.replace(/^(\d+)-(\d+)/, '$2-$1')).join(' '),
     // Pile ou face : exactement quand la fiche met la ligne de sets devant le vainqueur.
     tier: pickOf(s, favWon, favSets).kind === 'sets' ? 'flip' : shown(winP) >= T_SURE ? 'sure' : 'mid',
-    pick: pickOf(s, favWon, favSets),
+    pick: firstPick(s, homeWon ? m.wSets : m.lSets, homeWon ? m.lSets : m.wSets) ?? pickOf(s, favWon, favSets),
   };
   rows.push(row);
   seen.set(one, { row, built: s.meta?.builtAt ?? '' });

@@ -259,19 +259,24 @@ export async function POST(request: Request): Promise<Response> {
   // Seulement des matchs du programme pas encore commencés (on ne simule jamais un match commencé) ; une demande pour
   // un match déjà en calcul se rattache à ce calcul ; au plus 10 calculs tennis en même temps.
   let keep: number[];
+  // Jour de chaque match : celui du programme vérifié, jamais celui envoyé par le navigateur (une date arbitraire
+  // fabriquait le contexte du calcul : historique, forme, repos).
+  const dayOf = new Map<string, string>();
   try {
     const sl = await fetch(new URL('/api/tennis?slate=1', request.url), { signal: AbortSignal.timeout(15_000) });
     if (!sl.ok) return bad('Programme indisponible pour le moment : réessaie dans un instant.', 503);
     const ms: any[] = (await sl.json()).matches ?? [];
     keep = ids.map((id, i) => [String(id), i] as const).filter(([id]) => {
       const m = ms.find((x) => String(x.id) === id);
-      return m && (!m.live || m.live.state === 'pre') && Date.parse(m.start) > Date.now();
+      const ok = m && (!m.live || m.live.state === 'pre') && Date.parse(m.start) > Date.now() && okDay(m.day);
+      if (ok) dayOf.set(id, String(m.day));
+      return ok;
     }).map(([, i]) => i);
   } catch {
     return bad('Programme indisponible pour le moment : réessaie dans un instant.', 503);
   }
   if (!keep.length) return bad(ids.length > 1 ? 'Aucun match à venir dans cette demande.' : 'Match commencé ou introuvable : pas de simulation.', 409);
-  const kIds = keep.map((i) => String(ids[i])), kDays = keep.map((i) => String(days[i]));
+  const kIds = keep.map((i) => String(ids[i])), kDays = kIds.map((id) => dayOf.get(id)!);
   try {
     const rr = await gh(`/actions/workflows/${WORKFLOW}/runs?per_page=50`);
     if (!rr.ok) throw new Error(String(rr.status));

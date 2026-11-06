@@ -35,8 +35,8 @@ async function pending(f: Fixture): Promise<Game> {
   return {
     id: f.id, key: f.id, lg: f.lg, season: f.season, date: f.date, round: f.round, home: f.home, away: f.away, score: [0, 0],
     stats: {}, shots: [], events: [], sides: [side(lu.homeTeam), side(lu.awayTeam)] as Game['sides'], players: {},
-    lineupType: lu.lineupType,
-  } as Game & { lineupType?: string };
+    lineupType: lu.lineupType, pending: true,
+  } as Game & { lineupType?: string; pending?: boolean };
 }
 
 /** Prévisions de plusieurs matchs à venir en un seul passage sur l'historique. */

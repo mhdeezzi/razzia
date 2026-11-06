@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getMarket, getScoreboard, noVig } from '../data/espn.ts';
+import { buildCategories, orderCats } from '../../web/src/picks.ts';
 
 const dir = process.argv[2];
 if (!dir) throw new Error('Usage : node src/cli/bilan.ts <dossier sims>');
@@ -41,7 +42,30 @@ function ladder(s: any): Rung[] {
  * Pronostic retenu, celui que la fiche met en avant : le vainqueur, ou pour un favori sous 66 % (pourcentage
  * affiché, une décimale) le handicap « plus sûr » (le favori avec des points d'avance, à 80 % des simulations).
  */
+/**
+ * Pronostic compté : exactement le premier onglet de la fiche (mêmes catégories, même ordre : value d'abord, puis du
+ * plus probable au moins probable, cotes de 1,20 ou moins masquées ; favori pile ou face : le handicap devant). Le pari
+ * Marqueur (points d'un joueur) n'est pas réglable ici : c'est alors l'onglet suivant qui compte.
+ */
+function firstPick(s: any, home: string, away: string, hs: number, as: number): Pick | undefined {
+  try {
+    const g = { id: '', home: s.home, away: s.away, odds: { mlHome: s.market?.mlHome, mlAway: s.market?.mlAway, spreadHome: s.market?.spreadHome } };
+    for (const c of orderCats(buildCategories(s, g as any))) {
+      const it = c.items[0], b = it?.bet;
+      if (!b || b.kind === 'pts') continue;
+      const m = b.side === 'home' ? hs - as : as - hs;
+      if (b.kind === 'win') return { kind: 'vainqueur', label: it.title, won: m > 0 };
+      if (b.kind === 'spread') return { kind: 'handicap', label: it.title, won: m + (b.line ?? 0) > 0 };
+    }
+  } catch {
+    /* ancienne simulation incomplète : règle d'avant */
+  }
+  return undefined;
+}
+
 function pickOf(s: any, home: string, away: string, hs: number, as: number): Pick {
+  const first = firstPick(s, home, away, hs, as);
+  if (first) return first;
   const p: number = s.market?.blendedHome ?? s.pHome;
   const fav = p >= 0.5 ? 'home' : 'away';
   const winP = Math.max(p, 1 - p);

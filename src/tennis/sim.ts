@@ -249,9 +249,20 @@ export function simulate(opts: { pA: number; pB: number; bestOf: 3 | 5; target?:
     pDogSet: at1[dog], pTb: tbs / n,
   });
   return {
-    n, pA, pB, win: win / n, firstSet: first / n, scores, atLeast1: at1, atLeast2: [a2 / n, b2 / n], straight,
+    // « Au moins deux sets » recalculé sur les scores corrigés (il restait celui d'avant la correction de l'outsider :
+    // jusqu'à 2 points d'écart en Grand Chelem avec la somme des scores).
+    n, pA, pB, win: win / n, firstSet: first / n, scores, atLeast1: at1, atLeast2: atLeast(scores, 2, [a2 / n, b2 / n]), straight,
     tiebreak: tbs / n, games: { mean: games.reduce((s, x) => s + x, 0) / n, p10: q(0.1), p50: q(0.5), p90: q(0.9) }, gamesLadder, typical,
   };
+}
+
+/** Chance de chaque joueur de gagner au moins `k` sets, d'après les scores en sets (repli : valeur simulée). */
+function atLeast(scores: Record<string, number>, k: number, fallback: [number, number]): [number, number] {
+  const e = Object.entries(scores);
+  if (!e.length) return fallback;
+  let a = 0, b = 0;
+  for (const [key, p] of e) { const [x, y] = key.split('-').map(Number); if (x >= k) a += p; if (y >= k) b += p; }
+  return [a, b];
 }
 
 const simRng = (seed: number, i: number) => new Rng((Math.imul(seed >>> 0, 0x85ebca6b) ^ Math.imul(i + 1, 0x9e3779b9)) >>> 0);

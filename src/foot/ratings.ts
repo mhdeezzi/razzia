@@ -41,6 +41,7 @@ export function fitRatings(games: Game[], before: string, p: RatingParams = DEFA
     if (!(t < t0)) break;
     const age = (t0 - t) / 864e5;
     if (age > 5 * p.halfLifeDays) continue;
+    if ((g as Game & { pending?: boolean }).pending) continue; // match pas encore joué
     let w = Math.pow(0.5, age / p.halfLifeDays) * (CUPS.has(g.lg) ? p.cupWeight : 1);
     const [gh, ga] = g.score;
     const yh = g.xg ? p.goalsWeight * gh + (1 - p.goalsWeight) * g.xg[0] : gh;
