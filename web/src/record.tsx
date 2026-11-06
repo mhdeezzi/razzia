@@ -64,13 +64,15 @@ export function PublicRecord({ sport }: { sport: 'nba' | 'atp' | 'foot' }) {
     const t = setInterval(load, 5 * 60_000);
     return () => clearInterval(t);
   }, [sport]);
-  if (!rec || rec.rows.length < 5) return null;
+  // Foot : bandeau affiché dès le début, même à zéro ; ailleurs, à partir de 5 matchs.
+  if (!rec || (sport !== 'foot' && rec.rows.length < 5)) return null;
   const won = rec.rows.filter((r) => r.won).length;
   const sure = rec.rows.filter((r) => r.sure);
   const sureWon = sure.filter((r) => r.won).length;
   let acc = 0;
   const curve = rec.rows.map((r, i) => (acc += r.won ? 1 : 0) / (i + 1));
   const last = rec.rows.slice(-10);
+  const rate = (a: number, b: number) => pct(b ? a / b : 0);
   return (
     <section className="record" aria-label="Bilan de Razzia cette saison">
       <div className="record-k">
@@ -78,30 +80,33 @@ export function PublicRecord({ sport }: { sport: 'nba' | 'atp' | 'foot' }) {
         <span className="record-sub">depuis le début de la saison</span>
       </div>
       <div className="record-stat">
-        <b>{pct(won / rec.rows.length)}</b>
+        <b>{rate(won, rec.rows.length)}</b>
         <span>
           {won} sur {rec.rows.length} passés
         </span>
       </div>
       {sure.length > 0 && (
         <div className="record-stat">
-          <b className="up">{pct(sureWon / sure.length)}</b>
+          <b className="up">{rate(sureWon, sure.length)}</b>
           <span>
             Razzia assuré : {sureWon} sur {sure.length}
           </span>
         </div>
       )}
-      <div className="record-curve">
-        <Sparkline values={curve} label="Réussite cumulée, match après match" />
-      </div>
-      <div className="record-last" aria-label={`10 derniers : ${last.filter((r) => r.won).length} passés`}>
+      {curve.length >= 2 && (
+        <div className="record-curve">
+          <Sparkline values={curve} label="Réussite cumulée, match après match" />
+        </div>
+      )}
+      {last.length === 0 && <p className="record-sub">Premiers résultats après les premiers matchs simulés.</p>}
+      {last.length > 0 && <div className="record-last" aria-label={`10 derniers : ${last.filter((r) => r.won).length} passés`}>
         <span className="record-sub">10 derniers</span>
         <span className="record-dots">
           {last.map((r) => (
             <i key={r.key} className={r.won ? 'won' : 'lost'} />
           ))}
         </span>
-      </div>
+      </div>}
     </section>
   );
 }

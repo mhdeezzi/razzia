@@ -30,10 +30,6 @@ export function TopBar() {
         </Link>
         <nav ref={nav} className="sports" aria-label="Sports">
           {pos && <span className="sport-thumb" style={{ left: pos.l, right: pos.r }} aria-hidden="true" />}
-          <Link href="/" className={`sport${nba ? ' is-on' : ''}`} aria-current={path === '/' ? 'page' : undefined} title="Programme NBA">
-            <Basketball size={18} weight={nba ? 'bold' : 'regular'} />
-            <span className="lbl">Basketball</span>
-          </Link>
           <Link href="/foot" className={`sport${foot ? ' is-on' : ''}`} aria-current={path === '/foot' ? 'page' : undefined} title="Programme Football">
             <SoccerBall size={18} weight={foot ? 'bold' : 'regular'} />
             <span className="lbl">Football</span>
@@ -41,6 +37,10 @@ export function TopBar() {
           <Link href="/tennis" className={`sport${tennis ? ' is-on' : ''}`} aria-current={path === '/tennis' ? 'page' : undefined} title="Programme ATP">
             <TennisBall size={18} weight={tennis ? 'bold' : 'regular'} />
             <span className="lbl">Tennis</span>
+          </Link>
+          <Link href="/" className={`sport${nba ? ' is-on' : ''}`} aria-current={path === '/' ? 'page' : undefined} title="Programme NBA">
+            <Basketball size={18} weight={nba ? 'bold' : 'regular'} />
+            <span className="lbl">Basketball</span>
           </Link>
         </nav>
         <div className="top-right">

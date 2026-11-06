@@ -78,8 +78,8 @@ const etDate = (t: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Amer
  * Battement de l'horloge (GET /api/sim?tick=1), appelé toutes les 5 minutes par une tâche planifiée Supabase : les
  * tâches planifiées GitHub partent avec des heures de retard. Relance chaque match qui débute dans 5 à 15 minutes
  *  (titulaires confirmés par NBA.com souvent moins de 30 min avant, simulation en 2 à 3 min), une seule fois : rien si une
- * simulation a été publiée depuis 17 minutes avant le match ou si une est en cours. Recalcule aussi les bilans NBA et tennis (au plus tous les
- * quarts d'heure).
+ * simulation a été publiée depuis 17 minutes avant le match ou si une est en cours. Foot : chaque match du programme 30 min
+ * avant (compositions officielles). Recalcule aussi les bilans NBA, tennis et foot (au plus tous les quarts d'heure).
  */
 async function tick(): Promise<Response> {
   const now = Date.now();
@@ -164,26 +164,41 @@ async function tick(): Promise<Response> {
   } catch {
     /* tennis indisponible : le basket continue */
   }
-  // Foot : un match déjà simulé est relancé une fois avec les compositions officielles (publiées environ une heure avant),
-  // entre 50 et 15 minutes avant le coup d'envoi, s'il n'a pas été simulé depuis 55 minutes avant le match.
+  // Foot : chaque match du programme est simulé tout seul 30 minutes avant le coup d'envoi (entre 40 et 20 min), avec
+  // les compositions officielles (FotMob les publie environ une heure avant), sauf s'il l'a déjà été depuis 45 minutes
+  // avant le match. Si les compositions n'étaient pas encore officielles, nouvelle relance entre 15 et 5 minutes avant.
+  // Jamais une fois le match commencé. Le programme est aussi rafraîchi s'il a plus de 2 h 30 (GitHub part en retard).
+  let footData = false;
   try {
-    const fi = await gh(`/contents/foot/index.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
-    const fIndex: Array<{ id: string; start: string; at: string }> = fi.ok ? await fi.json() : [];
-    const due = fIndex.filter((e) => Date.parse(e.start) - now >= 15 * 60_000 && Date.parse(e.start) - now <= 50 * 60_000 && Date.parse(e.at) < Date.parse(e.start) - 55 * 60_000);
-    if (due.length) {
+    const [sl, fi] = await Promise.all([
+      gh(`/contents/slate.json?ref=donnees-foot`, { headers: { Accept: 'application/vnd.github.raw+json' } }),
+      gh(`/contents/foot/index.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } }),
+    ]);
+    const slate: { at?: string; matches?: Array<{ id: string; start: string; state: string }> } = sl.ok ? await sl.json() : {};
+    const fIndex: Array<{ id: string; start: string; at: string; lineup?: string }> = fi.ok ? await fi.json() : [];
+    const last = new Map(fIndex.map((e) => [e.id, e]));
+    const ids: string[] = [];
+    for (const m of slate.matches ?? []) {
+      const t = Date.parse(m.start), left = t - now, e = last.get(m.id);
+      if (m.state === 'post') continue;
+      if (left >= 20 * 60_000 && left <= 40 * 60_000 && !(e && Date.parse(e.at) >= t - 45 * 60_000)) ids.push(m.id);
+      else if (left >= 5 * 60_000 && left <= 15 * 60_000 && e && e.lineup !== 'standard' && Date.parse(e.at) < t - 17 * 60_000) ids.push(m.id);
+    }
+    if (ids.length) {
       const fr = await gh(`/actions/workflows/simulate-foot.yml/runs?per_page=50`);
       const fRunning: any[] = fr.ok ? ((await fr.json()).workflow_runs ?? []).filter((w: any) => w.status !== 'completed') : [];
-      const ids = due.map((e) => e.id).filter((id) => !fRunning.some((w) => String(w.display_title ?? '').split(' ')[1]?.split(',').includes(id)));
-      if (ids.length) {
-        const d = await gh(`/actions/workflows/simulate-foot.yml/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { ids: ids.join(','), request_id: 'avant-match' } }) });
-        if (d.ok) relaunched.push(...ids.map((x) => `foot ${x}`));
+      const todo = ids.filter((id) => !fRunning.some((w) => String(w.display_title ?? '').split(' ')[1]?.split(',').includes(id)));
+      if (todo.length) {
+        const d = await gh(`/actions/workflows/simulate-foot.yml/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { ids: todo.join(','), request_id: 'avant-match' } }) });
+        if (d.ok) relaunched.push(...todo.map((x) => `foot ${x}`));
       }
     }
+    if (!slate.at || now - Date.parse(slate.at) > 150 * 60_000) footData = await refreshBilan('donnees-foot.yml', undefined, 30);
   } catch {
     /* foot indisponible : le reste continue */
   }
-  const [bilan, bilanTennis] = await Promise.all([refreshBilan('bilan.yml', undefined, 14), refreshBilan('bilan-tennis.yml', undefined, 14)]);
-  return Response.json({ at: new Date(now).toISOString(), soon: near.length, relaunched, bilan, bilanTennis }, { headers: noStore });
+  const [bilan, bilanTennis, bilanFoot] = await Promise.all([refreshBilan('bilan.yml', undefined, 14), refreshBilan('bilan-tennis.yml', undefined, 14), refreshBilan('bilan-foot.yml', undefined, 14)]);
+  return Response.json({ at: new Date(now).toISOString(), soon: near.length, relaunched, bilan, bilanTennis, bilanFoot, footData }, { headers: noStore });
 }
 
 /** Calcul en cours pour ce match, quel que soit l'appareil qui l'a lancé (relance d'avant-match comprise). */
