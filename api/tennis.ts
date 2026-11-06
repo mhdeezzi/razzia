@@ -24,7 +24,7 @@ const raw = (path: string, ref: string) => gh(`/contents/${path}?ref=${ref}`, { 
 const noStore = { 'Cache-Control': 'no-store' };
 const bad = (msg: string, status = 400) => Response.json({ error: msg }, { status, headers: noStore });
 const okId = (id: unknown) => /^\d{5,14}$/.test(String(id ?? ''));
-const okDay = (d: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? '')) && new Date(`${d}T12:00:00Z`).toISOString().slice(0, 10) === String(d);
+const okDay = (d: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? '')) && !Number.isNaN(Date.parse(`${d}T12:00:00Z`)) && new Date(`${d}T12:00:00Z`).toISOString().slice(0, 10) === String(d);
 
 // Tableaux ATP d'ESPN (simple messieurs) : scores des tournois en cours et de la veille, et matchs programmés des
 // 6 prochains jours (ceux que Pinnacle n'a pas encore cotés s'affichent sans cote, simulables avec le moteur seul).
@@ -83,29 +83,17 @@ async function espn(): Promise<{ live: Map<string, Live>; planned: Planned[]; wh
   return { live, planned: [...planned.values()], when };
 }
 
+// Identifiant de demande = heure (base 36, 8 car.) + 4 car. au hasard : tant que GitHub n'affiche pas encore
+// le passage, une demande récente reste « en attente » au lieu de renvoyer l'ancien résultat comme terminé.
+const newReq = () => Date.now().toString(36).padStart(8, '0') + Math.random().toString(36).slice(2, 6).padEnd(4, '0');
+const reqFresh = (req: string) => req.length === 12 && Date.now() - parseInt(req.slice(0, 8), 36) < 15 * 60_000;
+
 async function findRun(req: string): Promise<any | undefined> {
   const r = await gh(`/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100`);
   if (!r.ok) return undefined;
   return ((await r.json()).workflow_runs ?? []).find((w: any) => String(w.display_title ?? '').endsWith(`· ${req}`));
 }
 
-/**
- * GitHub saute la plupart des tâches planifiées (le bilan « tous les quarts d'heure » passait toutes les 3 à 6 heures) :
- * quand quelqu'un lit un bilan vieux de plus de 20 minutes, on relance son calcul, sauf s'il tourne déjà ou vient d'être
- * lancé. Sans effet sur la réponse (le bilan à jour arrive à la lecture suivante) ; une erreur ici n'empêche rien.
- */
-async function refreshBilan(workflow: string, at: string | undefined): Promise<void> {
-  if (at && Date.now() - Date.parse(at) < 20 * 60_000) return;
-  try {
-    const r = await gh(`/actions/workflows/${workflow}/runs?per_page=3`);
-    if (!r.ok) return;
-    const runs: any[] = (await r.json()).workflow_runs ?? [];
-    if (runs.some((w) => w.status !== 'completed' || Date.now() - Date.parse(w.created_at) < 10 * 60_000)) return;
-    await gh(`/actions/workflows/${workflow}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main' }) });
-  } catch {
-    /* GitHub injoignable : le bilan reste tel quel */
-  }
-}
 
 export async function GET(request: Request): Promise<Response> {
   const q = new URL(request.url).searchParams;
@@ -229,13 +217,12 @@ export async function GET(request: Request): Promise<Response> {
       const b = await raw('tennis/bilan.json', 'resultats');
       if (!b.ok) return Response.json({ games: 0 }, { headers: noStore });
       const j = await b.json();
-      await refreshBilan('bilan-tennis.yml', j.at);
       return Response.json(j, { headers: { 'Cache-Control': 'public, s-maxage=60' } });
     }
     const id = q.get('id'), day = q.get('day'), req = q.get('req');
     if (!id && req && /^[a-z0-9]{4,12}$/.test(req)) {
       const run = await findRun(req);
-      if (!run) return Response.json({ status: 'queued' }, { headers: noStore });
+      if (!run) return Response.json(reqFresh(req) ? { status: 'queued' } : { status: 'failed' }, { headers: noStore });
       const status = run.status !== 'completed' ? (run.status === 'queued' ? 'queued' : 'running') : run.conclusion === 'success' ? 'done' : 'failed';
       return Response.json({ status, startedAt: run.run_started_at, url: run.html_url }, { headers: noStore });
     }
@@ -246,6 +233,7 @@ export async function GET(request: Request): Promise<Response> {
       if (!req) return Response.json({ status: 'done', result }, { headers: noStore });
       const run = await findRun(req);
       if (run?.status === 'completed' && run.conclusion !== 'success') return Response.json({ status: 'done', result, relaunchFailed: true, url: run.html_url }, { headers: noStore });
+      if (!run && reqFresh(req)) return Response.json({ status: 'queued', previous: result }, { headers: noStore });
       if (!run || run.status === 'completed') return Response.json({ status: 'done', result }, { headers: noStore });
       // Résultat publié après la demande : il est prêt, même si GitHub affiche encore la demande « en attente »
       // (son état peut retarder de plusieurs minutes sur la publication réelle).
@@ -254,7 +242,7 @@ export async function GET(request: Request): Promise<Response> {
     }
     if (!req) return Response.json({ status: 'none' }, { headers: noStore });
     const run = await findRun(req);
-    if (!run) return Response.json({ status: 'queued' }, { headers: noStore });
+    if (!run) return Response.json(reqFresh(req) ? { status: 'queued' } : { status: 'failed' }, { headers: noStore });
     if (run.status === 'completed') return Response.json({ status: run.conclusion === 'success' ? 'running' : 'failed', url: run.html_url }, { headers: noStore });
     return Response.json({ status: run.status === 'queued' ? 'queued' : 'running', startedAt: run.run_started_at, url: run.html_url }, { headers: noStore });
   } catch (e) {
@@ -268,9 +256,35 @@ export async function POST(request: Request): Promise<Response> {
   const ids: unknown[] = Array.isArray(body.ids) ? body.ids : [body.id];
   const days: unknown[] = Array.isArray(body.days) ? body.days : [body.day];
   if (!ids.length || ids.length > 64 || days.length !== ids.length || !ids.every(okId) || !days.every(okDay)) return bad('Paramètres invalides');
-  const req = Math.random().toString(36).slice(2, 10);
+  // Seulement des matchs du programme pas encore commencés (on ne simule jamais un match commencé) ; une demande pour
+  // un match déjà en calcul se rattache à ce calcul ; au plus 10 calculs tennis en même temps.
+  let keep: number[];
   try {
-    const inputs = { id: ids.join(','), day: days.every((d) => d === days[0]) ? String(days[0]) : days.join(','), request_id: req };
+    const sl = await fetch(new URL('/api/tennis?slate=1', request.url), { signal: AbortSignal.timeout(15_000) });
+    if (!sl.ok) return bad('Programme indisponible pour le moment : réessaie dans un instant.', 503);
+    const ms: any[] = (await sl.json()).matches ?? [];
+    keep = ids.map((id, i) => [String(id), i] as const).filter(([id]) => {
+      const m = ms.find((x) => String(x.id) === id);
+      return m && (!m.live || m.live.state === 'pre') && Date.parse(m.start) > Date.now();
+    }).map(([, i]) => i);
+  } catch {
+    return bad('Programme indisponible pour le moment : réessaie dans un instant.', 503);
+  }
+  if (!keep.length) return bad(ids.length > 1 ? 'Aucun match à venir dans cette demande.' : 'Match commencé ou introuvable : pas de simulation.', 409);
+  const kIds = keep.map((i) => String(ids[i])), kDays = keep.map((i) => String(days[i]));
+  try {
+    const rr = await gh(`/actions/workflows/${WORKFLOW}/runs?per_page=50`);
+    if (!rr.ok) throw new Error(String(rr.status));
+    const running: any[] = ((await rr.json()).workflow_runs ?? []).filter((w: any) => w.status !== 'completed');
+    const same = running.find((w) => { const t = String(w.display_title ?? '').split(' ')[1]?.split(',') ?? []; return kIds.every((id) => t.includes(id)); });
+    if (same) return Response.json({ status: 'queued', req: String(same.display_title).split(' · ').pop() }, { headers: noStore });
+    if (running.length >= 10) return bad('Trop de simulations en cours : réessaie dans quelques minutes.', 429);
+  } catch {
+    return bad('Impossible de vérifier les calculs en cours : réessaie dans un instant.', 503);
+  }
+  const req = newReq();
+  try {
+    const inputs = { id: kIds.join(','), day: kDays.every((d) => d === kDays[0]) ? kDays[0] : kDays.join(','), request_id: req };
     const r = await gh(`/actions/workflows/${WORKFLOW}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs }) });
     if (r.status === 401) return bad('Clé GitHub refusée (401) : invalide ou expirée.', 502);
     if (r.status === 403 || r.status === 404) return bad(`Clé GitHub sans les droits nécessaires (${r.status}) : Actions en lecture et écriture sur ${REPO}.`, 502);

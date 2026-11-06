@@ -197,6 +197,10 @@ export function ticketState(s: LegStatus[]): LegStatus {
   return s.includes('live') || s.includes('won') || s.includes('void') ? 'live' : 'pending';
 }
 
+/** Ticket entièrement remboursé (tous ses paris annulés) : enregistré « gagné » à la cote 1, mais ce n'est ni une victoire
+ * ni une défaite. Il est affiché « Remboursé » et ne compte pas dans le taux de réussite. */
+export const isRefunded = (t: Pick<Ticket, 'status' | 'legs'>) => t.status === 'won' && t.legs.length > 0 && t.legs.every((l) => l.status === 'void');
+
 /** Cote d'un ticket réglé : les paris remboursés comptent à 1. */
 export const settledOdds = (legs: Leg[]) => round(legs.reduce((x, l) => x * (l.status === 'void' ? 1 : (l.odds ?? 1)), 1), 3);
 
@@ -211,9 +215,14 @@ export async function completeTicket(owner: string, t: Ticket, leg: Leg) {
   if (Date.parse(leg.start) <= Date.now()) throw new Error('Ce match a déjà commencé.');
   const { status: _s, was: _w, ...clean } = leg;
   const legs = [...t.legs, clean];
-  const { data, error } = await supabase.from('tickets').update({ legs, kind: 'combine', odds: round(comboOdds(legs), 3) }).eq('id', t.id).eq('status', 'pending').select('id');
+  // Seulement si le ticket n'a pas bougé depuis sa lecture : la cote change à chaque pari ajouté et sert de numéro de
+  // version. Deux ajouts en même temps (deux onglets, deux appareils) ne s'écrasent plus : le second est refusé.
+  const { data, error } = await supabase.from('tickets').update({ legs, kind: 'combine', odds: round(comboOdds(legs), 3) }).eq('id', t.id).eq('status', 'pending').eq('odds', t.odds).select('id');
   if (error) throw new Error(tableError(error));
-  if (!data?.length) throw new Error('Ce ticket est déjà réglé.');
+  if (!data?.length) {
+    await loadTickets(owner, true);
+    throw new Error('Ce ticket a changé entre-temps (réglé, ou complété ailleurs). Il a été rechargé : réessayez.');
+  }
   await loadTickets(owner, true);
 }
 
@@ -388,7 +397,9 @@ export async function settleTickets(owner: string, tickets: Ticket[]): Promise<S
 async function settle(owner: string, tickets: Ticket[]): Promise<SettleEvent[]> {
   if (!supabase) return [];
   const now = Date.now();
-  const open = tickets.filter((t) => t.status === 'pending' && t.legs.some((l) => !final(l.status) && Date.parse(l.start) < now));
+  // Tickets en attente, et combinés déjà perdus dont d'autres paris ne sont pas encore réglés : on suit ces paris jusqu'au
+  // bout (le ticket reste perdu, mais chaque pari affiche son vrai résultat).
+  const open = tickets.filter((t) => (t.status === 'pending' || t.status === 'lost') && t.legs.some((l) => !final(l.status) && Date.parse(l.start) < now));
   if (!open.length) return [];
   const st = await fetchStatuses(open.flatMap((t) => t.legs.filter((l) => !final(l.status))));
   const events: SettleEvent[] = [];
@@ -407,11 +418,17 @@ async function settle(owner: string, tickets: Ticket[]): Promise<SettleEvent[]> 
       return { ...l, status: s, ...(note ? { note } : {}) };
     });
     if (!fresh.length) continue;
+    if (t.status === 'lost') {
+      // Combiné déjà perdu : seuls les paris restants sont mis à jour, sans nouvelle annonce du ticket.
+      const { error } = await supabase.from('tickets').update({ legs }).eq('id', t.id).eq('status', 'lost').eq('odds', t.odds);
+      if (!error) for (const l of fresh) told.add(`${t.id}:${l.key}`);
+      continue;
+    }
     const fin = ticketState(legs.map((l) => l.status ?? 'pending'));
     const status: TicketStatus = fin === 'won' || fin === 'lost' ? fin : 'pending';
     const patch = status === 'pending' ? { legs } : { legs, status, odds: status === 'won' ? settledOdds(legs) : t.odds, settled_at: new Date().toISOString(), seen: false };
-    // Seulement si le ticket était encore en attente (un autre onglet a pu le régler entre-temps).
-    const { data, error } = await supabase.from('tickets').update(patch).eq('id', t.id).eq('status', 'pending').select('id');
+    // Seulement si le ticket n'a pas bougé (encore en attente, même cote : pas complété ni réglé ailleurs entre-temps).
+    const { data, error } = await supabase.from('tickets').update(patch).eq('id', t.id).eq('status', 'pending').eq('odds', t.odds).select('id');
     if (error || !data?.length) continue;
     const next = { ...t, ...patch } as Ticket;
     if (t.legs.length > 1) for (const l of fresh) tell(`${t.id}:${l.key}`, { kind: 'leg', status: l.status as 'won' | 'lost' | 'void', ticket: next, leg: l });

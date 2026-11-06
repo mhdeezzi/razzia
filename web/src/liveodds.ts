@@ -19,6 +19,18 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
 // Une relecture par minute au plus : le cache du CDN sert le reste du temps.
 const stamp = () => Math.floor(Date.now() / 60_000);
 
+/** Même pari que celui du ticket : même type et même camp (et même joueur pour les points). Une catégorie (« vainqueur »,
+ * « handicap ») ne suffit pas : si le favori change, son pari désigne l'autre équipe, et le ticket ne doit jamais changer
+ * d'équipe ou de joueur à l'insu de l'utilisateur. */
+const same = (o: Outcome, l: Leg) => !!o.bet && o.bet.kind === l.bet.kind && o.bet.side === l.bet.side && (l.bet.kind !== 'pts' || o.bet.player === l.bet.player);
+/** Le pari du ticket parmi les pronostics du moment : par son identifiant s'il porte toujours sur le même camp, sinon
+ * le même pari ailleurs (même type, même camp, même nombre de sets) ; introuvable : null (pari plus proposé). */
+function pickSame(items: Outcome[], l: Leg): Outcome | null {
+  const byId = items.find((x) => x.id === oidOf(l));
+  if (byId && same(byId, l)) return byId;
+  return items.find((x) => same(x, l) && (x.bet!.need ?? null) === (l.bet.need ?? null)) ?? null;
+}
+
 const fromOutcome = (o: Outcome): Fresh => ({ odds: r2(o.odds ?? o.fair ?? 1), fair: o.odds == null, p: o.p, title: o.title, bet: o.bet! });
 
 /** Points d'un joueur, d'après la dernière simulation : cote juste de la ligne choisie. */
@@ -60,13 +72,13 @@ export async function freshOdds(legs: Leg[]): Promise<FreshMap> {
       const r = await resultOf(g);
       if (!r) return void (out[l.key] = null);
       if (l.bet.kind === 'pts') return void (out[l.key] = ptsFresh(r, l));
-      const o = buildCategories(r, g).flatMap((c) => c.items).find((x) => x.id === oidOf(l));
+      const o = pickSame(buildCategories(r, g).flatMap((c) => c.items), l);
       out[l.key] = o?.bet ? fromOutcome(o) : null;
     }),
   );
   // Tennis : la simulation du match, avec la cote du vainqueur du programme (plus récente que celle de la simulation).
   if (atp.length) {
-    let slate: Array<{ id: string; start: string; live?: { state?: string }; odds?: { ml?: [number, number] } }> = [];
+    let slate: Array<{ id: string; start: string; home?: string; away?: string; live?: { state?: string }; odds?: { ml?: [number, number] } }> = [];
     try {
       slate = (await fetch(`/api/tennis?slate=1&t=${stamp()}`).then((x) => x.json())).matches ?? [];
     } catch {
@@ -80,8 +92,15 @@ export async function freshOdds(legs: Leg[]): Promise<FreshMap> {
           const s = await fetch(`/api/tennis?id=${l.match.id}&day=${l.date}`).then((x) => x.json());
           if (s.status !== 'done') return void (out[l.key] = null);
           const r = s.result;
-          if (m.odds?.ml) r.market = { ...r.market, odds: { ...(r.market?.odds ?? {}), ml: m.odds.ml } };
-          const o = buildTennisCategories(r).flatMap((c) => c.items).find((x) => x.id === oidOf(l));
+          // Cote du programme remise dans l'ordre des joueurs de la simulation : le programme peut les avoir inversés pour
+          // suivre Pinnacle (sinon la victoire de l'un recevait la cote de l'autre).
+          if (m.odds?.ml) {
+            const norm = (n?: string) => (n ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+            const flipped = !!m.home && norm(m.home) !== norm(r.home?.name) && norm(m.home) === norm(r.away?.name);
+            const ml: [number, number] = flipped ? [m.odds.ml[1], m.odds.ml[0]] : m.odds.ml;
+            r.market = { ...r.market, odds: { ...(r.market?.odds ?? {}), ml } };
+          }
+          const o = pickSame(buildTennisCategories(r).flatMap((c) => c.items), l);
           out[l.key] = o?.bet ? fromOutcome(o) : null;
         } catch {
           out[l.key] = null;

@@ -43,24 +43,17 @@ async function live(): Promise<Map<string, { state: 'pre' | 'in' | 'post'; score
   return out;
 }
 
+// Identifiant de demande = heure (base 36, 8 car.) + 4 car. au hasard : tant que GitHub n'affiche pas encore
+// le passage, une demande récente reste « en attente » au lieu de renvoyer l'ancien résultat comme terminé.
+const newReq = () => Date.now().toString(36).padStart(8, '0') + Math.random().toString(36).slice(2, 6).padEnd(4, '0');
+const reqFresh = (req: string) => req.length === 12 && Date.now() - parseInt(req.slice(0, 8), 36) < 15 * 60_000;
+
 async function findRun(req: string): Promise<any | undefined> {
   const r = await gh(`/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100`);
   if (!r.ok) return undefined;
   return ((await r.json()).workflow_runs ?? []).find((w: any) => String(w.display_title ?? '').endsWith(`· ${req}`));
 }
 
-async function refreshBilan(at: string | undefined): Promise<void> {
-  if (at && Date.now() - Date.parse(at) < 20 * 60_000) return;
-  try {
-    const r = await gh('/actions/workflows/bilan-foot.yml/runs?per_page=3');
-    if (!r.ok) return;
-    const runs: any[] = (await r.json()).workflow_runs ?? [];
-    if (runs.some((w) => w.status !== 'completed' || Date.now() - Date.parse(w.created_at) < 10 * 60_000)) return;
-    await gh('/actions/workflows/bilan-foot.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main' }) });
-  } catch {
-    /* le bilan reste tel quel */
-  }
-}
 
 export async function GET(request: Request): Promise<Response> {
   const q = new URL(request.url).searchParams;
@@ -78,13 +71,12 @@ export async function GET(request: Request): Promise<Response> {
       const b = await raw('foot/bilan.json', 'resultats');
       if (!b.ok) return Response.json({ games: 0, rows: [] }, { headers: noStore });
       const j = await b.json();
-      await refreshBilan(j.at);
       return Response.json(j, { headers: { 'Cache-Control': 'public, s-maxage=60' } });
     }
     const id = q.get('id'), req = q.get('req');
     if (!id && req && /^[a-z0-9]{4,12}$/.test(req)) {
       const run = await findRun(req);
-      if (!run) return Response.json({ status: 'queued' }, { headers: noStore });
+      if (!run) return Response.json(reqFresh(req) ? { status: 'queued' } : { status: 'failed' }, { headers: noStore });
       const status = run.status !== 'completed' ? (run.status === 'queued' ? 'queued' : 'running') : run.conclusion === 'success' ? 'done' : 'failed';
       return Response.json({ status, startedAt: run.run_started_at, url: run.html_url }, { headers: noStore });
     }
@@ -95,13 +87,14 @@ export async function GET(request: Request): Promise<Response> {
       if (!req) return Response.json({ status: 'done', result }, { headers: noStore });
       const run = await findRun(req);
       if (run?.status === 'completed' && run.conclusion !== 'success') return Response.json({ status: 'done', result, relaunchFailed: true, url: run.html_url }, { headers: noStore });
+      if (!run && reqFresh(req)) return Response.json({ status: 'queued', previous: result }, { headers: noStore });
       if (!run || run.status === 'completed') return Response.json({ status: 'done', result }, { headers: noStore });
       if (result.meta?.builtAt && Date.parse(result.meta.builtAt) > Date.parse(run.created_at)) return Response.json({ status: 'done', result }, { headers: noStore });
       return Response.json({ status: run.status === 'queued' ? 'queued' : 'running', startedAt: run.run_started_at, previous: result }, { headers: noStore });
     }
     if (!req) return Response.json({ status: 'none' }, { headers: noStore });
     const run = await findRun(req);
-    if (!run) return Response.json({ status: 'queued' }, { headers: noStore });
+    if (!run) return Response.json(reqFresh(req) ? { status: 'queued' } : { status: 'failed' }, { headers: noStore });
     if (run.status === 'completed') return Response.json({ status: run.conclusion === 'success' ? 'running' : 'failed', url: run.html_url }, { headers: noStore });
     return Response.json({ status: run.status === 'queued' ? 'queued' : 'running', startedAt: run.run_started_at, url: run.html_url }, { headers: noStore });
   } catch (e) {
@@ -113,9 +106,26 @@ export async function POST(request: Request): Promise<Response> {
   const body = (await request.json().catch(() => null)) ?? {};
   const ids: unknown[] = Array.isArray(body.ids) ? body.ids : [body.id];
   if (!ids.length || ids.length > 40 || !ids.every(okId)) return bad('Paramètres invalides');
-  const req = Math.random().toString(36).slice(2, 10);
+  // Seulement des matchs du programme pas encore commencés ; rattachement à un calcul déjà en cours ; 10 au plus.
+  let kIds: string[];
   try {
-    const r = await gh(`/actions/workflows/${WORKFLOW}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { ids: ids.join(','), request_id: req } }) });
+    const sl = await raw('slate.json', 'donnees-foot');
+    if (!sl.ok) return bad('Programme indisponible pour le moment : réessaie dans un instant.', 503);
+    const ms: any[] = (await sl.json()).matches ?? [];
+    kIds = ids.map(String).filter((id) => { const m = ms.find((x) => x.id === id); return m && m.state === 'pre' && Date.parse(m.start) > Date.now(); });
+    if (!kIds.length) return bad(ids.length > 1 ? 'Aucun match à venir dans cette demande.' : 'Match commencé ou introuvable : pas de simulation.', 409);
+    const rr = await gh(`/actions/workflows/${WORKFLOW}/runs?per_page=50`);
+    if (!rr.ok) throw new Error(String(rr.status));
+    const running: any[] = ((await rr.json()).workflow_runs ?? []).filter((w: any) => w.status !== 'completed');
+    const same = running.find((w) => { const t = String(w.display_title ?? '').split(' ')[1]?.split(',') ?? []; return kIds.every((id) => t.includes(id)); });
+    if (same) return Response.json({ status: 'queued', req: String(same.display_title).split(' · ').pop() }, { headers: noStore });
+    if (running.length >= 10) return bad('Trop de simulations en cours : réessaie dans quelques minutes.', 429);
+  } catch {
+    return bad('Impossible de vérifier le programme ou les calculs en cours : réessaie dans un instant.', 503);
+  }
+  const req = newReq();
+  try {
+    const r = await gh(`/actions/workflows/${WORKFLOW}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { ids: kIds.join(','), request_id: req } }) });
     if (r.status === 401) return bad('Clé GitHub refusée (401) : invalide ou expirée.', 502);
     if (r.status === 403 || r.status === 404) return bad(`Clé GitHub sans les droits nécessaires (${r.status}).`, 502);
     if (!r.ok) return bad(`GitHub a refusé le lancement (${r.status}) : ${(await r.text()).slice(0, 200)}`, 502);
