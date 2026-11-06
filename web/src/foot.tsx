@@ -575,7 +575,7 @@ function FootHero({ id, r }: { id: string; r?: FootResult }) {
   useEffect(() => {
     void api('?slate=1').then(setSlate, () => setSlate({ matches: [], sims: [] }));
   }, []);
-  const m = slate?.matches.find((x) => x.id === id);
+  const m = slate?.matches?.find((x) => x.id === id);
   if (!r && !m) return slate ? null : <span className="sk sk-hero" aria-busy="true" />;
   const st = m ? stateOf(m) : 'pre';
   const home = r?.home ?? m!.home, away = r?.away ?? m!.away;

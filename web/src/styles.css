@@ -98,6 +98,7 @@ body {
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  min-height: 100vh;
   min-height: 100dvh;
 }
 a { color: inherit; text-decoration: none; }
@@ -656,7 +657,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .feu-who { display: flex; align-items: center; gap: 12px; }
 .feu-id { min-width: 0; flex: 1; }
 .feu-face { position: relative; flex: none; width: 48px; height: 48px; }
-.feu-photo { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--tc) 30%, #0b0b0d); }
+.feu-photo { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #1a1a1d; background: color-mix(in srgb, var(--tc) 30%, #0b0b0d); }
 .feu-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 10%; }
 .feu-face > .mark { position: absolute; right: -5px; bottom: -3px; width: 20px; height: 20px; box-shadow: 0 0 0 2px #000; }
 .feu-name { font-weight: 650; font-size: 15px; line-height: 1.25; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1476,7 +1477,7 @@ body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
 .auth-perks li > span { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); color: var(--c-green); }
 .auth-perks b { font-size: 14.5px; }
 .auth-perks p { font-size: 13px; color: #c4c4c8; margin-top: 2px; }
-.auth-card2 { display: grid; align-content: center; gap: 16px; padding: 34px 30px; border-radius: var(--r-hero); background: #0b0b0d; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.auth-card2 { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; gap: 16px; padding: 34px 30px; border-radius: var(--r-hero); background: #0b0b0d; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
 .auth-card2 .seg { width: 100%; }
 .auth-card2 .seg button { flex: 1; justify-content: center; }
 .auth-head { display: grid; gap: 6px; margin-top: 6px; }
@@ -1658,11 +1659,11 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 /* Le reste de la fiche (match typique, cartes et profil de tir, confrontations) : bleu = extérieur, rouge = domicile
    deviennent les couleurs des deux camps. */
 .team-marble { --blue: var(--team-a); --rose: var(--team-h); --rose-soft: color-mix(in srgb, var(--team-h) 16%, transparent); }
-.team-marble .flow-side.top, .team-marble .flow-kpi.home b { color: color-mix(in srgb, var(--team-h) 70%, #fff); }
-.team-marble .flow-side.bot, .team-marble .flow-kpi.away b { color: color-mix(in srgb, var(--team-a) 70%, #fff); }
+.team-marble .flow-side.top, .team-marble .flow-kpi.home b { color: var(--team-h); color: color-mix(in srgb, var(--team-h) 70%, #fff); }
+.team-marble .flow-side.bot, .team-marble .flow-kpi.away b { color: var(--team-a); color: color-mix(in srgb, var(--team-a) 70%, #fff); }
 .team-marble .flow-chart { background: radial-gradient(70% 60% at 50% 0%, color-mix(in srgb, var(--team-h) 9%, transparent), transparent 70%), radial-gradient(70% 60% at 50% 100%, color-mix(in srgb, var(--team-a) 9%, transparent), transparent 70%), #000; }
-.team-marble .t-res.w { color: color-mix(in srgb, var(--team-h) 70%, #fff); background: color-mix(in srgb, var(--team-h) 16%, transparent); }
-.team-marble .t-res.l { color: color-mix(in srgb, var(--team-a) 70%, #fff); background: color-mix(in srgb, var(--team-a) 16%, transparent); }
+.team-marble .t-res.w { color: var(--team-h); background: rgba(255, 255, 255, 0.06); color: color-mix(in srgb, var(--team-h) 70%, #fff); background: color-mix(in srgb, var(--team-h) 16%, transparent); }
+.team-marble .t-res.l { color: var(--team-a); background: rgba(255, 255, 255, 0.06); color: color-mix(in srgb, var(--team-a) 70%, #fff); background: color-mix(in srgb, var(--team-a) 16%, transparent); }
 .team-marble .oc-bar span, .team-marble .ladder-bar span { --k: var(--fav); }
 .team-marble .split-bar span:not(.is-fav) { opacity: 0.4; box-shadow: none; }
 .ring-marble .ring-warp { z-index: 1; }
@@ -1762,8 +1763,8 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .f-fg-side.a { justify-content: flex-end; text-align: right; }
 .f-fg-side > div, .f-fg-mid { display: grid; gap: 2px; min-width: 0; }
 .f-fg-side b { font-size: 30px; letter-spacing: -0.04em; line-height: 1; }
-.f-fg-side.h b { color: color-mix(in srgb, var(--team-h) 70%, white 30%); }
-.f-fg-side.a b { color: color-mix(in srgb, var(--team-a) 70%, white 30%); }
+.f-fg-side.h b { color: var(--team-h); color: color-mix(in srgb, var(--team-h) 70%, white 30%); }
+.f-fg-side.a b { color: var(--team-a); color: color-mix(in srgb, var(--team-a) 70%, white 30%); }
 .f-fg-side span, .f-fg-mid span { color: var(--text-3); font-size: 12.5px; }
 .f-fg-mid { text-align: center; }
 .f-fg-mid b { font-size: 18px; color: var(--text-2); }
@@ -1790,8 +1791,8 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .f-lead-k { font-size: 13.5px; color: var(--text-2); }
 .f-lead-bar { display: flex; gap: 3px; height: 28px; }
 .f-lead-bar span { display: grid; place-items: center; min-width: 0; border-radius: 8px; font: 600 12px var(--sans); color: #fff; white-space: nowrap; overflow: hidden; transform-origin: left; animation: grow 0.6s var(--ease) both; }
-.f-lead-bar .h { background: color-mix(in srgb, var(--team-h) 80%, black 20%); }
-.f-lead-bar .a { background: color-mix(in srgb, var(--team-a) 80%, black 20%); }
+.f-lead-bar .h { background: var(--team-h); background: color-mix(in srgb, var(--team-h) 80%, black 20%); }
+.f-lead-bar .a { background: var(--team-a); background: color-mix(in srgb, var(--team-a) 80%, black 20%); }
 .f-lead-bar .d { background: #2c2c31; color: var(--text-2); }
 .f-h2h { list-style: none; margin: 0; padding: 0; display: grid; }
 .f-h2h li { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 14px; padding: 11px 0; border-top: 1px solid var(--line); font-size: 14px; }
@@ -1808,3 +1809,23 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
   .f-h2h li > .muted.small { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .f-fg-bar span, .f-tl-goal, .f-lead-bar span { animation: none; } }
+
+/* Très petits téléphones (320 à 360 px : iPhone SE 1re génération, petits Android) : barre du haut resserrée pour que
+   Suivi et Compte restent dans l'écran (sans ça, la page entière débordait de 24 px). */
+@media (max-width: 360px) {
+  .topbar { padding: 0 6px; }
+  .topbar-in { gap: 6px; padding: 0 5px 0 10px; }
+  .logo { height: 24px; }
+  .sports { padding: 2px; }
+  .sport { width: 38px; height: 34px; }
+  .top-right { margin-left: 4px; gap: 3px; }
+  .top-account, .top-suivi { width: 36px; height: 36px; }
+}
+@media (max-width: 360px) {
+  .auth-card2 { padding: 26px 18px; }
+  .auth-card2 .seg button { padding: 7px 8px; font-size: 13px; }
+  .auth-head h1 { font-size: 36px; }
+}
+/* Champs et boutons de connexion : jamais plus larges que la carte (un champ a sinon une largeur minimale). */
+.auth-card2 .field, .auth-card2 .field input, .auth-card2 .auth-social, .auth-card2 .auth-social > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.auth-card2 .field input { width: 100%; }

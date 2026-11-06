@@ -707,7 +707,7 @@ function TennisHero({ id, r }: { id: string; r?: TennisResult }) {
   useEffect(() => {
     void api('?slate=1').then(setSlate, () => setSlate({ matches: [] }));
   }, []);
-  const m = slate?.matches.find((x) => x.id === id);
+  const m = slate?.matches?.find((x) => x.id === id);
   if (!r && !m) return slate ? null : <span className="sk sk-hero" aria-busy="true" />;
   const st = m ? stateOf(m) : 'pre';
   const league = m?.league ?? '';
