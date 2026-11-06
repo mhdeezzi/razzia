@@ -51,10 +51,15 @@ export function combo(p: Map<string, number>, T: number): { id: string; p: numbe
  * combiné rattaché quand il est jugé sûr. Un combiné « Risqué » n'entre jamais dans le bilan. */
 export const countsInBilan = (pick: { risky?: boolean } | undefined) => !!pick && !pick.risky;
 
-/** Niveau d'un match (pastille) à partir du prono mis en avant : « assuré » à 85 % et plus (91,8 % réussis sur
- * 2024-2026), « normal » entre le seuil et 85 % (87,6 % tous niveaux confondus), « risqué » s'il n'y a pas de prono
- * mis en avant (match trop ouvert, seul le combiné risqué reste). */
+/** Niveau d'un match (pastille), à partir des probabilités Razzia (pas de la cote) : le favori est celui de Razzia, même
+ * si le marché voit l'autre équipe devant. Vert « assuré » : prono mis en avant à 85 % et plus (91,8 % réussis sur
+ * 2024-2026) ; normal : prono mis en avant sous 85 % ; orange « risqué » : pas de prono mis en avant mais double chance
+ * du favori à 70 % ou plus (combiné rattaché ~71 %) ; rouge « pile ou face » : double chance du favori sous 70 %
+ * (combiné rattaché 52 à 65 %). Seuls vert et normal comptent au bilan. */
 export const T_SURE_FOOT = 0.85;
-export function tier(best: { p: number } | undefined): 'sure' | 'normal' | 'risky' {
-  return !best ? 'risky' : best.p >= T_SURE_FOOT ? 'sure' : 'normal';
+export const T_FLIP_FOOT = 0.7;
+export function tier(p: Map<string, number>, best: { p: number } | undefined): 'sure' | 'normal' | 'risky' | 'flip' {
+  if (best) return best.p >= T_SURE_FOOT ? 'sure' : 'normal';
+  const dc = Math.max(p.get('1X')!, p.get('X2')!);
+  return dc >= T_FLIP_FOOT ? 'risky' : 'flip';
 }
