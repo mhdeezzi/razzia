@@ -283,7 +283,11 @@ export async function GET(request: Request): Promise<Response> {
       if (process.env.TICK_KEY && q.get('key') !== process.env.TICK_KEY) return bad('Accès refusé', 403);
       return await tick();
     }
-    if (q.get('sante')) return await health();
+    // Santé : chaque appel lit GitHub une dizaine de fois, donc même clé que l'horloge quand elle est réglée.
+    if (q.get('sante')) {
+      if (process.env.TICK_KEY && q.get('key') !== process.env.TICK_KEY) return bad('Accès refusé', 403);
+      return await health();
+    }
     if (q.get('bilan')) {
       const r = await gh(`/contents/sims/bilan.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
       if (!r.ok) return Response.json({ error: 'Bilan pas encore calculé (une fois par jour, matchs terminés).' }, { status: 404, headers: noStore });
