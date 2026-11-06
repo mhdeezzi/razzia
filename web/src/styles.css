@@ -1772,7 +1772,7 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .f-flow-lede b { color: var(--text); }
 .f-tl { display: grid; gap: 0; padding: 0 22px; }
 .f-tl-row { position: relative; height: 58px; }
-.f-tl-goal { position: absolute; transform: translateX(-50%); display: grid; justify-items: center; gap: 3px; animation: rise 0.4s var(--ease) both; }
+.f-tl-goal { position: absolute; translate: -50% 0; /* pas transform : l'animation d'entrée l'écraserait */ display: grid; justify-items: center; gap: 3px; animation: rise 0.4s var(--ease) both; }
 .f-tl-row.h .f-tl-goal { bottom: 0; }
 .f-tl-row.a .f-tl-goal { top: 0; }
 .f-tl-goal b { font-size: 12px; color: var(--text); line-height: 1; }
