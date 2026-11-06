@@ -50,10 +50,10 @@ const POP: Record<number, number> = {
   9847: 3, 8633: 3, 8634: 3, 9823: 3, 8456: 3, 8650: 3, 9825: 3, 8455: 3, 10260: 3, 9885: 3, 8636: 3, 8564: 3,
   9906: 2, 8586: 2, 10261: 2, 9789: 2, 8592: 2, 9875: 2, 8686: 2, 9748: 2, 9829: 2, 10252: 2, 8524: 2, 8639: 2, 10171: 2,
   8302: 2, 8315: 2, 8560: 2, 10205: 2, 8588: 2, 9831: 2, 9773: 2, 9768: 2, 8637: 2, 8695: 2, 8640: 2, 10235: 2,
-  178475: 2, 10269: 2, 9851: 2, 8543: 2,
+  178475: 2, 10269: 2, 9851: 2, 8543: 2, 8178: 2, 9810: 2, 10189: 2, 9790: 2,
 };
-// À attrait égal : Ligue 1, Premier League, LaLiga puis Serie A.
-const LG_W: Record<number, number> = { 53: 0.4, 47: 0.35, 87: 0.3, 55: 0.25 };
+// À attrait égal : Ligue 1, Premier League, LaLiga, Serie A puis Bundesliga.
+const LG_W: Record<number, number> = { 53: 0.4, 47: 0.35, 87: 0.3, 55: 0.25, 54: 0.2 };
 const pop = (id: number) => POP[id] ?? 1;
 const hype = (m: SlateFoot) => pop(m.home.id) + pop(m.away.id) + (pop(m.home.id) >= 2 && pop(m.away.id) >= 2 ? 1 : 0) + (LG_W[m.lg] ?? 0);
 const parisDay = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(iso));

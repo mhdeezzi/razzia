@@ -27,7 +27,7 @@ export interface FootResult {
   tier: Tier; T: number; scorers: Array<{ id: number; name: string; side: 'home' | 'away'; p: number }>; n: number;
   meta: { builtAt: string; gamesUsed: number; model?: string };
   flow?: Array<[number, number, number]>; // toutes les 5 minutes : domicile mène, nul, extérieur mène
-  typical?: { score: [number, number]; share: number; goals: Array<{ side: 'home' | 'away'; min: number }> };
+  typical?: { given?: 'home' | 'away' | 'draw'; p?: number; score: [number, number]; share: number; goals: Array<{ side: 'home' | 'away'; min: number }> };
   h2h?: Array<{ date: string; lg: number; league?: string; home: number; away: number; score: [number, number] }>;
 }
 interface SlateMatch { id: string; lg: number; league: string; round?: string; start: string; home: { id: number; name: string }; away: { id: number; name: string }; state: 'pre' | 'in' | 'post'; score?: [number, number]; minute?: string; odds?: Odds }
@@ -57,8 +57,8 @@ const localDay = (iso: string | number) => {
 const dayLongOf = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
 // ——— Compétitions et clubs ———
-const LEAGUE_FR: Record<number, string> = { 42: 'Ligue des Champions', 47: 'Premier League', 87: 'LaLiga', 55: 'Serie A', 53: 'Ligue 1' };
-const LEAGUE_ORDER = [42, 47, 87, 55, 53];
+const LEAGUE_FR: Record<number, string> = { 42: 'Ligue des Champions', 47: 'Premier League', 87: 'LaLiga', 55: 'Serie A', 53: 'Ligue 1', 54: 'Bundesliga' };
+const LEAGUE_ORDER = [42, 53, 47, 87, 55, 54];
 const leagueOf = (lg: number, name?: string) => LEAGUE_FR[lg] ?? name ?? '';
 /** « 10 » -> « 10e journée » ; les tours de coupe restent tels quels. */
 const roundFr = (round?: string, short = false) => {
@@ -74,7 +74,8 @@ const SHORT: Record<string, string> = {
   'Deportivo A Coruña': 'La Corogne', 'Racing Santander': 'Racing', 'Rayo Vallecano': 'Rayo', 'Real Sociedad': 'Real Sociedad',
   'Shakhtar Donetsk': 'Shakhtar', 'PSV Eindhoven': 'PSV', 'Slovan Bratislava': 'Slovan', 'Slavia Prague': 'Slavia Prague',
   'Crystal Palace': 'Palace', 'Leeds United': 'Leeds', 'Ipswich Town': 'Ipswich', 'Coventry City': 'Coventry', 'Hull City': 'Hull',
-  'VfB Stuttgart': 'Stuttgart', 'RB Leipzig': 'Leipzig', 'Club Brugge': 'Bruges', 'Sporting CP': 'Sporting', 'FC Porto': 'Porto',
+  'VfB Stuttgart': 'Stuttgart', 'RB Leipzig': 'Leipzig', 'Bayer Leverkusen': 'Leverkusen', 'Borussia Mönchengladbach': 'Gladbach',
+  'Eintracht Frankfurt': 'Francfort', '1. FC Köln': 'Cologne', 'Hamburger SV': 'Hambourg', 'Werder Bremen': 'Brême', 'Union Berlin': 'Union Berlin', 'Club Brugge': 'Bruges', 'Sporting CP': 'Sporting', 'FC Porto': 'Porto',
   'Bodø/Glimt': 'Bodø/Glimt', 'AEK Athens': 'AEK Athènes', 'Athletic Club': 'Bilbao', 'Celta Vigo': 'Celta', 'Real Betis': 'Betis', 'Sabah FK': 'Sabah',
 };
 const short = (n: string) => SHORT[n] ?? n;
@@ -93,6 +94,8 @@ const TRI: Record<string, string> = {
   Roma: 'ROM', 'Sabah FK': 'SAB', Sassuolo: 'SAS', Sevilla: 'SEV', 'Shakhtar Donetsk': 'SHA', 'Slavia Prague': 'SLA', 'Slovan Bratislava': 'SLO',
   'Sporting CP': 'SCP', Strasbourg: 'RCSA', Sunderland: 'SUN', Torino: 'TOR', 'Tottenham Hotspur': 'TOT', Toulouse: 'TLS', Troyes: 'ESTAC', Udinese: 'UDI',
   Valencia: 'VAL', Venezia: 'VEN', 'VfB Stuttgart': 'VFB', Viking: 'VIK', Villarreal: 'VIL',
+  '1. FC Köln': 'KOE', Augsburg: 'FCA', 'Bayer Leverkusen': 'B04', 'Borussia Mönchengladbach': 'BMG', 'Eintracht Frankfurt': 'SGE', Elversberg: 'SVE',
+  Freiburg: 'SCF', 'Hamburger SV': 'HSV', Hoffenheim: 'TSG', 'Mainz 05': 'M05', Paderborn: 'SCP', 'Schalke 04': 'S04', 'Union Berlin': 'FCU', 'Werder Bremen': 'SVW',
 };
 const tri = (n: string) => TRI[n] ?? n.replace(/[^A-Za-zÀ-ÿ]/g, '').slice(0, 3).toUpperCase();
 /** Couleur principale de chaque club (identifiant FotMob) : marbre du bandeau, ronds et barres. Sinon gris. */
@@ -108,12 +111,14 @@ const COLOR: Record<number, string> = {
   10233: '#a6192e', 8636: '#0068a8', 9885: '#8a8a8a', 8543: '#87d8f7', 9888: '#ffdd00', 8564: '#fb090b', 6504: '#e2001a', 9875: '#12a0d7',
   10167: '#ffd200', 8686: '#8e1f2f', 7943: '#00a752', 9804: '#8b1a1a', 8600: '#8a8a8a', 7881: '#f47920', 8563: '#ffd200', 9823: '#dc052d',
   8402: '#ffd200', 9789: '#fde100', 8342: '#0067ce', 9773: '#00428c', 8695: '#163962', 10235: '#e30613', 8637: '#a90432', 9977: '#6b6b6b',
+  8722: '#ed1c24', 8406: '#ba3733', 8178: '#e32221', 9788: '#1d9053', 9810: '#e1000f', 8232: '#0b2a6b', 8358: '#d40f1a', 9790: '#0a3f86',
+  8226: '#1961b5', 9905: '#c3141e', 8460: '#005ca9', 10189: '#004d9d', 8149: '#d4011d', 8697: '#1d9053',
   8640: '#ed1c24', 178475: '#dd0741', 951893: '#2c6fb7', 9728: '#f07d00', 7787: '#c8102e', 6019: '#4aa3df', 9768: '#00804a', 10269: '#e32219', 8478: '#0b5aa6',
 };
 /** Seconde couleur des clubs dont la principale est neutre (noir, blanc, gris) ou proche d'un rival fréquent. */
 const ALT: Record<number, string> = {
   9879: '#cc1f2f', 9885: '#c9a227', 8600: '#d4a017', 8121: '#c8a24a', 9977: '#c8102e', 10261: '#41a7e0', 8456: '#1c2c5b', 9875: '#0b3d91',
-  8633: '#6c4fa3', 9823: '#0a3f86', 8650: '#00a398', 10260: '#fbe122', 8634: '#004d98', 9825: '#9c824a', 8455: '#d1d3d4', 8564: '#e8e8e8',
+  8633: '#6c4fa3', 9823: '#0a3f86', 9788: '#e8e8e8', 8178: '#f5c400', 9810: '#ffffff', 8722: '#ffffff', 8358: '#ffffff', 9905: '#ffffff', 8149: '#ffd800', 8650: '#00a398', 10260: '#fbe122', 8634: '#004d98', 9825: '#9c824a', 8455: '#d1d3d4', 8564: '#e8e8e8',
   8636: '#c9a227', 9847: '#da291c', 8592: '#ffffff', 9748: '#da291c', 8586: '#ffffff', 9906: '#262e61',
 };
 const hex = (c: string) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
@@ -181,10 +186,10 @@ const POP: Record<number, number> = {
   9847: 3, 8633: 3, 8634: 3, 9823: 3, 8456: 3, 8650: 3, 9825: 3, 8455: 3, 10260: 3, 9885: 3, 8636: 3, 8564: 3,
   9906: 2, 8586: 2, 10261: 2, 9789: 2, 8592: 2, 9875: 2, 8686: 2, 9748: 2, 9829: 2, 10252: 2, 8524: 2, 8639: 2, 10171: 2,
   8302: 2, 8315: 2, 8560: 2, 10205: 2, 8588: 2, 9831: 2, 9773: 2, 9768: 2, 8637: 2, 8695: 2, 8640: 2, 10235: 2,
-  178475: 2, 10269: 2, 9851: 2, 8543: 2,
+  178475: 2, 10269: 2, 9851: 2, 8543: 2, 8178: 2, 9810: 2, 10189: 2, 9790: 2,
 };
 const pop = (id: number) => POP[id] ?? 1;
-const LG_BONUS: Record<number, number> = { 42: 3, 53: 1.5, 47: 0.35, 87: 0.3, 55: 0.25 };
+const LG_BONUS: Record<number, number> = { 42: 3, 53: 1.5, 47: 0.35, 87: 0.3, 55: 0.25, 54: 0.2 };
 const score = (m: SlateMatch) => pop(m.home.id) + pop(m.away.id) + (pop(m.home.id) >= 2 && pop(m.away.id) >= 2 ? 1 : 0) + (LG_BONUS[m.lg] ?? 0);
 
 export function FootSchedulePage({ day }: { day: string | null }) {
@@ -502,6 +507,7 @@ function FootCard({ m, sim, running, i }: { m: SlateMatch; sim?: SimIndex; runni
   };
   return (
     <Link href={matchPath(m)} className="card card-a" style={{ '--i': i } as CSSProperties}>
+      <CaretRight size={16} weight="bold" className="card-a-go" aria-hidden="true" />
       <span className="card-a-top mono">
         {st === 'pre' ? timeLocal(m.start) : st === 'in' ? `En direct${m.minute ? ` · ${m.minute}` : ''}` : 'Terminé'} · {leagueOf(m.lg, m.league)}
         {m.round && /^\d+$/.test(m.round) ? ` · ${roundFr(m.round, true)}` : ''}
@@ -738,8 +744,10 @@ function buildFootCategories(r: FootResult): Category[] {
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
     ...(bigFav ? [] : [{ id: 'double', label: 'Double chance', items: double }]),
   ];
-  // Score exact : le plus probable, toujours « Déconseillé » (même le plus fréquent ne tombe qu'une fois sur huit environ).
-  const sc = r.scores[0];
+  // Score exact : le plus probable du côté du favori (« Arsenal 2-0 »), le nul seulement s'il est l'issue la plus probable ;
+  // toujours « Déconseillé » (même le plus fréquent ne tombe qu'une fois sur huit environ).
+  const drawFirst = r.final.d > Math.max(r.final.h, r.final.a);
+  const sc = r.scores.find((x) => (drawFirst ? x.h === x.a : homeFav ? x.h > x.a : x.a > x.h)) ?? r.scores[0];
   if (sc) {
     const side = sc.h > sc.a ? r.home : sc.h < sc.a ? r.away : undefined;
     cats.push({ id: 'exact', label: 'Score exact', warn: true, items: [{
@@ -854,19 +862,37 @@ function FootResults({ r }: { r: FootResult }) {
           </Section>
         )}
         <Section title="Scores probables" tag={`${r.n.toLocaleString('fr-FR')} matchs simulés`}>
-          <ul className="f-scores">
-            {r.scores.slice(0, 9).map((s) => (
-              <li key={`${s.h}-${s.a}`} className={s.h > s.a ? 'h' : s.h < s.a ? 'a' : 'd'}>
-                <b className="mono">
-                  {s.h}-{s.a}
-                </b>
-                <span className="f-bar">
-                  <span style={{ width: `${(s.p / maxScore) * 100}%` }} />
-                </span>
-                <span className="mono muted">{pct(s.p)}</span>
-              </li>
+          {/* Trois colonnes : victoire domicile, nul, victoire extérieur, chacune avec son total et ses scores les plus
+              probables : les 2-0, 3-1, 2-1… se voient autant que le 1-1. */}
+          <div className="f-cols">
+            {(
+              [
+                ['h', `Victoire ${short(r.home.name)}`, r.final.h, (x: { h: number; a: number }) => x.h > x.a],
+                ['d', 'Match nul', r.final.d, (x: { h: number; a: number }) => x.h === x.a],
+                ['a', `Victoire ${short(r.away.name)}`, r.final.a, (x: { h: number; a: number }) => x.a > x.h],
+              ] as const
+            ).map(([k, label, tot, f]) => (
+              <div key={k} className={`f-col ${k}`}>
+                <p className="f-col-head">
+                  <span>{label}</span>
+                  <b className="mono">{pct0(tot)}</b>
+                </p>
+                <ul className="f-scores">
+                  {r.scores.filter(f).slice(0, 4).map((s) => (
+                    <li key={`${s.h}-${s.a}`} className={k}>
+                      <b className="mono">
+                        {s.h}-{s.a}
+                      </b>
+                      <span className="f-bar">
+                        <span style={{ width: `${(s.p / maxScore) * 100}%` }} />
+                      </span>
+                      <span className="mono muted">{pct(s.p)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         </Section>
         <Section title="Premier but" tag="qui ouvre le score">
           <FirstGoal r={r} />
@@ -995,7 +1021,19 @@ function FootFlow({ r }: { r: FootResult }) {
     <div className="f-flow">
       {t && (
         <p className="f-flow-lede">
-          Score le plus probable : <b>{short(r.home.name)} {t.score[0]}-{t.score[1]} {short(r.away.name)}</b>.{' '}
+          {t.given === 'home' || t.given === 'away' ? (
+            <>
+              Si {short(r[t.given].name)} gagne ({pct0(t.given === 'home' ? r.final.h : r.final.a)}), le score le plus probable est{' '}
+              <b>
+                {short(r.home.name)} {t.score[0]}-{t.score[1]} {short(r.away.name)}
+              </b>
+              .{' '}
+            </>
+          ) : (
+            <>
+              Score le plus probable : <b>{short(r.home.name)} {t.score[0]}-{t.score[1]} {short(r.away.name)}</b>.{' '}
+            </>
+          )}
           {goals.length === 0
             ? 'Aucun but de tout le match.'
             : `Le plus souvent : ${goals.map((g) => `${short(r[g.side].name)} ${g.kind} vers la ${g.min}e`).join(', ')}.`}
