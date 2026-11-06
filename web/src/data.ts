@@ -118,7 +118,11 @@ export function loadProgramme(): Promise<Programme> {
   if (programme && Date.now() - programmeAt > 5 * 60_000) programme = undefined;
   if (!programme) {
     programmeAt = Date.now();
-    programme = getJson<Programme>('/api/games?days=7').then((p) => (programmeLast = p)).catch((e) => {
+    programme = getJson<Programme>('/api/games?days=7').then((p) => {
+      // Réponse inattendue (serveur qui renvoie autre chose que le programme) : erreur lisible, pas de page blanche.
+      if (!Array.isArray(p?.games)) throw new Error('Programme illisible pour le moment, réessayez dans un instant.');
+      return (programmeLast = p);
+    }).catch((e) => {
       programme = undefined;
       throw e;
     });

@@ -1,5 +1,5 @@
 // Point d'entrée : en-tête, routes (programme, fiche de match, simulations), pied de page.
-import { StrictMode, useEffect, useState, type CSSProperties } from 'react';
+import { Component, StrictMode, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/geist'; // texte, menus et badges
 import '@fontsource-variable/geist-mono'; // heures, cotes, scores
@@ -23,6 +23,28 @@ import logo from './assets/razzia-logo.webp';
 
 // Compte (connexion) en ligne, sans paiement branché ; abonnement prêt, activé seulement par VITE_BILLING=1 au build.
 const BILLING = import.meta.env.VITE_BILLING === '1';
+
+/** Filet de sécurité : si une page plante (réponse inattendue d'un serveur…), message et bouton plutôt qu'une page
+ * blanche ; la barre du haut et le pied de page restent. Remis à zéro à chaque changement de page (key). */
+class PageGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="page">
+        <Empty title="Cette page n'a pas pu s'afficher.">
+          <p>Un service a répondu de façon inattendue. Réessayez dans un instant.</p>
+          <button className="btn btn-ghost" onClick={() => location.reload()}>
+            Recharger
+          </button>
+        </Empty>
+      </div>
+    );
+  }
+}
 
 function App() {
   const { path, search } = useLocation();
@@ -69,7 +91,9 @@ function App() {
     <>
       <TopBar />
       <TicketWatcher />
-      <main>{page}</main>
+      <main>
+        <PageGuard key={path}>{page}</PageGuard>
+      </main>
       <SlipBar path={path} />
       <Toasts />
       <footer className="foot">
