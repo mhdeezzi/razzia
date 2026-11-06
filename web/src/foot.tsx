@@ -17,7 +17,7 @@ interface Odds { h: number; d: number; a: number; over25?: number; under25?: num
 type Tier = 'sure' | 'normal' | 'risky' | 'flip';
 export interface FootResult {
   sport: 'foot'; id: string; lg: number; league: string; round?: string; start: string; day: string;
-  home: Team; away: Team; lineupType: 'official' | 'predicted' | 'unknown';
+  home: Team; away: Team; lineupType: 'standard' | 'official' | 'predicted' | 'unknown';
   lineups: Array<{ formation?: string; coach?: string; starters: string[]; out: Array<{ name: string; why: string }> }>;
   lambda: [number, number]; engine: { h: number; d: number; a: number }; final: { h: number; d: number; a: number };
   market?: { odds: Odds; src?: string };
@@ -829,7 +829,7 @@ function FootResults({ r }: { r: FootResult }) {
             </ul>
           </Section>
         )}
-        <Section title="Compositions" tag={r.lineupType === 'official' ? 'officielles' : r.lineupType === 'predicted' ? 'probables' : 'pas encore connues'}>
+        <Section title="Compositions" tag={r.lineupType === 'standard' || r.lineupType === 'official' ? 'officielles' : r.lineupType === 'predicted' ? 'probables' : 'pas encore connues'}>
           <div className="f-lineups">
             {(['home', 'away'] as const).map((k, i) => {
               const l = r.lineups[i];

@@ -42,6 +42,32 @@ for (const lg of SHOWN_LEAGUES) {
     });
   }
 }
-list.sort((a, b) => a.start.localeCompare(b.start));
-writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), matches: list }));
-console.log(`programme foot : ${list.length} matchs (${list.filter((x) => x.odds).length} avec cotes)`);
+// 20 matchs au plus par jour (heure de Paris). La Ligue des Champions passe toujours (elle peut dépasser 20) ; les matchs
+// de championnat complètent jusqu'à 20, les plus suivis d'abord : on écarte les affiches entre petites équipes.
+const MAX_DAY = 20;
+// Attrait de chaque club (identifiant FotMob) : 3 les géants, 2 les clubs très suivis, 1 les autres.
+const POP: Record<number, number> = {
+  9847: 3, 8633: 3, 8634: 3, 9823: 3, 8456: 3, 8650: 3, 9825: 3, 8455: 3, 10260: 3, 9885: 3, 8636: 3, 8564: 3,
+  9906: 2, 8586: 2, 10261: 2, 9789: 2, 8592: 2, 9875: 2, 8686: 2, 9748: 2, 9829: 2, 10252: 2, 8524: 2, 8639: 2, 10171: 2,
+  8302: 2, 8315: 2, 8560: 2, 10205: 2, 8588: 2, 9831: 2, 10267: 2, 9773: 2, 9768: 2, 8637: 2, 8695: 2, 8640: 2, 10235: 2,
+  178475: 2, 10269: 2, 9851: 2, 8543: 2,
+};
+// À attrait égal : Ligue 1, Premier League, LaLiga puis Serie A.
+const LG_W: Record<number, number> = { 53: 0.4, 47: 0.35, 87: 0.3, 55: 0.25 };
+const pop = (id: number) => POP[id] ?? 1;
+const hype = (m: SlateFoot) => pop(m.home.id) + pop(m.away.id) + (pop(m.home.id) >= 2 && pop(m.away.id) >= 2 ? 1 : 0) + (LG_W[m.lg] ?? 0);
+const parisDay = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(iso));
+const days = new Map<string, SlateFoot[]>();
+for (const m of list) days.set(parisDay(m.start), [...(days.get(parisDay(m.start)) ?? []), m]);
+const kept: SlateFoot[] = [];
+let dropped = 0;
+for (const [, ms] of days) {
+  const ucl = ms.filter((m) => m.lg === 42);
+  const rest = ms.filter((m) => m.lg !== 42).sort((a, b) => hype(b) - hype(a) || a.start.localeCompare(b.start));
+  const room = Math.max(0, MAX_DAY - ucl.length);
+  kept.push(...ucl, ...rest.slice(0, room));
+  dropped += Math.max(0, rest.length - room);
+}
+kept.sort((a, b) => a.start.localeCompare(b.start));
+writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), matches: kept }));
+console.log(`programme foot : ${kept.length} matchs (${kept.filter((x) => x.odds).length} avec cotes), ${dropped} petits matchs écartés (plus de ${MAX_DAY} par jour)`);

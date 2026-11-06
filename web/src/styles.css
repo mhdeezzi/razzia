@@ -1265,7 +1265,8 @@ a.row:hover .t-ava { transform: scale(1.06); }
 .card-a-p.risky { color: var(--c-amber); }
 @media (max-width: 720px) { .card-a { min-height: 0; } }
 /* Petit téléphone : Suivi et Compte tiennent dans la barre, le sport non choisi garde seulement son icône. */
-@media (max-width: 430px) { .sport:not(.is-on) .lbl { display: none; } .sport:not(.is-on) { padding: 0 11px; } }
+/* Téléphone : les trois sports en icônes seules, même taille, pour que Suivi et Compte tiennent dans la barre. */
+@media (max-width: 720px) { .sport .lbl { display: none; } .sport { width: 46px; padding: 0; justify-content: center; } }
 
 /* ——— Suivi : barre du haut, ticket flottant, messages ——— */
 .top-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--c-green); box-shadow: 0 0 0 2px #0b0b0d; }
