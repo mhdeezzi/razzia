@@ -45,7 +45,8 @@ export async function loadHistory(dir: string, from = 2015, now = new Date()): P
   }
   const seen = new Set<string>();
   return sortMatches(
-    readFiles(files, true).filter((m) => {
+    // TennisMyLife date chaque match du jour de début du tournoi : jour du tour ajouté (readFiles sans matchDates).
+    readFiles(files).filter((m) => {
       const k = `${m.tid}|${m.round}|${m.w.id}|${m.l.id}`;
       if (seen.has(k)) return false;
       seen.add(k);

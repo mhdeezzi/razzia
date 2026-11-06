@@ -33,7 +33,15 @@ export interface Match {
 export interface Player { id: string; first: string; last: string; hand: string; dob?: string; ioc: string; ht?: number; wikidata?: string }
 
 const ROUND_DAY_SLAM: Record<string, number> = { Q1: -4, Q2: -3, Q3: -2, R128: 1, R64: 3, R32: 5, R16: 7, QF: 9, SF: 11, F: 13 };
-const ROUND_DAY: Record<string, number> = { Q1: -2, Q2: -1, Q3: 0, R128: 0, R64: 1, R32: 2, R16: 3, QF: 4, SF: 5, RR: 3, BR: 6, F: 6 };
+// Jour du match après le début du tournoi, selon le tour et la taille du tableau (TennisMyLife et Sackmann ne donnent que
+// la date de début du tournoi : la finale de la United Cup 2025, jouée le 5 janvier, y est datée du 27 décembre).
+// Grands Masters 1000 (96 joueurs et plus : Indian Wells, Miami, Madrid, Rome, Canada, Cincinnati, Shanghai) sur douze jours ;
+// tableaux de 48 à 64 (Paris, ATP 500) et de 28 à 32 (ATP 250, Challengers) sur une semaine.
+const ROUND_DAY_BIG: Record<string, number> = { Q1: -2, Q2: -1, Q3: 0, R128: 1, R64: 3, R32: 5, R16: 6, QF: 8, SF: 10, F: 11 };
+const ROUND_DAY_MID: Record<string, number> = { Q1: -2, Q2: -1, Q3: 0, R64: 1, R32: 2, R16: 3, QF: 4, SF: 5, RR: 3, BR: 6, F: 6 };
+const ROUND_DAY: Record<string, number> = { Q1: -2, Q2: -1, Q3: 0, R128: 0, R64: 0, R32: 1, R16: 2, QF: 4, SF: 5, RR: 3, BR: 6, F: 6 };
+const roundDay = (level: string, draw: number, round: string) =>
+  (level === 'G' ? ROUND_DAY_SLAM : draw >= 96 ? ROUND_DAY_BIG : draw >= 48 ? ROUND_DAY_MID : ROUND_DAY)[round] ?? 3;
 export const ROUND_ORDER: Record<string, number> = { Q1: 0, Q2: 1, Q3: 2, R128: 3, R64: 4, R32: 5, R16: 6, RR: 7, QF: 8, SF: 9, BR: 9.5, F: 10 };
 
 /** Une ligne CSV : champs entre guillemets (virgules et guillemets doublés à l'intérieur) acceptés. */
@@ -117,8 +125,8 @@ const LEVEL: Record<string, string> = { '250': 'A', '500': 'A' };
 
 /**
  * Lit des fichiers au format Sackmann ou TennisMyLife (mêmes colonnes, plus « indoor » chez TennisMyLife).
- * `matchDates` : la date de chaque ligne est déjà celle du match (TennisMyLife) ; sinon c'est le début du tournoi
- * (Sackmann) et on ajoute les jours habituels selon le tour.
+ * `matchDates` : la date de chaque ligne est déjà celle du match ; sinon (Sackmann ET TennisMyLife : vérifié, toutes les
+ * lignes d'un tournoi portent la date de début) on ajoute les jours habituels selon le tour et la taille du tableau.
  */
 export function readFiles(files: string[], matchDates = false): Match[] {
   const out: Match[] = [];
@@ -130,7 +138,7 @@ export function readFiles(files: string[], matchDates = false): Match[] {
       const surface: Surface = r.surface === 'Clay' ? 'Clay' : r.surface === 'Grass' ? 'Grass' : 'Hard';
       const d = r.tourney_date;
       const start = Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8));
-      const offset = matchDates ? 0 : ((r.tourney_level === 'G' ? ROUND_DAY_SLAM : ROUND_DAY)[r.round] ?? 3);
+      const offset = matchDates ? 0 : roundDay(r.tourney_level, Number(r.draw_size) || 32, r.round);
       const sc = parseScore(r.score);
       const side = (p: 'winner' | 'loser', s: 'w' | 'l'): Side => ({
         id: nameKey(r[`${p}_name`]), atp: /^[A-Z0-9]{4}$/.test(r[`${p}_id`]) ? r[`${p}_id`] : undefined, name: r[`${p}_name`], ioc: r[`${p}_ioc`], hand: r[`${p}_hand`], ht: num(r[`${p}_ht`]), age: num(r[`${p}_age`]),
