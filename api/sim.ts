@@ -31,7 +31,7 @@ const bad = (msg: string, status = 400) => Response.json({ error: msg }, { statu
 
 const TEAMS = new Set('ATL BOS BKN CHA CHI CLE DAL DEN DET GSW HOU IND LAC LAL MEM MIA MIL MIN NOP NYK OKC ORL PHI PHX POR SAC SAS TOR UTA WAS'.split(' '));
 /** Vraie date du calendrier (pas de 31 février). */
-const realDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && new Date(`${d}T12:00:00Z`).toISOString().slice(0, 10) === d;
+const realDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T12:00:00Z`)) && new Date(`${d}T12:00:00Z`).toISOString().slice(0, 10) === d;
 
 function matchKey(p: unknown): { date: string; away: string; home: string; dir: string } | undefined {
   if (!p || typeof p !== 'object') return undefined;
@@ -48,7 +48,8 @@ function matchKey(p: unknown): { date: string; away: string; home: string; dir: 
 const MAX_IN_FLIGHT = 40;
 async function inFlight(): Promise<any[]> {
   const r = await gh(`/actions/workflows/${WORKFLOW}/runs?per_page=100`);
-  if (!r.ok) return [];
+  // Lecture impossible : on ne fait pas comme s'il n'y avait rien en cours (le lancement est alors refusé).
+  if (!r.ok) throw new Error(`GitHub ${r.status}`);
   return ((await r.json()).workflow_runs ?? []).filter((w: any) => w.status !== 'completed');
 }
 
@@ -107,10 +108,11 @@ async function tick(): Promise<Response> {
   // Simulée avant la publication des cotes (index : noOdds) et cotes parues depuis : relancée une fois, plus de 30 min
   // avant le match (ensuite c'est la relance d'avant-match qui s'en charge).
   const later = upcoming.filter((g) => g.hasOdds && g.tip - now > 30 * 60_000 && g.tip - now <= 20 * 3_600_000);
-  if (near.length || later.length) {
+  // Calculs en cours illisibles : pas de relance NBA à ce battement (sinon risque de doublon), on retente au suivant.
+  const running = near.length || later.length ? await inFlight().catch(() => undefined) : undefined;
+  if (running) {
     const r = await gh(`/contents/sims/index.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
     const index: Array<{ dir: string; at: string; noOdds?: boolean }> = r.ok ? await r.json() : [];
-    const running = await inFlight();
     for (const g of later) {
       const dir = `${g.date}_${g.away}@${g.home}`;
       if (!index.some((e) => e.dir === dir && e.noOdds)) continue;
@@ -206,6 +208,56 @@ async function tick(): Promise<Response> {
   return Response.json({ at: new Date(now).toISOString(), soon: near.length, relaunched, bilan, bilanTennis, bilanFoot, footData, oddsTennis }, { headers: noStore });
 }
 
+/**
+ * Contrôle de santé (GET /api/sim?sante=1) : âge de chaque donnée, calculs bloqués et échecs récents. Répond 503 dès
+ * qu'un point ne va pas, pour qu'un service de surveillance (UptimeRobot, Better Stack…) envoie une alerte par e-mail.
+ */
+async function health(): Promise<Response> {
+  const now = Date.now();
+  const H = 3_600_000;
+  const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
+  const age = (t?: string) => (t ? (now - Date.parse(t)) / H : Infinity);
+  const fmt = (h: number) => (h === Infinity ? 'inconnu' : h < 1 ? `${Math.round(h * 60)} min` : `${h.toFixed(1)} h`);
+  const add = (name: string, h: number, max: number) => checks.push({ name, ok: h <= max, detail: `il y a ${fmt(h)} (seuil ${max} h)` });
+  const lastOk = async (wf: string) => {
+    const r = await gh(`/actions/workflows/${wf}/runs?status=success&per_page=1`);
+    return r.ok ? ((await r.json()).workflow_runs?.[0]?.updated_at as string | undefined) : undefined;
+  };
+  const branchAt = async (b: string) => {
+    const r = await gh(`/branches/${b}`);
+    return r.ok ? ((await r.json()).commit?.commit?.committer?.date as string | undefined) : undefined;
+  };
+  const slate = await gh(`/contents/slate.json?ref=donnees-foot`, { headers: { Accept: 'application/vnd.github.raw+json' } })
+    .then((r) => (r.ok ? r.json() : {}))
+    .catch(() => ({}));
+  const [stats, odds, b1, b2, b3] = await Promise.all([
+    branchAt('donnees-stats'), lastOk('cotes-tennis.yml'), lastOk('bilan.yml'), lastOk('bilan-tennis.yml'), lastOk('bilan-foot.yml'),
+  ]);
+  add('Stats NBA (Mac, chaque jour)', age(stats), 30);
+  add('Programme foot', age((slate as any).at), 3);
+  add('Cotes ATP', age(odds), 3);
+  // Les bilans sont relancés par l'horloge toutes les 14 min : un bilan vieux d'une heure veut dire horloge arrêtée.
+  add('Bilan NBA (et horloge)', age(b1), 1);
+  add('Bilan tennis', age(b2), 1);
+  add('Bilan foot', age(b3), 1);
+  for (const [name, wf] of [['Simulations NBA', WORKFLOW], ['Simulations tennis', 'simulate-tennis.yml'], ['Simulations foot', 'simulate-foot.yml']]) {
+    const r = await gh(`/actions/workflows/${wf}/runs?per_page=50`);
+    if (!r.ok) {
+      checks.push({ name, ok: false, detail: `GitHub ne répond pas (${r.status})` });
+      continue;
+    }
+    const runs: any[] = (await r.json()).workflow_runs ?? [];
+    const stuck = runs.filter((w) => w.status !== 'completed' && age(w.created_at) > 0.5).length;
+    const recent = runs.filter((w) => w.status === 'completed' && age(w.updated_at) < 6);
+    const failed = recent.filter((w) => w.conclusion === 'failure').length;
+    // Bloqué plus de 30 min, ou au moins 3 échecs et plus d'un quart des calculs des 6 dernières heures.
+    const ok = stuck === 0 && !(failed >= 3 && failed > recent.length / 4);
+    checks.push({ name, ok, detail: `${stuck} bloqué(s) plus de 30 min, ${failed} échec(s) sur ${recent.length} en 6 h` });
+  }
+  const ok = checks.every((c) => c.ok);
+  return Response.json({ ok, at: new Date(now).toISOString(), checks }, { status: ok ? 200 : 503, headers: noStore });
+}
+
 /** Calcul en cours pour ce match, quel que soit l'appareil qui l'a lancé (relance d'avant-match comprise). */
 async function liveRun(k: { date: string; away: string; home: string }): Promise<any | undefined> {
   try {
@@ -225,12 +277,21 @@ const shared = (w: any, previous?: unknown) => ({
 export async function GET(request: Request): Promise<Response> {
   const q = new URL(request.url).searchParams;
   try {
-    if (q.get('tick')) return await tick();
+    // Horloge : réservée à la tâche planifiée Supabase quand une clé TICK_KEY est réglée dans Vercel (elle l'envoie en
+    // &key=…) ; sans clé réglée, ouverte comme avant.
+    if (q.get('tick')) {
+      if (process.env.TICK_KEY && q.get('key') !== process.env.TICK_KEY) return bad('Accès refusé', 403);
+      return await tick();
+    }
+    // Santé : chaque appel lit GitHub une dizaine de fois, donc même clé que l'horloge quand elle est réglée.
+    if (q.get('sante')) {
+      if (process.env.TICK_KEY && q.get('key') !== process.env.TICK_KEY) return bad('Accès refusé', 403);
+      return await health();
+    }
     if (q.get('bilan')) {
       const r = await gh(`/contents/sims/bilan.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
       if (!r.ok) return Response.json({ error: 'Bilan pas encore calculé (une fois par jour, matchs terminés).' }, { status: 404, headers: noStore });
       const b = await r.json();
-      await refreshBilan('bilan.yml', b.at);
       return Response.json(b, { headers: { 'Cache-Control': 'public, s-maxage=60' } });
     }
     if (q.get('reqs')) {
@@ -243,7 +304,7 @@ export async function GET(request: Request): Promise<Response> {
         const w = all.find((x) => String(x.display_title ?? '').endsWith(`· ${req}`));
         // Pas encore listée : la demande vient de partir.
         runs[req] = !w
-          ? { status: 'queued' }
+          ? { status: req.length !== 12 || reqFresh(req) ? 'queued' : 'failed' }
           : {
               status: w.status !== 'completed' ? (w.status === 'in_progress' ? 'running' : 'queued') : w.conclusion === 'success' ? 'done' : 'failed',
               startedAt: w.run_started_at,
@@ -274,6 +335,7 @@ export async function GET(request: Request): Promise<Response> {
       const run = await findRun(req);
       // Relance terminée en échec : l'ancien résultat reste affiché, mais on le dit.
       if (run?.status === 'completed' && run.conclusion !== 'success') return Response.json({ status: 'done', result, relaunchFailed: true, url: run.html_url }, { headers: noStore });
+      if (!run && reqFresh(req)) return Response.json({ status: 'queued', previous: result }, { headers: noStore });
       if (!run || run.status === 'completed') return Response.json({ status: 'done', result }, { headers: noStore });
       // Résultat publié après la demande : il est prêt, même si GitHub affiche encore la demande « en attente »
       // (son état peut retarder de plusieurs minutes sur la publication réelle).
@@ -286,7 +348,7 @@ export async function GET(request: Request): Promise<Response> {
       return Response.json(live ? shared(live) : { status: 'none' }, { headers: noStore });
     }
     const run = await findRun(req);
-    if (!run) return Response.json({ status: 'queued' }, { headers: noStore });
+    if (!run) return Response.json(reqFresh(req) ? { status: 'queued' } : { status: 'failed' }, { headers: noStore });
     if (run.status === 'completed') {
       // Succès mais fichier pas encore visible : la publication vient de se terminer.
       return Response.json({ status: run.conclusion === 'success' ? 'running' : 'failed', url: run.html_url }, { headers: noStore });
@@ -296,6 +358,11 @@ export async function GET(request: Request): Promise<Response> {
     return bad((e as Error).message, 502);
   }
 }
+
+// Identifiant de demande = heure (base 36, 8 car.) + 4 car. au hasard : tant que GitHub n'affiche pas encore
+// le passage, une demande récente reste « en attente » au lieu de renvoyer l'ancien résultat comme terminé.
+const newReq = () => Date.now().toString(36).padStart(8, '0') + Math.random().toString(36).slice(2, 6).padEnd(4, '0');
+const reqFresh = (req: string) => req.length === 12 && Date.now() - parseInt(req.slice(0, 8), 36) < 15 * 60_000;
 
 async function findRun(req: string): Promise<any | undefined> {
   const r = await gh(`/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100`);
@@ -310,6 +377,17 @@ export async function POST(request: Request): Promise<Response> {
   if (!k) return bad('Paramètres invalides');
   const days = (Date.parse(`${k.date}T12:00:00Z`) - Date.now()) / 86_400_000;
   if (days < -1.5 || days > 7.5) return bad('Match hors de la période simulable (d’hier à dans 7 jours)');
+  // Le match doit être au programme et pas encore commencé : on ne simule jamais un match commencé.
+  try {
+    const p = await fetch(new URL(`/api/games?days=1&from=${k.date}`, request.url), { signal: AbortSignal.timeout(12_000) });
+    const games: any[] = p.ok ? ((await p.json()).games ?? []) : [];
+    if (!p.ok) return bad('Programme indisponible pour le moment : réessaie dans un instant.', 503);
+    const g = games.find((x) => x.away?.tri === k.away && x.home?.tri === k.home);
+    if (!g) return bad('Match introuvable au programme.', 404);
+    if (g.state !== 'pre' || Date.parse(g.start) <= Date.now()) return bad('Match commencé : pas de simulation.', 409);
+  } catch {
+    return bad('Programme indisponible pour le moment : réessaie dans un instant.', 503);
+  }
   try {
     const running = await inFlight();
     // Déjà en cours pour ce match : on rattache la demande au calcul existant au lieu d'en lancer un deuxième.
@@ -317,9 +395,10 @@ export async function POST(request: Request): Promise<Response> {
     if (same) return Response.json({ status: 'queued', req: String(same.display_title).split(' · ').pop() }, { headers: noStore });
     if (running.length >= MAX_IN_FLIGHT) return bad('Trop de simulations en cours : réessaie dans quelques minutes.', 429);
   } catch {
-    /* lecture des calculs en cours impossible : on lance quand même */
+    // Impossible de savoir ce qui tourne déjà : refus explicite plutôt qu'un lancement à l'aveugle.
+    return bad('Impossible de vérifier les calculs en cours : réessaie dans un instant.', 503);
   }
-  const req = Math.random().toString(36).slice(2, 10);
+  const req = newReq();
   try {
     const r = await gh(`/actions/workflows/${WORKFLOW}/dispatches`, {
       method: 'POST',

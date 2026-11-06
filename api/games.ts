@@ -56,7 +56,9 @@ export async function GET(request: Request): Promise<Response> {
   if (boxId && /^\d+$/.test(boxId)) return box(boxId);
   const days = Math.min(10, Math.max(1, Number(new URL(request.url).searchParams.get('days') ?? 7) || 7));
   const from = new URL(request.url).searchParams.get('from');
-  const start = from && /^\d{4}-\d{2}-\d{2}$/.test(from) ? new Date(`${from}T16:00:00Z`) : new Date();
+  // Date impossible (2026-99-99) : programme du jour au lieu d'une erreur.
+  const fromD = from && /^\d{4}-\d{2}-\d{2}$/.test(from) ? new Date(`${from}T16:00:00Z`) : undefined;
+  const start = fromD && !Number.isNaN(fromD.getTime()) ? fromD : new Date();
   const dates = Array.from({ length: days }, (_, i) => etDate(new Date(start.getTime() + i * 864e5)));
   try {
     // Une requête par jour : ESPN refuse les plages de dates (400).

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ArrowDown, ArrowRight, ArrowUp, Basketball, ChartLineUp, CheckCircle, Clock, Lightning, ListChecks, Minus, Plus, Prohibit, ShareNetwork, Stack, TennisBall, ThumbsDown, ThumbsUp, Ticket as TicketIcon, Trash, X } from '@phosphor-icons/react';
 import { useAuth } from './auth.ts';
 import { supabase } from './supabase.ts';
-import {
+import { isRefunded,
   comboOdds, completing, deleteTicket, final, markSeen, matchKey, placeTickets, settleTickets, slip, ticketState, useCompleting, useResults, useSlip, useTickets,
   type Leg, type LegStatus, type SettleEvent, type Ticket,
 } from './suivi.ts';
@@ -177,16 +177,19 @@ const profitOf = (t: Ticket) => (t.status === 'won' ? gainOf(t) - t.stake : t.st
 function BilanLine({ tickets }: { tickets?: Ticket[] }) {
   const s = useMemo(() => {
     const done = (tickets ?? []).filter((t) => t.status !== 'pending').sort((a, b) => (a.settled_at ?? a.created_at).localeCompare(b.settled_at ?? b.created_at));
-    const month = new Date().toISOString().slice(0, 7);
-    const won = done.filter((t) => t.status === 'won').length;
+    // Mois en heure locale (et non UTC), comme son libellé ; tickets remboursés hors du taux de réussite.
+    const local = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+    const month = local(new Date().toISOString());
+    const counted = done.filter((t) => !isRefunded(t));
+    const won = counted.filter((t) => t.status === 'won').length;
     const staked = done.reduce((x, t) => x + t.stake, 0);
     const profit = done.reduce((x, t) => x + profitOf(t), 0);
     const open = (tickets ?? []).filter((t) => t.status === 'pending');
     let run = 0;
     const pts = [0, ...done.map((t) => (run += profitOf(t)))];
     return {
-      n: done.length, won, profit, roi: staked ? profit / staked : undefined, pts,
-      monthProfit: done.filter((t) => (t.settled_at ?? t.created_at).slice(0, 7) === month).reduce((x, t) => x + profitOf(t), 0),
+      n: counted.length, won, profit, roi: staked ? profit / staked : undefined, pts,
+      monthProfit: done.filter((t) => local(t.settled_at ?? t.created_at) === month).reduce((x, t) => x + profitOf(t), 0),
       inPlay: open.reduce((x, t) => x + t.stake, 0), open: open.length,
     };
   }, [tickets]);
@@ -269,7 +272,7 @@ export function TicketPill({ state, ls }: { state: LegStatus; ls: LegStatus[] })
 /** Un ticket validé : sélections cochées une à une, ligne de suivi, mise, cote, gain potentiel ou gain, statut. */
 function TicketCard({ t, live, isNew, owner, demo, i = 0 }: { t: Ticket; live: Record<string, LegStatus>; isNew?: boolean; owner?: string; demo?: boolean; i?: number }) {
   const ls = t.legs.map((l) => (final(l.status) ? l.status : live[l.key] ?? l.status ?? 'pending'));
-  const state: LegStatus = t.status === 'won' || t.status === 'lost' ? t.status : ticketState(ls);
+  const state: LegStatus = isRefunded(t) ? 'void' : t.status === 'won' || t.status === 'lost' ? t.status : ticketState(ls);
   const okN = ls.filter((s) => s === 'won' || s === 'void').length;
   const [confirm, setConfirm] = useState(false);
   const [share, setShare] = useState(false);
@@ -688,7 +691,9 @@ function announce(ev: SettleEvent[]) {
   for (const e of ev) {
     if (e.kind === 'ticket')
       toast(
-        e.status === 'won'
+        e.status === 'won' && isRefunded(e.ticket)
+          ? { tone: 'ok', title: 'Ticket remboursé', text: `${kindLabel(e.ticket)} · mise rendue`, href: '/suivi' }
+          : e.status === 'won'
           ? { tone: 'ok', title: 'Ticket gagné', text: `${kindLabel(e.ticket)} · ${eur(gainOf(e.ticket))}`, href: '/suivi' }
           : { tone: 'bad', title: 'Ticket perdu', text: `${kindLabel(e.ticket)} · ${e.ticket.legs.find((l) => l.status === 'lost')?.title ?? ''}`, href: '/suivi' },
       );

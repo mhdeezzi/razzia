@@ -53,9 +53,20 @@ function pickOf(s: any, home: string, away: string, hs: number, as: number): Pic
     const h = ladder(s)
       .filter((x) => (fav === 'home' ? x.line : -x.line) > 0 && cover(x) >= SAFE_COVER && cover(x) > winP && cover(x) <= 1 / MIN_ODDS)
       .sort((a, b) => cover(a) - cover(b))[0];
-    if (h) {
-      const l = fav === 'home' ? h.line : -h.line;
-      return { kind: 'handicap', label: `${fav === 'home' ? home : away} +${String(l).replace('.', ',')}`, won: favMargin + l > 0 };
+    // Même choix que la fiche (web/src/picks.ts) : entre le handicap du bookmaker (s'il passe plus souvent que la
+    // victoire) et le handicap « plus sûr », celui qui passe le plus souvent. Avant, le bilan ne comptait que le second :
+    // la fiche pouvait conseiller +7,5 et le bilan compter +5,5.
+    const cands: Array<{ l: number; p: number }> = [];
+    const mk = s.market;
+    if (mk?.spreadHome != null && mk.pHomeCover != null) {
+      const pFav = fav === 'home' ? mk.pHomeCover : 1 - mk.pHomeCover;
+      if (pFav > winP) cands.push({ l: fav === 'home' ? mk.spreadHome : -mk.spreadHome, p: pFav });
+    }
+    if (h) cands.push({ l: fav === 'home' ? h.line : -h.line, p: cover(h) });
+    const best = cands.sort((a, b) => b.p - a.p)[0];
+    if (best) {
+      const l = best.l;
+      return { kind: 'handicap', label: `${fav === 'home' ? home : away} ${l > 0 ? '+' : ''}${String(l).replace('.', ',')}`, won: favMargin + l > 0 };
     }
   }
   return { kind: 'vainqueur', won: favMargin > 0 };
