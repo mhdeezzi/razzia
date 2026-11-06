@@ -33,6 +33,15 @@ export const MARKETS: Market[] = [
   ]),
   { id: '1+o1.5', cat: 'combine', label: (h) => `Victoire ${h} + plus de 1,5 but`, win: (i, j) => i > j && i + j > 1.5 },
   { id: '2+o1.5', cat: 'combine', label: (_, a) => `Victoire ${a} + plus de 1,5 but`, win: (i, j) => i < j && i + j > 1.5 },
+  { id: '1+o2.5', cat: 'combine', label: (h) => `Victoire ${h} + plus de 2,5 buts`, win: (i, j) => i > j && i + j > 2.5 },
+  { id: '2+o2.5', cat: 'combine', label: (_, a) => `Victoire ${a} + plus de 2,5 buts`, win: (i, j) => i < j && i + j > 2.5 },
+  // Handicaps : gagner par 2 buts ou plus (-1,5), ne pas perdre de plus d'un but (+1,5), et ce dernier avec un but marqué.
+  { id: 'h-1.5', cat: 'equipe', label: (h) => `${h} gagne par 2 buts ou plus`, win: (i, j) => i - j >= 2 },
+  { id: 'a-1.5', cat: 'equipe', label: (_, a) => `${a} gagne par 2 buts ou plus`, win: (i, j) => j - i >= 2 },
+  { id: 'h+1.5', cat: 'equipe', label: (h) => `${h} ne perd pas, ou d'un seul but`, win: (i, j) => i - j >= -1 },
+  { id: 'a+1.5', cat: 'equipe', label: (_, a) => `${a} ne perd pas, ou d'un seul but`, win: (i, j) => j - i >= -1 },
+  { id: 'h+1.5+h05', cat: 'combine', label: (h) => `${h} ne perd pas, ou d'un seul but + ${h} marque`, win: (i, j) => i - j >= -1 && i > 0 },
+  { id: 'a+1.5+a05', cat: 'combine', label: (_, a) => `${a} ne perd pas, ou d'un seul but + ${a} marque`, win: (i, j) => j - i >= -1 && j > 0 },
 ];
 
 export function probs(grid: number[][]): Map<string, number> {

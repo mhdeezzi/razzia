@@ -667,6 +667,7 @@ export function FootMatchPage({ id }: { id: string }) {
 /** Vainqueur seul : déconseillé sous 60 %, risqué de 60 à 70 % (pastilles rouge et orange, comme au basket et au tennis). */
 const WIN_FLIP = 0.6, WIN_RISKY = 0.7;
 const LDEM_MIN = 0.65;
+const BIG_FAV_ODDS = 1.25;
 const SURE_TEXT = 'À 85 % ou plus, ce pronostic est passé 91 % du temps sur 2024 à 2026 (un match sur cinq).';
 
 /** Catégories de paris : double chance, vainqueur, combinés (le combiné rattaché en tête). */
@@ -706,11 +707,18 @@ function buildFootCategories(r: FootResult): Category[] {
   if (winner[0] && winWarn && !winner[0].warn) winner[0] = { ...winner[0], warn: winWarn, safe: undefined };
   const double = list([top(['1X', 'X2', '12'])]);
   const combos = list([r.combo.id]);
-  // Ordre fixe : double chance, combiné, vainqueur, puis score exact et LDEM.
+  // Gros favori (cote de la victoire sous 1,25, ou 80 % sans cote) : la double chance ne sert à rien, on l'enlève ; le
+  // combiné rattaché va alors chercher la valeur (victoire + buts, victoire par 2 buts ou plus).
+  const favOdds = o ? (homeFav ? o.h : o.a) : undefined;
+  const bigFav = favOdds != null ? favOdds < BIG_FAV_ODDS : (homeFav ? r.final.h : r.final.a) >= 0.8;
+  // Match trop risqué (orange ou rouge) : le handicap du favori, « ne perd pas, ou d'un seul but ».
+  const hcp = r.tier === 'risky' || r.tier === 'flip' ? list([homeFav ? 'h+1.5' : 'a+1.5']) : [];
+  // Ordre fixe : double chance, combiné, vainqueur, handicap, puis score exact et LDEM.
   const cats: Category[] = [
-    { id: 'double', label: 'Double chance', items: double },
+    ...(bigFav ? [] : [{ id: 'double', label: 'Double chance', items: double }]),
     { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky },
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
+    ...(hcp.length ? [{ id: 'hcp', label: 'Handicap', items: hcp }] : []),
   ];
   // Score exact : le plus probable, toujours « Déconseillé » (même le plus fréquent ne tombe qu'une fois sur huit environ).
   const sc = r.scores[0];

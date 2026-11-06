@@ -37,9 +37,22 @@ export function featured(p: Map<string, number>, T: number): { id: string; p: nu
  * seuil de sûreté, en partant de la double chance du favori (sans « + plus de 1,5 but » : 82 % réels pour 85,5 % annoncés
  * sur 2024-2026). « + moins de 5,5 buts » ne sert qu'en dernier recours (il ne
  * change presque rien à la cote). Si aucun n'atteint le seuil, le plus sûr, marqué risqué. */
-export function combo(p: Map<string, number>, T: number): { id: string; p: number; risky: boolean } {
-  const fav = p.get('1')! >= p.get('2')! ? '1X' : 'X2';
-  const main = [`${fav}+o0.5`, `${fav}+u3.5`, `${fav}+u4.5`, `${fav}+o0.5+u4.5`].map((id) => ({ id, p: p.get(id)! }));
+/** Gros favori (victoire à 80 % ou plus, cote sous 1,25) : la double chance ne sert à rien, le combiné va chercher la
+ * valeur. Sur 2024-2026 (106 matchs) : le favori gagne 90,6 % du temps, « victoire + plus de 1,5 but » 77 %, « gagne par
+ * 2 buts ou plus » 64 %. On prend le plus probable de ces paris à 82 % ou moins (cote juste de 1,22 et plus), risqué
+ * sous 70 %. Gros favori : cote de sa victoire sous 1,25 quand elle est connue (bigFav), sinon victoire à 80 % ou plus. */
+export const BIG_FAV = 0.8;
+export const BIG_FAV_ODDS = 1.25;
+export const VALUE_MAX = 0.82;
+export function combo(p: Map<string, number>, T: number, bigFav?: boolean): { id: string; p: number; risky: boolean } {
+  const homeFav = p.get('1')! >= p.get('2')!;
+  const w = homeFav ? '1' : '2', s = homeFav ? 'h' : 'a';
+  if ((bigFav ?? p.get(w)! >= BIG_FAV) && p.has(`${s}-1.5`)) {
+    const value = [`${w}+o1.5`, `${s}-1.5`, `${w}+o2.5`].map((id) => ({ id, p: p.get(id)! })).filter((c) => c.p <= VALUE_MAX).sort((a, b) => b.p - a.p)[0];
+    if (value) return { ...value, risky: value.p < 0.7 };
+  }
+  const fav = homeFav ? '1X' : 'X2';
+  const main = [`${fav}+o0.5`, `${fav}+u3.5`, `${fav}+u4.5`, `${fav}+o0.5+u4.5`, ...(p.has(`${s}+1.5+${s}05`) ? [`${s}+1.5+${s}05`] : [])].map((id) => ({ id, p: p.get(id)! }));
   const last = [`${fav}+o0.5+u5.5`, `${fav}+u5.5`].map((id) => ({ id, p: p.get(id)! }));
   const ok = main.filter((c) => c.p >= T).sort((a, b) => a.p - b.p)[0] ?? last.filter((c) => c.p >= T).sort((a, b) => a.p - b.p)[0];
   if (ok) return { ...ok, risky: false };

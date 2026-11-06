@@ -7,7 +7,7 @@ import { loadGames } from '../foot/data.ts';
 import { predictMany, loadModel } from '../foot/engine.ts';
 import { FOOT_DIR, LEAGUES, matchRaw, type Fixture } from '../foot/fotmob.ts';
 import { marketById } from '../foot/markets.ts';
-import { combo, featured, tier } from '../foot/picks.ts';
+import { BIG_FAV_ODDS, combo, featured, tier } from '../foot/picks.ts';
 import type { SlateFoot } from './footslate.ts';
 
 const arg = (k: string, d: string) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
@@ -40,7 +40,9 @@ for (const P of res) {
     const L = list.find((x) => x.f.id === f.id)!;
     const label = (id: string) => marketById.get(id)!.label(f.home.name, f.away.name);
     const pickBest = featured(P.probs, P.T);
-    const c = combo(P.probs, P.T);
+    // Gros favori d'après la cote de sa victoire quand elle existe (comme la fiche), sinon d'après la probabilité.
+    const hf = P.final.h >= P.final.a, fo = L.odds ? (hf ? L.odds.h : L.odds.a) : undefined;
+    const c = combo(P.probs, P.T, fo != null ? fo < BIG_FAV_ODDS : undefined);
     const scores: Array<{ h: number; a: number; p: number }> = [];
     P.grid.forEach((row, i) => row.forEach((p, j) => scores.push({ h: i, a: j, p: r4(p) })));
     scores.sort((a, b) => b.p - a.p);
