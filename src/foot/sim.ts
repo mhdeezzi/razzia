@@ -31,6 +31,10 @@ export interface SimOut {
   ht: number[][]; // score à la mi-temps
   firstGoal: [number, number, number]; // domicile, extérieur, aucun
   scorers: Map<number, number>; // joueur -> proba de marquer
+  // Déroulé : à la fin de chaque tranche de 5 minutes, part des matchs où le domicile mène, nul, l'extérieur mène.
+  flow: Array<[number, number, number]>;
+  // Scénarios par score final (« 2-1 ») : suite des buts (« HAH ») -> nombre de matchs et somme des minutes de chaque but.
+  seqs: Map<string, Map<string, { n: number; min: number[] }>>;
 }
 
 class Rng {
@@ -60,6 +64,10 @@ export function simulateMatch(h: SimTeam, a: SimTeam, o: SimOpts): SimOut {
   const first: [number, number, number] = [0, 0, 0];
   const scorers = new Map<number, number>();
   const scoredBy = new Set<number>();
+  const flow: Array<[number, number, number]> = Array.from({ length: BLOCKS }, () => [0, 0, 0]);
+  const seqs = new Map<string, Map<string, { n: number; min: number[] }>>();
+  let seq = '';
+  const mins: number[] = [];
   const shoot = (T: ReturnType<typeof prep>, t: SimTeam, qMul: number) => {
     let x = T.q[Math.floor(rng.next() * T.q.length)] * qMul;
     let who = 0;
@@ -75,6 +83,8 @@ export function simulateMatch(h: SimTeam, a: SimTeam, o: SimOpts): SimOut {
   for (let s = 0; s < o.n; s++) {
     let gh = 0, ga = 0, fg = 2, redH = 0, redA = 0;
     scoredBy.clear();
+    seq = '';
+    mins.length = 0;
     for (let b = 0; b < BLOCKS; b++) {
       if (b === 9) { ht[Math.min(5, gh)][Math.min(5, ga)]++; }
       // Rouges : rares, plutôt en seconde période.
@@ -92,11 +102,22 @@ export function simulateMatch(h: SimTeam, a: SimTeam, o: SimOpts): SimOut {
       const nh = rng.poisson(rh), na = rng.poisson(ra);
       // Ordre des tirs dans la tranche : au hasard.
       let ih = nh, ia = na;
+      // Minute d'un but : sa place parmi les tirs de la tranche (sans tirage de plus : les résultats ne bougent pas).
+      const k = nh + na;
+      const minute = () => Math.min(95, b * 5 + 1 + Math.floor((5 * (k - ih - ia - 0.5)) / k));
       while (ih + ia > 0) {
         const home = rng.next() < ih / (ih + ia);
-        if (home) { ih--; const w = shoot(H, h, qh); if (w) { gh++; if (fg === 2) fg = 0; if (w > 0) scoredBy.add(w); } }
-        else { ia--; const w = shoot(A, a, qa); if (w) { ga++; if (fg === 2) fg = 1; if (w > 0) scoredBy.add(w); } }
+        if (home) { ih--; const w = shoot(H, h, qh); if (w) { gh++; if (fg === 2) fg = 0; if (w > 0) scoredBy.add(w); seq += 'H'; mins.push(minute()); } }
+        else { ia--; const w = shoot(A, a, qa); if (w) { ga++; if (fg === 2) fg = 1; if (w > 0) scoredBy.add(w); seq += 'A'; mins.push(minute()); } }
       }
+      flow[b][gh > ga ? 0 : gh === ga ? 1 : 2]++;
+    }
+    if (gh <= 5 && ga <= 5) {
+      const key = `${gh}-${ga}`;
+      const bySeq = seqs.get(key) ?? seqs.set(key, new Map()).get(key)!;
+      const e = bySeq.get(seq) ?? bySeq.set(seq, { n: 0, min: new Array(seq.length).fill(0) }).get(seq)!;
+      e.n++;
+      for (let i = 0; i < mins.length; i++) e.min[i] += mins[i];
     }
     grid[Math.min(10, gh)][Math.min(10, ga)]++;
     first[fg]++;
@@ -106,7 +127,7 @@ export function simulateMatch(h: SimTeam, a: SimTeam, o: SimOpts): SimOut {
   for (const r of grid) for (let j = 0; j < r.length; j++) r[j] /= n;
   for (const r of ht) for (let j = 0; j < r.length; j++) r[j] /= n;
   for (const [k, v] of scorers) scorers.set(k, v / n);
-  return { n, grid, ht, firstGoal: [first[0] / n, first[1] / n, first[2] / n], scorers };
+  return { n, grid, ht, firstGoal: [first[0] / n, first[1] / n, first[2] / n], scorers, flow: flow.map((f) => [f[0] / n, f[1] / n, f[2] / n] as [number, number, number]), seqs };
 }
 
 /** Grille de scores ajustée pour coller à des probabilités cibles (1X2, plus de 2,5 buts), en gardant sa forme. */

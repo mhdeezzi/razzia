@@ -39,7 +39,7 @@ for (const P of res) {
     const { f } = P;
     const L = list.find((x) => x.f.id === f.id)!;
     const label = (id: string) => marketById.get(id)!.label(f.home.name, f.away.name);
-    const best = featured(P.probs, P.T);
+    const pickBest = featured(P.probs, P.T);
     const c = combo(P.probs, P.T);
     const scores: Array<{ h: number; a: number; p: number }> = [];
     P.grid.forEach((row, i) => row.forEach((p, j) => scores.push({ h: i, a: j, p: r4(p) })));
@@ -49,6 +49,24 @@ for (const P of res) {
     P.shooters[1].forEach((s) => names.set(s.id, [s.name, 'away']));
     const scorers = [...P.sim.scorers].filter(([id]) => names.has(id)).map(([id, p]) => ({ id, name: names.get(id)![0], side: names.get(id)![1], p: r4(p) })).sort((a, b) => b.p - a.p).slice(0, 10);
     const o = L.odds;
+    // Déroulé du match : qui mène à chaque tranche de 5 minutes, calé en fin de match sur les probabilités affichées.
+    const raw = P.sim.flow.at(-1)!, fin = [P.final.h, P.final.d, P.final.a];
+    const flow = P.sim.flow.map((f, b) => {
+      const w = (b + 1) / P.sim.flow.length;
+      const z = f.map((x, k) => x * (raw[k] > 0 ? (fin[k] / raw[k]) ** w : 1));
+      const t = z[0] + z[1] + z[2];
+      return z.map((x) => r4(x / t));
+    });
+    // Scénario le plus fréquent du score le plus probable : ordre des buts et minute moyenne de chacun.
+    const top = scores[0];
+    const bySeq = top ? P.sim.seqs.get(`${top.h}-${top.a}`) : undefined;
+    const best = bySeq ? [...bySeq].sort((x, y) => y[1].n - x[1].n)[0] : undefined;
+    const typical = best && top ? { score: [top.h, top.a], share: r4(best[1].n / [...bySeq!.values()].reduce((t, e) => t + e.n, 0)), goals: [...best[0]].map((side, i) => ({ side: side === 'H' ? 'home' : 'away', min: Math.round(best[1].min[i] / best[1].n) })) } : undefined;
+    // Confrontations : les derniers matchs entre les deux équipes, toutes compétitions suivies.
+    const h2h = games
+      .filter((g) => (g.home.id === f.home.id && g.away.id === f.away.id) || (g.home.id === f.away.id && g.away.id === f.home.id))
+      .sort((x, y) => y.date.localeCompare(x.date)).slice(0, 8)
+      .map((g) => ({ date: g.date, lg: g.lg, league: LEAGUES.find((l) => l.id === g.lg)?.name, home: g.home.id, away: g.away.id, score: g.score }));
     const out = {
       sport: 'foot', id: f.id, lg: f.lg, league: L.league ?? LEAGUES.find((l) => l.id === f.lg)?.name, round: f.round, start: f.date, day: f.date.slice(0, 10),
       home: { ...f.home, logo: logo(f.home.id), form: P.row.fh.mom, att: P.row.fh.la }, away: { ...f.away, logo: logo(f.away.id), form: P.row.fa.mom, att: P.row.fa.la },
@@ -59,13 +77,13 @@ for (const P of res) {
       probs: Object.fromEntries([...P.probs].map(([k, v]) => [k, r4(v)])),
       labels: Object.fromEntries([...P.probs.keys()].map((k) => [k, label(k)])),
       scores: scores.slice(0, 12), firstGoal: P.sim.firstGoal.map(r4), ht: P.sim.ht.map((row) => row.map(r4)),
-      pick: best ? { id: best.id, label: label(best.id), p: r4(best.p) } : null,
+      pick: pickBest ? { id: pickBest.id, label: label(pickBest.id), p: r4(pickBest.p) } : null,
       combo: { id: c.id, label: label(c.id), p: r4(c.p), risky: c.risky },
-      tier: tier(P.probs, best), T: P.T, scorers, n,
+      tier: tier(P.probs, pickBest), T: P.T, scorers, n, flow, typical, h2h,
       meta: { builtAt: new Date().toISOString(), gamesUsed: games.length, model: M.builtAt },
     };
     writeFileSync(join(outDir, `${f.id}.json`), JSON.stringify(out));
-    console.log(`${f.home.name} – ${f.away.name} : ${(100 * P.final.h).toFixed(0)} / ${(100 * P.final.d).toFixed(0)} / ${(100 * P.final.a).toFixed(0)} · ${best ? `${label(best.id)} (${(100 * best.p).toFixed(0)} %)` : 'pas de prono'} · ${out.tier}`);
+    console.log(`${f.home.name} – ${f.away.name} : ${(100 * P.final.h).toFixed(0)} / ${(100 * P.final.d).toFixed(0)} / ${(100 * P.final.a).toFixed(0)} · ${pickBest ? `${label(pickBest.id)} (${(100 * pickBest.p).toFixed(0)} %)` : 'pas de prono'} · ${out.tier}`);
   } catch (e) { failed++; console.log(`échec ${P.f.id}`, e); }
 }
 if (failed) process.exit(1);
