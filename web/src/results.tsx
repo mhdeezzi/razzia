@@ -304,7 +304,7 @@ function Categories({ r, g }: { r: Result; g: Game }) {
   return <PickTabs cats={cats} n={r.n} ctx={ctx} />;
 }
 
-/** Onglets de pronostics (un point sur l'onglet en deuxième position) et la carte de l'issue retenue : NBA et tennis. */
+/** Onglets de pronostics et la carte de l'issue retenue : NBA, tennis et foot. */
 /** Le match d'un pari, pour l'ajouter au suivi. */
 export type MatchCtx = Pick<Leg, 'sport' | 'date' | 'start' | 'match' | 'path'>;
 
@@ -321,14 +321,8 @@ export function PickTabs({ cats, n, ctx }: { cats: Category[]; n: number; ctx?: 
           onChange={setId}
           options={cats.map((c) => ({
             value: c.id,
-            label: c.warn || c.good || c.risky ? (
-              <>
-                {c.label}
-                <span className={`tab-dot${c.good ? ' good' : c.risky && !c.warn ? ' risky' : ''}`} aria-label={c.good ? 'plus sûr que le vainqueur' : c.warn ? 'déconseillé' : 'risqué'} />
-              </>
-            ) : (
-              c.label
-            ),
+            // Pas de point sur les onglets : les pastilles (Déconseillé, Risqué, Safe) restent sur les pronostics.
+            label: c.label,
           }))}
         />
       </div>

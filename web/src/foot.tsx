@@ -706,10 +706,11 @@ function buildFootCategories(r: FootResult): Category[] {
   if (winner[0] && winWarn && !winner[0].warn) winner[0] = { ...winner[0], warn: winWarn, safe: undefined };
   const double = list([top(['1X', 'X2', '12'])]);
   const combos = list([r.combo.id]);
+  // Ordre fixe : double chance, combiné, vainqueur, puis score exact et LDEM.
   const cats: Category[] = [
     { id: 'double', label: 'Double chance', items: double },
-    { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
     { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky },
+    { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
   ];
   // Score exact : le plus probable, toujours « Déconseillé » (même le plus fréquent ne tombe qu'une fois sur huit environ).
   const sc = r.scores[0];
@@ -722,10 +723,6 @@ function buildFootCategories(r: FootResult): Category[] {
   }
   // LDEM (les deux équipes marquent) : seulement quand c'est à plus de 65 %.
   if ((P.btts ?? 0) > LDEM_MIN) cats.push({ id: 'btts', label: 'LDEM', items: list(['btts']) });
-  // L'onglet du pronostic mis en avant passe en premier, avec le point bleu.
-  const at = cats.findIndex((c) => c.items.some((x) => x.id === r.pick?.id));
-  if (at >= 0) cats[at] = { ...cats[at], good: true };
-  if (at > 0) cats.unshift(...cats.splice(at, 1));
   return cats.filter((c) => c.items.length);
 }
 
