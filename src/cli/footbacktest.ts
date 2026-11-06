@@ -7,6 +7,7 @@ import { loadGames, type Game } from '../foot/data.ts';
 import { FOOT_DIR } from '../foot/fotmob.ts';
 import { DEFAULT_RATING, type RatingParams } from '../foot/ratings.ts';
 import { probs, MARKETS } from '../foot/markets.ts';
+import { combo, featured, shown } from '../foot/picks.ts';
 import { gameState, outcome, reweight, simulateMatch } from '../foot/sim.ts';
 import { walk, type WalkRow } from '../foot/walk.ts';
 
@@ -93,6 +94,8 @@ if (import.meta.main ?? process.argv[1]?.endsWith('footbacktest.ts')) {
     for (const r of evalSet) {
       // Coupes d'Europe : pas de cotes historiques, moteur seul.
       if (!r.g.odds && ![42, 73].includes(r.g.lg)) continue;
+      // Seuls les matchs qui seront affichés comptent (pas de Bundesliga, Serie A avec un grand club seulement).
+      if (!process.argv.includes('--all') && !shown(r.g)) continue;
       const fg = finalGrid(r, b, r.g.odds ? W : WC, K, N);
       const pm = probs(fg.grid);
       const [i, j] = r.g.score;
@@ -100,8 +103,16 @@ if (import.meta.main ?? process.argv[1]?.endsWith('footbacktest.ts')) {
       nn++; llS += ll(outcome(fg.grid)[y]);
       llP += ll(r.g.odds ? blend(outcome(poissonGrid(...adjusted(r, b))), noVig(r.g.odds), W)[y] : outcome(poissonGrid(...adjusted(r, b)))[y]);
       for (const mk of MARKETS) { const pp = pm.get(mk.id)!; const b10 = Math.min(9, Math.floor(pp * 10)); add(`calib ${b10}`, pp, mk.win(Math.min(i, 10), Math.min(j, 10))); }
+      {
+        const Tc = r.g.odds ? 0.8 : 0.85;
+        const c = combo(pm, Tc);
+        const ok = MARKETS.find((m) => m.id === c.id)!.win(i, j);
+        add(`combiné rattaché ${c.risky ? 'risqué' : 'sûr'}`, c.p, ok);
+        add(`combiné rattaché (tous)`, c.p, ok);
+        if (!c.risky) add(`combiné sûr ${c.id.replace(/^(1X|X2)/, 'DC')}`, c.p, ok);
+      }
       for (const T of [0.78, 0.8, 0.82, 0.85]) {
-        const f = featured(pm, T);
+        const f = featured(pm, r.g.odds ? T : Math.max(T, 0.85));
         if (f) { const ok = MARKETS.find((m) => m.id === f.id)!.win(i, j); add(`T${T} mis en avant`, f.p, ok); add(`T${T} champ ${r.g.lg}`, f.p, ok); add(`T${T} saison ${r.g.season}`, f.p, ok); add(`T${T} ${f.id.replace(/^(1X|X2)/, 'DC').replace(/^[12](?=\+|$)/, 'V')}`, f.p, MARKETS.find((m) => m.id === f.id)!.win(i, j)); }
         else add(`T${T} aucun`, 0, false);
       }
@@ -135,13 +146,4 @@ export function finalGrid(r: WalkRow, b: Coefs, w: number, k: number, n: number,
   return { grid: reweight(sim.grid, { ...bl, over25 }), engine: e, sim };
 }
 
-/** Pronostic mis en avant : la double chance du favori, ou le combiné le plus intéressant qui reste au-dessus du seuil
- * de sûreté ; rien si même la double chance n'est pas assez sûre (match trop ouvert). Écartés après contrôle sur
- * 2024-2026 car moins sûrs que prévu : victoire du favori à l'extérieur (75,5 % réels pour 80 % annoncés), victoire ou
- * double chance + plus de 1,5 but (76-77 % pour 80-82 %). */
-export function featured(p: Map<string, number>, T: number): { id: string; p: number } | undefined {
-  const fav = p.get('1')! >= p.get('2')! ? '1X' : 'X2';
-  const cands = [...(fav === '1X' ? ['1'] : []), fav, `${fav}+o0.5`, `${fav}+u4.5`, `${fav}+u5.5`, `${fav}+o0.5+u5.5`]
-    .map((id) => ({ id, p: p.get(id)! })).filter((c) => c.p >= T).sort((a, b) => a.p - b.p);
-  return cands[0];
-}
+export { featured } from '../foot/picks.ts';

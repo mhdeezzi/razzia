@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { FOOT_DIR, LEAGUES, type MatchRec } from './fotmob.ts';
 
 export interface Odds { h: number; d: number; a: number; over25?: number; under25?: number; src: string }
-export interface Game extends MatchRec { odds?: Odds; closing?: Odds; key: string }
+export interface Game extends MatchRec { odds?: Odds; closing?: Odds; key: string; fdScore?: [number, number]; fdDate?: string }
 
 const FD_CODE: Record<number, string> = { 47: 'E0', 87: 'SP1', 55: 'I1', 54: 'D1', 53: 'F1', 57: 'N1', 61: 'P1', 40: 'B1', 64: 'SC0', 71: 'T1', 135: 'G1' };
 const FD_NEW: Record<number, string> = { 38: 'AUT', 69: 'SWZ', 46: 'DNK', 59: 'NOR' };
@@ -67,7 +67,12 @@ export { parseCsv, fdDate, FD_CODE };
 export function loadGames(): Game[] {
   if (cache) return cache;
   const dir = join(FOOT_DIR, 'm');
-  const games: Game[] = existsSync(dir) ? readdirSync(dir).map((fn) => JSON.parse(readFileSync(join(dir, fn), 'utf8')) as Game) : [];
+  // Matchs gagnés sur tapis vert (3-0, 5-0 administratif) : le score ne correspond pas au match joué (buts listés
+  // différents), écartés.
+  const games: Game[] = (existsSync(dir) ? readdirSync(dir).map((fn) => JSON.parse(readFileSync(join(dir, fn), 'utf8')) as Game) : []).filter((g) => {
+    const gl = g.events.filter((e) => e[0] !== 'R');
+    return gl.filter((e) => e[2] === 0).length === g.score[0] && gl.filter((e) => e[2] === 1).length === g.score[1];
+  });
   games.sort((a, b) => a.date.localeCompare(b.date));
   for (const g of games) g.key = g.id;
   // Correspondance des noms : chaque nom football-data est rattaché au nom FotMob avec lequel il partage le plus de
@@ -103,10 +108,28 @@ export function loadGames(): Game[] {
     const cand = games.filter((g) => g.lg === r.lg && g.home.id === h && g.away.id === a && Math.abs(Date.parse(g.date) - Date.parse(`${r.date}T15:00:00Z`)) < 4 * 864e5);
     const g = cand[0];
     if (!g) continue;
-    g.odds = r.odds; g.closing = r.closing; linked++;
+    g.odds = r.odds; g.closing = r.closing; g.fdScore = [r.hg, r.ag]; g.fdDate = r.date; linked++;
   }
   cache = games;
   return games;
 }
 
 export const leagueName = (id: number) => LEAGUES.find((l) => l.id === id)?.name ?? String(id);
+
+/** Tous les matchs joués par chaque équipe (championnats, coupes d'Europe, coupes nationales), dates seulement : pour les
+ * jours de repos. Les fiches détaillées n'existent que pour les championnats et coupes d'Europe suivis. */
+export function loadCalendar(): Array<{ date: string; teams: [number, number]; lg: number }> {
+  const dir = join(FOOT_DIR, 'fixtures');
+  if (!existsSync(dir)) return [];
+  const out: Array<{ date: string; teams: [number, number]; lg: number }> = [];
+  const seen = new Set<string>();
+  for (const fn of readdirSync(dir)) {
+    const d = JSON.parse(readFileSync(join(dir, fn), 'utf8')) as { matches: Array<{ id: string; lg: number; date: string; home: { id: number }; away: { id: number }; finished: boolean; cancelled: boolean }> };
+    for (const m of d.matches) {
+      if (!m.finished || m.cancelled || seen.has(m.id) || !m.date) continue;
+      seen.add(m.id);
+      out.push({ date: m.date, teams: [m.home.id, m.away.id], lg: m.lg });
+    }
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}

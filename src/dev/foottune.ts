@@ -37,8 +37,9 @@ if (step === 'all' || step === 'feats') {
   const P = { ...DEFAULT_RATING, ...JSON.parse(process.argv[3] ?? '{}'), ...(step === 'all' ? best : {}) };
   const rows = walk(games, '2021-08-01', P, MAIN);
   const tr = rows.filter((r) => r.g.date < '2023-07-01'), va = rows.filter((r) => r.g.date >= '2023-07-01' && r.g.date < '2024-07-01');
-  const all = fitCoefs(tr, P.goalsWeight);
+  const all = fitCoefs(tr, P.goalsWeight, [...FEATS]);
   const base = score(va, all);
+  log('gardés seulement', score(va, fitCoefs(tr, P.goalsWeight)).toFixed(5));
   log('tous', JSON.stringify(Object.fromEntries(Object.entries(all).map(([k, v]) => [k, +v.toFixed(3)]))), base.toFixed(5), 'sans rien', score(va, ZERO).toFixed(5));
   for (const k of FEATS) {
     const b = fitCoefs(tr, P.goalsWeight, FEATS.filter((x) => x !== k));

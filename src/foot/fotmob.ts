@@ -30,6 +30,9 @@ export const LEAGUES: Array<{ id: number; key: string; name: string; main: boole
   { id: 59, key: 'NOR', name: 'Eliteserien', main: false },
 ];
 
+/** Coupes dont on ne garde que le calendrier (dates des matchs, pour les jours de repos et l'enchaînement des matchs). */
+export const CALENDAR_CUPS = [132, 133, 138, 141, 209, 134, 10216]; // FA Cup, EFL Cup, Copa del Rey, Coppa Italia, DFB Pokal, Coupe de France, Conference League
+
 let last = 0;
 async function getJson(url: string): Promise<any> {
   for (let attempt = 0; ; attempt++) {

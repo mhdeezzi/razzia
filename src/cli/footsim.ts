@@ -3,7 +3,7 @@
 import { FD_CODE, fdDate, fdTeamId, loadGames, parseCsv, type Odds } from '../foot/data.ts';
 import { predictMany, loadModel } from '../foot/engine.ts';
 import { fixtures, LEAGUES } from '../foot/fotmob.ts';
-import { featured } from './footbacktest.ts';
+import { featured, shown } from '../foot/picks.ts';
 
 const arg = (k: string, d: string) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const days = Number(arg('--days', '3')), n = Number(arg('--sims', '20000'));
@@ -32,6 +32,7 @@ for (const lg of leagues) {
 const pc = (x: number) => `${(100 * x).toFixed(0)} %`;
 for (const P of (await predictMany(list, n)).sort((a, b) => a.f.date.localeCompare(b.f.date))) {
   const { f } = P;
+  if (!process.argv.includes('--all') && !shown(f)) continue;
   const best = featured(P.probs, P.T);
   const o = list.find((x) => x.f.id === f.id)?.odds;
   console.log(`\n${LEAGUES.find((l) => l.id === f.lg)!.name} · ${f.date.slice(0, 16).replace('T', ' ')} · ${f.home.name} – ${f.away.name} (compo ${P.lineupType ?? '?'}, cotes ${o?.src ?? 'aucune'})`);

@@ -1,7 +1,7 @@
 // Déroulé chronologique : pour chaque match, ce que le moteur savait juste avant (forces recalculées chaque semaine sur
 // les seuls matchs passés, composition alignée, forme récente, repos, coach, face-à-face), et ce qui s'est passé.
 // Sert à l'apprentissage des réglages et au contrôle de justesse, sans jamais regarder le futur.
-import type { Game } from './data.ts';
+import { loadCalendar, type Game } from './data.ts';
 import { DEFAULT_RATING, expectedGoals, fitRatings, type RatingParams, type Ratings } from './ratings.ts';
 
 export interface Feat {
@@ -55,11 +55,18 @@ export function walk(games: Game[], from: string, p: RatingParams = DEFAULT_RATI
   const xiGk = (side: Game['sides'][number] | undefined) => { const k = (side?.starters ?? []).find((x) => x[2] === 11); return k ? gkv(k[0]) : 0; };
   let R: Ratings | undefined;
   let fitDay = '';
+  // Calendrier complet (coupes nationales et Conference League comprises) pour les jours de repos.
+  const cal = loadCalendar();
+  let ci = 0;
   const week = (d: string) => { const t = Date.parse(d.slice(0, 10)); const day = new Date(t).getUTCDay(); return new Date(t - ((day + 6) % 7) * 864e5).toISOString().slice(0, 10); };
   for (let k = 0; k < games.length; k++) {
     const g = games[k];
     const day = g.date.slice(0, 10);
     now = Date.parse(g.date);
+    while (ci < cal.length && Date.parse(cal[ci].date) < now - 3600e3) {
+      const c = cal[ci++];
+      for (const id of c.teams) { if (!last.has(id) || last.get(id)! < c.date) last.set(id, c.date); if (CUPS.has(c.lg) || c.lg === 10216) lastCup.set(id, c.date); }
+    }
     if (day >= from) {
       // Forces recalculées une fois par semaine (le lundi), sur les matchs d'avant.
       const wk = week(day);

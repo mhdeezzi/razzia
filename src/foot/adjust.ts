@@ -38,11 +38,11 @@ export const adjusted = (r: WalkRow, b: Coefs, on?: Partial<Record<keyof Coefs, 
 /** Valeurs marchandes exclues : pour les vieux matchs, FotMob donne souvent la valeur ACTUELLE du joueur (Mahrez à
  * 5 M€ dès 2020), ce qui ferait entrer le futur dans le contrôle de justesse. */
 export const SAFE_FEATS = FEATS.filter((k) => k !== 'lr' && k !== 'mv');
-/** Gardés après test un par un sur 2023-24 (appris sur 2021-23) et stables d'une période à l'autre : apport offensif des
- * joueurs alignés, forme en xG, repos. Écartés : nouveau coach, coupe d'Europe juste avant, chat noir, pressing contre
- * relance courte (sans gain mesurable) ; gardien et coups de pied arrêtés (gain minime et signe qui s'inverse selon la
- * période d'apprentissage). */
-export const KEPT: Array<keyof Coefs> = ['la', 'mom', 'rest'];
+/** Gardés après test sur 2023-24 (appris sur 2021-23) : apport offensif des joueurs alignés et forme en xG (log-perte
+ * 0,96620, la meilleure combinaison). Écartés : repos (calendrier complet, coupes nationales comprises : 0,96666 avec),
+ * nouveau coach, coupe d'Europe juste avant, chat noir, pressing contre relance courte (sans gain), gardien et coups de
+ * pied arrêtés (gain minime, signe qui s'inverse selon la période). */
+export const KEPT: Array<keyof Coefs> = ['la', 'mom'];
 export function fitCoefs(rows: WalkRow[], goalsWeight: number, keys: Array<keyof Coefs> = KEPT): Coefs {
   const b: Coefs = { ...ZERO };
   const y = (r: WalkRow, s: 0 | 1) => (r.g.xg ? goalsWeight * r.g.score[s] + (1 - goalsWeight) * r.g.xg[s] : r.g.score[s]);
