@@ -374,7 +374,8 @@ function OutcomeCard({ o, n, ctx }: { o: Outcome; n: number; ctx?: MatchCtx }) {
   return (
     <article className="pick">
       {o.warn && <span className={`pick-warn${o.warn === 'Risqué' ? ' risky' : ''}`}>{o.warn}</span>}
-      {!o.warn && o.safe && <span className="pick-warn safe">{o.safe}</span>}
+      {!o.warn && o.value && <span className="pick-warn value">Value</span>}
+      {!o.warn && !o.value && o.safe && <span className="pick-warn safe">{o.safe}</span>}
       <Ring value={o.p} format={pctInt} label="Fréquence" marble={o.marble ?? (o.bet && sides?.[o.bet.side]) ?? (o.who?.tri ? glow(teamColor({ tri: o.who.tri, color: o.who.color })) : undefined)} marble2={o.marble2} />
       <div>
         <h4>

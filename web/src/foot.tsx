@@ -731,7 +731,7 @@ function buildFootCategories(r: FootResult): Category[] {
     // Rond au marbre du club concerné ; issue commune aux deux (nul, l'un ou l'autre, les deux marquent) : les deux couleurs.
     const marble = who && who.tri === `f${r.away.id}` ? pc.away : pc.home;
     const out: Outcome = { id, title: L[id], p, who, fair: p > 0 ? 1 / p : undefined, odds: oddsOf[id], implied: nv?.[id], marble, marble2: who ? undefined : pc.away };
-    if (r.pick?.id === id) out.safe = r.tier === 'sure' ? 'Razzia assuré' : 'Pronostic Razzia';
+    if (r.pick?.id === id) if (r.tier === 'sure') out.safe = 'Razzia assuré';
     if (r.combo.id === id) {
       if (r.combo.risky) out.warn = 'Risqué';
       else if (!out.safe) out.safe = 'Combiné rattaché';
