@@ -12,7 +12,7 @@
 // chance + plus de 1,5 but.
 
 export const BIG_ITALY = new Set([9885, 8636, 8564, 9875, 8686, 8524, 10171]); // Juventus, Inter, Milan, Napoli, Roma, Atalanta, Como
-export const SHOWN_LEAGUES = new Set([47, 87, 53, 42, 55]);
+export const SHOWN_LEAGUES = new Set([47, 87, 53, 42, 55, 54]);
 
 export function shown(m: { lg: number; home: { id: number }; away: { id: number } }): boolean {
   if (!SHOWN_LEAGUES.has(m.lg)) return false;
