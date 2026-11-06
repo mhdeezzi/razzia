@@ -1,0 +1,30 @@
+{
+ "params": {
+  "halfLifeDays": 150,
+  "goalsWeight": 0.35,
+  "priorSd": 1.2,
+  "newcomer": 0.5,
+  "cupWeight": 0.9,
+  "homeSd": 0.15
+ },
+ "coefs": {
+  "lr": 0,
+  "la": 0.19156872391078725,
+  "gk": 0,
+  "mv": 0,
+  "mom": 0.014778912435408235,
+  "coach": 0,
+  "rest": 0.04782332294974076,
+  "euro": 0,
+  "h2h": 0,
+  "sp": 0,
+  "press": 0
+ },
+ "w": 0.8,
+ "wCup": 0,
+ "k": 0.4,
+ "scale": 1.03,
+ "T": 0.8,
+ "Tcup": 0.85,
+ "builtAt": "2026-11-06T09:41:53.572Z"
+}

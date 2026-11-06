@@ -13,6 +13,7 @@ export interface Feat {
   euro: number; // 1 si l'équipe a joué une coupe d'Europe dans les 4 jours avant
   la: number; // log(apport offensif du onze aligné (xG+xA par 90 des titulaires) / apport habituel)
   gk: number; // buts évités par 90 du gardien titulaire (a priori 0) moins ceux du gardien habituel
+  mv: number; // log de la valeur marchande du onze aligné (sinon du onze habituel), 0 si inconnue
 }
 export interface Style { spFor: number; spAg: number; press: number; buildUp: number; n: number }
 export interface WalkRow {
@@ -75,7 +76,8 @@ export function walk(games: Game[], from: string, p: RatingParams = DEFAULT_RATI
       const full = (g.sides[side]?.starters.length ?? 0) >= 11;
       const la = full && laAvg.get(id) ? Math.max(-1, Math.min(1, Math.log(Math.max(0.05, xiAtt(g.sides[side])) / laAvg.get(id)!))) : 0;
       const gk = full && gkAvg.has(id) ? xiGk(g.sides[side]) - gkAvg.get(id)! : 0;
-      return { lr, mom: r.length ? r.reduce((s, x) => s + x, 0) / r.length : 0, momN: r.length, coach: c && c.n < 8 ? 1 : 0, rest, euro, la, gk };
+      const mvNow = full && now > 0 ? now : avg ?? 0;
+      return { lr, mom: r.length ? r.reduce((s, x) => s + x, 0) / r.length : 0, momN: r.length, coach: c && c.n < 8 ? 1 : 0, rest, euro, la, gk, mv: mvNow > 0 ? Math.log(mvNow) : 0 };
     };
     if (R && day >= from && (!onlyLeagues || onlyLeagues.has(g.lg))) {
       const neutral = CUPS.has(g.lg) && /final/i.test(String(g.round ?? '')) && !/semi|quarter|1\/|8/i.test(String(g.round ?? ''));

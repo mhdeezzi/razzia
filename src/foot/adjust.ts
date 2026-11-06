@@ -4,9 +4,9 @@
 // pas vus (voir footbacktest.ts).
 import type { Feat, WalkRow } from './walk.ts';
 
-export const FEATS = ['lr', 'la', 'gk', 'mom', 'coach', 'rest', 'euro', 'h2h', 'sp', 'press'] as const;
+export const FEATS = ['lr', 'la', 'gk', 'mv', 'mom', 'coach', 'rest', 'euro', 'h2h', 'sp', 'press'] as const;
 export type Coefs = Record<(typeof FEATS)[number], number>;
-export const ZERO: Coefs = { lr: 0, la: 0, gk: 0, mom: 0, coach: 0, rest: 0, euro: 0, h2h: 0, sp: 0, press: 0 };
+export const ZERO: Coefs = { lr: 0, la: 0, gk: 0, mv: 0, mom: 0, coach: 0, rest: 0, euro: 0, h2h: 0, sp: 0, press: 0 };
 
 const teamX = (f: Feat) => ({ lr: f.lr, la: f.la, gk: f.gk, mom: f.momN >= 3 ? f.mom : 0, coach: f.coach, rest: Math.log(f.rest / 7), euro: f.euro });
 /** Écart de force (log) en faveur du domicile : + pour le domicile marque plus et encaisse moins. */
@@ -14,6 +14,7 @@ export function delta(r: WalkRow, b: Coefs, on: Partial<Record<keyof Coefs, bool
   const h = teamX(r.fh), a = teamX(r.fa);
   let d = 0;
   for (const k of ['lr', 'la', 'gk', 'mom', 'coach', 'rest', 'euro'] as const) if (on[k] !== false) d += b[k] * ((h as any)[k] - (a as any)[k]);
+  if (on.mv !== false && r.fh.mv && r.fa.mv) d += b.mv * Math.max(-3, Math.min(3, r.fh.mv - r.fa.mv));
   if (on.h2h !== false && r.h2hN >= 2) d += b.h2h * r.h2h;
   return d / 2;
 }
@@ -34,7 +35,15 @@ export const adjusted = (r: WalkRow, b: Coefs, on?: Partial<Record<keyof Coefs, 
 };
 
 /** Coefficients par maximum de vraisemblance (Poisson) sur la cible buts/xG mélangée, petit a priori vers 0. */
-export function fitCoefs(rows: WalkRow[], goalsWeight: number, keys: Array<keyof Coefs> = [...FEATS]): Coefs {
+/** Valeurs marchandes exclues : pour les vieux matchs, FotMob donne souvent la valeur ACTUELLE du joueur (Mahrez à
+ * 5 M€ dès 2020), ce qui ferait entrer le futur dans le contrôle de justesse. */
+export const SAFE_FEATS = FEATS.filter((k) => k !== 'lr' && k !== 'mv');
+/** Gardés après test un par un sur 2023-24 (appris sur 2021-23) et stables d'une période à l'autre : apport offensif des
+ * joueurs alignés, forme en xG, repos. Écartés : nouveau coach, coupe d'Europe juste avant, chat noir, pressing contre
+ * relance courte (sans gain mesurable) ; gardien et coups de pied arrêtés (gain minime et signe qui s'inverse selon la
+ * période d'apprentissage). */
+export const KEPT: Array<keyof Coefs> = ['la', 'mom', 'rest'];
+export function fitCoefs(rows: WalkRow[], goalsWeight: number, keys: Array<keyof Coefs> = KEPT): Coefs {
   const b: Coefs = { ...ZERO };
   const y = (r: WalkRow, s: 0 | 1) => (r.g.xg ? goalsWeight * r.g.score[s] + (1 - goalsWeight) * r.g.xg[s] : r.g.score[s]);
   const xs = rows.map((r) => {
@@ -42,6 +51,7 @@ export function fitCoefs(rows: WalkRow[], goalsWeight: number, keys: Array<keyof
     const x: Record<string, number> = {};
     for (const k of ['lr', 'la', 'gk', 'mom', 'coach', 'rest', 'euro'] as const) x[k] = ((h as any)[k] - (a as any)[k]) / 2;
     x.h2h = r.h2hN >= 2 ? r.h2h / 2 : 0;
+    x.mv = r.fh.mv && r.fa.mv ? Math.max(-3, Math.min(3, r.fh.mv - r.fa.mv)) / 2 : 0;
     const sx = sideX(r);
     x.sp_h = sx.sp[0]; x.sp_a = sx.sp[1]; x.press_h = sx.press[0]; x.press_a = sx.press[1];
     return x;

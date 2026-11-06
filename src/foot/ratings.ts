@@ -15,7 +15,8 @@ export interface RatingParams {
   cupWeight: number; // poids d'un match de coupe d'Europe (rotations, contexte)
   homeSd: number; // a priori de l'avantage du terrain par championnat
 }
-export const DEFAULT_RATING: RatingParams = { halfLifeDays: 200, goalsWeight: 0.3, priorSd: 0.35, newcomer: 0.18, cupWeight: 0.9, homeSd: 0.15 };
+// Réglés sur 2022-2024 (src/dev/foottune.ts) : log-perte 1N2 0,9740 contre 0,979 avec les premières valeurs.
+export const DEFAULT_RATING: RatingParams = { halfLifeDays: 150, goalsWeight: 0.35, priorSd: 1.2, newcomer: 0.5, cupWeight: 0.9, homeSd: 0.15 };
 
 export interface Ratings {
   c: number;
@@ -24,6 +25,7 @@ export interface Ratings {
   def: Map<number, number>;
   weight: Map<number, number>; // poids cumulé des matchs de l'équipe (confiance)
   league: Map<number, number>; // championnat principal de l'équipe (pour l'a priori)
+  lgAtt: Map<number, number>; lgDef: Map<number, number>; // niveau moyen de chaque championnat
   at: string;
 }
 
@@ -57,11 +59,28 @@ export function fitRatings(games: Game[], before: string, p: RatingParams = DEFA
   for (const [id, m] of teamLeague) league.set(id, [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]);
   for (const r of rows) for (const id of [r.h, r.a]) { att.set(id, prev?.att.get(id) ?? 0); def.set(id, prev?.def.get(id) ?? 0); weight.set(id, (weight.get(id) ?? 0) + r.w); }
   for (const r of rows) if (!home.has(r.lg)) home.set(r.lg, prev?.home.get(r.lg) ?? 0.2);
-  // A priori : une équipe peu connue (peu de poids) est tirée vers « petite équipe » ; les autres vers 0 (moyenne).
-  const prior = (id: number) => ((weight.get(id) ?? 0) < 4 ? -p.newcomer * (1 - (weight.get(id) ?? 0) / 4) : 0);
+  // A priori hiérarchique : chaque équipe est tirée vers la moyenne de SON championnat (mesurée à chaque tour, les coupes
+  // d'Europe situant les championnats entre eux), une équipe peu connue vers « petite équipe » de son championnat.
+  const lgAtt = new Map<number, number>(), lgDef = new Map<number, number>();
+  const lgOf = (id: number) => league.get(id) ?? -1;
+  const fresh = (id: number) => ((weight.get(id) ?? 0) < 4 ? -p.newcomer * (1 - (weight.get(id) ?? 0) / 4) : 0);
+  const priorA = (id: number) => (lgAtt.get(lgOf(id)) ?? 0) + fresh(id);
+  const priorD = (id: number) => (lgDef.get(lgOf(id)) ?? 0) + fresh(id);
+  const updLeagues = () => {
+    const sa = new Map<number, [number, number]>(), sd = new Map<number, [number, number]>();
+    for (const [id, w] of weight) {
+      const l = lgOf(id);
+      if (l < 0) continue;
+      const a = sa.get(l) ?? [0, 0], d = sd.get(l) ?? [0, 0];
+      sa.set(l, [a[0] + w * att.get(id)!, a[1] + w]); sd.set(l, [d[0] + w * def.get(id)!, d[1] + w]);
+    }
+    for (const [l, [x, w]] of sa) lgAtt.set(l, x / w);
+    for (const [l, [x, w]] of sd) lgDef.set(l, x / w);
+  };
   let c = prev?.c ?? Math.log(1.35);
   const inv = 1 / (p.priorSd * p.priorSd);
   for (let it = 0; it < 25; it++) {
+    if (it % 3 === 0) updLeagues();
     // Constante : moyenne des buts.
     { let num = 0, den = 0; for (const r of rows) { num += r.w * (r.yh + r.ya); den += r.w * (Math.exp(home.get(r.lg)! + att.get(r.h)! - def.get(r.a)!) + Math.exp(att.get(r.a)! - def.get(r.h)!)); } c = Math.log(num / den); }
     // Avantage du terrain par championnat (pas en coupe : souvent sur deux matchs, il compte quand même ; même traitement).
@@ -75,21 +94,23 @@ export function fitRatings(games: Game[], before: string, p: RatingParams = DEFA
       gA.set(r.h, (gA.get(r.h) ?? 0) + r.w * (r.yh - lh)); hA.set(r.h, (hA.get(r.h) ?? 0) + r.w * lh);
       gA.set(r.a, (gA.get(r.a) ?? 0) + r.w * (r.ya - la)); hA.set(r.a, (hA.get(r.a) ?? 0) + r.w * la);
     }
-    for (const [id, g] of gA) { const v = att.get(id)!; att.set(id, v + (g - (v - prior(id)) * inv) / (hA.get(id)! + inv)); }
+    for (const [id, g] of gA) { const v = att.get(id)!; att.set(id, v + (g - (v - priorA(id)) * inv) / (hA.get(id)! + inv)); }
     const gD = new Map<number, number>(), hD = new Map<number, number>();
     for (const r of rows) {
       const lh = Math.exp(c + home.get(r.lg)! + att.get(r.h)! - def.get(r.a)!), la = Math.exp(c + att.get(r.a)! - def.get(r.h)!);
       gD.set(r.a, (gD.get(r.a) ?? 0) - r.w * (r.yh - lh)); hD.set(r.a, (hD.get(r.a) ?? 0) + r.w * lh);
       gD.set(r.h, (gD.get(r.h) ?? 0) - r.w * (r.ya - la)); hD.set(r.h, (hD.get(r.h) ?? 0) + r.w * la);
     }
-    for (const [id, g] of gD) { const v = def.get(id)!; def.set(id, v + (g - (v - prior(id)) * inv) / (hD.get(id)! + inv)); }
+    for (const [id, g] of gD) { const v = def.get(id)!; def.set(id, v + (g - (v - priorD(id)) * inv) / (hD.get(id)! + inv)); }
   }
-  return { c, home, att, def, weight, league, at: before };
+  updLeagues();
+  return { c, home, att, def, weight, league, lgAtt, lgDef, at: before };
 }
 
 /** Buts attendus (avant ajustements de contexte) d'un match. `neutral` : finale sur terrain neutre. */
 export function expectedGoals(R: Ratings, lg: number, h: number, a: number, newcomer: number, neutral = false): [number, number] {
-  const att = (id: number) => R.att.get(id) ?? -newcomer, def = (id: number) => R.def.get(id) ?? -newcomer;
+  // Équipe inconnue : petite équipe du championnat du match (ou moyenne générale en coupe).
+  const att = (id: number) => R.att.get(id) ?? (R.lgAtt.get(lg) ?? 0) - newcomer, def = (id: number) => R.def.get(id) ?? (R.lgDef.get(lg) ?? 0) - newcomer;
   const hv = neutral ? 0 : R.home.get(lg) ?? 0.2;
   return [Math.exp(R.c + hv + att(h) - def(a)), Math.exp(R.c + att(a) - def(h))];
 }

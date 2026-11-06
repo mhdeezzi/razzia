@@ -3,7 +3,7 @@
 // 2) ajustements de contexte : chacun gardé seulement s'il améliore la prévision de 2023-24 (appris sur 2021-23) ;
 // 3) intensité de l'effet du score (k) : vraisemblance des scores exacts ;
 // 4) poids du marché.
-import { adjusted, fitCoefs, FEATS, ZERO, type Coefs } from '../foot/adjust.ts';
+import { adjusted, fitCoefs, SAFE_FEATS as FEATS, ZERO, type Coefs } from '../foot/adjust.ts';
 import { loadGames } from '../foot/data.ts';
 import { DEFAULT_RATING, type RatingParams } from '../foot/ratings.ts';
 import { gameState, outcome, simulateMatch } from '../foot/sim.ts';
@@ -20,10 +20,11 @@ const score = (rows: WalkRow[], b: Coefs, w = 0) => {
   return s / n;
 };
 const step = process.argv[2] ?? 'all';
+const FEATS_ALL = FEATS;
 let best: RatingParams = { ...DEFAULT_RATING };
 if (step === 'all' || step === 'ratings') {
   let bestS = Infinity;
-  for (const halfLifeDays of [120, 200, 320]) for (const goalsWeight of [0.15, 0.3, 0.5]) for (const priorSd of [0.25, 0.4]) for (const newcomer of [0.1, 0.25]) {
+  for (const halfLifeDays of [80, 110, 150]) for (const goalsWeight of [0.35, 0.5]) for (const priorSd of [0.8, 1.2, 2]) for (const newcomer of [0.35, 0.5]) {
     const P = { ...DEFAULT_RATING, halfLifeDays, goalsWeight, priorSd, newcomer };
     const rows = walk(games, '2022-08-01', P, MAIN).filter((r) => r.g.date < '2024-07-01');
     const s = score(rows, ZERO);
@@ -48,10 +49,12 @@ if (step === 'all' || step === 'k') {
   const P = { ...DEFAULT_RATING, ...JSON.parse(process.argv[3] ?? '{}') };
   const rows = walk(games, '2022-08-01', P, MAIN).filter((r) => r.g.date < '2024-07-01');
   const b = fitCoefs(rows, P.goalsWeight);
-  for (const k of [0, 0.5, 1, 1.5]) {
+  const scale = Number(process.argv[4] ?? '1');
+  for (const k of (process.argv[5] ?? '0,0.5,1,1.5').split(',').map(Number)) {
     let s = 0, d = 0, d0 = 0, o25 = 0, o25r = 0, n = 0;
     for (const r of rows) {
-      const [lh, la] = adjusted(r, b);
+      const [lh0, la0] = adjusted(r, b);
+      const lh = lh0 * scale, la = la0 * scale;
       const sim = simulateMatch({ lambda: lh, shotQ: r.shotQ[0], redRate: r.red[0] }, { lambda: la, shotQ: r.shotQ[1], redRate: r.red[1] }, { n: 1500, seed: Number(r.g.id) % 100000, gs: gameState(k) });
       const [i, j] = r.g.score;
       s += ll(0.98 * (sim.grid[Math.min(i, 10)][Math.min(j, 10)]) + 0.02 / 121);
@@ -59,6 +62,17 @@ if (step === 'all' || step === 'k') {
       let o = 0; sim.grid.forEach((row, a) => row.forEach((p, c) => { if (a + c > 2.5) o += p; }));
       o25 += o; o25r += i + j > 2.5 ? 1 : 0; n++;
     }
-    log(`k ${k} : score exact ${(s / n).toFixed(4)} · nuls prévus ${(100 * d / n).toFixed(1)} % réels ${(100 * d0 / n).toFixed(1)} % · +2,5 buts prévus ${(100 * o25 / n).toFixed(1)} % réels ${(100 * o25r / n).toFixed(1)} %`);
+    log(`k ${k} échelle ${scale} : score exact ${(s / n).toFixed(4)} · nuls prévus ${(100 * d / n).toFixed(1)} % réels ${(100 * d0 / n).toFixed(1)} % · +2,5 buts prévus ${(100 * o25 / n).toFixed(1)} % réels ${(100 * o25r / n).toFixed(1)} %`);
+  }
+}
+
+if (step === 'cup') {
+  const rows = walk(games, '2021-08-01', DEFAULT_RATING, new Set([42, 73])).filter((r) => r.g.date < '2024-07-01');
+  const b = fitCoefs(walk(games, '2021-08-01', DEFAULT_RATING, MAIN).filter((r) => r.g.date < '2024-07-01'), DEFAULT_RATING.goalsWeight);
+  const eng = rows.map((r) => { const [lh, la] = adjusted(r, b); return outcome(simulateMatch({ lambda: lh * 1.03, shotQ: r.shotQ[0], redRate: r.red[0] }, { lambda: la * 1.03, shotQ: r.shotQ[1], redRate: r.red[1] }, { n: 2000, seed: Number(r.g.id) % 100000, gs: gameState(0.4) }).grid); });
+  for (const t of [0.5, 0.6, 0.7, 0.8, 0.9, 1]) {
+    let s = 0;
+    rows.forEach((r, i) => { const e = eng[i]; const z = { h: e.h ** t, d: e.d ** t, a: e.a ** t }; const n = z.h + z.d + z.a; s += ll(z[y(r)] / n); });
+    log(`coupes : exposant ${t} → log-perte ${(s / rows.length).toFixed(4)} (${rows.length} matchs)`);
   }
 }
