@@ -45,8 +45,8 @@ function roundCode(name = ''): string | undefined {
   const n = name.match(/round (\d)/i);
   return n ? `R${n[1]}` : '';
 }
-async function espn(): Promise<{ live: Map<string, Live>; planned: Planned[] }> {
-  const live = new Map<string, Live>(), planned = new Map<string, Planned>();
+async function espn(): Promise<{ live: Map<string, Live>; planned: Planned[]; when: Map<string, string> }> {
+  const live = new Map<string, Live>(), planned = new Map<string, Planned>(), when = new Map<string, string>();
   const ymd = (i: number) => new Date(Date.now() + i * 86_400_000).toISOString().slice(0, 10).replaceAll('-', '');
   await Promise.all(['', ...[-1, 1, 2, 3, 4, 5, 6].map((i) => `?dates=${ymd(i)}`)].map(async (q) => {
     try {
@@ -71,6 +71,7 @@ async function espn(): Promise<{ live: Map<string, Live>; planned: Planned[] }> 
             });
             const round = roundCode(c.round?.displayName);
             const start = c.startDate ?? c.date;
+            if (start) when.set(pair, start); // vraie date du match, commencé ou non
             if (state === 'pre' && round !== undefined && /^\d{5,14}$/.test(String(c.id)) && start)
               planned.set(pair, { id: String(c.id), event: ev.shortName ?? ev.name ?? '', round, start, home: ps[0].athlete.displayName, away: ps[1].athlete.displayName });
           }
@@ -79,7 +80,7 @@ async function espn(): Promise<{ live: Map<string, Live>; planned: Planned[] }> 
       /* ESPN indisponible : l'app déduit l'état de l'heure du match */
     }
   }));
-  return { live, planned: [...planned.values()] };
+  return { live, planned: [...planned.values()], when };
 }
 
 async function findRun(req: string): Promise<any | undefined> {
@@ -113,7 +114,7 @@ export async function GET(request: Request): Promise<Response> {
       // Fichiers de cotes d'hier à dans 6 jours (UTC) : un par jour de match.
       const days = Array.from({ length: 8 }, (_, i) => new Date(Date.now() + (i - 1) * 86_400_000).toISOString().slice(0, 10));
       const files = await Promise.all(days.map(async (d) => { const r = await raw(`atp/${d}.json`, 'cotes-tennis'); return r.ok ? [d, await r.json()] as const : undefined; }));
-      const [s, p, { live, planned }] = await Promise.all([raw('tennis/index.json', 'resultats'), raw('players.json', 'cotes-tennis'), espn()]);
+      const [s, p, { live, planned, when }] = await Promise.all([raw('tennis/index.json', 'resultats'), raw('players.json', 'cotes-tennis'), espn()]);
       // Score vu du joueur « domicile » de la fiche de cotes : jeux de chacun par set, vainqueur.
       const score = (home: string, away: string) => {
         const l = live.get([key(home), key(away)].sort().join('|'));
@@ -169,6 +170,33 @@ export async function GET(request: Request): Promise<Response> {
       const notStarted = (m: any) => !m.live || m.live.state === 'pre';
       const tour = (m: any) => String(m.league ?? '').split(' - ')[0];
       const drop = new Set<any>();
+      // 0) Date fausse : la fiche de cotes Pinnacle garde parfois une date de match fantaisiste (Shelton–Paul, joué le
+      //    6 novembre, rangé au 8). ESPN donne la vraie date de chaque match, terminé ou non : on la reprend. Puis la
+      //    même paire du même tournoi en double à moins de 12 h (fiche ESPN + fiche Pinnacle), commencée ou non : une
+      //    seule fiche, celle déjà simulée, sinon celle cotée, qui reprend la cote de l'autre au besoin.
+      for (const m of matches) {
+        const at = when.get(pk(m));
+        if (at && Math.abs(Date.parse(at) - Date.parse(m.start)) > 12 * 3_600_000) { m.start = at; m.day = at.slice(0, 10); }
+      }
+      const simmed = new Set(((s.ok ? await s.clone().json() : []) as Array<{ id: string }>).map((x) => String(x.id)));
+      const twins = new Map<string, any[]>();
+      for (const m of matches) twins.set(`${pk(m)}|${tour(m)}`, [...(twins.get(`${pk(m)}|${tour(m)}`) ?? []), m]);
+      for (const l of twins.values()) {
+        if (l.length < 2) continue;
+        const sorted = [...l].sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+        for (let i = 0; i < sorted.length; i++) {
+          const grp = sorted.filter((o) => Math.abs(Date.parse(o.start) - Date.parse(sorted[i].start)) < 12 * 3_600_000 && !drop.has(o));
+          if (grp.length < 2) continue;
+          const keep = grp.find((o) => simmed.has(String(o.id))) ?? grp.find((o) => !o.noOdds) ?? grp[0];
+          const priced = grp.find((o) => !o.noOdds);
+          if (keep.noOdds && priced) {
+            const flip = key(keep.home) !== key(priced.home);
+            // Joueurs inversés pour suivre l'ordre de la cote : le score en direct est relu dans le même ordre.
+            Object.assign(keep, { odds: priced.odds, oddsOpen: priced.oddsOpen, noOdds: false }, flip ? { home: keep.away, away: keep.home, live: score(keep.away, keep.home) } : {});
+          }
+          for (const o of grp) if (o !== keep) drop.add(o);
+        }
+      }
       // 1) Même paire en double, pas commencée : celle à l'heure d'ESPN, sinon la plus tardive.
       const byPair = new Map<string, any[]>();
       for (const m of matches) if (notStarted(m)) byPair.set(pk(m), [...(byPair.get(pk(m)) ?? []), m]);

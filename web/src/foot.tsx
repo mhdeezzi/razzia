@@ -423,13 +423,15 @@ function Who({ m, side, align }: { m: SlateMatch; side: 'home' | 'away'; align?:
   );
 }
 
-function FootSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
+function FootSimPill({ sim, running, ended }: { sim?: SimIndex; running: boolean; ended?: boolean }) {
   if (running)
     return (
       <span className="conf-pill run">
         <span className="spin spin-xs" /> Calcul
       </span>
     );
+  // Match commencé ou fini sans simulation : plus rien à lancer (on ne simule jamais un match commencé).
+  if (!sim && ended) return <span className="conf-pill wait">Non simulé</span>;
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const p = simPill(sim);
   return (
@@ -450,7 +452,7 @@ function FootRow({ m, sim, running, i }: { m: SlateMatch; sim?: SimIndex; runnin
       </div>
       <span className="cell-odds">{oddsText(m.odds) ?? <span className="muted small">Sans cote</span>}</span>
       <span style={{ textAlign: 'center' }}>
-        <FootSimPill sim={sim} running={running} />
+        <FootSimPill sim={sim} running={running} ended={stateOf(m) !== 'pre'} />
       </span>
       <CaretRight size={16} className="row-caret" />
     </Link>
@@ -522,7 +524,7 @@ function FootCard({ m, sim, running, i }: { m: SlateMatch; sim?: SimIndex; runni
             {p.text} {pct0(p.p)}
           </span>
         ) : (
-          <FootSimPill sim={sim} running={running} />
+          <FootSimPill sim={sim} running={running} ended={stateOf(m) !== 'pre'} />
         )}
         <span className="mono muted">{oddsText(m.odds) ?? 'Cotes à venir'}</span>
       </div>

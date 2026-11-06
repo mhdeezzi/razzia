@@ -535,13 +535,15 @@ const lastName = (n: string) => n.split(' ').slice(1).join(' ') || n;
 export const tennisNameWidth = (ms: SlateMatch[]) => Math.max(5, ...ms.flatMap((m) => [lastName(m.home).length * 0.6, lastName(m.away).length * 0.6 + 1.3]));
 
 /** Pastille de simulation, comme au basket : chat noir, favori et son pourcentage ; « Calcul » pendant la journée. */
-function TennisSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
+function TennisSimPill({ sim, running, ended }: { sim?: SimIndex; running: boolean; ended?: boolean }) {
   if (running)
     return (
       <span className="conf-pill run">
         <span className="spin spin-xs" /> Calcul
       </span>
     );
+  // Match commencé ou fini sans simulation : plus rien à lancer (on ne simule jamais un match commencé).
+  if (!sim && ended) return <span className="conf-pill wait">Non simulé</span>;
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const { fav, cls } = favFlip(sim);
   return (
@@ -564,7 +566,7 @@ function TennisRow({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimIn
       </div>
       <span className="cell-odds">{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : <span className="muted small">Sans cote</span>}</span>
       <span style={{ textAlign: 'center' }}>
-        <TennisSimPill sim={sim} running={running} />
+        <TennisSimPill sim={sim} running={running} ended={stateOf(m) !== 'pre'} />
       </span>
       <CaretRight size={16} className="row-caret" />
     </Link>
@@ -644,7 +646,7 @@ function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimI
             {lastName(ff.fav.n)} {pct0(ff.fav.p)}
           </span>
         ) : (
-          <TennisSimPill sim={sim} running={running} />
+          <TennisSimPill sim={sim} running={running} ended={stateOf(m) !== 'pre'} />
         )}
         <span className="mono muted">{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : 'Cotes à venir'}</span>
       </div>
