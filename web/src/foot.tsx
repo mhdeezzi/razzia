@@ -639,7 +639,7 @@ export function FootMatchPage({ id }: { id: string }) {
 // ——— Résultats ———
 const SURE_TEXT = 'À 85 % ou plus, ce pronostic est passé 91 % du temps sur 2024 à 2026 (un match sur cinq).';
 
-/** Catégories de paris : vainqueur, double chance, combinés (le combiné rattaché en tête), buts. */
+/** Catégories de paris : double chance, vainqueur, combinés (le combiné rattaché en tête). */
 function buildFootCategories(r: FootResult): Category[] {
   const P = r.probs, L = r.labels;
   const o = r.market?.odds;
@@ -664,16 +664,14 @@ function buildFootCategories(r: FootResult): Category[] {
   };
   const list = (ids: string[]) => ids.map(item).filter((x): x is Outcome => !!x);
   const winner = list(homeFav ? ['1', 'X', '2'] : ['2', 'X', '1']);
-  const double = list(homeFav ? ['1X', '12', 'X2'] : ['X2', '12', '1X']);
   const dc = homeFav ? '1X' : 'X2';
+  // Une seule double chance : celle du pronostic s'il en est une, sinon celle du favori.
+  const double = list([r.pick && ['1X', 'X2', '12'].includes(r.pick.id) ? r.pick.id : dc]);
   const combos = list([r.combo.id, ...Object.keys(P).filter((k) => (k.startsWith(`${dc}+`) || k === `${homeFav ? '1' : '2'}+o1.5`) && k !== r.combo.id).sort((a, b) => P[b] - P[a]).slice(0, 4)]);
-  const more = (a: string, b: string) => ((P[a] ?? 0) >= (P[b] ?? 0) ? a : b);
-  const goals = list([more('o1.5', 'u1.5'), more('o2.5', 'u2.5'), more('o3.5', 'u3.5'), more('btts', 'nobtts'), more('h05', 'u0.5') === 'h05' ? 'h05' : '', more('a05', 'u0.5') === 'a05' ? 'a05' : ''].filter(Boolean));
   const cats: Category[] = [
     { id: 'double', label: 'Double chance', items: double },
     { id: 'win', label: 'Vainqueur', items: winner },
     { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky },
-    { id: 'goals', label: 'Buts', items: goals },
   ];
   // L'onglet du pronostic mis en avant passe en premier, avec le point bleu.
   const at = cats.findIndex((c) => c.items.some((x) => x.id === r.pick?.id));
