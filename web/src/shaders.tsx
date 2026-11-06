@@ -5,7 +5,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 const Warp = lazy(() => import('@paper-design/shaders-react').then((m) => ({ default: m.Warp })));
 
-const fill = { position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: -1 } as const;
+const fill = { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, width: '100%', height: '100%', zIndex: -1 } as const;
 const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** Marbre lent entre deux couleurs : bandeau des programmes, en-tête d'une fiche (couleurs des équipes). */

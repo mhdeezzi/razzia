@@ -41,5 +41,7 @@ export default defineConfig({
   plugins: [localApi()],
   esbuild: { jsx: 'automatic' },
   server: { port: 5180 },
-  build: { outDir: resolve(root, 'dist'), emptyOutDir: true },
+  // CSS réécrit pour les iPhone un peu anciens (iOS 13 et 14) : « inset » devient top/right/bottom/left, etc. Sans ça,
+  // les ronds des pronostics s'y affichaient avec un grand cercle blanc décalé.
+  build: { outDir: resolve(root, 'dist'), emptyOutDir: true, cssTarget: ['safari13', 'ios13', 'chrome80'] },
 });
