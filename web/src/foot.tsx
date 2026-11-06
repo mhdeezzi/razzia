@@ -423,13 +423,15 @@ function Who({ m, side, align }: { m: SlateMatch; side: 'home' | 'away'; align?:
   );
 }
 
-function FootSimPill({ sim, running }: { sim?: SimIndex; running: boolean }) {
+function FootSimPill({ sim, running, ended }: { sim?: SimIndex; running: boolean; ended?: boolean }) {
   if (running)
     return (
       <span className="conf-pill run">
         <span className="spin spin-xs" /> Calcul
       </span>
     );
+  // Match commencé ou fini sans simulation : plus rien à lancer (on ne simule jamais un match commencé).
+  if (!sim && ended) return <span className="conf-pill wait">Non simulé</span>;
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const p = simPill(sim);
   return (
@@ -450,7 +452,7 @@ function FootRow({ m, sim, running, i }: { m: SlateMatch; sim?: SimIndex; runnin
       </div>
       <span className="cell-odds">{oddsText(m.odds) ?? <span className="muted small">Sans cote</span>}</span>
       <span style={{ textAlign: 'center' }}>
-        <FootSimPill sim={sim} running={running} />
+        <FootSimPill sim={sim} running={running} ended={stateOf(m) !== 'pre'} />
       </span>
       <CaretRight size={16} className="row-caret" />
     </Link>
@@ -522,7 +524,7 @@ function FootCard({ m, sim, running, i }: { m: SlateMatch; sim?: SimIndex; runni
             {p.text} {pct0(p.p)}
           </span>
         ) : (
-          <FootSimPill sim={sim} running={running} />
+          <FootSimPill sim={sim} running={running} ended={stateOf(m) !== 'pre'} />
         )}
         <span className="mono muted">{oddsText(m.odds) ?? 'Cotes à venir'}</span>
       </div>
@@ -643,6 +645,11 @@ function FootHero({ id, r }: { id: string; r?: FootResult }) {
 
 export function FootMatchPage({ id }: { id: string }) {
   const { state, busy, launch, since } = useFootSim(id);
+  // Match déjà commencé (programme du jour) : plus de bouton pour le simuler.
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    api('?slate=1').then((d: { matches?: SlateMatch[] }) => setStarted(!!d.matches?.some((x) => x.id === id && stateOf(x) !== 'pre')), () => undefined);
+  }, [id]);
   return (
     <div className="page">
       <Link href="/" className="back">
@@ -661,7 +668,15 @@ export function FootMatchPage({ id }: { id: string }) {
           note="Compter 2 à 4 minutes. La page se met à jour seule, et la simulation continue si vous la quittez."
         />
       )}
-      {(state.status === 'none' || state.status === 'failed') && (
+      {state.status === 'none' && started && (
+        <section className="launch">
+          <h2>
+            Match commencé, <em>pas de simulation.</em>
+          </h2>
+          <p className="lede">Ce match n'a pas été simulé avant le coup d'envoi. Razzia ne simule jamais un match déjà commencé.</p>
+        </section>
+      )}
+      {(state.status === 'failed' || (state.status === 'none' && !started)) && (
         <section className="launch">
           {state.status === 'failed' && (
             <div className="alert" role="alert">

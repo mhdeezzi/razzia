@@ -208,6 +208,8 @@ function SimPill({ g, sim, run }: { g: Game; sim?: SimEntry; run?: ItemState }) 
         <Check size={13} weight="bold" /> Prêt
       </span>
     );
+  // Match commencé ou fini sans simulation : plus rien à lancer (on ne simule jamais un match commencé).
+  if (!sim && g.state !== 'pre') return <span className="conf-pill wait">Non simulé</span>;
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const home = sim.pHome >= sim.pAway;
   const p = Math.max(sim.pHome, sim.pAway);
