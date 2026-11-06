@@ -299,8 +299,8 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
     return m;
   }, [data, dates]);
   const today = dates[1];
-  const firstWithMatches = dates.slice(1).find((d) => (byDay.get(d)?.length ?? 0) > 0) ?? today;
-  const current = day && byDay.has(day) ? day : firstWithMatches;
+  // Toujours aujourd'hui par défaut, même sans match : ouvrir le lendemain tout seul faisait croire que c'était le jour.
+  const current = day && byDay.has(day) ? day : today;
   const dayMatches = byDay.get(current) ?? [];
   const count = (st: Status) => dayMatches.filter((m) => stateOf(m) === st).length;
   // Le filtre suit le jour : on bascule sur un statut qui a des matchs.
@@ -394,7 +394,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
           {run && run.day === current && <DayTracker run={run} sims={sims} onClose={dismiss} />}
 
           {dayMatches.length === 0 ? (
-            <Empty title="Pas de match ATP coté ce jour-là." />
+            <Empty title={current === today ? "Aucun match ATP coté aujourd'hui." : 'Pas de match ATP coté ce jour-là.'}>{current === today && <p>Choisis un autre jour dans le calendrier ci-dessus.</p>}</Empty>
           ) : view === 'liste' ? (
             // Toute la journée dans une seule carte, comme la NBA ; chaque tournoi séparé par une barre blanche.
             <section className="league-card" key={`${current}-${status}`}>

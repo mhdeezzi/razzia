@@ -118,7 +118,9 @@ export function loadProgramme(): Promise<Programme> {
   if (programme && Date.now() - programmeAt > 5 * 60_000) programme = undefined;
   if (!programme) {
     programmeAt = Date.now();
-    programme = getJson<Programme>('/api/games?days=7').then((p) => {
+    // Hier compris (comme le foot et le tennis) : la veille, aujourd'hui et les six jours suivants, heure de New York.
+    const yesterday = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(Date.now() - 864e5));
+    programme = getJson<Programme>(`/api/games?days=8&from=${yesterday}`).then((p) => {
       // Réponse inattendue (serveur qui renvoie autre chose que le programme) : erreur lisible, pas de page blanche.
       if (!Array.isArray(p?.games)) throw new Error('Programme illisible pour le moment, réessayez dans un instant.');
       return (programmeLast = p);

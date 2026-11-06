@@ -59,8 +59,10 @@ export function SchedulePage({ day }: { day: string | null }) {
     return m;
   }, [prog]);
 
-  const firstWithGames = prog?.dates.find((d) => (byDay.get(d)?.length ?? 0) > 0) ?? prog?.dates[0];
-  const current = day && byDay.has(day) ? day : firstWithGames;
+  // Toujours aujourd'hui par défaut, même sans match (« Pas de match NBA aujourd'hui ») : ouvrir le lendemain tout seul
+  // faisait croire que c'était le programme du jour.
+  const today = prog?.dates.find(isToday) ?? prog?.dates[1] ?? prog?.dates[0];
+  const current = day && byDay.has(day) ? day : today;
   const dayGames = current ? byDay.get(current) ?? [] : [];
   const count = (s: Status) => dayGames.filter((g) => g.state === s).length;
   // Le filtre suit le jour : on bascule sur un statut qui a des matchs.
@@ -114,7 +116,8 @@ export function SchedulePage({ day }: { day: string | null }) {
           <nav className="days" aria-label="Jours">
             {prog.dates.map((d, i) => {
               const n = byDay.get(d)?.length ?? 0;
-              const name = isToday(d) ? "Aujourd'hui" : i === 1 && isToday(prog.dates[0]) ? 'Demain' : new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short' });
+              const ti = prog.dates.findIndex(isToday);
+              const name = isToday(d) ? "Aujourd'hui" : ti >= 0 && i === ti + 1 ? 'Demain' : ti >= 0 && i === ti - 1 ? 'Hier' : new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short' });
               return (
                 <Link key={d} href={`/basket?jour=${d}`} replace className={`day${d === current ? ' is-on' : ''}${n ? '' : ' is-empty'}`}>
                   <span className="day-name">{name}</span>
@@ -129,7 +132,7 @@ export function SchedulePage({ day }: { day: string | null }) {
           {batch?.date === current && <BatchTracker b={batch} />}
 
           {dayGames.length === 0 ? (
-            <Empty title="Pas de match NBA ce soir-là." />
+            <Empty title={current && isToday(current) ? "Aucun match NBA aujourd'hui." : 'Pas de match NBA ce soir-là.'}>{current && isToday(current) && <p>Choisis un autre jour dans le calendrier ci-dessus.</p>}</Empty>
           ) : view === 'liste' ? (
             <section className="league-card" key={`${current}-${status}`}>
               <div className="league-top">

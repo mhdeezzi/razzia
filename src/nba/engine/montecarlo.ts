@@ -371,6 +371,7 @@ export interface Summary {
     bookHome?: number;
     blendedHome?: number;
     capShift?: number; // plafond au marché : décalage en points des lignes de handicap (déjà appliqué à spreadLadder)
+    totalShift?: number; // total rapproché du marché : décalage en points des scores (déjà appliqué aux points et au total)
     mlHome?: number; // cotes américaines au moment de la simulation (bilan : valeur de clôture, rendement)
     mlAway?: number;
     bookHomeOpen?: number; // marché sans marge à l'ouverture
@@ -462,6 +463,13 @@ export function summarize(m: GameModel, b: Batch): Summary {
     if (h > a) h1Home++;
     else if (h === a) h1Home += 0.5;
   }
+  // Total rapproché de celui du marché (80 % de l'écart) : sur les 113 matchs simulés et joués de 2026-2027, la
+  // simulation comptait 7,8 points de trop en moyenne, le marché 2,8. Les points des équipes, le total, les quarts-temps
+  // et les lignes de total sont décalés d'autant (pas les joueurs ni l'écart).
+  let tMean = 0;
+  for (let i = 0; i < n; i++) tMean += total[i] / n;
+  const tShift = m.market?.total != null ? 0.8 * (m.market.total - tMean) : 0;
+  if (tShift) for (let i = 0; i < n; i++) total[i] += tShift;
   const medMargin = quantile(Float64Array.from(margin).sort(), 0.5);
   const medTotal = quantile(Float64Array.from(total).sort(), 0.5);
   const spreadLadder: Summary['spreadLadder'] = [];
@@ -514,7 +522,7 @@ export function summarize(m: GameModel, b: Batch): Summary {
   let market: Summary['market'];
   if (m.market) {
     const mk = m.market;
-    market = { spreadHome: mk.spreadHome, total: mk.total, bookHome: mk.pHomeNoVig, mlHome: mk.mlHome, mlAway: mk.mlAway };
+    market = { spreadHome: mk.spreadHome, total: mk.total, bookHome: mk.pHomeNoVig, mlHome: mk.mlHome, mlAway: mk.mlAway, ...(tShift ? { totalShift: tShift } : {}) };
     if (mk.spreadHome != null) {
       let c = 0;
       for (let i = 0; i < n; i++) if (margin[i] + mk.spreadHome > 0) c++;
@@ -589,8 +597,8 @@ export function summarize(m: GameModel, b: Batch): Summary {
     home: { tri: m.home.tri, name: m.home.name, city: m.home.city, color: m.home.color },
     away: { tri: m.away.tri, name: m.away.name, city: m.away.city, color: m.away.color },
     pHome: calibrated(m, homeWins / n), pAway: 1 - calibrated(m, homeWins / n), pHomeRaw: homeWins / n, pOT: ot / n,
-    homePts: dist(Array.from(b.home)), awayPts: dist(Array.from(b.away)), margin: dist(margin), total: dist(total), poss: dist(possA),
-    quarters: { home: qH, away: qA }, firstHalf: { home: qH[0] + qH[1], away: qA[0] + qA[1], pHome: h1Home / n },
+    homePts: dist(Array.from(b.home, (v) => v + tShift / 2)), awayPts: dist(Array.from(b.away, (v) => v + tShift / 2)), margin: dist(margin), total: dist(total), poss: dist(possA),
+    quarters: { home: qH.map((v) => v + tShift / 8), away: qA.map((v) => v + tShift / 8) }, firstHalf: { home: qH[0] + qH[1] + tShift / 4, away: qA[0] + qA[1] + tShift / 4, pHome: h1Home / n },
     spreadLadder, totalLadder, market, players, props, teamStats, shotProfile,
     h2h: m.h2h, momentum: { home: m.home.momentum, away: m.away.momentum }, gamesPlayed: { home: m.home.gpCur ?? 0, away: m.away.gpCur ?? 0 }, edge: m.params.edge, uncertainty: { home: m.home.strengthSd, away: m.away.strengthSd },
   };
@@ -680,13 +688,21 @@ export function pickTypical(m: GameModel, b: Batch, s: Summary): number {
   const weights = players.map((p) => (p.playRate > 0.5 ? Math.min(1, p.stats.min.mean / 30) : 0));
   let best = -1;
   let bestD = Infinity;
-  const z = (v: number, d: Dist) => (d.sd > 0 ? (v - d.p50) / d.sd : 0);
+  // Score visé : les médianes des matchs que le favori gagne (avant : les médianes de tous les matchs, d'où un match
+  // typique serré presque à chaque fois — écart de 13 points ou plus dans 19 % des fiches, 39 % en vrai). Total
+  // rapproché du marché comme les points affichés.
+  const ts = s.market?.totalShift ?? 0;
+  const fh: number[] = [], fa: number[] = [];
+  for (let i = 0; i < b.n; i++) if ((b.home[i] > b.away[i]) === homeFav) { fh.push(b.home[i]); fa.push(b.away[i]); }
+  const medOf = (xs: number[]) => { const v = [...xs].sort((x, y) => x - y); return v[Math.floor(v.length / 2)] ?? 0; };
+  const tH = medOf(fh) + ts / 2, tA = medOf(fa) + ts / 2;
+  const zt = (v: number, t: number, d: Dist) => (d.sd > 0 ? (v - t) / d.sd : 0);
   const zm = (v: number, d: Dist) => (d.sd > 0 ? (v - d.mean) / d.sd : 0);
   for (let i = 0; i < b.n; i++) {
     const hw = b.home[i] > b.away[i];
     if (hw !== homeFav) continue;
     if (b.periods[i] > 4 && s.pOT < 0.5) continue;
-    let d = 2 * (z(b.home[i], s.homePts) ** 2 + z(b.away[i], s.awayPts) ** 2) + z(b.home[i] - b.away[i], s.margin) ** 2;
+    let d = 2 * (zt(b.home[i], tH, s.homePts) ** 2 + zt(b.away[i], tA, s.awayPts) ** 2) + zt(b.home[i] - b.away[i], tH - tA, s.margin) ** 2;
     let wsum = 0;
     let pd = 0;
     players.forEach((p, k) => {

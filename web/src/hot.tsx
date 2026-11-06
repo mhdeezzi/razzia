@@ -4,7 +4,7 @@ import { useState, type CSSProperties } from 'react';
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { matchPath, n1, pct0, teamColor, type Game, type Result } from './data.ts';
 import { FollowBtn } from './follow.tsx';
-import { pOverPts } from './picks.ts';
+import { calBig, pOverPts } from './picks.ts';
 import { TeamMark } from './ui.tsx';
 
 type Player = Result['players'][number];
@@ -90,8 +90,8 @@ function FeuCard({ p, g, i, top }: { p: Player; g: Game; i: number; top: number 
         </div>
       </div>
       <p className="feu-lab">Chance de gros match</p>
-      <p className="feu-p">{pct0(h.pBig)}</p>
-      <div className="feu-meter" role="img" aria-label={`Chance de gros match : ${pct0(h.pBig)}`}>
+      <p className="feu-p">{pct0(calBig(h.pBig))}</p>
+      <div className="feu-meter" role="img" aria-label={`Chance de gros match : ${pct0(calBig(h.pBig))}`}>
         <span style={{ width: `${Math.max(6, (100 * h.pBig) / top)}%` }} />
       </div>
       {h.reasons.length > 0 && <p className="feu-why">{h.reasons.slice(0, 3).map((t) => (detail(t) ? `${short(t)} : ${detail(t)}` : short(t))).join(' · ')}</p>}

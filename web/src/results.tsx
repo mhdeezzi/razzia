@@ -8,7 +8,7 @@ import type { Leg } from './suivi.ts';
 import { FollowBtn } from './follow.tsx';
 import { MoneyFlow } from './money.tsx';
 import { line, matchPath, n1, noVig, pct, pct0, teamColor, type Game, type Result } from './data.ts';
-import { buildCategories, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, orderCats, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
+import { buildCategories, calOT, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, orderCats, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
 import { Signals } from './signals.tsx';
@@ -234,7 +234,7 @@ function Verdict({ r, g }: { r: Result; g: Game }) {
         )}
         <div>
           <dt>Prolongation</dt>
-          <dd>{pct(r.pOT)}</dd>
+          <dd>{pct(calOT(r.pOT))}</dd>
         </div>
       </dl>
     </section>
