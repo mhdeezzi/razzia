@@ -13,7 +13,7 @@ for (const f of existsSync(join(dir, 'sims')) ? readdirSync(join(dir, 'sims')) :
   if (!f.endsWith('.json')) continue;
   const s = JSON.parse(readFileSync(join(dir, 'sims', f), 'utf8'));
   const at = fresh.has(s.id) || !before.has(s.id) ? new Date().toISOString() : before.get(s.id)!.at;
-  out.push({ id: s.id, lg: s.lg, start: s.start, home: s.home.name, away: s.away.name, final: s.final, tier: s.tier, pick: s.pick ? { label: s.pick.label, p: s.pick.p } : null, at, ...(s.market ? {} : { noOdds: true }), lineup: s.lineupType });
+  out.push({ id: s.id, lg: s.lg, start: s.start, home: s.home.name, away: s.away.name, final: s.final, tier: s.tier, pick: s.pick ? { id: s.pick.id, label: s.pick.label, p: s.pick.p } : null, at, ...(s.market ? {} : { noOdds: true }), lineup: s.lineupType });
 }
 out.sort((a, b) => b.at.localeCompare(a.at));
 writeFileSync(file, JSON.stringify(out));

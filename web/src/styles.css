@@ -179,6 +179,7 @@ input, textarea { caret-color: var(--brand); }
 .mesh::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.16); }
 .mesh-nba { --g1: #f2661f; --g2: #1f7fd8; --g3: #f1c9dc; }
 .mesh-atp { --g1: #2aa873; --g2: #2a59cc; --g3: #dff0c4; }
+.mesh-foot { --g1: #2fae6a; --g2: #1e5f86; --g3: #e3f2cf; }
 .mesh-auth { --g1: #2aa873; --g2: #f2661f; --g3: #e9e4ff; }
 .mesh-teams { --g1: color-mix(in srgb, var(--away, #3a5bd7) 88%, white 12%); --g2: color-mix(in srgb, var(--home, #d7563a) 88%, white 12%); --g3: rgba(255, 255, 255, 0.3); }
 @keyframes drift { from { transform: translate3d(-1.5%, 1%, 0) scale(1); } to { transform: translate3d(1.5%, -1%, 0) scale(1.04); } }
@@ -1710,3 +1711,37 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 
 /* Sous-titre de la page Suivi */
 .suivi-sub { margin: 6px 0 0; font-size: 14px; color: var(--text-3); }
+
+/* ——— Football ——— */
+.split-bar span.d { background: rgba(255, 255, 255, 0.22); box-shadow: none; transform-origin: center; }
+.team-marble .split-bar .d { --k: rgba(255, 255, 255, 0.28); opacity: 1; }
+.f-scores, .f-scorers { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.f-scores { grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); column-gap: 28px; }
+.f-scores li { display: grid; grid-template-columns: 44px 1fr 62px; align-items: center; gap: 12px; animation: rise 0.28s var(--ease) both; }
+.f-scores b { font-size: 16px; letter-spacing: -0.02em; }
+.f-scores li > span:last-child, .f-scorers li > b { text-align: right; font-size: 13px; }
+.f-bar { display: block; height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.05); overflow: hidden; }
+.f-bar span { display: block; height: 100%; border-radius: inherit; background: var(--k, var(--fav)); transform-origin: left; animation: grow 0.6s var(--ease) both; }
+.f-scores .h, .f-scorers .h { --k: var(--team-h); }
+.f-scores .a, .f-scorers .a { --k: var(--team-a); }
+.f-scores .d { --k: rgba(255, 255, 255, 0.35); }
+.f-scorers li { display: grid; grid-template-columns: auto minmax(0, 1.3fr) minmax(0, 1fr) 48px; align-items: center; gap: 12px; }
+.f-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.f-first { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.f-first-i { display: grid; gap: 6px; padding: 16px; border-radius: 16px; background: #000; box-shadow: inset 0 0 0 1px var(--surface-rim), inset 0 3px 0 -1px var(--k); text-align: center; }
+.f-first-i.h { --k: var(--team-h); } .f-first-i.a { --k: var(--team-a); } .f-first-i.d { --k: rgba(255, 255, 255, 0.3); }
+.f-first-i span { color: var(--text-2); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.f-first-i b { font-size: 26px; letter-spacing: -0.03em; }
+.f-lineups { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.f-lineup { display: grid; gap: 10px; align-content: start; padding: 18px; border-radius: 16px; background: #000; box-shadow: inset 0 0 0 1px var(--surface-rim); }
+.f-lineup-head { display: flex; align-items: center; gap: 10px; }
+.f-lineup-head .mono { margin-left: auto; }
+.f-starters { color: var(--text-2); line-height: 1.6; font-size: 14px; }
+.f-out { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px solid var(--line); display: grid; gap: 6px; font-size: 13.5px; }
+.f-out li { display: flex; justify-content: space-between; gap: 10px; }
+@media (max-width: 720px) {
+  .f-lineups { grid-template-columns: 1fr; }
+  .f-first { gap: 8px; } .f-first-i { padding: 12px 8px; } .f-first-i b { font-size: 21px; }
+  .f-scorers li { grid-template-columns: auto minmax(0, 1fr) 56px 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .f-bar span, .f-scores li { animation: none; } }

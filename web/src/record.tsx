@@ -44,12 +44,22 @@ async function atpRecord(): Promise<Record> {
   return { rows };
 }
 
+// Foot : le pronostic mis en avant, sinon le combiné rattaché quand il n'est pas risqué (rien n'est compté sinon).
+async function footRecord(): Promise<Record> {
+  const b = await fetch('/api/foot?bilan=1').then((r) => r.json());
+  const rows = ((b.rows ?? []) as Array<{ id: string; start: string; tier: string; pick: { won: boolean } | null; combo?: { won: boolean } | null }>)
+    .filter((r) => r.pick || r.combo)
+    .sort((x, y) => x.start.localeCompare(y.start))
+    .map((r) => ({ key: r.id, won: (r.pick ?? r.combo)!.won, sure: r.tier === 'sure' }));
+  return { rows };
+}
+
 /** Bandeau du bilan : pronostics passés, Razzia assuré, courbe de réussite cumulée, dix derniers résultats. */
-export function PublicRecord({ sport }: { sport: 'nba' | 'atp' }) {
+export function PublicRecord({ sport }: { sport: 'nba' | 'atp' | 'foot' }) {
   const [rec, setRec] = useState<Record>();
   useEffect(() => {
     // Relu toutes les 5 minutes tant que la page reste ouverte (le bilan est recalculé tous les quarts d'heure).
-    const load = () => (sport === 'nba' ? nbaRecord() : atpRecord()).then(setRec, () => setRec((r) => r ?? { rows: [] }));
+    const load = () => (sport === 'nba' ? nbaRecord() : sport === 'atp' ? atpRecord() : footRecord()).then(setRec, () => setRec((r) => r ?? { rows: [] }));
     void load();
     const t = setInterval(load, 5 * 60_000);
     return () => clearInterval(t);

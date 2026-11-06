@@ -12,13 +12,14 @@ export function TopBar() {
   // Suivi et Compte ne sont d'aucun sport : aucun sport allumé, c'est leur bouton qui l'est.
   const own = path === '/suivi' || path === '/compte';
   const tennis = path.startsWith('/tennis');
-  const nba = !tennis && !own;
+  const foot = path.startsWith('/foot');
+  const nba = !tennis && !foot && !own;
   // Simulations, Bilan, Badges et Méthode restent accessibles par leur adresse ; à droite : Suivi puis Compte.
   const links = [
     { href: '/compte', label: 'Compte', icon: <UserCircle size={19} />, on: path === '/compte', cls: 'top-account' },
   ];
   const nav = useRef<HTMLElement>(null);
-  const pos = useSlider(nav, '.sport.is-on', `${tennis}${nba}`);
+  const pos = useSlider(nav, '.sport.is-on', `${tennis}${foot}${nba}`);
   const legs = useSlip();
   const unseen = useUnseen();
   return (
@@ -33,10 +34,10 @@ export function TopBar() {
             <Basketball size={18} weight={nba ? 'bold' : 'regular'} />
             <span className="lbl">Basketball</span>
           </Link>
-          <button className="sport" disabled title="Football : bientôt" aria-label="Football, bientôt">
-            <SoccerBall size={18} />
+          <Link href="/foot" className={`sport${foot ? ' is-on' : ''}`} aria-current={path === '/foot' ? 'page' : undefined} title="Programme Football">
+            <SoccerBall size={18} weight={foot ? 'bold' : 'regular'} />
             <span className="lbl">Football</span>
-          </button>
+          </Link>
           <Link href="/tennis" className={`sport${tennis ? ' is-on' : ''}`} aria-current={path === '/tennis' ? 'page' : undefined} title="Programme ATP">
             <TennisBall size={18} weight={tennis ? 'bold' : 'regular'} />
             <span className="lbl">Tennis</span>
