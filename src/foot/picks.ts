@@ -1,7 +1,7 @@
 // Ce que Razzia affichera en foot, et le prono mis en avant.
 //
 // Affichage : Premier League, LaLiga, Ligue 1, Ligue des Champions ; la Serie A seulement quand un grand club joue
-// (Juventus, Inter, Milan, Napoli, Roma, Atalanta) ; pas de Bundesliga. Les autres championnats restent dans les données
+// (Juventus, Inter, Milan, Napoli, Roma, Atalanta, Como) ; pas de Bundesliga. Les autres championnats restent dans les données
 // (forces des clubs croisés en Ligue des Champions) mais ne sont jamais affichés.
 //
 // Prono mis en avant : la double chance du favori (ou sa victoire à domicile). Un combiné ne la remplace que s'il est
@@ -11,7 +11,7 @@
 // Écartés après contrôle sur 2024-2026 car moins sûrs qu'annoncé : victoire du favori à l'extérieur, victoire ou double
 // chance + plus de 1,5 but.
 
-export const BIG_ITALY = new Set([9885, 8636, 8564, 9875, 8686, 8524]); // Juventus, Inter, Milan, Napoli, Roma, Atalanta
+export const BIG_ITALY = new Set([9885, 8636, 8564, 9875, 8686, 8524, 10171]); // Juventus, Inter, Milan, Napoli, Roma, Atalanta, Como
 export const SHOWN_LEAGUES = new Set([47, 87, 53, 42, 55]);
 
 export function shown(m: { lg: number; home: { id: number }; away: { id: number } }): boolean {
@@ -45,4 +45,16 @@ export function combo(p: Map<string, number>, T: number): { id: string; p: numbe
   if (ok) return { ...ok, risky: false };
   const safest = [...main, ...last].sort((a, b) => b.p - a.p)[0];
   return { ...safest, risky: true };
+}
+
+/** Bilan Razzia foot (comme basket et tennis) : seuls les pronos non risqués comptent — le prono mis en avant, et le
+ * combiné rattaché quand il est jugé sûr. Un combiné « Risqué » n'entre jamais dans le bilan. */
+export const countsInBilan = (pick: { risky?: boolean } | undefined) => !!pick && !pick.risky;
+
+/** Niveau d'un match (pastille) à partir du prono mis en avant : « assuré » à 85 % et plus (91,8 % réussis sur
+ * 2024-2026), « normal » entre le seuil et 85 % (87,6 % tous niveaux confondus), « risqué » s'il n'y a pas de prono
+ * mis en avant (match trop ouvert, seul le combiné risqué reste). */
+export const T_SURE_FOOT = 0.85;
+export function tier(best: { p: number } | undefined): 'sure' | 'normal' | 'risky' {
+  return !best ? 'risky' : best.p >= T_SURE_FOOT ? 'sure' : 'normal';
 }
