@@ -32,7 +32,7 @@ export interface Category {
   good?: boolean; // plus sûr que le vainqueur (point bleu sur l'onglet)
 }
 
-/** Cote d'un pari (bookmaker, sinon cote juste) : sous 1,20, il ne passe jamais en premier (trop peu à gagner). */
+/** Cote d'un pari (bookmaker, sinon cote juste) : à 1,20 ou moins, la catégorie est masquée (trop peu à gagner). */
 const LOW_ODDS = 1.2;
 const catP = (c: Category) => Math.max(0, ...c.items.map((o) => o.p));
 const catOdds = (c: Category) => { const o = c.items[0]; return o?.odds ?? o?.fair ?? (o?.p ? 1 / o.p : undefined); };
@@ -46,7 +46,12 @@ const VALUE_ODDS = 1.3, VALUE_P = 0.65;
 export const isValue = (o: Outcome) => !o.warn && o.p >= VALUE_P && (o.odds ?? o.fair ?? 1 / o.p) >= VALUE_ODDS;
 
 export function orderCats(input: Category[]): Category[] {
-  const cats = input.map((c) => (c.warn ? c : { ...c, items: c.items.map((o) => (isValue(o) ? { ...o, value: true } : o)) }));
+  // Cote de 1,20 ou moins : la catégorie n'est pas affichée (trop peu à gagner). S'il ne reste alors aucun pari conseillé,
+  // on garde quand même le mieux payé d'entre eux, pour proposer au moins un choix.
+  const tooLow = (c: Category) => (catOdds(c) ?? Infinity) <= LOW_ODDS;
+  const shown = input.filter((c) => !tooLow(c));
+  const best = [...input].filter((c) => tooLow(c) && !c.warn).sort((a, b) => (catOdds(b) ?? 0) - (catOdds(a) ?? 0))[0];
+  const cats = (shown.some((c) => !c.warn) || !best ? shown : [best, ...shown]).map((c) => (c.warn ? c : { ...c, items: c.items.map((o) => (isValue(o) ? { ...o, value: true } : o)) }));
   // Les value d'abord (de la plus probable à la moins probable), puis les autres.
   const val = (c: Category) => c.items.some((o) => o.value);
   const vals = cats.filter(val).sort((a, b) => catP(b) - catP(a));
@@ -58,7 +63,7 @@ function orderRest(cats: Category[]): Category[] {
   const sorted = [...cats].sort((a, b) => catP(b) - catP(a));
   const low = (c: Category) => (catOdds(c) ?? Infinity) < LOW_ODDS;
   if (!sorted[0] || !low(sorted[0])) return sorted;
-  const lead = sorted.find((c) => c.id === 'combo' && !low(c)) ?? sorted.find((c) => !low(c));
+  const lead = sorted.find((c) => c.id === 'combo' && !low(c) && !c.warn) ?? sorted.find((c) => !low(c) && !c.warn);
   return lead ? [lead, ...sorted.filter((c) => c !== lead)] : sorted;
 }
 
