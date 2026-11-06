@@ -164,6 +164,24 @@ async function tick(): Promise<Response> {
   } catch {
     /* tennis indisponible : le basket continue */
   }
+  // Foot : un match déjà simulé est relancé une fois avec les compositions officielles (publiées environ une heure avant),
+  // entre 50 et 15 minutes avant le coup d'envoi, s'il n'a pas été simulé depuis 55 minutes avant le match.
+  try {
+    const fi = await gh(`/contents/foot/index.json?ref=${BRANCH}`, { headers: { Accept: 'application/vnd.github.raw+json' } });
+    const fIndex: Array<{ id: string; start: string; at: string }> = fi.ok ? await fi.json() : [];
+    const due = fIndex.filter((e) => Date.parse(e.start) - now >= 15 * 60_000 && Date.parse(e.start) - now <= 50 * 60_000 && Date.parse(e.at) < Date.parse(e.start) - 55 * 60_000);
+    if (due.length) {
+      const fr = await gh(`/actions/workflows/simulate-foot.yml/runs?per_page=50`);
+      const fRunning: any[] = fr.ok ? ((await fr.json()).workflow_runs ?? []).filter((w: any) => w.status !== 'completed') : [];
+      const ids = due.map((e) => e.id).filter((id) => !fRunning.some((w) => String(w.display_title ?? '').split(' ')[1]?.split(',').includes(id)));
+      if (ids.length) {
+        const d = await gh(`/actions/workflows/simulate-foot.yml/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { ids: ids.join(','), request_id: 'avant-match' } }) });
+        if (d.ok) relaunched.push(...ids.map((x) => `foot ${x}`));
+      }
+    }
+  } catch {
+    /* foot indisponible : le reste continue */
+  }
   const [bilan, bilanTennis] = await Promise.all([refreshBilan('bilan.yml', undefined, 14), refreshBilan('bilan-tennis.yml', undefined, 14)]);
   return Response.json({ at: new Date(now).toISOString(), soon: near.length, relaunched, bilan, bilanTennis }, { headers: noStore });
 }

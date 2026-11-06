@@ -48,11 +48,26 @@ export async function predictMany(list: Array<{ f: Fixture; odds?: Odds }>, n = 
   for (const { f, odds } of list) { const g = await pending(f); if (odds) g.odds = odds; pend.push(g); }
   pend.sort((a, b) => a.date.localeCompare(b.date));
   const rows = walk([...hist, ...pend], first.slice(0, 10), M.params, new Set(list.map((x) => x.f.lg)));
+  // Tireurs : chaque titulaire (hors gardien) avec sa part des xG de l'équipe, d'après ses xG par 90 minutes sur l'année
+  // écoulée (a priori 0,08 sur 3 matchs) ; sert aux buteurs probables, pas aux probabilités du match.
+  const per90 = new Map<number, [number, number]>();
+  const since = Date.parse(first) - 365 * 864e5;
+  for (const g of hist) {
+    if (Date.parse(g.date) < since) continue;
+    for (const [pid, v] of Object.entries(g.players)) { const a = per90.get(Number(pid)) ?? [0, 0]; a[0] += v[2] ?? 0; a[1] += v[1] ?? 0; per90.set(Number(pid), a); }
+  }
+  const shooters = (side: Game['sides'][number] | undefined) => {
+    const xs = (side?.starters ?? []).filter((p) => p[2] !== 11).map((p) => { const a = per90.get(p[0]) ?? [0, 0]; return { id: p[0], name: p[1], x90: (a[0] + 0.08 * 3) / ((a[1] + 270) / 90) }; });
+    const tot = xs.reduce((t, x) => t + x.x90, 0) || 1;
+    return xs.map((x) => ({ id: x.id, name: x.name, share: x.x90 / tot, finish: 1 }));
+  };
   return list.map(({ f, odds }) => {
     const r = rows.find((x) => x.g.id === f.id)!;
     const [lh0, la0] = adjusted(r, M.coefs);
     const lh = lh0 * (M.scale ?? 1), la = la0 * (M.scale ?? 1);
-    const sim = simulateMatch({ lambda: lh, shotQ: r.shotQ[0], redRate: r.red[0] }, { lambda: la, shotQ: r.shotQ[1], redRate: r.red[1] }, { n, gs: gameState(M.k) });
+    const g0 = pend.find((x) => x.id === f.id)!;
+    const sh = [shooters(g0.sides[0]), shooters(g0.sides[1])];
+    const sim = simulateMatch({ lambda: lh, shotQ: r.shotQ[0], redRate: r.red[0], shooters: sh[0] }, { lambda: la, shotQ: r.shotQ[1], redRate: r.red[1], shooters: sh[1] }, { n, gs: gameState(M.k) });
     const e = outcome(sim.grid);
     const cup = [42, 73].includes(f.lg);
     const w = cup ? M.wCup : M.w;
@@ -65,6 +80,6 @@ export async function predictMany(list: Array<{ f: Fixture; odds?: Odds }>, n = 
     }
     const g = pend.find((x) => x.id === f.id) as Game & { lineupType?: string };
     // Sans cotes (coupe d'Europe, ou cotes pas encore publiées), seuil plus haut : moteur seul, 87,9 % de réussite à 85 %.
-    return { f, row: r, lambda: [lh, la], engine: e, final: outcome(grid), grid, probs: probs(grid), sim, T: cup || !odds ? M.Tcup : M.T, lineupType: g.lineupType, label: (id: string) => marketById.get(id)!.label(f.home.name, f.away.name) };
+    return { f, row: r, lambda: [lh, la], engine: e, final: outcome(grid), grid, probs: probs(grid), sim, shooters: sh, T: cup || !odds ? M.Tcup : M.T, lineupType: g.lineupType, side: g.sides, label: (id: string) => marketById.get(id)!.label(f.home.name, f.away.name) };
   });
 }
