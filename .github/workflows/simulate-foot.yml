@@ -1,0 +1,47 @@
+# Simulation de matchs de foot à la demande, déclenchée par les boutons « Simuler » et « Simuler toute la journée » de
+# l'onglet Football (api/foot.ts) et par l'horloge avant chaque match (compositions officielles). Données de la branche
+# donnees-foot ; publie foot/sims/<id>.json sur la branche resultats, que l'app lit directement.
+name: Simulation foot
+run-name: "Foot ${{ inputs.ids }} · ${{ inputs.request_id }}"
+on:
+  workflow_dispatch:
+    inputs:
+      ids: { description: 'Identifiant FotMob du match, ou plusieurs séparés par des virgules', required: true }
+      request_id: { description: "Identifiant de la demande (suivi depuis l'app)", required: false, default: manuel }
+concurrency: { group: "foot-${{ inputs.ids }}", cancel-in-progress: false }
+permissions: { contents: write }
+jobs:
+  sim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      IDS: ${{ inputs.ids }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: node src/cli/footsnap.ts --pull
+      - id: sim
+        continue-on-error: true
+        run: node src/cli/footrun.ts --ids "$IDS" --out out/foot
+      - name: Publication sur la branche resultats
+        if: hashFiles('out/foot/*.json') != ''
+        run: |
+          git config user.name "simbet-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch origin resultats; then git worktree add -B resultats ../res FETCH_HEAD; else git worktree add --orphan -b resultats ../res; fi
+          for i in $(seq 1 12); do
+            mkdir -p ../res/foot/sims
+            cp out/foot/*.json ../res/foot/sims/
+            node src/cli/footindex.ts ../res/foot "$(ls out/foot | sed 's/\.json$//' | paste -sd,)"
+            git -C ../res add foot
+            git -C ../res commit -qm "Simulation foot $IDS"
+            git -C ../res push origin HEAD:resultats && exit 0
+            sleep $((i + RANDOM % 6))
+            git -C ../res fetch origin resultats && git -C ../res reset -q --hard FETCH_HEAD
+          done
+          exit 1
+      - name: Matchs en erreur
+        if: steps.sim.outcome == 'failure'
+        run: exit 1

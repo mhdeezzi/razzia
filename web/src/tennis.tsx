@@ -104,28 +104,32 @@ interface DayRun { req: string; at: number; day: string; ids: string[]; status: 
 const DAY_KEY = 'tennis-journee';
 const DAY_KEEP = 30 * 60e3; // une journée terminée reste affichée une demi-heure
 const DAY_MAX = 40 * 60e3; // au-delà, une journée bloquée ne verrouille plus le bouton
-const ended = (r?: DayRun) =>
+export const ended = (r?: DayRun) =>
   !r || r.status === 'done' || r.status === 'failed' || Date.now() - r.at > DAY_MAX || (r.status === 'sending' && Date.now() - r.at > 2 * 60e3);
-const loadDayRun = (): DayRun | undefined => {
+const loadDayRun = (key: string): DayRun | undefined => {
   try {
-    const r = JSON.parse(store.get(DAY_KEY) ?? 'null') as DayRun | null;
+    const r = JSON.parse(store.get(key) ?? 'null') as DayRun | null;
     return r && Date.now() - (r.endedAt ?? r.at) < (r.endedAt ? DAY_KEEP : DAY_MAX) ? r : undefined;
   } catch {
     return undefined;
   }
 };
 
-function useDayRun(onDone: () => void) {
-  const [run, setRun] = useState(loadDayRun);
+/** Réglages d'une journée selon le sport : clé du navigateur, appel de l'API, clé de suivi d'un match, corps du POST. */
+export interface DayCfg { key: string; call: (q: string, init?: RequestInit) => Promise<any>; pending: (id: string) => string; body: (list: Array<{ id: string; day: string }>) => unknown }
+const TENNIS_DAY: DayCfg = { key: DAY_KEY, call: api, pending: pendingKey, body: (list) => ({ ids: list.map((m) => m.id), days: list.map((m) => m.day) }) };
+
+export function useDayRun(onDone: () => void, cfg: DayCfg = TENNIS_DAY) {
+  const [run, setRun] = useState(() => loadDayRun(cfg.key));
   const save = useCallback((r?: DayRun) => {
-    store.set(DAY_KEY, r ? JSON.stringify(r) : null);
+    store.set(cfg.key, r ? JSON.stringify(r) : null);
     setRun(r);
-  }, []);
+  }, [cfg.key]);
   useEffect(() => {
     if (!run?.req || ended(run)) return;
     const t = window.setTimeout(async () => {
       try {
-        const s = await api(`?req=${run.req}`);
+        const s = await cfg.call(`?req=${run.req}`);
         const done = s.status === 'done' || s.status === 'failed';
         save({ ...run, status: s.status, startedAt: s.startedAt ?? run.startedAt, url: s.url ?? run.url, endedAt: done ? Date.now() : undefined });
         if (done) onDone();
@@ -134,14 +138,14 @@ function useDayRun(onDone: () => void) {
       }
     }, 6000);
     return () => window.clearTimeout(t);
-  }, [run, save, onDone]);
-  const start = async (day: string, list: SlateMatch[]) => {
+  }, [run, save, onDone, cfg]);
+  const start = async (day: string, list: Array<{ id: string; day: string }>) => {
     if (!ended(run) || !list.length) return;
     const r: DayRun = { req: '', at: Date.now(), day, ids: list.map((m) => m.id), status: 'sending' };
     save(r);
     try {
-      const { req } = await api('', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: r.ids, days: list.map((m) => m.day) }) });
-      for (const id of r.ids) store.set(pendingKey(id), req);
+      const { req } = await cfg.call('', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg.body(list)) });
+      for (const id of r.ids) store.set(cfg.pending(id), req);
       save({ ...r, req, status: 'queued' });
     } catch (e) {
       save({ ...r, status: 'failed', error: (e as Error).message, endedAt: Date.now() });
@@ -156,12 +160,12 @@ const dayName = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { wee
 const SETTLE = 2 * 60e3; // après la fin chez GitHub, le temps laissé à la publication avant de parler d'échec
 const publishedSince = (run: DayRun) => Date.parse(run.startedAt ?? new Date(run.at).toISOString()) - 60e3;
 /** Journée terminée chez GitHub, dont des matchs manquent encore à la liste depuis moins de 2 minutes. */
-function publishing(run: DayRun, sims: Map<string, SimIndex>) {
+export function publishing(run: DayRun, sims: Map<string, { at: string }>) {
   if (!ended(run) || run.status === 'sending' || !run.endedAt || Date.now() - run.endedAt > SETTLE) return false;
   return run.ids.some((id) => !(sims.get(id) && Date.parse(sims.get(id)!.at) >= publishedSince(run)));
 }
 
-function DayTracker({ run, sims, onClose }: { run: DayRun; sims: Map<string, SimIndex>; onClose: () => void }) {
+export function DayTracker({ run, sims, onClose, wait = 'une à deux minutes' }: { run: DayRun; sims: Map<string, { at: string }>; onClose: () => void; wait?: string }) {
   const settling = publishing(run, sims);
   // Tout est publié : la journée est finie, même si GitHub affiche encore la demande en cours.
   const allIn = run.ids.every((id) => sims.get(id) && Date.parse(sims.get(id)!.at) >= publishedSince(run));
@@ -210,7 +214,7 @@ function DayTracker({ run, sims, onClose }: { run: DayRun; sims: Map<string, Sim
             <i className="lg-fail" /> {failed} en échec{run.error ? ` : ${run.error}` : ''}
           </span>
         )}
-        <span className="muted">{live ? 'Compter une à deux minutes ; le calcul continue si vous quittez la page.' : 'Ouvrez un match pour voir sa simulation.'}</span>
+        <span className="muted">{live ? `Compter ${wait} ; le calcul continue si vous quittez la page.` : 'Ouvrez un match pour voir sa simulation.'}</span>
       </div>
     </section>
   );
@@ -827,7 +831,7 @@ export function TennisMatchPage({ day, id }: { day: string; id: string }) {
   );
 }
 
-function Section({ title, tag, children }: { title: string; tag?: string; children: ReactNode }) {
+export function Section({ title, tag, children }: { title: string; tag?: string; children: ReactNode }) {
   return (
     <section className="section">
       <div className="section-head">

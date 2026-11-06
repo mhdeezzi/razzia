@@ -273,11 +273,12 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
 }
 
 /** Saison en cours : NBA d'octobre à juin (« 2026-27 »), ATP sur l'année civile. */
-function season(sport: 'nba' | 'atp'): string {
+function season(sport: 'nba' | 'atp' | 'foot'): string {
   const d = new Date();
   const y = d.getFullYear();
   if (sport === 'atp') return String(y);
-  const start = d.getMonth() >= 8 ? y : y - 1;
+  // Foot : saison d'août à mai ; NBA : d'octobre à juin.
+  const start = d.getMonth() >= (sport === 'foot' ? 6 : 8) ? y : y - 1;
   return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
 }
 
@@ -285,10 +286,10 @@ function season(sport: 'nba' | 'atp'): string {
  * En-tête des programmes façon affiche RAZZIA : marbre lent aux couleurs du sport, petites mentions en haut, titre très gras
  * et serré, le match à la une dessous ; date, nombre de matchs et affichage en pied.
  */
-/** Couleurs du marbre du bandeau, une paire par sport : ambre et ardoise au basket, bleu nuit et violet au tennis. */
-const HERO_COLORS = { nba: ['#c98a3d', '#3b4a5e'], atp: ['#2a4f9a', '#7a3a6e'] } as const;
+/** Couleurs du marbre du bandeau, une paire par sport : ambre et ardoise au basket, bleu nuit et violet au tennis, turquoise et framboise au foot. */
+const HERO_COLORS = { nba: ['#c98a3d', '#3b4a5e'], atp: ['#2a4f9a', '#7a3a6e'], foot: ['#13a08f', '#a3324e'] } as const;
 
-export function PageHero({ sport, title, day, count, feature, children }: { sport: 'nba' | 'atp'; title: string; day?: string; count?: number; feature?: ReactNode; children?: ReactNode }) {
+export function PageHero({ sport, title, day, count, feature, children }: { sport: 'nba' | 'atp' | 'foot'; title: string; day?: string; count?: number; feature?: ReactNode; children?: ReactNode }) {
   const [first, ...rest] = title.split(' ');
   return (
     <header className={`hero-banner mesh mesh-${sport} has-shader`}>
@@ -296,7 +297,7 @@ export function PageHero({ sport, title, day, count, feature, children }: { spor
       <div className="hb-top" aria-hidden="true">
         <span className="hb-label">RAZZIA · Saison {season(sport)}</span>
         <span className="hb-label hb-right">
-          {sport === 'nba' ? 'NBA' : 'ATP'}
+          {sport === 'nba' ? 'NBA' : sport === 'atp' ? 'ATP' : 'Football'}
           <span className="hb-more"> · 25 000 simulations par match</span>
         </span>
       </div>
