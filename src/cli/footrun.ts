@@ -1,6 +1,7 @@
 // Simulation de matchs de foot à la demande (simulate-foot.yml) : 25 000 matchs tir par tir pour chaque identifiant
 // FotMob, publiés en out/foot/<id>.json. Infos du match et cotes : programme du jour (slate.json), sinon FotMob.
 //   node src/cli/footrun.ts --ids 4813123,4813124 [--slate data/cache/foot/slate.json] [--out out/foot] [--sims 25000]
+import { fairScore } from '../foot/fairscore.ts';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadGames } from '../foot/data.ts';
@@ -59,11 +60,11 @@ for (const P of res) {
       const t = z[0] + z[1] + z[2];
       return z.map((x) => r4(x / t));
     });
-    // Scénario : celui d'une victoire du favori (son score le plus probable), plus parlant que le 1-1 qui sort presque
-    // toujours en tête des scores ; le nul seulement s'il est l'issue la plus probable.
+    // Scénario : le score « le plus juste » (fairScore, le même que le score exact de la fiche), du côté de l'issue la plus
+    // probable : victoire du favori, ou nul s'il est devant.
     const favSide = P.final.h >= P.final.a ? 'home' : 'away';
     const drawFirst = P.final.d > Math.max(P.final.h, P.final.a);
-    const top = scores.find((x) => (drawFirst ? x.h === x.a : favSide === 'home' ? x.h > x.a : x.a > x.h)) ?? scores[0];
+    const top = fairScore(scores, P.final);
     const bySeq = top ? P.sim.seqs.get(`${top.h}-${top.a}`) : undefined;
     const best = bySeq ? [...bySeq].sort((x, y) => y[1].n - x[1].n)[0] : undefined;
     const typical = best && top ? { given: drawFirst ? 'draw' : favSide, p: top.p, score: [top.h, top.a], share: r4(best[1].n / [...bySeq!.values()].reduce((t, e) => t + e.n, 0)), goals: [...best[0]].map((side, i) => ({ side: side === 'H' ? 'home' : 'away', min: Math.round(best[1].min[i] / best[1].n) })) } : undefined;

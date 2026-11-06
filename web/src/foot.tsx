@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { ArrowLeft, CaretRight, Coins, ListBullets, ShieldCheck, SoccerBall, SquaresFour, WarningCircle } from '@phosphor-icons/react';
 import { Callout, Empty, glow, Link, PageHero, Ring, Segmented, SimProgress, TeamMark } from './ui.tsx';
 import { marbleVars, PickTabs } from './results.tsx';
+import { fairScore } from './fairscore.ts';
 import { SideColors } from './flags.ts';
 import { WarpBg } from './shaders.tsx';
 import { PublicRecord } from './record.tsx';
@@ -759,14 +760,13 @@ function buildFootCategories(r: FootResult): Category[] {
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
     ...(bigFav ? [] : [{ id: 'double', label: 'Double chance', items: double }]),
   ];
-  // Score exact : le plus probable du côté du favori (« Arsenal 2-0 »), le nul seulement s'il est l'issue la plus probable ;
-  // toujours « Déconseillé » (même le plus fréquent ne tombe qu'une fois sur huit environ).
-  const drawFirst = r.final.d > Math.max(r.final.h, r.final.a);
-  const sc = r.scores.find((x) => (drawFirst ? x.h === x.a : homeFav ? x.h > x.a : x.a > x.h)) ?? r.scores[0];
+  // Score exact : le plus juste, pas le plus prudent (fairScore : buts moyens de chaque équipe quand l'issue la plus
+  // probable se produit, donc 3-1 dans un match ouvert, 1-0 dans un match fermé) ; toujours « Déconseillé ».
+  const sc = fairScore(r.scores, r.final);
   if (sc) {
     const side = sc.h > sc.a ? r.home : sc.h < sc.a ? r.away : undefined;
     cats.push({ id: 'exact', label: 'Score exact', warn: true, items: [{
-      id: `exact-${sc.h}-${sc.a}`, title: `${short(r.home.name)} ${sc.h}-${sc.a} ${short(r.away.name)}`, p: sc.p, fair: 1 / sc.p, warn: 'Déconseillé',
+      id: `exact-${sc.h}-${sc.a}`, title: `${short(r.home.name)} ${sc.h}-${sc.a} ${short(r.away.name)}`, p: sc.p, fair: 1 / sc.p, warn: 'Déconseillé', text: 'Le score qui colle le mieux à la physionomie du match (buts attendus de chaque équipe), pas le plus prudent.',
       who: side ? { ...markOf(side), name: side.name } : undefined, marble: side === r.away ? pc.away : pc.home, marble2: side ? undefined : pc.away,
     }] });
   }
