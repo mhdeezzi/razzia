@@ -564,7 +564,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .ring-disc { position: relative; width: 168px; height: 168px; border-radius: 999px; display: grid; place-items: center; background: #000; box-shadow: inset 0 0 0 1px var(--line); }
 .ring-blue { --c: #2272e0; --ca: #1898c4; --cb: #2a3ec8; --glow: rgba(34, 100, 230, 0.45); }
 .ring-rose { --c: #c42b30; --ca: #a51d24; --cb: #d93d3d; --glow: rgba(200, 40, 40, 0.3); }
-.ring svg { position: absolute; inset: 14px; transform: rotate(-90deg); overflow: visible; }
+.ring svg { position: absolute; top: 14px; left: 14px; width: calc(100% - 28px); height: calc(100% - 28px); transform: rotate(-90deg); transform-origin: 50% 50%; overflow: visible; } /* taille donnée : sans elle, certains Safari dessinaient le cercle plus grand et décalé */
 .ring-track { fill: none; stroke: #e9ecf1; stroke-width: 7; opacity: 0.9; }
 .ring-stop-a { stop-color: var(--ca); }
 .ring-stop-b { stop-color: var(--cb); }
@@ -577,7 +577,7 @@ a.row:hover .mark { transform: scale(1.06); }
 .ring-odds b { font: 600 14px var(--mono); letter-spacing: -0.03em; color: #fff; }
 .ring-sm .ring-disc { width: 132px; height: 132px; }
 .ring-sm .ring-num { font-size: 26px; }
-.ring-sm svg { inset: 10px; }
+.ring-sm svg { top: 10px; left: 10px; width: calc(100% - 20px); height: calc(100% - 20px); }
 
 .split { margin-top: 22px; max-width: 520px; }
 .split-bar { display: flex; gap: 4px; height: 6px; }
