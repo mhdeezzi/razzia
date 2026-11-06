@@ -167,7 +167,7 @@ async function tick(): Promise<Response> {
   // Foot : chaque match du programme est simulé tout seul 30 minutes avant le coup d'envoi (entre 40 et 20 min), avec
   // les compositions officielles (FotMob les publie environ une heure avant), sauf s'il l'a déjà été depuis 45 minutes
   // avant le match. Si les compositions n'étaient pas encore officielles, nouvelle relance entre 15 et 5 minutes avant.
-  // Jamais une fois le match commencé. Le programme est aussi rafraîchi s'il a plus de 2 h 30 (GitHub part en retard).
+  // Jamais une fois le match commencé. Le programme est aussi rafraîchi s'il a plus de 1 h 15 (GitHub part en retard).
   let footData = false;
   try {
     const [sl, fi] = await Promise.all([
@@ -193,7 +193,7 @@ async function tick(): Promise<Response> {
         if (d.ok) relaunched.push(...todo.map((x) => `foot ${x}`));
       }
     }
-    if (!slate.at || now - Date.parse(slate.at) > 150 * 60_000) footData = await refreshBilan('donnees-foot.yml', undefined, 30);
+    if (!slate.at || now - Date.parse(slate.at) > 75 * 60_000) footData = await refreshBilan('donnees-foot.yml', undefined, 30);
   } catch {
     /* foot indisponible : le reste continue */
   }
