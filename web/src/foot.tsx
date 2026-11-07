@@ -3,7 +3,7 @@
 // pronostic mis en avant, un combiné rattaché, Razzia assuré (vert), risqué (orange), pile ou face (rouge).
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, CaretRight, Coins, ListBullets, ShieldCheck, SoccerBall, SquaresFour, WarningCircle } from '@phosphor-icons/react';
-import { Callout, Empty, glow, Link, PageHero, Ring, Segmented, SimProgress, TeamMark } from './ui.tsx';
+import { Callout, Empty, glow, Link, PageHero, Ring, Segmented, SimProgress, TeamMark, useEntryState } from './ui.tsx';
 import { marbleVars, PickTabs } from './results.tsx';
 import { footCategories } from './footpicks.ts';
 import { SideColors } from './flags.ts';
@@ -197,7 +197,7 @@ export function FootSchedulePage({ day }: { day: string | null }) {
   const [data, setData] = useState<Slate | undefined>(() => slateLast);
   const [error, setError] = useState<string>();
   const [view, setView] = useState<View>(storedView);
-  const [status, setStatus] = useState<Status>('pre');
+  const [status, setStatus] = useEntryState<Status>('statut', 'pre');
   const load = useCallback(
     (fresh = false) =>
       api(`?slate=1${fresh ? `&v=${Date.now()}` : ''}`).then(
@@ -654,7 +654,7 @@ export function FootMatchPage({ id }: { id: string }) {
   }, [id]);
   return (
     <div className="page">
-      <Link href="/" className="back">
+      <Link href="/" back className="back">
         <ArrowLeft size={16} /> Programme Football
       </Link>
       {state.status !== 'loading' && <FootHero id={id} r={state.status === 'done' ? state.result : undefined} />}

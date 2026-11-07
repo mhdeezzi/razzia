@@ -23,7 +23,7 @@ export function MatchPage({ date, away, home }: { date: string; away: string; ho
 
   return (
     <div className="page">
-      <Link href={`/basket?jour=${date}`} className="back">
+      <Link href={`/basket?jour=${date}`} back className="back">
         <ArrowLeft size={16} /> Programme
       </Link>
       {error && <Empty title="Le programme n'a pas pu être chargé.">{error}</Empty>}

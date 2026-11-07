@@ -2,7 +2,7 @@
 // par point), mêmes principes que la NBA : vainqueur ou « Un set », pile ou face, Razzia assuré.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowLeft, CaretRight, PawPrint, HouseLine, HouseSimple, ListBullets, Mountains, Coins, ShieldCheck, SquaresFour, TennisBall, TrendDown, TrendUp, Trophy, WarningCircle, X } from '@phosphor-icons/react';
-import { Callout, Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgress } from './ui.tsx';
+import { Callout, Empty, Link, PageHero, ProgressLine, Ring, Segmented, SimProgress, useEntryState } from './ui.tsx';
 import { marbleVars, PickOdds, PickTabs } from './results.tsx';
 import { playerColors, SideColors } from './flags.ts';
 import { MoneyFlow } from './money.tsx';
@@ -252,7 +252,7 @@ export function TennisSchedulePage({ day }: { day: string | null }) {
   const [data, setData] = useState<Slate | undefined>(() => slateLast);
   const [error, setError] = useState<string>();
   const [view, setView] = useState<View>(storedView);
-  const [status, setStatus] = useState<Status>('pre');
+  const [status, setStatus] = useEntryState<Status>('statut', 'pre');
   // `fresh` contourne le cache du CDN (60 s) : juste après une simulation, la liste doit déjà la contenir.
   const load = useCallback(
     (fresh = false) =>
@@ -796,7 +796,7 @@ export function TennisMatchPage({ day, id }: { day: string; id: string }) {
   }, [id]);
   return (
     <div className="page">
-      <Link href="/tennis" className="back">
+      <Link href="/tennis" back className="back">
         <ArrowLeft size={16} /> Programme ATP
       </Link>
       {state.status !== 'loading' && <TennisHero id={id} r={state.status === 'done' ? state.result : undefined} />}
