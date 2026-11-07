@@ -1320,11 +1320,18 @@ body:has(.slipbar) .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); }
 .bilan-line b.down { color: var(--c-red); }
 .bilan-line em { font-style: normal; font-size: 12px; color: var(--text-3); }
 .bilan-spark { width: 100%; height: 56px; padding: 0 18px; box-sizing: border-box; overflow: visible; }
+/* Bilan du Suivi : une case par jour sur 45 jours (3 rangées), verte si la journée a rapporté, rouge si elle a coûté. */
+.day-grid { display: grid; grid-template-columns: repeat(15, minmax(0, 1fr)); gap: 3px; padding: 14px 18px; }
+.day-grid i { aspect-ratio: 1; border-radius: 3px; background: rgba(255, 255, 255, 0.05); }
+.day-grid i.won { background: color-mix(in srgb, var(--c-green) var(--k), #0b0b0c); }
+.day-grid i.lost { background: color-mix(in srgb, var(--c-red) var(--k), #0b0b0c); }
+.day-grid i.even { background: rgba(255, 255, 255, 0.16); }
 @media (max-width: 900px) {
   .bilan-line { grid-template-columns: 1fr 1fr; }
   .bilan-line > div:nth-child(3) { border-left: 0; }
   .bilan-line > div:nth-child(n + 3) { border-top: 1px solid var(--line-2); }
   .bilan-spark { grid-column: 1 / -1; height: 52px; padding: 6px 18px 14px; border-top: 1px solid var(--line-2); }
+  .day-grid { grid-column: 1 / -1; border-top: 1px solid var(--line-2); }
 }
 .suivi-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 22px; align-items: start; }
 .suivi-main { display: grid; gap: 14px; min-width: 0; }
@@ -1853,3 +1860,38 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
   .typ-side .mark-lg { width: 44px; height: 44px; }
   .typ-pts { font-size: 36px; }
 }
+
+/* Règle des cotes (fiche, onglets de pronostics) : cote juste Razzia en haut, cote du marché en bas. */
+.ruler { display: grid; gap: 10px; margin: 2px 0 4px; }
+.ruler-track { position: relative; height: 84px; margin: 0 44px; }
+.ruler-track::before { content: ''; position: absolute; left: -44px; right: -44px; top: 41px; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.1); }
+.ruler-gap { position: absolute; top: 38px; height: 8px; border-radius: 3px; }
+.ruler-gap.up { background: color-mix(in srgb, var(--c-green) 22%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-green) 55%, transparent); }
+.ruler-gap.down { background: color-mix(in srgb, var(--c-red) 18%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-red) 50%, transparent); }
+.ruler-tick { position: absolute; top: 46px; width: 1px; height: 4px; background: rgba(255, 255, 255, 0.14); }
+.ruler-tick i { display: none; }
+.ruler-mk { position: absolute; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ruler-mk b { display: inline-flex; gap: 6px; align-items: baseline; font: 600 14px var(--mono); letter-spacing: -0.03em; padding: 5px 9px; border-radius: 8px; white-space: nowrap; }
+.ruler-mk small { order: -1; font: 500 11.5px var(--sans); letter-spacing: 0; }
+.ruler-mk.me { top: 0; flex-direction: column-reverse; }
+.ruler-mk.me b { background: #ededed; color: #08080a; }
+.ruler-mk.me::before { content: ''; width: 2px; height: 6px; border-radius: 1px; background: #ededed; }
+.ruler-mk.mkt { top: 44px; }
+.ruler-mk.mkt b { background: var(--chip-bg); box-shadow: var(--chip-shadow); color: #fff; }
+.ruler-mk.mkt::before { content: ''; width: 2px; height: 6px; border-radius: 1px; background: var(--text-2); }
+.ruler-mk.mkt small { color: var(--text-2); }
+.ruler-say { margin: 0; font-size: 13px; color: var(--text-2); text-align: center; text-wrap: balance; }
+.ruler-say .up { color: var(--c-green); font-weight: 600; } .ruler-say .down { color: #f2797d; font-weight: 600; }
+
+/* Frise de mise à jour d'une fiche foot (section Compositions). */
+.steps { display: grid; gap: 14px; justify-items: start; margin-bottom: 16px; }
+.steps ol { margin: 0; padding: 0; list-style: none; display: grid; width: 100%; }
+.steps li { position: relative; display: grid; grid-template-columns: 22px 1fr auto; gap: 12px; align-items: center; padding-bottom: 14px; }
+.steps li:last-child { padding-bottom: 0; }
+.steps li:not(:last-child)::before { content: ''; position: absolute; left: 10px; top: 22px; bottom: 0; width: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.08); }
+.steps li.done:not(:last-child)::before { background: #ededed; }
+.steps-dot { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; background: var(--chip-bg); box-shadow: var(--chip-shadow); }
+.steps li.done .steps-dot { background: #ededed; color: #08080a; box-shadow: none; }
+.steps-t { font-size: 14.5px; font-weight: 500; color: var(--text-2); }
+.steps li.done .steps-t { color: var(--text); }
+.steps-at { font: 500 12.5px var(--mono); color: var(--text-3); }

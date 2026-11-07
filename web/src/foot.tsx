@@ -2,7 +2,7 @@
 // fiche de match avec la simulation (25 000 matchs tir par tir), mêmes principes que le basket et le tennis : un
 // pronostic mis en avant, un combiné rattaché, Razzia assuré (vert), risqué (orange), pile ou face (rouge).
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ArrowLeft, CaretRight, Coins, ListBullets, ShieldCheck, SoccerBall, SquaresFour, WarningCircle } from '@phosphor-icons/react';
+import { ArrowLeft, CaretRight, Check, Coins, ListBullets, ShieldCheck, SoccerBall, SquaresFour, WarningCircle } from '@phosphor-icons/react';
 import { Callout, Empty, glow, Link, PageHero, Ring, Segmented, SimProgress, TeamMark, useEntryState } from './ui.tsx';
 import { marbleVars, PickTabs } from './results.tsx';
 import { footCategories } from './footpicks.ts';
@@ -730,6 +730,39 @@ function buildFootCategories(r: FootResult): Category[] {
   });
 }
 
+const hm = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+const inText = (ms: number) => { const m = Math.max(1, Math.round(ms / 60_000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
+
+/** Frise de mise à jour : quand le match a été simulé, quand tombent les compos (FotMob, environ 1 h avant), la relance
+ * automatique (30 min avant) et le coup d'envoi. Dit d'un coup d'œil si la fiche est à jour. */
+function RelaunchSteps({ r }: { r: FootResult }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(t); }, []);
+  const start = Date.parse(r.start), built = Date.parse(r.meta.builtAt);
+  const official = r.lineupType === 'standard' || r.lineupType === 'official';
+  const steps = [
+    { t: 'Simulé', at: built, done: true },
+    { t: official ? 'Compos officielles' : 'Compos officielles attendues', at: start - 60 * 60_000, done: official },
+    { t: 'Relance automatique', at: start - 30 * 60_000, done: built >= start - 45 * 60_000 },
+    { t: "Coup d'envoi", at: start, done: now >= start },
+  ];
+  const next = steps.find((s) => !s.done && s.at > now);
+  return (
+    <div className="steps">
+      <ol>
+        {steps.map((s) => (
+          <li key={s.t} className={s.done ? 'done' : ''}>
+            <span className="steps-dot">{s.done && <Check size={12} weight="bold" />}</span>
+            <span className="steps-t">{s.t}</span>
+            <span className="steps-at">{hm.format(s.at)}</span>
+          </li>
+        ))}
+      </ol>
+      {next && <span className="odds-warn risky">{next.t.replace(' attendues', '')} dans {inText(next.at - now)}</span>}
+    </div>
+  );
+}
+
 function FootVerdict({ r }: { r: FootResult }) {
   const homeFav = r.final.h >= r.final.a;
   const fav = homeFav ? r.home : r.away;
@@ -850,6 +883,7 @@ function FootResults({ r }: { r: FootResult }) {
           </Section>
         )}
         <Section title="Compositions" tag={r.lineupType === 'standard' || r.lineupType === 'official' ? 'officielles' : r.lineupType === 'predicted' ? 'probables' : 'pas encore connues'}>
+          <RelaunchSteps r={r} />
           <div className="f-lineups">
             {(['home', 'away'] as const).map((k, i) => {
               const l = r.lineups[i];

@@ -190,7 +190,7 @@ function BilanLine({ tickets }: { tickets?: Ticket[] }) {
     return {
       n: counted.length, won, profit, roi: staked ? profit / staked : undefined, pts,
       monthProfit: done.filter((t) => local(t.settled_at ?? t.created_at) === month).reduce((x, t) => x + profitOf(t), 0),
-      inPlay: open.reduce((x, t) => x + t.stake, 0), open: open.length,
+      inPlay: open.reduce((x, t) => x + t.stake, 0), open: open.length, done,
     };
   }, [tickets]);
   const tone = (v: number) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
@@ -221,30 +221,31 @@ function BilanLine({ tickets }: { tickets?: Ticket[] }) {
           {s.open} ticket{s.open > 1 ? 's' : ''} en cours
         </em>
       </div>
-      {s.pts.length > 2 && <Spark pts={s.pts} />}
+      {s.done.length > 0 && <DayGrid done={s.done} />}
     </section>
   );
 }
 
-/** Courbe des gains cumulés : verte au-dessus de zéro, rouge en dessous. */
-function Spark({ pts }: { pts: number[] }) {
-  const lo = Math.min(0, ...pts), hi = Math.max(0, ...pts);
-  const W = 240, H = 56, pad = 4;
-  const x = (i: number) => (i / (pts.length - 1)) * W;
-  const y = (v: number) => pad + ((hi - v) / (hi - lo || 1)) * (H - 2 * pad);
-  const line = pts.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const zero = y(0);
+const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** 45 derniers jours en 3 rangées : case verte si les tickets réglés ce jour-là ont rapporté (plus vive quand plus),
+ * rouge s'ils ont coûté, grise à l'équilibre, vide sans ticket. */
+function DayGrid({ done }: { done: Ticket[] }) {
+  const by = new Map<string, { p: number; n: number }>();
+  for (const t of done) { const k = dayKey(new Date(t.settled_at ?? t.created_at)); const d = by.get(k) ?? { p: 0, n: 0 }; d.p += profitOf(t); d.n++; by.set(k, d); }
+  const mx = Math.max(1, ...[...by.values()].map((d) => Math.abs(d.p)));
+  const today = new Date();
+  const days = Array.from({ length: 45 }, (_, i) => { const d = new Date(today); d.setDate(d.getDate() - 44 + i); return d; });
   return (
-    <svg className="bilan-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Gains cumulés, ticket après ticket">
-      <defs>
-        <linearGradient id="spark-s" x1="0" y1="0" x2="0" y2={H} gradientUnits="userSpaceOnUse">
-          <stop offset={zero / H} stopColor="#3dd68c" />
-          <stop offset={zero / H} stopColor="#e2232b" />
-        </linearGradient>
-      </defs>
-      <line x1="0" x2={W} y1={zero} y2={zero} className="curve-zero" />
-      <polyline points={line} className="curve-line" stroke="url(#spark-s)" />
-    </svg>
+    <div className="day-grid" role="img" aria-label="Gains jour par jour sur les 45 derniers jours">
+      {days.map((d) => {
+        const x = by.get(dayKey(d));
+        const day = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+        if (!x) return <i key={dayKey(d)} title={`${day} : aucun ticket réglé`} />;
+        const k = `${Math.round(30 + 62 * (Math.abs(x.p) / mx))}%`;
+        return <i key={dayKey(d)} className={x.p > 0.005 ? 'won' : x.p < -0.005 ? 'lost' : 'even'} style={{ '--k': k } as CSSProperties} title={`${day} : ${signed(x.p)} sur ${x.n} ticket${x.n > 1 ? 's' : ''}`} />;
+      })}
+    </div>
   );
 }
 
