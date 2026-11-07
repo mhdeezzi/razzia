@@ -1,6 +1,8 @@
 // Catégories de pronostics du foot, partagées par la fiche (foot.tsx) et le bilan (src/cli/footbilan.ts) : le bilan
 // compte exactement le premier onglet affiché (orderCats). La fiche ajoute seulement l'habillage (logos, couleurs).
 import { fairScore } from './fairscore.ts';
+import { orderCats } from './picks.ts';
+import { marketById } from '../../src/foot/markets.ts';
 import type { Category, Outcome } from './picks.ts';
 import type { FootResult } from './foot.tsx';
 
@@ -54,14 +56,24 @@ export function footCategories(r: FootResult, deco: FootDeco = {}): Category[] {
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
     ...(bigFav ? [] : [{ id: 'double', label: 'Double chance', items: double }]),
   ];
-  // Score exact : le plus juste, pas le plus prudent ; toujours « Déconseillé ».
-  const sc = fairScore(r.scores, r.final);
+  // LDEM (les deux équipes marquent) : seulement à plus de 65 %.
+  if ((P.btts ?? 0) > LDEM_MIN) cats.push({ id: 'btts', label: 'LDEM', items: list(['btts']) });
+  // Score exact : le plus juste, pas le plus prudent ; toujours « Déconseillé ». Jamais en contradiction avec le premier
+  // pronostic affiché ni avec le pronostic Razzia du verdict (ex. « Leeds ou Tottenham » en tête et un 1-1 retenu).
+  const lead = orderCats(cats.filter((c) => c.items.length))[0]?.items[0];
+  const wins = (id: string | undefined, h: number, a: number) => { const m = id ? marketById.get(id) : undefined; return !m || m.win(Math.min(h, 10), Math.min(a, 10)); };
+  const sc = fairScore(r.scores, r.final, (h, a) => wins(lead?.id, h, a) && wins(r.pick?.id, h, a));
   if (sc) {
     let out: Outcome = { id: `exact-${sc.h}-${sc.a}`, title: `${r.home.name} ${sc.h}-${sc.a} ${r.away.name}`, p: sc.p, fair: 1 / sc.p, warn: 'Déconseillé', text: 'Le score qui colle le mieux à la physionomie du match (buts attendus de chaque équipe), pas le plus prudent.' };
     if (deco.exact) out = deco.exact(sc, out);
     cats.push({ id: 'exact', label: 'Score exact', warn: true, items: [out] });
   }
-  // LDEM (les deux équipes marquent) : seulement à plus de 65 %.
-  if ((P.btts ?? 0) > LDEM_MIN) cats.push({ id: 'btts', label: 'LDEM', items: list(['btts']) });
   return cats.filter((c) => c.items.length);
+}
+
+/** Score retenu pour le déroulé du match (le même que l'onglet Score exact). */
+export function footScenario(r: FootResult): { h: number; a: number; p: number } | undefined {
+  const it = footCategories(r).find((c) => c.id === 'exact')?.items[0];
+  const m = it && /^exact-(\d+)-(\d+)$/.exec(it.id);
+  return m ? { h: +m[1], a: +m[2], p: it!.p } : undefined;
 }
