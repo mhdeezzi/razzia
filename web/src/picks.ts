@@ -51,7 +51,7 @@ export function orderCats(input: Category[], opts: { keepOrder?: boolean } = {})
   if (opts.keepOrder) return input.map((c) => (c.warn ? c : { ...c, items: c.items.map((o) => (isValue(o) ? { ...o, value: true } : o)) }));
   // Cote de 1,20 ou moins : la catégorie n'est pas affichée (trop peu à gagner). S'il ne reste alors aucun pari conseillé,
   // on garde quand même le mieux payé d'entre eux, pour proposer au moins un choix.
-  const tooLow = (c: Category) => (catOdds(c) ?? Infinity) <= LOW_ODDS;
+  const tooLow = (c: Category) => !c.first && (catOdds(c) ?? Infinity) <= LOW_ODDS;
   const shown = input.filter((c) => !tooLow(c));
   const best = [...input].filter((c) => tooLow(c) && !c.warn).sort((a, b) => (catOdds(b) ?? 0) - (catOdds(a) ?? 0))[0];
   const cats = (shown.some((c) => !c.warn) || !best ? shown : [best, ...shown]).map((c) => (c.warn ? c : { ...c, items: c.items.map((o) => (isValue(o) ? { ...o, value: true } : o)) }));
