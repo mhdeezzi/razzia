@@ -42,7 +42,9 @@ export function footCategories(r: FootResult, deco: FootDeco = {}): Category[] {
   const wp = winner[0]?.p ?? 0;
   const winWarn = wp < WIN_FLIP ? 'Déconseillé' : wp < WIN_RISKY ? 'Risqué' : undefined;
   if (winner[0] && winWarn && !winner[0].warn) winner[0] = { ...winner[0], warn: winWarn, safe: undefined };
-  const double = list([top(['1X', 'X2', '12'])]);
+  // Double chance du favori (« Leeds ou nul »), comme le pronostic du verdict : « Leeds ou Tottenham » (pas de nul)
+  // contredisait le scénario du match quand il finit sur un nul.
+  const double = list([homeFav ? '1X' : 'X2']);
   const combos = list([r.combo.id]);
   // Gros favori (cote de la victoire sous 1,25, ou 80 % sans cote) : pas de double chance.
   const favOdds = o ? (homeFav ? o.h : o.a) : undefined;
