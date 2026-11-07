@@ -30,7 +30,7 @@ export function footCategories(r: FootResult, deco: FootDeco = {}): Category[] {
   const item = (id: string): Outcome | undefined => {
     const p = P[id];
     if (p == null || !L[id]) return undefined;
-    let out: Outcome = { id, title: L[id], p, fair: p > 0 ? 1 / p : undefined, odds: oddsOf[id], implied: nv?.[id], mkt: mktOf[id] };
+    let out: Outcome = { id, title: L[id], p, fair: p > 0 ? 1 / p : undefined, odds: oddsOf[id], implied: nv?.[id], mkt: mktOf[id], ...(r.tier === 'flip' ? { noValue: true } : {}) };
     if (deco.item) out = deco.item(id, out);
     if (r.pick?.id === id) if (r.tier === 'sure') out.safe = 'Razzia assuré';
     if (r.combo.id === id) {
