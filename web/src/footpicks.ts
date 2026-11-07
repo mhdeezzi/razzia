@@ -60,6 +60,14 @@ export function footCategories(r: FootResult, deco: FootDeco = {}): Category[] {
   ];
   // LDEM (les deux équipes marquent) : seulement à plus de 65 %.
   if ((P.btts ?? 0) > LDEM_MIN) cats.push({ id: 'btts', label: 'LDEM', items: list(['btts']) });
+  // Pronostic Razzia (celui du grand cercle) : toujours le premier onglet, jamais masqué même sous 1,20, et c'est lui qui
+  // compte au bilan. Avant, il pouvait disparaître (cote juste 1,19) et le bilan comptait le combiné risqué.
+  const flipHandicap = r.tier === 'flip' && /[ha][+-]1\.5/.test(r.combo.id);
+  if (r.pick && !flipHandicap) {
+    const dup = cats.find((c) => c.items[0]?.id === r.pick!.id);
+    if (dup) dup.first = true;
+    else { const it = item(r.pick.id); if (it) cats.unshift({ id: 'pick', label: 'Pronostic Razzia', items: [{ ...it, warn: undefined }], first: true }); }
+  }
   // Score exact : le plus juste, pas le plus prudent ; toujours « Déconseillé ». Jamais en contradiction avec le premier
   // pronostic affiché ni avec le pronostic Razzia du verdict (ex. « Leeds ou Tottenham » en tête et un 1-1 retenu).
   const lead = orderCats(cats.filter((c) => c.items.length))[0]?.items[0];
