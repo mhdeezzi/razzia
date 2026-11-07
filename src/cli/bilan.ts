@@ -177,7 +177,7 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   const board = finals.get(date);
   if (!board) {
     const old = prevRows.get(d.name);
-    if (old) rows.push(old);
+    if (old && Math.round(Math.max(old.pBlend ?? old.pModel, 1 - (old.pBlend ?? old.pModel)) * 100) !== 50) rows.push(old);
     continue;
   }
   const norm = (t: string) => ({ GS: 'GSW', NY: 'NYK', SA: 'SAS', NO: 'NOP', UTAH: 'UTA', WSH: 'WAS', PHO: 'PHX' } as Record<string, string>)[t] ?? t;
@@ -193,6 +193,8 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
     if (!prev) continue;
     s = prev;
   }
+  // Pile ou face parfait (le favori affiché à 50 %, après la simulation d'avant-match) : hors bilan, gagné ou perdu.
+  if (Math.round(Math.max(s.market?.blendedHome ?? s.pHome, 1 - (s.market?.blendedHome ?? s.pHome)) * 100) === 50) continue;
   const hs = Number(comp.competitors.find((x: any) => x.homeAway === 'home').score);
   const as = Number(comp.competitors.find((x: any) => x.homeAway === 'away').score);
   const close = await getMarket(date, home, away).catch(() => undefined);
