@@ -967,7 +967,7 @@ function FootFlow({ r }: { r: FootResult }) {
             </>
           ) : (
             <>
-              Score le plus probable : <b>{short(r.home.name)} {t.score[0]}-{t.score[1]} {short(r.away.name)}</b>.{' '}
+              Score retenu : <b>{short(r.home.name)} {t.score[0]}-{t.score[1]} {short(r.away.name)}</b>.{' '}
             </>
           )}
           {goals.length === 0

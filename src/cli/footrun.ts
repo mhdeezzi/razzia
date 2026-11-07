@@ -2,6 +2,9 @@
 // FotMob, publiés en out/foot/<id>.json. Infos du match et cotes : programme du jour (slate.json), sinon FotMob.
 //   node src/cli/footrun.ts --ids 4813123,4813124 [--slate data/cache/foot/slate.json] [--out out/foot] [--sims 25000]
 import { fairScore } from '../foot/fairscore.ts';
+// Règles de la fiche (score exact retenu), chargées telles quelles : le contrôle de types du moteur ne lit pas le site.
+const WEB = '../../web/src/';
+const { footScenario } = await import(`${WEB}footpicks.ts`);
 
 // Calibrage vérifié sur les vrais résultats (audit 2024-2026). Les deux équipes marquent : au-dessus de 55 %, la
 // simulation en promettait trop (annoncé 68 %, réel 62 % sur 406 matchs) ; on garde 60 % de l'écart au-dessus de 55 %
@@ -69,10 +72,13 @@ for (const P of res) {
     });
     // Scénario : le score « le plus juste » (fairScore, le même que le score exact de la fiche), victoire du favori ou nul.
     const favSide = P.final.h >= P.final.a ? 'home' : 'away';
-    const top = fairScore(scores, P.final);
-    const bySeq = top ? P.sim.seqs.get(`${top.h}-${top.a}`) : undefined;
-    const best = bySeq ? [...bySeq].sort((x, y) => y[1].n - x[1].n)[0] : undefined;
-    const typical = best && top ? { given: top.h === top.a ? 'draw' : favSide, p: top.p, score: [top.h, top.a], share: r4(best[1].n / [...bySeq!.values()].reduce((t, e) => t + e.n, 0)), goals: [...best[0]].map((side, i) => ({ side: side === 'H' ? 'home' : 'away', min: Math.round(best[1].min[i] / best[1].n) })) } : undefined;
+    // (calculé plus bas, une fois la fiche prête : il suit les pronostics mis en avant.)
+    const scenario = (top: { h: number; a: number; p: number } | undefined) => {
+      const bySeq = top ? P.sim.seqs.get(`${top.h}-${top.a}`) : undefined;
+      const best = bySeq ? [...bySeq].sort((x, y) => y[1].n - x[1].n)[0] : undefined;
+      return best && top ? { given: top.h === top.a ? 'draw' : favSide, p: top.p, score: [top.h, top.a], share: r4(best[1].n / [...bySeq!.values()].reduce((t, e) => t + e.n, 0)), goals: [...best[0]].map((side, i) => ({ side: side === 'H' ? 'home' : 'away', min: Math.round(best[1].min[i] / best[1].n) })) } : undefined;
+    };
+    let typical: ReturnType<typeof scenario>;
     // Confrontations : les derniers matchs entre les deux équipes, toutes compétitions suivies.
     const h2h = games
       .filter((g) => (g.home.id === f.home.id && g.away.id === f.away.id) || (g.home.id === f.away.id && g.away.id === f.home.id))
@@ -93,6 +99,8 @@ for (const P of res) {
       tier: tier(P.probs, pickBest), T: P.T, scorers, n, flow, typical, h2h,
       meta: { builtAt: new Date().toISOString(), gamesUsed: games.length, model: M.builtAt },
     };
+    // Déroulé : le même score que l'onglet Score exact de la fiche (règles du site, cohérent avec le premier pronostic).
+    out.typical = scenario(footScenario(out) ?? fairScore(scores, P.final));
     writeFileSync(join(outDir, `${f.id}.json`), JSON.stringify(out));
     console.log(`${f.home.name} – ${f.away.name} : ${(100 * P.final.h).toFixed(0)} / ${(100 * P.final.d).toFixed(0)} / ${(100 * P.final.a).toFixed(0)} · ${pickBest ? `${label(pickBest.id)} (${(100 * pickBest.p).toFixed(0)} %)` : 'pas de prono'} · ${out.tier}`);
   } catch (e) { failed++; console.log(`échec ${P.f.id}`, e); }

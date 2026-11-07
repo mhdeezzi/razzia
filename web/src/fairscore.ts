@@ -11,7 +11,14 @@ const W: Record<string, number> = { '1-0': 0.0, '2-1': 0.067, '2-0': 0.246, '1-1
 /** Garde-fou : le score affiché garde au moins 40 % de la probabilité du score le plus fréquent (pas de 5-2 à 2 %). */
 const GUARD = 0.4;
 
-export function fairScore(scores: Array<{ h: number; a: number; p: number }>, fin: { h: number; d: number; a: number }): { h: number; a: number; p: number } | undefined {
+/** `allow` : scores compatibles avec les pronostics mis en avant (le score retenu ne doit jamais les contredire). */
+export function fairScore(scores: Array<{ h: number; a: number; p: number }>, fin: { h: number; d: number; a: number }, allow?: (h: number, a: number) => boolean): { h: number; a: number; p: number } | undefined {
+  if (allow && scores.some((x) => x.p > 0 && allow(x.h, x.a))) {
+    const ok = scores.filter((x) => allow(x.h, x.a));
+    const r = fairScore(ok, fin);
+    if (r && allow(r.h, r.a)) return r;
+    return ok.sort((x, y) => y.p - x.p)[0];
+  }
   const homeFav = fin.h >= fin.a;
   const side = (x: { h: number; a: number; p: number }) => x.p > 0 && !(homeFav ? x.a > x.h : x.h > x.a) && W[`${Math.max(x.h, x.a)}-${Math.min(x.h, x.a)}`] != null;
   const floor = GUARD * Math.max(0, ...scores.filter(side).map((x) => x.p));
