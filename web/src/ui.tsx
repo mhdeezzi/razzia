@@ -7,10 +7,51 @@ import { WarpBg } from './shaders.tsx';
 // Retour en haut demandé par un clic : fait au moment où la nouvelle page s'affiche (pas avant, sur l'ancienne).
 let scrollTop = false;
 
+// Historique : chaque page porte un numéro (history.state.i). La position de chaque page est gardée, et le retour
+// arrière y ramène pile, une fois la page assez chargée (le navigateur seul la remettait trop tôt, donc trop haut).
+const entry = () => (history.state && typeof history.state.i === 'number' ? (history.state.i as number) : 0);
+let cur = typeof history !== 'undefined' ? entry() : 0;
+const saveScroll = (i: number) => { try { sessionStorage.setItem(`pos:${i}`, String(Math.round(scrollY))); } catch { /* stockage indisponible */ } };
+if (typeof history !== 'undefined') {
+  history.scrollRestoration = 'manual';
+  if (!history.state || typeof history.state.i !== 'number') history.replaceState({ ...(history.state ?? {}), i: 0 }, '');
+  addEventListener('popstate', () => {
+    saveScroll(cur);
+    cur = entry();
+    if (scrollTop) return; // changement de page par un clic : haut de page
+    let want = 0;
+    try { want = Number(sessionStorage.getItem(`pos:${cur}`) ?? 0); } catch { /* rien */ }
+    const t0 = performance.now();
+    const go = () => {
+      if (document.documentElement.scrollHeight >= want + innerHeight - 2 || performance.now() - t0 > 3000) window.scrollTo({ top: want });
+      else requestAnimationFrame(go);
+    };
+    requestAnimationFrame(go);
+  });
+  addEventListener('pagehide', () => saveScroll(cur));
+}
+
 export function navigate(to: string): void {
-  history.pushState(null, '', to);
+  saveScroll(cur);
+  history.pushState({ i: cur + 1 }, '', to);
   scrollTop = true;
   dispatchEvent(new PopStateEvent('popstate'));
+}
+
+/** Retour à la page d'avant si elle est sur le site (position et onglets retrouvés), sinon vers `fallback`. */
+export function goBack(fallback: string): void {
+  if (entry() > 0) history.back();
+  else navigate(fallback);
+}
+
+/** État gardé avec la page dans l'historique (onglet choisi…) : le retour arrière le retrouve. */
+export function useEntryState<T>(key: string, init: T): [T, (v: T) => void] {
+  const [v, setV] = useState<T>(() => (history.state && key in history.state ? (history.state[key] as T) : init));
+  const set = (x: T) => {
+    setV(x);
+    history.replaceState({ ...(history.state ?? {}), [key]: x }, '');
+  };
+  return [v, set];
 }
 
 /**
@@ -44,11 +85,13 @@ export function useNowPath(): string {
   return p;
 }
 
-export function Link({ href, className, children, replace, style, ...aria }: {
+export function Link({ href, className, children, replace, back, style, ...aria }: {
   href: string;
   className?: string;
   children: ReactNode;
   replace?: boolean;
+  /** Lien « retour » : revient à la page d'avant (même position, mêmes onglets) quand elle est sur le site. */
+  back?: boolean;
   style?: CSSProperties;
   title?: string;
   'aria-label'?: string;
@@ -57,8 +100,9 @@ export function Link({ href, className, children, replace, style, ...aria }: {
   const go = (e: MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
-    if (replace) {
-      history.replaceState(null, '', href);
+    if (back) goBack(href);
+    else if (replace) {
+      history.replaceState({ ...(history.state ?? {}) }, '', href);
       dispatchEvent(new PopStateEvent('popstate'));
     } else navigate(href);
   };

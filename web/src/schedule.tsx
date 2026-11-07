@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CaretRight, Check, Fire, FirstAid, ListBullets, SquaresFour, TrendDown, TrendUp, WarningCircle, X } from '@phosphor-icons/react';
 import { dayLong, isToday, listSims, loadProgramme, programmeCached, simsCached, matchPath, odds, pct0, simKey, timeLocal, type Game, type Programme, type SimEntry } from './data.ts';
 import { dismissBatch, isRunning, startBatch, useBatch, type Batch, type ItemState } from './batch.ts';
-import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark } from './ui.tsx';
+import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark, useEntryState } from './ui.tsx';
 import { pillTier } from './picks.ts';
 import { nbaHype } from './hype.ts';
 import { PublicRecord } from './record.tsx';
@@ -27,7 +27,7 @@ export function SchedulePage({ day }: { day: string | null }) {
   const [error, setError] = useState<string>();
   const [sims, setSims] = useState<Map<string, SimEntry>>(() => simsCached() ?? new Map());
   const [view, setView] = useState<View>(storedView);
-  const [status, setStatus] = useState<Status>('pre');
+  const [status, setStatus] = useEntryState<Status>('statut', 'pre');
 
   const batch = useBatch();
   useEffect(() => {
