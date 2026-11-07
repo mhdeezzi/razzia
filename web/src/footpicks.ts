@@ -51,10 +51,13 @@ export function footCategories(r: FootResult, deco: FootDeco = {}): Category[] {
   // Gros favori (cote de la victoire sous 1,25, ou 80 % sans cote) : pas de double chance.
   const favOdds = o ? (homeFav ? o.h : o.a) : undefined;
   const bigFav = favOdds != null ? favOdds < BIG_FAV_ODDS : (homeFav ? r.final.h : r.final.a) >= 0.8;
+  // Match rouge : le combiné à handicap passe devant seulement s'il passe plus souvent que la double chance du favori
+  // (Málaga : 76 % contre 66 %) ; sinon c'est la double chance (Espanyol : 68 % contre plus pour « Espanyol ou nul »).
+  const flipHandicap = r.tier === 'flip' && /[ha][+-]1\.5/.test(r.combo.id) && r.combo.p > (P[homeFav ? '1X' : 'X2'] ?? 1);
   const cats: Category[] = [
     // Match pile ou face (rouge) dont le combiné contient un handicap (« ne perd pas, ou d'un seul but ») : il passe en tête,
     // c'est lui qui compte au bilan.
-    { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky, ...(r.tier === 'flip' && /[ha][+-]1\.5/.test(r.combo.id) ? { first: true } : {}) },
+    { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky, ...(flipHandicap ? { first: true } : {}) },
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
     ...(bigFav ? [] : [{ id: 'double', label: 'Double chance', items: double }]),
   ];
@@ -62,7 +65,6 @@ export function footCategories(r: FootResult, deco: FootDeco = {}): Category[] {
   if ((P.btts ?? 0) > LDEM_MIN) cats.push({ id: 'btts', label: 'LDEM', items: list(['btts']) });
   // Pronostic Razzia (celui du grand cercle) : toujours le premier onglet, jamais masqué même sous 1,20, et c'est lui qui
   // compte au bilan. Avant, il pouvait disparaître (cote juste 1,19) et le bilan comptait le combiné risqué.
-  const flipHandicap = r.tier === 'flip' && /[ha][+-]1\.5/.test(r.combo.id);
   if (r.pick && !flipHandicap) {
     const dup = cats.find((c) => c.items[0]?.id === r.pick!.id);
     if (dup) dup.first = true;
