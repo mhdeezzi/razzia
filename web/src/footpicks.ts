@@ -52,7 +52,9 @@ export function footCategories(r: FootResult, deco: FootDeco = {}): Category[] {
   const favOdds = o ? (homeFav ? o.h : o.a) : undefined;
   const bigFav = favOdds != null ? favOdds < BIG_FAV_ODDS : (homeFav ? r.final.h : r.final.a) >= 0.8;
   const cats: Category[] = [
-    { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky },
+    // Match pile ou face (rouge) dont le combiné contient un handicap (« ne perd pas, ou d'un seul but ») : il passe en tête,
+    // c'est lui qui compte au bilan.
+    { id: 'combo', label: 'Combiné', items: combos, risky: r.combo.risky, ...(r.tier === 'flip' && /[ha][+-]1\.5/.test(r.combo.id) ? { first: true } : {}) },
     { id: 'win', label: 'Vainqueur', items: winner, warn: winWarn === 'Déconseillé', risky: winWarn === 'Risqué' },
     ...(bigFav ? [] : [{ id: 'double', label: 'Double chance', items: double }]),
   ];
