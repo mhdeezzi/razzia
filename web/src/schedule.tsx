@@ -310,7 +310,7 @@ function Row({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i: 
           </span>
         </div>
       </div>
-      <span className="cell-odds">{o?.mlAway != null ? `${odds(o.mlAway)} / ${odds(o.mlHome)}` : '-'}</span>
+      <span className="cell-odds">{mlOf(g, sim) ? `${odds(mlOf(g, sim)![0])} / ${odds(mlOf(g, sim)![1])}` : '-'}</span>
       <span className="cell-total">
         <FormMark g={g} sim={sim} />
       </span>
@@ -327,6 +327,10 @@ function Row({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i: 
  * noms pour toutes les cartes, choisie pour que le plus long tienne.
  */
 const nameWidth = (games: Game[]) => Math.max(5, ...games.flatMap((g) => [g.away.name.length * 0.6, g.home.name.length * 0.6 + 0.95]));
+
+/** Cotes (extérieur, domicile) : celles du programme, sinon celles notées à la simulation (ESPN les retire au coup d'envoi). */
+const mlOf = (g: Game, sim?: SimEntry): [number, number] | undefined =>
+  g.odds?.mlAway != null && g.odds?.mlHome != null ? [g.odds.mlAway, g.odds.mlHome] : sim?.ml;
 
 /** Carte de la grille : noms en gros avec les logos, heure et salle en haut, favori et cotes en pied. */
 function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i: number }) {
@@ -363,7 +367,7 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
         ) : (
           <SimPill g={g} sim={sim} run={run} />
         )}
-        <span className="mono muted">{o?.mlAway != null ? `${odds(o.mlAway)} / ${odds(o.mlHome)}` : 'Cotes à venir'}</span>
+        <span className="mono muted">{mlOf(g, sim) ? `${odds(mlOf(g, sim)![0])} / ${odds(mlOf(g, sim)![1])}` : g.state === 'pre' ? 'Cotes à venir' : ''}</span>
       </div>
     </Link>
   );

@@ -34,7 +34,9 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
     .map((p: any) => ({ side: p.side === 0 ? 'home' : 'away', name: p.name }));
   // Simulée avant la publication des cotes : l'horloge la relance dès qu'elles paraissent.
   const noOdds = s.market?.bookHome == null;
-  out.push({ dir: d.name, pHome, pAway: 1 - pHome, at, gp, ...(noOdds ? { noOdds } : {}), ...(cat ? { cat } : {}), ...(trend ? { trend } : {}), ...(hot ? { hot } : {}), ...(injured.length ? { injured } : {}) });
+  // Cotes notées à la simulation : ESPN les retire au coup d'envoi, le programme les affiche encore pendant le match.
+  const ml = s.market?.mlAway != null && s.market?.mlHome != null ? [s.market.mlAway, s.market.mlHome] : undefined;
+  out.push({ dir: d.name, pHome, pAway: 1 - pHome, at, gp, ...(noOdds ? { noOdds } : {}), ...(ml ? { ml } : {}), ...(cat ? { cat } : {}), ...(trend ? { trend } : {}), ...(hot ? { hot } : {}), ...(injured.length ? { injured } : {}) });
 }
 out.sort((a, b) => b.at.localeCompare(a.at));
 writeFileSync(file, JSON.stringify(out));
