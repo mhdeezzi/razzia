@@ -10,12 +10,15 @@ import { SHOWN_LEAGUES } from '../foot/picks.ts';
 // Règles de la fiche, chargées telles quelles (le contrôle de types du moteur ne lit pas les fichiers du site).
 const WEB = '../../web/src/';
 const { footCategories } = await import(`${WEB}footpicks.ts`);
-const { orderCats } = await import(`${WEB}picks.ts`);
+const { orderCats, OLD_VALUE_BEFORE } = await import(`${WEB}picks.ts`);
 
 /** Pronostic compté : exactement le premier onglet de la fiche (mêmes catégories et même ordre que le site). */
 function firstPick(s: any, won: (id: string) => boolean, sc: [number, number]): { label: string; p: number; won: boolean } | null {
   try {
-    const it = orderCats(footCategories(s))[0]?.items[0];
+    // Avant le 8 novembre : ancienne Value (cote 1,30, sans la cote déduite de la double chance).
+    const old = s.start < OLD_VALUE_BEFORE;
+    const cats = old ? footCategories(s).map((c: any) => ({ ...c, items: c.items.map((o: any) => ({ ...o, mkt: undefined })) })) : footCategories(s);
+    const it = orderCats(cats, { oldValue: old })[0]?.items[0];
     if (!it) return null;
     const ex = /^exact-(\d+)-(\d+)$/.exec(it.id);
     return { label: it.title, p: it.p, won: ex ? +ex[1] === sc[0] && +ex[2] === sc[1] : won(it.id) };

@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getMarket, getScoreboard, noVig } from '../data/espn.ts';
-import { buildCategories, orderCats } from '../../web/src/picks.ts';
+import { buildCategories, OLD_VALUE_BEFORE, orderCats } from '../../web/src/picks.ts';
 
 const dir = process.argv[2];
 if (!dir) throw new Error('Usage : node src/cli/bilan.ts <dossier sims>');
@@ -47,10 +47,10 @@ function ladder(s: any): Rung[] {
  * plus probable au moins probable, cotes de 1,20 ou moins masquées ; favori pile ou face : le handicap devant). Le pari
  * Marqueur (points d'un joueur) n'est pas réglable ici : c'est alors l'onglet suivant qui compte.
  */
-function firstPick(s: any, home: string, away: string, hs: number, as: number): Pick | undefined {
+function firstPick(s: any, home: string, away: string, hs: number, as: number, day = ''): Pick | undefined {
   try {
     const g = { id: '', home: s.home, away: s.away, odds: { mlHome: s.market?.mlHome, mlAway: s.market?.mlAway, spreadHome: s.market?.spreadHome } };
-    for (const c of orderCats(buildCategories(s, g as any))) {
+    for (const c of orderCats(buildCategories(s, g as any), { oldValue: day < OLD_VALUE_BEFORE })) {
       const it = c.items[0], b = it?.bet;
       if (!b || b.kind === 'pts') continue;
       const m = b.side === 'home' ? hs - as : as - hs;
@@ -63,8 +63,8 @@ function firstPick(s: any, home: string, away: string, hs: number, as: number): 
   return undefined;
 }
 
-function pickOf(s: any, home: string, away: string, hs: number, as: number): Pick {
-  const first = firstPick(s, home, away, hs, as);
+function pickOf(s: any, home: string, away: string, hs: number, as: number, day = ''): Pick {
+  const first = firstPick(s, home, away, hs, as, day);
   if (first) return first;
   const p: number = s.market?.blendedHome ?? s.pHome;
   const fav = p >= 0.5 ? 'home' : 'away';
@@ -203,7 +203,7 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   const close = await getMarket(date, home, away).catch(() => undefined);
   const pClose = close?.mlHome != null && close.mlAway != null ? noVig(close.mlHome, close.mlAway)[0] : undefined;
   const pBook = s.market?.bookHome as number | undefined;
-  const row: Row = { dir: d.name, date, away, home, pModel: s.pHome, pBlend: s.market?.blendedHome, pBook, pClose, homeWon: hs > as, score: `${as}-${hs}`, pick: pickOf(s, home, away, hs, as) };
+  const row: Row = { dir: d.name, date, away, home, pModel: s.pHome, pBlend: s.market?.blendedHome, pBook, pClose, homeWon: hs > as, score: `${as}-${hs}`, pick: pickOf(s, home, away, hs, as, date) };
   if (pBook != null && Math.abs(s.pHome - pBook) >= VALUE) {
     const side = s.pHome > pBook ? 'home' : 'away';
     const won = side === 'home' ? hs > as : as > hs;

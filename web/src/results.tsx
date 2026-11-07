@@ -370,7 +370,7 @@ function FollowButton({ o, ctx }: { o: Outcome; ctx: MatchCtx }) {
 }
 
 /** Règle des cotes : la cote juste Razzia (1 / fréquence) au-dessus, la cote du bookmaker en dessous. Écart vert quand
- * le pari est une Value au sens de Razzia (65 % ou plus, cote d'au moins 1,30), gris sinon. */
+ * le pari est une Value au sens de Razzia (65 % ou plus, cote d'au moins 1,35), gris sinon. */
 function OddsRuler({ fair, odds, p, value }: { fair: number; odds: number; p: number; value?: boolean }) {
   const lo = Math.max(1, Math.floor((Math.min(fair, odds) - 0.12) * 10) / 10), span = Math.max(0.6, Math.ceil((Math.max(fair, odds) + 0.12 - lo) * 10) / 10);
   const X = (v: number) => `${((v - lo) / span) * 100}%`;
@@ -385,7 +385,7 @@ function OddsRuler({ fair, odds, p, value }: { fair: number; odds: number; p: nu
         <span className="ruler-mk mkt" style={{ left: X(odds) }}><b><small>Marché</small>{dec(odds)}</b></span>
       </div>
       <p className="ruler-say">
-        {value ? <><b className="up">Value</b> : passe dans {pct(p)} des simulations, cote juste {dec(fair)}</> : <>Écart avec le marché : {edge > 0 ? '+' : ''}{(edge * 100).toFixed(1).replace('.', ',')} %</>}
+        {value ? <><b className="up">Value</b> : passe dans {pct(p)} des simulations, à une cote de {dec(odds)}</> : <>Écart avec le marché : {edge > 0 ? '+' : ''}{(edge * 100).toFixed(1).replace('.', ',')} %</>}
       </p>
     </div>
   );
