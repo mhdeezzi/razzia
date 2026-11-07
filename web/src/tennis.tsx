@@ -648,7 +648,7 @@ function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimI
         ) : (
           <TennisSimPill sim={sim} running={running} ended={stateOf(m) !== 'pre'} />
         )}
-        <span className="mono muted">{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : 'Cotes à venir'}</span>
+        <span className="mono muted">{m.odds?.ml ? `${dec(m.odds.ml[0])} / ${dec(m.odds.ml[1])}` : stateOf(m) === 'pre' ? 'Cotes à venir' : ''}</span>
       </div>
     </Link>
   );

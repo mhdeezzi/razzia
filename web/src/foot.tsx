@@ -528,7 +528,7 @@ function FootCard({ m, sim, running, i }: { m: SlateMatch; sim?: SimIndex; runni
         ) : (
           <FootSimPill sim={sim} running={running} ended={stateOf(m) !== 'pre'} />
         )}
-        <span className="mono muted">{oddsText(m.odds) ?? 'Cotes à venir'}</span>
+        <span className="mono muted">{oddsText(m.odds) ?? (stateOf(m) === 'pre' ? 'Cotes à venir' : '')}</span>
       </div>
     </Link>
   );
