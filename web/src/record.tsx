@@ -1,13 +1,14 @@
 // Bilan public de Razzia, sous le bandeau des programmes : le pronostic mis en avant par chaque fiche face au résultat,
 // depuis le début de la saison. Au basket, les 6 premiers matchs simulés (ancien moteur) ne comptent pas.
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
+import { Sparkline } from './ui.tsx';
 
 /** Matchs NBA simulés par l'ancien moteur, au tout début de la saison : écartés du bilan (liste fixe, pas « les 6 plus
  * anciens » : la liste du bilan grandit et ne doit pas déplacer l'exclusion). */
 const OLD_ENGINE = new Set(['2026-10-21_ATL@ORL', '2026-10-21_CHA@BKN', '2026-10-21_MIL@WAS', '2026-10-21_MIN@MIA', '2026-10-22_CLE@PHI', '2026-10-22_DEN@OKC']);
 const SEASON_START = '2026-10-01';
 
-interface Row { key: string; won: boolean; sure: boolean; day: string }
+interface Row { key: string; won: boolean; sure: boolean }
 interface Record { rows: Row[] }
 
 const pct = (v: number) => `${Math.round(v * 100)} %`;
@@ -19,7 +20,7 @@ async function nbaRecord(): Promise<Record> {
     .filter((r) => r.pick && r.date >= SEASON_START && !OLD_ENGINE.has(r.dir))
     .map((r) => {
       const p = r.pBlend ?? r.pModel;
-      return { key: r.dir, won: r.pick!.won, sure: Math.max(p, 1 - p) >= 0.77, day: r.date };
+      return { key: r.dir, won: r.pick!.won, sure: Math.max(p, 1 - p) >= 0.77 };
     });
   return { rows };
 }
@@ -35,14 +36,11 @@ function playedAt(start: string): string {
   return f.hour === '00' && f.minute === '00' ? `${f.year}-${f.month}-${f.day}T23:59` : `${f.year}-${f.month}-${f.day}T${f.hour}:${f.minute}`;
 }
 
-const paris = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' });
-const parisDay = (iso: string) => { const d = new Date(iso); return Number.isNaN(+d) ? iso.slice(0, 10) : paris.format(d); };
-
 async function atpRecord(): Promise<Record> {
   const b = await fetch('/api/tennis?bilan=1').then((r) => r.json());
   const rows = ((b.rows ?? []) as Array<{ id: string; day: string; start: string; tier: string; pick: { won: boolean } }>)
     .sort((x, y) => playedAt(x.start).localeCompare(playedAt(y.start)))
-    .map((r) => ({ key: r.id, won: r.pick.won, sure: r.tier === 'sure', day: r.day || parisDay(r.start) }));
+    .map((r) => ({ key: r.id, won: r.pick.won, sure: r.tier === 'sure' }));
   return { rows };
 }
 
@@ -52,7 +50,7 @@ async function footRecord(): Promise<Record> {
   const rows = ((b.rows ?? []) as Array<{ id: string; start: string; tier: string; pick: { won: boolean } | null; combo?: { won: boolean } | null }>)
     .filter((r) => r.pick || r.combo)
     .sort((x, y) => x.start.localeCompare(y.start))
-    .map((r) => ({ key: r.id, won: (r.pick ?? r.combo)!.won, sure: r.tier === 'sure', day: parisDay(r.start) }));
+    .map((r) => ({ key: r.id, won: (r.pick ?? r.combo)!.won, sure: r.tier === 'sure' }));
   return { rows };
 }
 
@@ -71,6 +69,8 @@ export function PublicRecord({ sport }: { sport: 'nba' | 'atp' | 'foot' }) {
   const won = rec.rows.filter((r) => r.won).length;
   const sure = rec.rows.filter((r) => r.sure);
   const sureWon = sure.filter((r) => r.won).length;
+  let acc = 0;
+  const curve = rec.rows.map((r, i) => (acc += r.won ? 1 : 0) / (i + 1));
   const last = rec.rows.slice(-10);
   const rate = (a: number, b: number) => pct(b ? a / b : 0);
   return (
@@ -93,7 +93,11 @@ export function PublicRecord({ sport }: { sport: 'nba' | 'atp' | 'foot' }) {
           </span>
         </div>
       )}
-      {rec.rows.length > 0 && <DayGrid rows={rec.rows} />}
+      {curve.length >= 2 && (
+        <div className="record-curve">
+          <Sparkline values={curve} label="Réussite cumulée, match après match" />
+        </div>
+      )}
       {last.length === 0 && <p className="record-sub">Premiers résultats après les premiers matchs simulés.</p>}
       {last.length > 0 && <div className="record-last" aria-label={`10 derniers : ${last.filter((r) => r.won).length} passés`}>
         <span className="record-sub">10 derniers</span>
@@ -104,31 +108,5 @@ export function PublicRecord({ sport }: { sport: 'nba' | 'atp' | 'foot' }) {
         </span>
       </div>}
     </section>
-  );
-}
-
-const DAYS = 45;
-const FR_DAY = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-
-/** Une case par jour sur les derniers jours : plus verte quand plus de pronostics du jour sont passés, rouge sombre
- * si aucun n'est passé, vide les jours sans pronostic. */
-function DayGrid({ rows }: { rows: Row[] }) {
-  const by = new Map<string, { n: number; w: number }>();
-  for (const r of rows) { const d = by.get(r.day) ?? { n: 0, w: 0 }; d.n++; d.w += r.won ? 1 : 0; by.set(r.day, d); }
-  const keys = [...by.keys()].sort(), first = keys[0], last = keys.at(-1)!;
-  const end = Date.parse(`${last}T00:00:00Z`), span = Math.round((end - Date.parse(`${first}T00:00:00Z`)) / 86_400_000) + 1;
-  // Rangées complètes de 15 jours. En début de saison, la grille part du premier jour et les jours à venir restent vides.
-  const n = Math.min(DAYS, Math.ceil(span / 15) * 15), from = span >= n ? end - (n - 1) * 86_400_000 : Date.parse(`${first}T00:00:00Z`);
-  const days = Array.from({ length: n }, (_, i) => new Date(from + i * 86_400_000).toISOString().slice(0, 10));
-  return (
-    <div className="record-grid" role="img" aria-label="Réussite jour par jour sur les derniers jours">
-      {days.map((d) => {
-        const x = by.get(d);
-        if (d > last) return <i key={d} className="off" aria-hidden="true" />;
-        const label = `${FR_DAY.format(new Date(`${d}T00:00:00Z`))} : ${x ? `${x.w} sur ${x.n} passé${x.w > 1 ? 's' : ''}` : 'aucun pronostic'}`;
-        const style = x ? ({ '--k': `${Math.round(22 + 70 * (x.w / x.n))}%` } as CSSProperties) : undefined;
-        return <i key={d} title={label} className={!x ? '' : x.w === 0 ? 'lost' : 'won'} style={style} />;
-      })}
-    </div>
   );
 }
