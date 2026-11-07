@@ -30,6 +30,7 @@ export interface Category {
   warn?: boolean; // déconseillé (point rouge sur l'onglet)
   risky?: boolean; // risqué (point orange sur l'onglet)
   good?: boolean; // plus sûr que le vainqueur (point bleu sur l'onglet)
+  first?: boolean; // toujours en tête (foot : combiné à handicap d'un match pile ou face)
 }
 
 /** Cote d'un pari (bookmaker, sinon cote juste) : à 1,20 ou moins, la catégorie est masquée (trop peu à gagner). */
@@ -55,6 +56,9 @@ export function orderCats(input: Category[], opts: { keepOrder?: boolean } = {})
   const best = [...input].filter((c) => tooLow(c) && !c.warn).sort((a, b) => (catOdds(b) ?? 0) - (catOdds(a) ?? 0))[0];
   const cats = (shown.some((c) => !c.warn) || !best ? shown : [best, ...shown]).map((c) => (c.warn ? c : { ...c, items: c.items.map((o) => (isValue(o) ? { ...o, value: true } : o)) }));
   // Les value d'abord (de la plus probable à la moins probable), puis les autres.
+  // Catégorie imposée en tête (foot : match pile ou face dont le combiné contient un handicap).
+  const forced = cats.find((c) => c.first);
+  if (forced) return [forced, ...orderCats(input.filter((c) => !c.first))];
   const val = (c: Category) => c.items.some((o) => o.value);
   const vals = cats.filter(val).sort((a, b) => catP(b) - catP(a));
   if (vals.length) return [...vals, ...orderRest(cats.filter((c) => !val(c)))];
