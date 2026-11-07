@@ -8,6 +8,7 @@ export interface Outcome {
   p: number; // fréquence dans les simulations
   odds?: number; // cote décimale de cette issue
   fair?: number; // cote juste (1 / fréquence dans les simulations), quand aucune cote n'est publiée
+  mkt?: number; // cote du marché déduite (foot, double chance), pour la règle des cotes seulement
   warn?: string; // étiquette rouge « Déconseillé » ou orange « Risqué »
   safe?: string; // étiquette bleue (« Safe ») : plus sûr que le vainqueur
   value?: boolean; // pastille bleue « Value » : cote d'au moins 1,30 et 65 % ou plus

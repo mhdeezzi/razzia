@@ -25,10 +25,12 @@ export function footCategories(r: FootResult, deco: FootDeco = {}): Category[] {
   const homeFav = r.final.h >= r.final.a;
   const nv = o ? (() => { const s = 1 / o.h + 1 / o.d + 1 / o.a; return { '1': 1 / o.h / s, X: 1 / o.d / s, '2': 1 / o.a / s } as Record<string, number>; })() : undefined;
   const oddsOf: Record<string, number | undefined> = { '1': o?.h, X: o?.d, '2': o?.a, 'o2.5': o?.over25, 'u2.5': o?.under25 };
+  // Double chance : pas de cote publiée ; cote du marché déduite des cotes victoire et nul (affichée sur la règle seulement).
+  const mktOf: Record<string, number | undefined> = o ? { '1X': 1 / (1 / o.h + 1 / o.d), X2: 1 / (1 / o.a + 1 / o.d), '12': 1 / (1 / o.h + 1 / o.a) } : {};
   const item = (id: string): Outcome | undefined => {
     const p = P[id];
     if (p == null || !L[id]) return undefined;
-    let out: Outcome = { id, title: L[id], p, fair: p > 0 ? 1 / p : undefined, odds: oddsOf[id], implied: nv?.[id] };
+    let out: Outcome = { id, title: L[id], p, fair: p > 0 ? 1 / p : undefined, odds: oddsOf[id], implied: nv?.[id], mkt: mktOf[id] };
     if (deco.item) out = deco.item(id, out);
     if (r.pick?.id === id) if (r.tier === 'sure') out.safe = 'Razzia assuré';
     if (r.combo.id === id) {
