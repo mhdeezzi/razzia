@@ -1865,7 +1865,7 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .ruler { display: grid; gap: 10px; margin: 2px 0 4px; }
 .ruler-track { position: relative; height: 84px; margin: 0 44px; }
 .ruler-track::before { content: ''; position: absolute; left: -44px; right: -44px; top: 41px; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.1); }
-.ruler-gap { position: absolute; top: 38px; height: 8px; border-radius: 3px; }
+.ruler-gap { position: absolute; top: 38px; height: 8px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16); }
 .ruler-gap.up { background: color-mix(in srgb, var(--c-green) 22%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-green) 55%, transparent); }
 .ruler-gap.down { background: color-mix(in srgb, var(--c-red) 18%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-red) 50%, transparent); }
 .ruler-tick { position: absolute; top: 46px; width: 1px; height: 4px; background: rgba(255, 255, 255, 0.14); }

@@ -8,9 +8,10 @@ export interface Outcome {
   p: number; // fréquence dans les simulations
   odds?: number; // cote décimale de cette issue
   fair?: number; // cote juste (1 / fréquence dans les simulations), quand aucune cote n'est publiée
+  mkt?: number; // cote du marché déduite (foot, double chance), pour la règle des cotes seulement
   warn?: string; // étiquette rouge « Déconseillé » ou orange « Risqué »
   safe?: string; // étiquette bleue (« Safe ») : plus sûr que le vainqueur
-  value?: boolean; // pastille bleue « Value » : cote d'au moins 1,30 et 65 % ou plus
+  value?: boolean; // pastille bleue « Value » : cote d'au moins 1,35 et 65 % ou plus
   implied?: number; // probabilité de la cote, marge retirée
   text?: string;
   // Qui porte le pari : logo de l'équipe (basket) ou photo du joueur (tennis), à gauche du titre.
@@ -42,11 +43,16 @@ const catOdds = (c: Category) => { const o = c.items[0]; return o?.odds ?? o?.fa
  * Ordre des onglets, pour les trois sports : les value en tête, puis du plus haut pourcentage au plus petit. Si le premier a une cote sous 1,20,
  * le combiné passe devant (sinon le plus probable à 1,20 ou plus), le reste garde l'ordre des pourcentages.
  */
-const VALUE_ODDS = 1.3, VALUE_P = 0.65;
-/** Value : assez probable (65 % ou plus) avec une cote qui rapporte encore (1,30 ou plus), ni risqué ni déconseillé. */
-export const isValue = (o: Outcome) => !o.warn && o.p >= VALUE_P && (o.odds ?? o.fair ?? 1 / o.p) >= VALUE_ODDS;
+const VALUE_ODDS = 1.35, VALUE_P = 0.65;
+/** Value : assez probable (65 % ou plus) avec une cote du marché qui rapporte encore (1,35 ou plus ; sans cote publiée,
+ * cote déduite du marché, sinon cote juste), ni risqué ni déconseillé. */
+const isValueRule = (o: Outcome, old = false) => !o.warn && o.p >= VALUE_P && (old ? (o.odds ?? o.fair ?? 1 / o.p) >= 1.3 : (o.odds ?? o.mkt ?? o.fair ?? 1 / o.p) >= VALUE_ODDS);
+export const isValue = (o: Outcome) => isValueRule(o);
+/** Matchs d'avant le 8 novembre 2026 : bilans comptés avec l'ancienne Value (cote 1,30, sans cote déduite). */
+export const OLD_VALUE_BEFORE = '2026-11-08';
 
-export function orderCats(input: Category[], opts: { keepOrder?: boolean } = {}): Category[] {
+export function orderCats(input: Category[], opts: { keepOrder?: boolean; oldValue?: boolean } = {}): Category[] {
+  const isValue = (o: Outcome) => isValueRule(o, opts.oldValue);
   // Tennis : ordre de la fiche gardé tel quel, rien de masqué (trois paris seulement) ; seule la pastille Value s'ajoute.
   if (opts.keepOrder) return input.map((c) => (c.warn ? c : { ...c, items: c.items.map((o) => (isValue(o) ? { ...o, value: true } : o)) }));
   // Cote de 1,20 ou moins : la catégorie n'est pas affichée (trop peu à gagner). S'il ne reste alors aucun pari conseillé,
@@ -58,7 +64,7 @@ export function orderCats(input: Category[], opts: { keepOrder?: boolean } = {})
   // Les value d'abord (de la plus probable à la moins probable), puis les autres.
   // Catégorie imposée en tête (foot : match pile ou face dont le combiné contient un handicap).
   const forced = cats.find((c) => c.first);
-  if (forced) return [forced, ...orderCats(input.filter((c) => !c.first))];
+  if (forced) return [forced, ...orderCats(input.filter((c) => !c.first), opts)];
   const val = (c: Category) => c.items.some((o) => o.value);
   const vals = cats.filter(val).sort((a, b) => catP(b) - catP(a));
   if (vals.length) return [...vals, ...orderRest(cats.filter((c) => !val(c)))];
