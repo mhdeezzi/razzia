@@ -337,7 +337,7 @@ export function PickTabs({ cats: raw, n, ctx, keepOrder }: { cats: Category[]; n
   );
 }
 
-const dec = (v: number) => v.toFixed(2).replace('.', ',');
+const dec = (v: number, n = 2) => v.toFixed(n).replace('.', ',');
 
 /** Sous « Probabilité de victoire » : la cote du pronostic mis en avant (bookmaker, sinon cote juste). */
 /** Cote du vainqueur sous la probabilité (cote juste du moteur sans cote du marché). */
@@ -369,6 +369,28 @@ function FollowButton({ o, ctx }: { o: Outcome; ctx: MatchCtx }) {
   return <FollowBtn leg={() => ({ ...ctx, key, oid: o.id, title: o.title, odds: o.odds ?? o.fair, fair: o.odds == null, p: o.p, bet: o.bet!, at: '', ...(o.dist ? { dist: o.dist } : {}) })} />;
 }
 
+/** Règle des cotes : la cote juste Razzia (1 / fréquence) au-dessus, la cote du bookmaker en dessous. L'écart vert est
+ * une cote qui paie plus que sa vraie valeur, rouge une cote trop basse. */
+function OddsRuler({ fair, odds }: { fair: number; odds: number }) {
+  const lo = Math.max(1, Math.floor((Math.min(fair, odds) - 0.12) * 10) / 10), span = Math.max(0.6, Math.ceil((Math.max(fair, odds) + 0.12 - lo) * 10) / 10);
+  const X = (v: number) => `${((v - lo) / span) * 100}%`;
+  const edge = odds / fair - 1, pos = edge > 0;
+  const ticks = Array.from({ length: Math.round(span * 10) + 1 }, (_, i) => lo + i / 10).filter((_, i, a) => a.length <= 8 || i % 2 === 0);
+  return (
+    <div className="ruler" role="img" aria-label={`Cote juste ${dec(fair)}, cote du marché ${dec(odds)}`}>
+      <div className="ruler-track">
+        <span className={`ruler-gap ${pos ? 'up' : 'down'}`} style={{ left: X(Math.min(fair, odds)), width: `${(Math.abs(odds - fair) / span) * 100}%` }} />
+        {ticks.map((t) => <span key={t} className="ruler-tick" style={{ left: X(t) }}><i>{dec(t, 1)}</i></span>)}
+        <span className="ruler-mk me" style={{ left: X(fair) }}><b><small>Razzia</small>{dec(fair)}</b></span>
+        <span className="ruler-mk mkt" style={{ left: X(odds) }}><b><small>Marché</small>{dec(odds)}</b></span>
+      </div>
+      <p className="ruler-say">
+        {pos ? <>Le marché paie plus que la cote juste : <b className="up">value de {(edge * 100).toFixed(1).replace('.', ',')} %</b></> : <>Pas de value, <b className="down">le bookmaker garde {(-edge * 100).toFixed(1).replace('.', ',')} %</b></>}
+      </p>
+    </div>
+  );
+}
+
 function OutcomeCard({ o, n, ctx }: { o: Outcome; n: number; ctx?: MatchCtx }) {
   const sides = useContext(SideColors);
   return (
@@ -382,11 +404,7 @@ function OutcomeCard({ o, n, ctx }: { o: Outcome; n: number; ctx?: MatchCtx }) {
           {o.who && <PickWho who={o.who} />}
           <span>{o.title}</span>
         </h4>
-        {o.odds != null && (
-          <span className="odds-pill">
-            Cote <b>{dec(o.odds)}</b>
-          </span>
-        )}
+        {o.odds != null && <OddsRuler fair={1 / o.p} odds={o.odds} />}
         {o.odds == null && o.fair != null && (
           <span className="odds-pill">
             Cote juste <b>{dec(o.fair)}</b>
