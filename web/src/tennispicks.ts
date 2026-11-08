@@ -99,7 +99,39 @@ export function buildTennisCategories(r: TennisResult): Category[] {
         }],
       }
     : undefined;
-  const plus = (cats: Category[]) => (dogSet ? [...cats, dogSet] : cats);
+  // Combiné : victoire ou « au moins un set » (du favori ou de l'outsider) + plus ou moins de N jeux dans le match, d'après
+  // les jeux simulés pour chaque score. Retenu s'il passe dans 80 % des simulations ou plus, en rapportant vraiment plus
+  // que le pari seul (au moins 4 points de probabilité en moins), le moins probable de ceux-là. ATP 2024-2025 (4 060
+  // matchs) : un combiné sur 810 matchs, 84,0 % réussis pour 82,3 % annoncés.
+  const combo = ((): Category | undefined => {
+    const sg = r.sim.scoreGames;
+    if (!sg) return undefined;
+    const needW = r.bestOf === 5 ? 3 : 2;
+    const sets = (k: string, who: 'fav' | 'dog') => { const [a, b] = k.split('-').map(Number); const mine = (side === 'home') === (who === 'fav') ? a : b; return mine; };
+    const lines = r.bestOf === 5 ? [26.5, 28.5, 30.5, 32.5, 34.5, 36.5, 38.5, 40.5] : [16.5, 17.5, 18.5, 19.5, 20.5, 21.5, 22.5, 23.5, 24.5, 26.5];
+    const legs = [
+      { k: 'win', base: winP, ok: (k: string) => sets(k, 'fav') === needW, name: `${fav.name} gagne`, bet: { kind: 'win' as const, side } },
+      { k: 'set', base: r.sim.atLeast1[i], ok: (k: string) => sets(k, 'fav') >= 1, name: `${fav.name} gagne au moins un set`, bet: { kind: 'sets' as const, side, need: 1 } },
+      { k: 'dog', base: r.sim.atLeast1[1 - i], ok: (k: string) => sets(k, 'dog') >= 1, name: `${dog.name} gagne au moins un set`, bet: { kind: 'sets' as const, side: side === 'home' ? 'away' as const : 'home' as const, need: 1 } },
+    ];
+    const all = legs.flatMap((l) => lines.flatMap((L) => [true, false].map((over) => {
+      let p = 0;
+      for (const [k, h] of Object.entries(sg)) if (l.ok(k)) for (const [g, v] of Object.entries(h)) if (over ? +g > L : +g < L) p += v;
+      return { l, L, over, p };
+    })));
+    const best = all.filter((c) => c.p >= 0.8 && c.l.base - c.p >= 0.04).sort((a, b) => a.p - b.p)[0];
+    if (!best) return undefined;
+    const ln = String(best.L).replace('.', ',');
+    return {
+      id: 'combo', label: 'Combiné',
+      items: [{
+        id: 'combo', title: `${best.l.name} + ${best.over ? 'plus' : 'moins'} de ${ln} jeux`, who: best.l.k === 'dog' ? { name: dog.name, photo: dog.photo, alt: dog.photoAlt } : who,
+        bet: { ...best.l.bet, games: { line: best.L, over: best.over } }, p: best.p, fair: 1 / best.p, safe: 'Safe',
+        text: `${best.l.name} et le match compte ${best.over ? 'plus' : 'moins'} de ${ln} jeux dans ${pct(best.p)} des simulations (${pct(best.l.base)} pour le pari seul) : cote plus haute, toujours sûr.`,
+      }],
+    };
+  })();
+  const plus = (cats: Category[]) => [...cats, ...(dogSet ? [dogSet] : []), ...(combo ? [combo] : [])];
 
   if (flipOf(r))
     return plus([

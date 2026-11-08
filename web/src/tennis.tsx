@@ -27,7 +27,7 @@ export interface TennisResult {
   home: TennisPlayer; away: TennisPlayer; pHome: number; pAway: number;
   engine: { pHome: number; elo: number; point: number; factors: Array<{ key: string; label: string; z: number }>; marketWeight: number };
   market: { pHome?: number; pHomeOpen?: number; odds?: Odds; oddsOpen?: Odds; moves?: Array<{ at: string; ml: [number, number] }> };
-  sim: { n: number; pA: number; pB: number; win: number; firstSet: number; scores: Record<string, number>; atLeast1: [number, number]; atLeast2: [number, number]; straight: [number, number]; tiebreak: number; games: { mean: number; p10: number; p50: number; p90: number }; typical?: TypicalTennis };
+  sim: { n: number; pA: number; pB: number; win: number; firstSet: number; scores: Record<string, number>; atLeast1: [number, number]; atLeast2: [number, number]; straight: [number, number]; tiebreak: number; games: { mean: number; p10: number; p50: number; p90: number }; scoreGames?: Record<string, Record<string, number>>; typical?: TypicalTennis };
   h2h: Array<{ date: string; tourney: string; round: string; surface: string; won: boolean; score: string }>;
   h2hCount?: { home: number; away: number; since: string };
   blackCat?: { victim: 'home' | 'away'; lost: number; n: number; since: string; text: string };
