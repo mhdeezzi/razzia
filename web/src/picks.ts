@@ -21,7 +21,7 @@ export interface Outcome {
   who?: { tri?: string; color?: string; logo?: string; name?: string; photo?: string; alt?: string };
   // Le pari en clair, pour le suivi : vainqueur, handicap (points donnés à ce camp), au moins N sets, N-0, ou points d'un
   // joueur au-dessus / en dessous d'une ligne (player : son nom, event : identifiant ESPN du match pour la feuille).
-  bet?: { kind: 'win' | 'spread' | 'sets' | 'straight' | 'pts'; side: 'home' | 'away'; line?: number; need?: number; over?: boolean; player?: string; event?: string };
+  bet?: { kind: 'win' | 'spread' | 'sets' | 'straight' | 'pts'; side: 'home' | 'away'; line?: number; need?: number; over?: boolean; player?: string; event?: string; games?: { line: number; over: boolean } };
   dist?: { mean: number; sd: number; p10: number; p25: number; p50: number; p75: number; p90: number }; // points d'un joueur (ligne réglable dans le ticket)
 }
 

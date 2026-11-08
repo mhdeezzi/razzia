@@ -99,6 +99,9 @@ export interface SimResult {
   tiebreak: number; // au moins un jeu décisif
   games: { mean: number; p10: number; p50: number; p90: number }; // jeux joués
   gamesLadder: Array<{ line: number; pACover: number }>; // handicap en jeux : A couvre si jeux A + line > jeux B
+  /** Jeux joués selon le score en sets (combinés « vainqueur + nombre de jeux ») : part des simulations par score puis par
+   * total de jeux, sommes égales à scores[score]. */
+  scoreGames: Record<string, Record<number, number>>;
   typical: TypicalMatch;
 }
 
@@ -191,6 +194,7 @@ export function simulate(opts: { pA: number; pB: number; bestOf: 3 | 5; target?:
   const { pA, pB } = opts.target != null ? calibrate(opts.pA, opts.pB, opts.bestOf, opts.target, sd) : { pA: opts.pA, pB: opts.pB };
   const seed = opts.seed ?? 1;
   const scores: Record<string, number> = {};
+  const sgRaw: Record<string, Record<number, number>> = {};
   const games: number[] = [];
   const diff: number[] = [];
   const setsA = new Int8Array(n), setsB = new Int8Array(n), tbA = new Int8Array(n), form = new Float32Array(n);
@@ -203,6 +207,8 @@ export function simulate(opts: { pA: number; pB: number; bestOf: 3 | 5; target?:
     setsA[i] = r.sa; setsB[i] = r.sb; tbA[i] = r.tb ? 1 : 0; form[i] = e;
     const k = `${r.sa}-${r.sb}`;
     scores[k] = (scores[k] ?? 0) + 1;
+    const sg = (sgRaw[k] ??= {});
+    sg[r.ga + r.gb] = (sg[r.ga + r.gb] ?? 0) + 1;
     if (r.sa > r.sb) win++;
     first += r.first;
     if (r.tb) tbs++;
@@ -244,6 +250,12 @@ export function simulate(opts: { pA: number; pB: number; bestOf: 3 | 5; target?:
       straight[fav] -= moved;
     }
   }
+  // Jeux par score, remis à l'échelle des scores corrigés (la correction de l'outsider déplace des parts entre scores).
+  const scoreGames: SimResult['scoreGames'] = {};
+  for (const [k, h] of Object.entries(sgRaw)) {
+    const tot = Object.values(h).reduce((t, x) => t + x, 0);
+    scoreGames[k] = Object.fromEntries(Object.entries(h).map(([g, c]) => [g, +((c / tot) * scores[k]).toFixed(5)]));
+  }
   const typical = typicalMatch({
     pA, pB, bestOf: opts.bestOf, sd, seed, favA, scores: Object.fromEntries(Object.entries(scores).map(([k, v]) => [k, v * n])), setsA, setsB, games: games0, diff, form, tbA,
     pDogSet: at1[dog], pTb: tbs / n,
@@ -252,7 +264,7 @@ export function simulate(opts: { pA: number; pB: number; bestOf: 3 | 5; target?:
     // « Au moins deux sets » recalculé sur les scores corrigés (il restait celui d'avant la correction de l'outsider :
     // jusqu'à 2 points d'écart en Grand Chelem avec la somme des scores).
     n, pA, pB, win: win / n, firstSet: first / n, scores, atLeast1: at1, atLeast2: atLeast(scores, 2, [a2 / n, b2 / n]), straight,
-    tiebreak: tbs / n, games: { mean: games.reduce((s, x) => s + x, 0) / n, p10: q(0.1), p50: q(0.5), p90: q(0.9) }, gamesLadder, typical,
+    tiebreak: tbs / n, games: { mean: games.reduce((s, x) => s + x, 0) / n, p10: q(0.1), p50: q(0.5), p90: q(0.9) }, gamesLadder, scoreGames, typical,
   };
 }
 
