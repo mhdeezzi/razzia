@@ -55,7 +55,7 @@ export function combo(p: Map<string, number>, T: number, bigFav?: boolean): { id
   // Double chance + buts, ou handicap +1,5 + buts (le favori peut perdre d'un but) : pas seulement « + le favori marque »,
   // qui rate souvent dans les matchs serrés où le favori reste muet. On garde le moins probable au-dessus du seuil (la
   // meilleure cote encore sûre) ; sinon le plus sûr de tous, marqué risqué.
-  const hcp = [`${s}+1.5+${s}05`, `${s}+1.5+o0.5`, `${s}+1.5+u3.5`, `${s}+1.5+u4.5`, `${s}+1.5+o0.5+u4.5`].filter((id) => p.has(id));
+  const hcp = [`${s}+1.5+${s}05`, `${s}+1.5+o0.5`, `${s}+1.5+u4.5`, `${s}+1.5+o0.5+u4.5`].filter((id) => p.has(id));
   const main = [`${fav}+o0.5`, `${fav}+u3.5`, `${fav}+u4.5`, `${fav}+o0.5+u4.5`, ...hcp].map((id) => ({ id, p: p.get(id)! }));
   const last = [`${fav}+o0.5+u5.5`, `${fav}+u5.5`].map((id) => ({ id, p: p.get(id)! }));
   const ok = main.filter((c) => c.p >= T).sort((a, b) => a.p - b.p)[0] ?? last.filter((c) => c.p >= T).sort((a, b) => a.p - b.p)[0];
