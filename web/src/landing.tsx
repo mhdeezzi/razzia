@@ -7,7 +7,7 @@ import {
 } from '@phosphor-icons/react';
 import { Link, Ring, TeamMark } from './ui.tsx';
 import { WarpBg } from './shaders.tsx';
-import logo from './assets/razzia-logo.webp';
+import logo from './assets/razzia-logo-2.webp';
 import './landing.css';
 
 const pct = (v: number) => `${Math.round(v * 100)} %`;
@@ -180,7 +180,7 @@ function MoneyMini() {
 }
 
 function Logo() {
-  return <img className="lp-logo" src={logo} alt="Razzia" width={1200} height={645} />;
+  return <img className="lp-logo" src={logo} alt="Razzia" width={885} height={196} />;
 }
 
 const FEATS: Array<{ icon: ReactNode; t: string; d: string }> = [
