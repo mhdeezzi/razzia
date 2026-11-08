@@ -1,12 +1,11 @@
-// Barre du haut : îlot de verre fumé qui flotte en haut de page, logo RAZZIA (étoile verte), sports dans une pilule
+// Barre du haut : îlot de verre fumé qui flotte en haut de page, logo razzia (vectoriel), sports dans une pilule
 // où le verre clair glisse vers le sport choisi, Suivi puis Compte tout à droite.
 import { useRef } from 'react';
 import { Basketball, ListChecks, SoccerBall, TennisBall, UserCircle } from '@phosphor-icons/react';
 import { useSlip } from './suivi.ts';
 import { useUnseen } from './suivipage.tsx';
 import { Link, useNowPath, useSlider } from './ui.tsx';
-import logo from './assets/razzia-logo-2.webp';
-import mark from './assets/razzia-mark.webp';
+import { Logo } from './logo.tsx';
 
 export function TopBar() {
   const path = useNowPath();
@@ -28,8 +27,7 @@ export function TopBar() {
     <header className="topbar">
       <div className="topbar-in">
         <Link href="/" className="brand" aria-label="Razzia, programme du jour">
-          <img className="logo" src={logo} alt="Razzia" width={885} height={196} />
-          <img className="logo-mark" src={mark} alt="" aria-hidden="true" width={292} height={196} />
+          <Logo size={30} />
         </Link>
         <nav ref={nav} className="sports" aria-label="Sports">
           {pos && <span className="sport-thumb" style={{ left: pos.l, right: pos.r }} aria-hidden="true" />}
