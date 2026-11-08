@@ -5,7 +5,8 @@ import {
   ArrowRight, ArrowsLeftRight, Basketball, Bell, ChartLineUp, Check, CheckCircle, Clock, Coins, Crown, Fire, Infinity as InfinityIcon, Lightning, ListChecks,
   Scales, ShieldCheck, SoccerBall, Stack, TennisBall, ThumbsUp, Ticket as TicketIcon,
 } from '@phosphor-icons/react';
-import { Link, Ring, TeamMark } from './ui.tsx';
+import { glow, Link, Ring, TeamMark } from './ui.tsx';
+import { teamColor } from './data.ts';
 import { WarpBg } from './shaders.tsx';
 import { Logo as RLogo } from './logo.tsx';
 import './landing.css';
@@ -118,7 +119,7 @@ function LiveTicket({ loop = true }: { loop?: boolean }) {
 function RingCard({ p = 0.82, title = 'Knicks +8,5' }: { p?: number; title?: string }) {
   return (
     <div className="lp-ring">
-      <Ring value={p} format={pct} label="Fréquence" />
+      <Ring value={p} format={pct} label="Fréquence" marble={glow(teamColor({ tri: 'NYK' }))} />
       <div>
         <h4>
           <TeamMark team={{ tri: 'NYK' }} size="md" />
@@ -743,7 +744,7 @@ export function Poster({ n }: { n: number }) {
           <div className="po-vs">
             <TeamMark team={{ tri: 'BOS' }} size="xl" />
             <div className="po-ring">
-              <Ring value={0.82} format={pct} label="Knicks +8,5" />
+              <Ring value={0.82} format={pct} label="Knicks +8,5" marble={glow(teamColor({ tri: 'NYK' }))} />
             </div>
             <TeamMark team={{ tri: 'NYK' }} size="xl" />
           </div>
