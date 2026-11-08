@@ -214,17 +214,26 @@ function SimPill({ g, sim, run }: { g: Game; sim?: SimEntry; run?: ItemState }) 
   // Match commencé ou fini sans simulation : plus rien à lancer (on ne simule jamais un match commencé).
   if (!sim && g.state !== 'pre') return <span className="conf-pill wait">Non simulé</span>;
   if (!sim) return <span className="conf-pill go">Simuler</span>;
-  const home = sim.pHome >= sim.pAway;
-  const p = Math.max(sim.pHome, sim.pAway);
   // Bouton mat, texte de la couleur du pari : ambre « Pile ou face », bleu sinon.
-  const tier = pillTier(p, sim.gp ?? recordGames(g)).trim();
+  const pt = pillText(g, sim);
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
-      <span className={`conf-pill sim ${tier}`}>
-        {home ? g.home.tri : g.away.tri} <b>{pct0(p)}</b>
+      <span className={`conf-pill sim ${pt.tier.trim()}`}>
+        {pt.text} <b>{pct0(pt.p)}</b>
       </span>
     </span>
   );
+}
+
+/** Texte de la pastille du programme selon sa couleur : rouge « BOS +8,5 » (gros handicap, 80 % des simulations),
+ * orange « BOS +4,5 » (handicap plus léger, 75 %), vert « BOS » (victoire). Sans ligne de handicap : la victoire. */
+function pillText(g: Game, sim: SimEntry) {
+  const home = sim.pHome >= sim.pAway;
+  const p = Math.max(sim.pHome, sim.pAway);
+  const tier = pillTier(p, sim.gp ?? recordGames(g));
+  const tri = home ? g.home.tri : g.away.tri;
+  const h = tier === ' flip' ? sim.hc?.big ?? sim.hc?.small : tier === ' risky' ? sim.hc?.small ?? sim.hc?.big : undefined;
+  return h ? { text: `${tri} +${String(h[0]).replace('.', ',')}`, p: h[1], tier } : { text: tri, p, tier };
 }
 
 /** Forme, sans texte : l'équipe en pleine montée ou en baisse (logo + flèche en diagonale), sinon le joueur le plus
@@ -361,8 +370,8 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
       </div>
       <div className="card-a-f">
         {sim && p != null && fav && !busy ? (
-          <span className={`card-a-p${pillTier(p, sim.gp ?? recordGames(g))}`}>
-            {fav.tri} {pct0(p)}
+          <span className={`card-a-p${pillText(g, sim).tier}`}>
+            {pillText(g, sim).text} {pct0(pillText(g, sim).p)}
           </span>
         ) : (
           <SimPill g={g} sim={sim} run={run} />
@@ -393,8 +402,8 @@ function Une({ games, sims }: { games: Game[]; sims: Map<string, SimEntry> }) {
       </span>
       <span className="hb-une-t mono">{g.state === 'pre' ? timeLocal(g.start) : g.state === 'in' ? g.detail : `${g.away.score ?? '-'}-${g.home.score ?? '-'}`}</span>
       {sim && p != null && fav && (
-        <span className={`card-a-p${pillTier(p, sim.gp ?? recordGames(g))}`}>
-          {fav.tri} {pct0(p)}
+        <span className={`card-a-p${pillText(g, sim).tier}`}>
+          {pillText(g, sim).text} {pct0(pillText(g, sim).p)}
         </span>
       )}
       <CaretRight size={15} className="hb-une-go" />
