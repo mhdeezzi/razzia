@@ -47,7 +47,10 @@ const catOdds = (c: Category) => { const o = c.items[0]; return o?.odds ?? o?.fa
 const VALUE_ODDS = 1.35, VALUE_P = 0.65;
 /** Value : assez probable (65 % ou plus) avec une cote du marché qui rapporte encore (1,35 ou plus ; sans cote publiée,
  * cote déduite du marché, sinon cote juste), ni risqué ni déconseillé. */
-const isValueRule = (o: Outcome, old = false) => !o.warn && (old || !o.noValue) && o.p >= VALUE_P && (old ? (o.odds ?? o.fair ?? 1 / o.p) >= 1.3 : (o.odds ?? o.mkt ?? o.fair ?? 1 / o.p) >= VALUE_ODDS);
+// Value : une vraie cote du marché (bookmaker, ou déduite de la double chance) d'au moins 1,35. Sans cote du marché, pas
+// de Value : la cote juste (1 / p) n'est pas une cote qu'on peut jouer (« Les deux équipes marquent » à 65 % passait
+// Value avec sa propre cote juste de 1,53).
+const isValueRule = (o: Outcome, old = false) => !o.warn && (old || !o.noValue) && o.p >= VALUE_P && (old ? (o.odds ?? o.fair ?? 1 / o.p) >= 1.3 : (o.odds ?? o.mkt) != null && (o.odds ?? o.mkt)! >= VALUE_ODDS);
 export const isValue = (o: Outcome) => isValueRule(o);
 /** Matchs d'avant le 8 novembre 2026 : bilans comptés avec l'ancienne Value (cote 1,30, sans cote déduite). */
 export const OLD_VALUE_BEFORE = '2026-11-08';
