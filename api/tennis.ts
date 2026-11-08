@@ -154,6 +154,9 @@ export async function GET(request: Request): Promise<Response> {
       // Programme qui a changé avant le match : match décalé (même paire sur deux fiches) ou adversaire remplacé (forfait
       // avant le début, repêché). On garde la fiche que le tableau ESPN annonce encore ; les fiches commencées restent.
       const pk = (m: any) => [key(m.home), key(m.away)].sort().join('|');
+      // Matchs annoncés par ESPN qui n'auront pas lieu (jamais cotés, absents du tableau officiel) : retirés à la main.
+      const HIDDEN = new Set([['Toby Samuel', 'Leo Borg'], ['Borna Gojo', 'Tomas Machac']].map(([a, b]) => [key(a), key(b)].sort().join('|')));
+      for (let i = matches.length - 1; i >= 0; i--) if (HIDDEN.has(pk(matches[i]))) matches.splice(i, 1);
       const espnStart = new Map<string, string>([...planned.map((m) => [pk(m), m.start] as [string, string])]);
       const notStarted = (m: any) => !m.live || m.live.state === 'pre';
       const tour = (m: any) => String(m.league ?? '').split(' - ')[0];
