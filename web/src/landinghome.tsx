@@ -1,15 +1,10 @@
 // Page d'accueil v2 : visuels des campagnes (fonds photo, iPhone avec de vrais écrans du site), trois sports, simulation
 // en direct à venir, formules Gratuit / Premium / À vie.
-import { type CSSProperties, type ReactNode } from 'react';
-import { ArrowRight, Basketball, Broadcast, Check, Lightning, Minus, SoccerBall, TennisBall } from '@phosphor-icons/react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { ArrowRight, Broadcast, Check, Lightning, Minus } from '@phosphor-icons/react';
 import { Link } from './ui.tsx';
+import { WarpBg } from './shaders.tsx';
 import './landinghome.css';
-import bgMarine from './assets/lp/bg-marine.webp';
-import bgNeon from './assets/lp/bg-neon.webp';
-import bgLilas from './assets/lp/bg-lilas.webp';
-import bgCiel from './assets/lp/bg-ciel.webp';
-import bgAurore from './assets/lp/bg-aurore.webp';
-import bgGlace from './assets/lp/bg-glace.webp';
 import progFoot from './assets/lp/prog-foot.webp';
 import progNba from './assets/lp/prog-nba.webp';
 import vilTop from './assets/lp/foot-vil-top.webp';
@@ -56,154 +51,137 @@ const Btn = ({ href, children, ghost }: { href: string; children: ReactNode; gho
   </Link>
 );
 
-export function HeroV2() {
+const NUIT = ['#2a4f9a', '#7a3a6e'] as const;
+
+/** Haut de page : le marbre, le slogan, et trois iPhone en éventail (tennis, foot, NBA) qui sortent du bas. */
+export function HeroV3() {
   return (
-    <header className="lh-hero" style={{ '--bg': `url(${bgMarine})` } as CSSProperties}>
-      <div className="lh-hero-copy">
-        <span className="lh-kick lp-in" style={{ '--d': 0 } as CSSProperties}>
-          Foot · NBA · Tennis ATP
-        </span>
-        <h1 className="lp-in" style={{ '--d': 1 } as CSSProperties}>
-          Le match,
-          <br />
-          25 000 fois
-          <br />
-          <em>avant le vrai.</em>
-        </h1>
-        <p className="lh-lede lp-in" style={{ '--d': 2 } as CSSProperties}>
-          Avant chaque coup d’envoi, Razzia rejoue le match 25 000 fois. Tu vois qui gagne, de combien, et quel pari passe le plus souvent.
-        </p>
-        <div className="lp-cta lp-in" style={{ '--d': 3 } as CSSProperties}>
-          <Btn href={SIGNUP}>Commencer gratuitement</Btn>
-          <Btn href="/accueil/tarifs" ghost>
-            Voir les formules
-          </Btn>
-        </div>
-        <p className="lh-small lp-in" style={{ '--d': 4 } as CSSProperties}>
-          Gratuit pour toujours · Premium sans engagement
-        </p>
+    <header className="lp-hero3 lh3-hero mesh has-shader">
+      <WarpBg c1={NUIT[0]} c2={NUIT[1]} />
+      <span className="lp-eyebrow on-dark lp-in" style={{ '--d': 0 } as CSSProperties}>
+        Foot · NBA · Tennis ATP · 25 000 simulations par match
+      </span>
+      <h1 className="lp-in" style={{ '--d': 1 } as CSSProperties}>
+        Le match,
+        <br />
+        25 000 fois
+        <br />
+        <em>avant le vrai.</em>
+      </h1>
+      <p className="lp-lede center lp-in" style={{ '--d': 2 } as CSSProperties}>
+        Razzia rejoue chaque match avant le coup d’envoi : qui gagne, de combien, et quel pari passe le plus souvent.
+      </p>
+      <div className="lp-cta center lp-in" style={{ '--d': 3 } as CSSProperties}>
+        <Btn href={SIGNUP}>Commencer gratuitement</Btn>
+        <Btn href="/accueil/tarifs" ghost>
+          Voir les formules
+        </Btn>
       </div>
-      <div className="lh-hero-art">
-        <Phone src={vilTop} className="lh-ph-back" />
-        <Phone src={progFoot} color="bleu" className="lh-ph-front refl" />
+      <p className="lp-trial lp-in" style={{ '--d': 4 } as CSSProperties}>
+        Gratuit pour toujours · Premium sans engagement
+      </p>
+      <div className="lh3-fan" aria-hidden="true">
+        <Phone src={atp} className="lh3-f l" />
+        <Phone src={progFoot} color="bleu" className="lh3-f c" />
+        <Phone src={progNba} className="lh3-f r" />
       </div>
     </header>
   );
 }
 
-/** Bilans réels, datés. */
-export function Record() {
-  const rows: Array<[ReactNode, string, string, string]> = [
-    [<SoccerBall size={18} />, 'Football', '91 %', '30 pronos passés sur 33'],
-    [<Basketball size={18} />, 'NBA', '86 %', '105 pronos passés sur 122'],
-    [<TennisBall size={18} />, 'Tennis ATP', '84 %', '75 pronos passés sur 89'],
+/** Bilans réels, datés, dans la bande de chiffres. */
+export function ProofV3() {
+  const rows: Array<[string, string, string]> = [
+    ['91 %', 'Football', '30 pronos passés sur 33 depuis le début de la saison'],
+    ['86 %', 'NBA', '105 pronos passés sur 122 depuis le début de la saison'],
+    ['84 %', 'Tennis ATP', '75 pronos passés sur 89 depuis le début de la saison'],
   ];
   return (
-    <section className="lh-record" data-reveal>
-      {rows.map(([ic, s, v, d]) => (
+    <section className="lp-proof lh3-proof" data-reveal>
+      {rows.map(([v, s, d]) => (
         <div key={s}>
-          <span className="lh-record-s">
-            {ic} {s}
+          <b className="up">{v}</b>
+          <span>
+            <strong>{s}</strong> · {d}
           </span>
-          <b>{v}</b>
-          <span>{d}</span>
         </div>
       ))}
-      <p>Bilan Razzia depuis le début de la saison, au 8 novembre 2026. Tout est compté, même les ratés.</p>
+      <p>Bilan public au 8 novembre 2026. Tout est compté, même les ratés.</p>
     </section>
   );
 }
 
-type Story = { bg: string; dark?: boolean; kick: string; title: ReactNode; text: ReactNode; shots: Array<{ src: string; color?: 'noir' | 'bleu' | 'argent' | 'graphite' }>; flip?: boolean };
-const STORIES: Story[] = [
-  {
-    bg: bgNeon, kick: 'La fiche de match', shots: [{ src: vilTop }, { src: vilPick }],
-    title: <>Avant de parier,<br /><em>regarde le match</em><br />se jouer.</>,
-    text: <>Le score le plus probable, les buteurs, le déroulé du match et le pronostic qui passe le plus souvent : tout sort de <b>25 000 simulations</b>, avec les compos et les cotes du moment.</>,
-  },
-  {
-    bg: bgLilas, kick: 'Pile ou face', flip: true, shots: [{ src: flip, color: 'graphite' }],
-    title: <>Le meilleur pari,<br />c’est parfois<br /><em>de ne pas parier.</em></>,
-    text: <>Quand un match est trop serré, Razzia le marque <b>« Déconseillé »</b> et te propose le pari plus sûr : handicap, double chance ou un set. Même si ça veut dire passer ton tour.</>,
-  },
-  {
-    bg: bgCiel, dark: true, kick: 'Mon suivi', shots: [{ src: suivi, color: 'argent' }],
-    title: <>Chaque match<br />passé,<br /><em>une coche verte.</em></>,
-    text: <>Ajoute tes paris d’un geste. Simples ou combinés, chaque sélection se valide toute seule en direct, et <b>le gain possible</b> reste sous les yeux.</>,
-  },
-  {
-    bg: bgAurore, kick: 'Avant le coup d’envoi', flip: true, shots: [{ src: steps, color: 'graphite' }],
-    title: <>Les compos<br />tombent.<br /><em>On relance.</em></>,
-    text: <>Au foot, la fiche est <b>resimulée 30 minutes avant</b> le match avec les compos officielles. Au basket, les absents de dernière minute sont pris en compte. Rien à faire de ton côté.</>,
-  },
+const STEPS: Array<{ n: string; t: string; d: ReactNode; src: string }> = [
+  { n: '01', t: 'Choisis ton match', d: 'Le programme du jour en foot, NBA et tennis, avec les cotes, les compos et le favori de Razzia sur chaque carte.', src: progFoot },
+  { n: '02', t: 'Razzia le joue 25 000 fois', d: 'Le score le plus probable, les buteurs, le déroulé du match : tout sort des simulations, avec la forme, la fatigue et les absents du soir.', src: vilTop },
+  { n: '03', t: 'Le pari qui passe le plus souvent', d: 'Vainqueur, double chance, handicap plus sûr, un set ou un combiné testé : chaque pari avec sa vraie chance et la cote juste à côté de celle du marché.', src: vilPick },
+  { n: '04', t: 'Les compos tombent, on relance', d: 'Au foot, la fiche est resimulée 30 minutes avant le match avec les compos officielles. Au basket, les absents de dernière minute sont pris en compte.', src: steps },
+  { n: '05', t: 'Quand c’est trop serré, on te le dit', d: 'Un match à pile ou face est marqué « Déconseillé », avec le pari plus sûr à la place. Le meilleur pari, c’est parfois de ne pas parier.', src: flip },
+  { n: '06', t: 'Ton ticket, en direct', d: 'Ajoute tes paris d’un geste. Simples ou combinés, chaque sélection se coche toute seule quand elle passe.', src: suivi },
 ];
 
-export function Stories() {
+/** Un téléphone qui reste à l'écran pendant qu'on fait défiler les étapes ; son écran suit l'étape lue. */
+export function ScrollStory() {
+  const [on, setOn] = useState(0);
+  const refs = useRef<Array<HTMLDivElement | null>>([]);
+  useEffect(() => {
+    const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && setOn(Number((e.target as HTMLElement).dataset.i))), { rootMargin: '-45% 0px -45% 0px' });
+    refs.current.forEach((el) => el && io.observe(el));
+    return () => io.disconnect();
+  }, []);
   return (
-    <div className="lh-stories">
-      {STORIES.map((s, i) => (
-        <section key={i} className={`lh-story${s.flip ? ' flip' : ''}${s.dark ? ' dk' : ''}`} style={{ '--bg': `url(${s.bg})` } as CSSProperties} data-reveal>
-          <div className="lh-story-copy">
-            <span className="lh-kick">{s.kick}</span>
-            <h2>{s.title}</h2>
-            <p>{s.text}</p>
-          </div>
-          <div className={`lh-story-art n${s.shots.length}`}>
-            {s.shots.map((x, k) => (
-              <Phone key={k} src={x.src} color={x.color} className={`lh-ph-${k}`} />
+    <section className="lp-sec lh3-story">
+      <div className="lp-sec-head" data-reveal>
+        <span className="lp-eyebrow">Comment ça marche</span>
+        <h2>Du programme au coup de sifflet final.</h2>
+      </div>
+      <div className="lh3-story-grid">
+        <div className="lh3-story-phone" aria-hidden="true">
+          <div className="lh3-glow" />
+          <div className="lh3-stack">
+            {STEPS.map((x, i) => (
+              <div key={x.n} className={`lh3-screen${i === on ? ' is-on' : ''}`}>
+                <Phone src={x.src} color={i === 5 ? 'argent' : 'noir'} />
+              </div>
             ))}
           </div>
-        </section>
-      ))}
-    </div>
-  );
-}
-
-/** Trois sports : programme de chaque sport dans un iPhone. */
-export function Sports() {
-  const s: Array<[ReactNode, string, string, string]> = [
-    [<SoccerBall size={20} />, 'Football', 'Ligue 1, Premier League, LaLiga, Serie A, Bundesliga et Ligue des Champions. Double chance, handicap, buts, buteurs et combinés.', progFoot],
-    [<Basketball size={20} />, 'NBA', 'Chaque possession rejouée : rotations, arbitres, fatigue, absents. Vainqueur, handicap plus sûr et les joueurs en feu.', progNba],
-    [<TennisBall size={20} />, 'Tennis ATP', 'Point par point, au service et au retour, selon la surface. Vainqueur, au moins un set, score en sets et nombre de jeux.', atp],
-  ];
-  return (
-    <div className="lh-sports">
-      {s.map(([ic, t, d, src], i) => (
-        <div key={t} className="lh-sport" data-reveal style={{ '--d': i } as CSSProperties}>
-          <div className="lh-sport-art" style={{ '--bg': `url(${[bgMarine, bgGlace, bgNeon][i]})` } as CSSProperties}>
-            <Phone src={src} color={i === 1 ? 'argent' : 'noir'} />
-          </div>
-          <span className="lh-sport-t">
-            {ic} {t}
-          </span>
-          <p>{d}</p>
         </div>
-      ))}
-    </div>
+        <div className="lh3-steps">
+          {STEPS.map((x, i) => (
+            <div key={x.n} ref={(el) => void (refs.current[i] = el)} data-i={i} className={`lh3-step${i === on ? ' is-on' : ''}`}>
+              <span className="lh3-n">{x.n}</span>
+              <h3>{x.t}</h3>
+              <p>{x.d}</p>
+              <div className="lh3-step-phone" aria-hidden="true">
+                <Phone src={x.src} color={i === 5 ? 'argent' : 'noir'} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
-/** Simulation en direct (bientôt) : la probabilité qui bouge avec le score. */
-export function LiveSim() {
+/** Simulation en direct (bientôt), dans le fil de la page : la probabilité qui bouge avec le score. */
+export function LiveV3() {
   return (
-    <section className="lh-live" style={{ '--bg': `url(${bgNeon})` } as CSSProperties} data-reveal>
-      <div className="lh-live-copy">
+    <section className="lp-sec lh3-live">
+      <div className="lh3-live-copy" data-reveal>
         <span className="lh-soon">
           <Broadcast size={15} weight="bold" /> Bientôt
         </span>
         <h2>
-          En direct,
+          En direct, le match
           <br />
-          <em>le match se rejoue</em>
-          <br />
-          à chaque action.
+          <em>se rejoue à chaque action.</em>
         </h2>
-        <p>
+        <p className="lp-lede">
           Un but, un carton rouge, un break : Razzia relance la simulation à partir du score et du temps qui reste. La probabilité bouge avec le match, et tu sais tout de suite si ton pari tient
           toujours.
         </p>
       </div>
-      <div className="lh-live-card" aria-hidden="true">
+      <div className="lh-live-card" data-reveal aria-hidden="true">
         <div className="lh-live-top">
           <span className="lh-live-dot" /> En direct · <b className="lh-min" />
         </div>
@@ -268,30 +246,38 @@ const PLANS: Array<{ id: string; name: string; price: string; unit: string; sub:
   },
 ];
 
-export function PlansV2() {
+/** Formules : cartes à double contour, le marbre pour Premium. */
+export function PlansV3() {
   return (
     <>
       <div className="lh-plans">
         {PLANS.map((p, i) => (
-          <div key={p.id} className={`lh-plan${p.top ? ' is-top' : ''}`} data-reveal style={{ '--d': i, ...(p.top ? { '--bg': `url(${bgMarine})` } : {}) } as CSSProperties}>
-            {p.tag && <span className="lh-plan-tag">{p.tag}</span>}
-            <span className="lh-plan-n">{p.name}</span>
-            <p className="lh-plan-p">
-              {p.price}
-              <small>{p.unit}</small>
-            </p>
-            <p className="lh-plan-sub">{p.sub}</p>
-            <p className="lh-plan-pitch">{p.pitch}</p>
-            <Btn href={SIGNUP} ghost={!p.top}>
-              {p.cta}
-            </Btn>
-            <ul>
-              {p.items.map(([ok, t], k) => (
-                <li key={k} className={ok ? '' : 'no'}>
-                  {ok ? <Check size={16} weight="bold" /> : <Minus size={16} weight="bold" />} <span>{t}</span>
-                </li>
-              ))}
-            </ul>
+          <div key={p.id} className={`lp-bezel lp-plan-shell${p.top ? ' is-top' : ''}`} data-reveal style={{ '--d': i } as CSSProperties}>
+            <div className={`lp-bezel-in lh-plan${p.top ? ' mesh has-shader' : ''}`}>
+              {p.top && (
+                <div className="lp-dim">
+                  <WarpBg c1={NUIT[0]} c2={NUIT[1]} />
+                </div>
+              )}
+              {p.tag && <span className="lh-plan-tag">{p.tag}</span>}
+              <span className="lh-plan-n">{p.name}</span>
+              <p className="lh-plan-p">
+                {p.price}
+                <small>{p.unit}</small>
+              </p>
+              <p className="lh-plan-sub">{p.sub}</p>
+              <p className="lh-plan-pitch">{p.pitch}</p>
+              <Btn href={SIGNUP} ghost={!p.top}>
+                {p.cta}
+              </Btn>
+              <ul>
+                {p.items.map(([ok, t], k) => (
+                  <li key={k} className={ok ? '' : 'no'}>
+                    {ok ? <Check size={16} weight="bold" /> : <Minus size={16} weight="bold" />} <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         ))}
       </div>
@@ -313,25 +299,22 @@ export const QA_V2: Array<[string, string]> = [
   ['C’est réservé aux majeurs ?', 'Oui, Razzia est réservé aux plus de 18 ans. Jouer comporte des risques : endettement, dépendance. Appelle le 09 74 75 13 13 (appel non surtaxé) si besoin.'],
 ];
 
-export function FinalV2() {
+/** Fin de page : le marbre, comme le haut. */
+export function FinalV3() {
   return (
-    <section className="lh-final" style={{ '--bg': `url(${bgMarine})` } as CSSProperties} data-reveal>
-      <div className="lh-final-copy">
-        <h2>
-          Ce soir,
-          <br />
-          <em>parie en sachant.</em>
-        </h2>
-        <p>Gratuit pour commencer. Premium quand tu veux tout voir.</p>
-        <div className="lp-cta">
-          <Btn href={SIGNUP}>Commencer gratuitement</Btn>
-          <Btn href="/accueil/tarifs" ghost>
-            Voir les formules
-          </Btn>
-        </div>
-      </div>
-      <div className="lh-final-art">
-        <Phone src={progNba} className="lh-ph-0" />
+    <section className="lp-final mesh has-shader" data-reveal>
+      <WarpBg c1={NUIT[0]} c2={NUIT[1]} />
+      <span className="lp-eyebrow">Gratuit pour commencer</span>
+      <h2>
+        Ce soir,
+        <br />
+        parie en sachant.
+      </h2>
+      <div className="lp-cta center">
+        <Btn href={SIGNUP}>Commencer gratuitement</Btn>
+        <Btn href="/accueil/tarifs" ghost>
+          Voir les formules
+        </Btn>
       </div>
     </section>
   );

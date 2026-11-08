@@ -9,7 +9,7 @@ import { Link, Ring, TeamMark } from './ui.tsx';
 import { WarpBg } from './shaders.tsx';
 import { Logo as RLogo } from './logo.tsx';
 import './landing.css';
-import { FinalV2, HeroV2, LiveSim, PlansV2, QA_V2, Record, SIGNUP, Sports, Stories } from './landinghome.tsx';
+import { FinalV3, HeroV3, LiveV3, PlansV3, ProofV3, QA_V2, ScrollStory, SIGNUP } from './landinghome.tsx';
 
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 const T = (tri: string, name: string) => ({ tri, name });
@@ -596,25 +596,35 @@ export function Landing({ path }: { path: string }) {
       <LpNav page={page} />
       {page === 'home' && (
         <>
-          <HeroV2 />
-          <Record />
-          <Stories />
+          <HeroV3 />
+          <section className="lp-sports" data-reveal>
+            <span><SoccerBall size={18} /> Football</span>
+            <span><Basketball size={18} /> NBA</span>
+            <span><TennisBall size={18} /> Tennis ATP</span>
+            <span className="soon"><Lightning size={18} /> Simulation en direct bientôt</span>
+          </section>
+          <ProofV3 />
+          <ScrollStory />
           <section className="lp-sec">
             <div className="lp-sec-head" data-reveal>
-              <Eyebrow>Trois sports</Eyebrow>
-              <h2>Foot, NBA, tennis. Un seul réflexe.</h2>
-              <p className="lp-lede">Chaque sport a son propre moteur, réglé et testé sur les saisons passées.</p>
+              <Eyebrow>Ce que tu débloques</Eyebrow>
+              <h2>Tout pour une soirée de paris lucide.</h2>
             </div>
-            <Sports />
+            <Bento />
+            <div className="lp-more" data-reveal>
+              <Link href="/accueil/fonctionnalites" className="lp-link">
+                Toutes les fonctionnalités <ArrowRight size={15} weight="bold" />
+              </Link>
+            </div>
           </section>
-          <LiveSim />
+          <LiveV3 />
           <section className="lp-sec">
             <div className="lp-sec-head center" data-reveal>
               <Eyebrow>Formules</Eyebrow>
               <h2>Choisis ta formule.</h2>
               <p className="lp-lede center">Commence gratuitement. Passe Premium quand tu veux tout voir, ou prends l’accès à vie.</p>
             </div>
-            <PlansV2 />
+            <PlansV3 />
           </section>
           <section className="lp-sec lp-faq-short">
             <div className="lp-sec-head" data-reveal>
@@ -678,7 +688,7 @@ export function Landing({ path }: { path: string }) {
         <>
           <PageHead eyebrow="Formules" title={<>Gratuit,<br />Premium<br />ou à vie.</>} lede="Commence gratuitement avec un match par sport et par jour. Premium et l’accès à vie débloquent tous les matchs et tous les paris, la simulation en direct comprise dès sa sortie." />
           <section className="lp-sec lp-sec-tight">
-            <PlansV2 />
+            <PlansV3 />
           </section>
           <section className="lp-sec">
             <div className="lp-sec-head" data-reveal>
@@ -697,7 +707,7 @@ export function Landing({ path }: { path: string }) {
           </section>
         </>
       )}
-      <FinalV2 />
+      <FinalV3 />
       <footer className="lp-foot">
         <Logo />
         <div className="lp-foot-links">
