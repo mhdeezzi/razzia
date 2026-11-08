@@ -21,6 +21,16 @@ import { Landing, landingPage } from './landing.tsx';
 import { LEGAL, LegalLinks, LegalPage, NotFound } from './legal.tsx';
 import logo from './assets/razzia-logo.webp';
 
+// Dernier sport ouvert : à l'ouverture du site ou de l'appli (adresse « / »), on revient sur son programme.
+const LAST_SPORT = 'razzia-sport';
+const sportOf = (p: string) => (p === '/tennis' || p.startsWith('/tennis/') ? 'tennis' : p === '/basket' || p.startsWith('/match/') ? 'basket' : p === '/foot' || p.startsWith('/foot/') ? 'foot' : undefined);
+try {
+  const last = localStorage.getItem(LAST_SPORT);
+  if (location.pathname === '/' && (last === 'tennis' || last === 'basket')) history.replaceState(history.state, '', `/${last}${location.search}${location.hash}`);
+} catch {
+  /* stockage indisponible : programme foot par défaut */
+}
+
 // Compte (connexion) en ligne, sans paiement branché ; abonnement prêt, activé seulement par VITE_BILLING=1 au build.
 const BILLING = import.meta.env.VITE_BILLING === '1';
 
@@ -76,6 +86,10 @@ function App() {
   ) : (
     <NotFound />
   );
+  useEffect(() => {
+    const sp = path === '/' ? 'foot' : sportOf(path);
+    if (sp) try { localStorage.setItem(LAST_SPORT, sp); } catch { /* stockage indisponible */ }
+  }, [path]);
   useEffect(() => {
     document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/' || path.startsWith('/foot') ? 'Razzia | Football' : path === '/simulations' ? 'Simulations | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : landingPage(path) ? 'Razzia | Simule avant de parier' : LEGAL[path] ? `${LEGAL[path].title} | Razzia` : 'Razzia | Simulations NBA';
   }, [path]);

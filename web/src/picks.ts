@@ -218,26 +218,33 @@ export function buildCategories(r: Result, g: Game): Category[] {
 
   // Marqueur : parmi les joueurs « En feu ce soir » (mêmes quatre), celui qui a la plus grande chance de gros match ; le
   // pari : plus de points que sa moyenne habituelle.
-  const hot = r.players
-    .filter((p) => p.heat && p.heat.pBig >= 0.1 && p.stats?.pts)
-    .sort((a, b) => b.heat!.index - a.heat!.index)
-    .slice(0, 4)
-    .sort((a, b) => b.heat!.pBig - a.heat!.pBig)[0];
+  // Toujours un joueur de l'équipe donnée gagnante (ses marqueurs passent plus souvent leur moyenne), sauf une star de
+  // l'autre équipe vraiment sûre : 62 % ou plus, et au moins 8 points au-dessus du meilleur joueur de l'équipe gagnante.
+  const sideOf = (p: (typeof r.players)[number]) => (p.side === 0 ? 'home' : 'away');
+  const lineOf = (p: (typeof r.players)[number]) => Math.max(0.5, Math.floor(p.heat!.base) + 0.5);
+  const overOf = (p: (typeof r.players)[number]) => calHot(pOverPts(p.stats.pts, lineOf(p)));
+  const pool = r.players.filter((p) => p.heat && p.heat.pBig >= 0.1 && p.stats?.pts).sort((a, b) => b.heat!.index - a.heat!.index);
+  const byBig = (list: typeof pool) => [...list].sort((a, b) => b.heat!.pBig - a.heat!.pBig)[0];
+  const mine = byBig(pool.filter((p) => sideOf(p) === winSide).slice(0, 4));
+  const star = byBig(pool.filter((p) => sideOf(p) !== winSide).slice(0, 2));
+  const SAFE_STAR = 0.62;
+  const hot = star && overOf(star) >= SAFE_STAR && (!mine || overOf(star) >= overOf(mine) + 0.08) ? star : mine ?? star;
   if (hot) {
     const d = hot.stats.pts, h = hot.heat!;
-    const l = Math.max(0.5, Math.floor(h.base) + 0.5);
-    const pOver = calHot(pOverPts(d, l));
-    const side = hot.side === 0 ? 'home' : 'away';
+    const l = lineOf(hot);
+    const pOver = overOf(hot);
+    const side = sideOf(hot);
+    const safeStar = side !== winSide && pOver >= SAFE_STAR;
     const ln = l.toFixed(1).replace('.', ',');
     cats.push({
-      id: 'scorer', label: 'Marqueur', ...(side !== winSide ? { risky: true } : {}),
+      id: 'scorer', label: 'Marqueur', ...(side !== winSide && !safeStar ? { risky: true } : {}),
       items: [{
         // Joueur de l'équipe donnée perdante : pastille orange « Risqué ».
-        ...(side !== winSide ? { warn: 'Risqué' } : {}),
+        ...(side !== winSide && !safeStar ? { warn: 'Risqué' } : {}),
         id: `pts-${hot.id}`, title: `${hot.name}\u00a0: plus de ${ln}\u00a0pts`, p: pOver, fair: 1 / pOver, dist: d,
         who: { name: hot.name, photo: `https://cdn.nba.com/headshots/nba/latest/260x190/${hot.id}.png` },
         bet: { kind: 'pts', side, line: l, over: true, player: hot.name, event: g.id },
-        text: `Le joueur d'« En feu ce soir » le plus proche d'un gros match : plus de ${ln} points (sa moyenne habituelle) dans ${pct(pOver)} des cas, ${h.threshold} points ou plus dans ${pct(calBig(h.pBig))}.`,
+        text: `${side === winSide ? "Le joueur de l'équipe favorite" : "La star adverse, assez sûre pour passer devant"} le plus proche d'un gros match : plus de ${ln} points (sa moyenne habituelle) dans ${pct(pOver)} des cas, ${h.threshold} points ou plus dans ${pct(calBig(h.pBig))}.`,
       }],
     });
   }
