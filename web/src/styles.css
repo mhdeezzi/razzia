@@ -92,7 +92,8 @@
 html { -webkit-text-size-adjust: 100%; scrollbar-color: #2a2a2e var(--bg); }
 body {
   margin: 0;
-  background: radial-gradient(1200px 520px at 50% -200px, rgba(var(--brand-rgb) / 0.06), transparent 70%), var(--bg);
+  /* Voile gris mat qui part du coin haut gauche et se fond dans le noir vers le milieu de la page (comme sur les maquettes iPhone). */
+  background: linear-gradient(118deg, rgba(255 255 255 / 0.11) 0%, rgba(255 255 255 / 0.035) 26%, transparent 40%) 0 0 / 100% min(1000px, 120vh) no-repeat, var(--bg);
   color: var(--text);
   font: 15px/1.55 var(--sans);
   font-variant-numeric: tabular-nums;
