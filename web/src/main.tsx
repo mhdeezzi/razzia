@@ -112,7 +112,7 @@ function App() {
       <Toasts />
       <footer className="foot">
         <div className="foot-brand">
-          <Logo size={40} className="logo-foot" />
+          <Logo size={26} className="logo-foot" />
         </div>
         <div className="foot-text">
           <p>
