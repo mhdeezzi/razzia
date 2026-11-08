@@ -145,19 +145,18 @@ function Crest({ t, size = 'md' }: { t: { id: number; logo?: string }; size?: 's
 }
 
 // ——— Paliers ———
-/** Pastille du programme : le pronostic mis en avant (ou le favori ou nul quand il n'y en a pas) et sa couleur. */
+/** Pastille du programme, selon sa couleur : rouge (pile ou face) « Lyon +1 » (handicap +1 = Lyon ne perd pas),
+ * orange (risqué) « OL ou nul » (double chance), vert « Lyon » (victoire sèche, avec sa probabilité de victoire). */
 function simPill(sim: SimIndex) {
-  const homeFav = sim.final.h >= sim.final.a;
-  const fav = tri(homeFav ? sim.home : sim.away);
   const cls = sim.tier === 'flip' ? ' flip' : sim.tier === 'risky' ? ' risky' : '';
-  if (sim.pick) {
-    const id = sim.pick.id ?? '';
-    const base = id.split('+')[0];
-    const text =
-      base === '1' ? tri(sim.home) : base === '2' ? tri(sim.away) : base === '1X' ? `${tri(sim.home)} ou nul` : base === 'X2' ? `${tri(sim.away)} ou nul` : base === '12' ? 'Pas de nul' : '';
-    return { text: text ? `${text}${id.includes('+') ? ' +' : ''}` : sim.pick.label, p: sim.pick.p, cls };
-  }
-  return { text: `${fav} ou nul`, p: homeFav ? sim.final.h + sim.final.d : sim.final.a + sim.final.d, cls };
+  const base = (sim.pick?.id ?? '').split('+')[0];
+  const home = base === '1' || base === '1X' ? true : base === '2' || base === 'X2' ? false : sim.final.h >= sim.final.a;
+  const team = home ? sim.home : sim.away;
+  const pWin = home ? sim.final.h : sim.final.a;
+  const pDc = pWin + sim.final.d;
+  if (sim.tier === 'flip') return { text: `${short(team)} +1`, p: pDc, cls };
+  if (sim.tier === 'risky') return { text: `${tri(team)} ou nul`, p: pDc, cls };
+  return { text: short(team), p: pWin, cls };
 }
 
 // ——— Programme ———
