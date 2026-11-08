@@ -1,7 +1,7 @@
 // Partage d'un ticket en image, aux couleurs de Razzia : story Instagram (1080 × 1920) ou post X (1600 × 900).
 // Dessiné sur un canvas (fond marbre, logo, sélections, mise, cote, gain). Sur téléphone, la feuille de partage du
 // système propose Instagram et X ; sinon l'image est téléchargée et X s'ouvre avec le texte prêt.
-import logoUrl from './assets/razzia-logo-argent.png';
+import logoUrl from './assets/razzia-logo-hd.png';
 import { ticketState, type LegStatus, type Ticket } from './suivi.ts';
 
 export type ShareFormat = 'story' | 'post';

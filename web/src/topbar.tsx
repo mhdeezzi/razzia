@@ -27,7 +27,7 @@ export function TopBar() {
     <header className="topbar">
       <div className="topbar-in">
         <Link href="/" className="brand" aria-label="Razzia, programme du jour">
-          <Logo size={30} tone="green" />
+          <Logo size={30} />
         </Link>
         <nav ref={nav} className="sports" aria-label="Sports">
           {pos && <span className="sport-thumb" style={{ left: pos.l, right: pos.r }} aria-hidden="true" />}
