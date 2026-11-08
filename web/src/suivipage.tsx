@@ -577,8 +577,8 @@ function SlipLeg({ l, clash, shut, stake, best }: { l: Leg; clash: boolean; shut
           </span>
         )}
       </div>
-      <span className={`slip-odd${up ? ' up' : down ? ' down' : ''}`} title={l.fair ? 'Cote juste Razzia (aucune cote publiée)' : 'Cote du moment'}>
-        <span>{l.fair ? 'Cote juste' : 'Cote'}</span>
+      <span className={`slip-odd${up ? ' up' : down ? ' down' : ''}`} title={l.fair ? 'Cote calculée par Razzia (aucune cote de bookmaker publiée)' : 'Cote du moment'}>
+        <span>{l.fair ? 'Cote Razzia' : 'Cote'}</span>
         <b className="mono">
           {up && <ArrowUp size={12} weight="bold" />}
           {down && <ArrowDown size={12} weight="bold" />}
