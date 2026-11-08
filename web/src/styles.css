@@ -193,8 +193,10 @@ input, textarea { caret-color: var(--brand); }
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 18px 40px -18px rgba(0, 0, 0, 0.95); }
 .brand { display: inline-flex; align-items: center; flex: none; transition: opacity 0.2s, transform 0.15s var(--ease); }
 .brand:active { transform: scale(0.97); }
-.logo { display: block; height: 30px; width: auto; }
-.logo-mark { display: none; height: 30px; width: auto; }
+.logo { display: inline-flex; align-items: center; gap: calc(var(--lh) * 0.2); height: var(--lh); }
+.logo-mark { display: block; flex: none; width: auto; height: var(--lh); }
+.logo-word { font: 650 calc(var(--lh) * 1.12) / 1 'Geist Variable', var(--sans); letter-spacing: -0.035em; margin-top: calc(var(--lh) * -0.12);
+  background: linear-gradient(180deg, #fafafa 0%, #e3e4e8 45%, #a9acb4 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .sports { position: relative; isolation: isolate; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: #000; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
 .sport-thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; border-radius: 10px; pointer-events: none; }
 .sport { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border: 0; border-radius: 10px; background: none;
@@ -874,7 +876,7 @@ a.row:hover .mark { transform: scale(1.06); }
 
 /* Pied de page : logo, accroche de l'affiche, mentions. */
 .foot { max-width: 1280px; margin: 0 auto; padding: 34px 24px 48px; border-top: 1px solid var(--line); color: var(--text-3); font-size: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 28px; flex-wrap: wrap; }
-.foot-brand img { display: block; height: 44px; width: auto; opacity: 0.92; }
+.foot-brand .logo { opacity: 0.95; }
 .foot-tag { margin-top: 8px; font: 800 14px var(--display); font-stretch: 86%; color: var(--text-2); }
 .foot-text { display: grid; gap: 6px; max-width: 560px; text-align: right; }
 .foot-legal { font: 800 11px var(--display); font-stretch: 90%; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
@@ -1191,8 +1193,8 @@ a.row:hover .t-ava { transform: scale(1.06); }
   .grid-table tbody th .tag:not(.tag-warn)::before { content: 'T'; font: 600 10px var(--sans); }
   .topbar { top: 8px; margin-top: 8px; padding: 0 10px; }
   .topbar-in { height: 58px; padding: 0 7px 0 14px; gap: 12px; border-radius: 20px; }
-  .logo { display: none; }
-  .logo-mark { display: block; height: 28px; }
+  .topbar .logo-word { display: none; }
+  .topbar .logo { --lh: 28px !important; }
   .sports { gap: 2px; padding: 3px; }
   .sport { height: 36px; padding: 0 13px; gap: 7px; font-size: 14px; }
   .sport .lbl { display: inline; }
@@ -1825,7 +1827,7 @@ main > .page { animation: page-in 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 @media (max-width: 360px) {
   .topbar { padding: 0 6px; }
   .topbar-in { gap: 6px; padding: 0 5px 0 10px; }
-  .logo-mark { height: 24px; }
+  .topbar .logo { --lh: 24px !important; }
   .sports { padding: 2px; }
   .sport { width: 38px; height: 34px; }
   .top-right { margin-left: 4px; gap: 3px; }

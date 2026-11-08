@@ -19,7 +19,7 @@ import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
 import { AccountPage, PricingPage } from './billing.tsx';
 import { Landing, landingPage } from './landing.tsx';
 import { LEGAL, LegalLinks, LegalPage, NotFound } from './legal.tsx';
-import logo from './assets/razzia-logo-2.webp';
+import { Logo } from './logo.tsx';
 
 // Dernier sport ouvert : à l'ouverture du site ou de l'appli (adresse « / »), on revient sur son programme.
 const LAST_SPORT = 'razzia-sport';
@@ -112,7 +112,7 @@ function App() {
       <Toasts />
       <footer className="foot">
         <div className="foot-brand">
-          <img src={logo} alt="Razzia" width={885} height={196} />
+          <Logo size={40} className="logo-foot" />
         </div>
         <div className="foot-text">
           <p>
