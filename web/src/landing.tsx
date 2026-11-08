@@ -9,6 +9,7 @@ import { Link, Ring, TeamMark } from './ui.tsx';
 import { WarpBg } from './shaders.tsx';
 import { Logo as RLogo } from './logo.tsx';
 import './landing.css';
+import { FinalV2, HeroV2, LiveSim, PlansV2, QA_V2, Record, SIGNUP, Sports, Stories } from './landinghome.tsx';
 
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 const T = (tri: string, name: string) => ({ tri, name });
@@ -260,8 +261,8 @@ function LpNav({ page }: { page: LpPage }) {
         <Link className="btn glass" href="/compte">
           Se connecter
         </Link>
-        <Link className="btn btn-primary" href="/accueil/tarifs">
-          Essai gratuit
+        <Link className="btn btn-primary" href={SIGNUP}>
+          Commencer gratuitement
         </Link>
       </div>
     </nav>
@@ -595,54 +596,32 @@ export function Landing({ path }: { path: string }) {
       <LpNav page={page} />
       {page === 'home' && (
         <>
-          <Hero />
-          <section className="lp-sports" data-reveal>
-            <span><Basketball size={18} /> NBA</span>
-            <span><TennisBall size={18} /> ATP</span>
-            <span className="soon"><SoccerBall size={18} /> Football bientôt</span>
-            <span className="soon"><Lightning size={18} /> Simulation en direct bientôt</span>
-          </section>
-          <Proof />
+          <HeroV2 />
+          <Record />
+          <Stories />
           <section className="lp-sec">
             <div className="lp-sec-head" data-reveal>
-              <Eyebrow>Ce que tu débloques</Eyebrow>
-              <h2>Tout pour une soirée de paris lucide.</h2>
+              <Eyebrow>Trois sports</Eyebrow>
+              <h2>Foot, NBA, tennis. Un seul réflexe.</h2>
+              <p className="lp-lede">Chaque sport a son propre moteur, réglé et testé sur les saisons passées.</p>
             </div>
-            <Bento />
-            <div className="lp-more" data-reveal>
-              <Link href="/accueil/fonctionnalites" className="lp-link">
-                Toutes les fonctionnalités <ArrowRight size={15} weight="bold" />
-              </Link>
-            </div>
+            <Sports />
           </section>
-          <section className="lp-sec">
-            <div className="lp-sec-head" data-reveal>
-              <Eyebrow>Sous le capot</Eyebrow>
-              <h2>Pas un pronostic. Un match rejoué.</h2>
-              <p className="lp-lede">Ce que le moteur regarde, possession après possession, avant de te donner un chiffre.</p>
-            </div>
-            <Engine short />
-            <div className="lp-more" data-reveal>
-              <Link href="/accueil/fonctionnalites" className="lp-link">
-                Tout ce qu’on analyse <ArrowRight size={15} weight="bold" />
-              </Link>
-            </div>
-          </section>
-          <Steps />
+          <LiveSim />
           <section className="lp-sec">
             <div className="lp-sec-head center" data-reveal>
-              <Eyebrow>Tarifs</Eyebrow>
+              <Eyebrow>Formules</Eyebrow>
               <h2>Choisis ta formule.</h2>
-              <p className="lp-lede center">Les deux formules commencent par 3 jours d’essai gratuit.</p>
+              <p className="lp-lede center">Commence gratuitement. Passe Premium quand tu veux tout voir, ou prends l’accès à vie.</p>
             </div>
-            <Plans />
+            <PlansV2 />
           </section>
           <section className="lp-sec lp-faq-short">
             <div className="lp-sec-head" data-reveal>
               <Eyebrow>Questions</Eyebrow>
               <h2>Avant de te lancer.</h2>
             </div>
-            <Faq items={QA.slice(0, 4)} />
+            <Faq items={QA_V2.slice(0, 5)} />
             <div className="lp-more" data-reveal>
               <Link href="/accueil/questions" className="lp-link">
                 Toutes les questions <ArrowRight size={15} weight="bold" />
@@ -697,16 +676,16 @@ export function Landing({ path }: { path: string }) {
       )}
       {page === 'pricing' && (
         <>
-          <PageHead eyebrow="Tarifs" title={<>3 jours<br />pour essayer.</>} lede="Choisis ta formule et profite de tout Razzia gratuitement pendant 3 jours. Rien n’est prélevé avant la fin de l’essai." />
+          <PageHead eyebrow="Formules" title={<>Gratuit,<br />Premium<br />ou à vie.</>} lede="Commence gratuitement avec un match par sport et par jour. Premium et l’accès à vie débloquent tous les matchs et tous les paris, la simulation en direct comprise dès sa sortie." />
           <section className="lp-sec lp-sec-tight">
-            <Plans />
+            <PlansV2 />
           </section>
           <section className="lp-sec">
             <div className="lp-sec-head" data-reveal>
-              <Eyebrow>Abonnement</Eyebrow>
-              <h2>Questions sur l’essai.</h2>
+              <Eyebrow>Formules</Eyebrow>
+              <h2>Questions sur les formules.</h2>
             </div>
-            <Faq items={[QA[9], QA[10], QA[8]]} />
+            <Faq items={[QA_V2[2], QA_V2[3], QA_V2[4], QA_V2[8], QA_V2[7]]} />
           </section>
         </>
       )}
@@ -714,11 +693,11 @@ export function Landing({ path }: { path: string }) {
         <>
           <PageHead eyebrow="Questions" title={<>Tout ce que<br />tu te demandes.</>} />
           <section className="lp-sec lp-sec-tight">
-            <Faq />
+            <Faq items={QA_V2} />
           </section>
         </>
       )}
-      <Final />
+      <FinalV2 />
       <footer className="lp-foot">
         <Logo />
         <div className="lp-foot-links">
