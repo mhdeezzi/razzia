@@ -5,7 +5,8 @@ import { Basketball, ListChecks, SoccerBall, TennisBall, UserCircle } from '@pho
 import { useSlip } from './suivi.ts';
 import { useUnseen } from './suivipage.tsx';
 import { Link, useNowPath, useSlider } from './ui.tsx';
-import logo from './assets/razzia-logo.webp';
+import logo from './assets/razzia-logo-2.webp';
+import mark from './assets/razzia-mark.webp';
 
 export function TopBar() {
   const path = useNowPath();
@@ -27,7 +28,8 @@ export function TopBar() {
     <header className="topbar">
       <div className="topbar-in">
         <Link href="/" className="brand" aria-label="Razzia, programme du jour">
-          <img className="logo" src={logo} alt="Razzia" width={1200} height={645} />
+          <img className="logo" src={logo} alt="Razzia" width={885} height={196} />
+          <img className="logo-mark" src={mark} alt="" aria-hidden="true" width={292} height={196} />
         </Link>
         <nav ref={nav} className="sports" aria-label="Sports">
           {pos && <span className="sport-thumb" style={{ left: pos.l, right: pos.r }} aria-hidden="true" />}
