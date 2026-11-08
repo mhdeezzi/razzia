@@ -339,13 +339,13 @@ export function PickTabs({ cats: raw, n, ctx, keepOrder }: { cats: Category[]; n
 
 const dec = (v: number, n = 2) => v.toFixed(n).replace('.', ',');
 
-/** Sous « Probabilité de victoire » : la cote du bookmaker, seulement si elle existe (jamais une cote calculée). */
+/** Sous « Probabilité de victoire » : la cote du bookmaker, sinon la cote calculée par Razzia, marquée « Cote Razzia ». */
 export function PickOdds({ o }: { o?: Outcome }) {
-  const v = o?.odds;
+  const v = o?.odds ?? o?.fair;
   if (!o || v == null) return null;
   return (
     <p className="ring-odds">
-      Cote <b>{dec(v)}</b>
+      {o.odds != null ? 'Cote' : 'Cote Razzia'} <b>{dec(v)}</b>
     </p>
   );
 }
@@ -376,7 +376,7 @@ function OddsRuler({ fair, odds, p, value }: { fair: number; odds: number; p: nu
   const edge = odds / fair - 1;
   const ticks = Array.from({ length: Math.round(span * 10) + 1 }, (_, i) => lo + i / 10).filter((_, i, a) => a.length <= 8 || i % 2 === 0);
   return (
-    <div className="ruler" role="img" aria-label={`Cote juste ${dec(fair)}, cote du marché ${dec(odds)}`}>
+    <div className="ruler" role="img" aria-label={`Cote Razzia ${dec(fair)}, cote du marché ${dec(odds)}`}>
       <div className="ruler-track">
         <span className={`ruler-gap ${value ? 'up' : ''}`} style={{ left: X(Math.min(fair, odds)), width: `${(Math.abs(odds - fair) / span) * 100}%` }} />
         {ticks.map((t) => <span key={t} className="ruler-tick" style={{ left: X(t) }}><i>{dec(t, 1)}</i></span>)}
@@ -404,6 +404,11 @@ function OutcomeCard({ o, n, ctx }: { o: Outcome; n: number; ctx?: MatchCtx }) {
           <span>{o.title}</span>
         </h4>
         {(o.odds ?? o.mkt) != null && <OddsRuler fair={1 / o.p} odds={(o.odds ?? o.mkt)!} p={o.p} value={o.value} />}
+        {o.odds == null && o.mkt == null && o.fair != null && (
+          <span className="odds-pill">
+            Cote Razzia <b>{dec(o.fair)}</b>
+          </span>
+        )}
         {ctx && o.bet && <FollowButton o={o} ctx={ctx} />}
         {o.text && <p>{o.text}</p>}
         <div className="pick-stats">

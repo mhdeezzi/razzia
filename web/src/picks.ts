@@ -200,7 +200,7 @@ export function buildCategories(r: Result, g: Game): Category[] {
     const l = fav === 'home' ? hedge.line : -hedge.line;
     spreads.push({
       id: 'hedge', title: `${g[fav].name} +${line(l)}`, who: g[fav], bet: { kind: 'spread', side: fav, line: l }, p: cover(hedge), fair: 1 / cover(hedge),
-      text: `Plus sûr que le simple vainqueur : ${g[fav].name} gagne, ou perd de ${Math.floor(l)} points au plus. Passe dans ${pct(cover(hedge))} des simulations.`,
+      text: `Plus sûr que le simple vainqueur : ${g[fav].name} gagne, ou perd de ${Math.floor(l)} points au plus. Passe dans ${pct(cover(hedge))} des simulations ; intéressant si la cote du bookmaker dépasse la cote Razzia.`,
     });
   }
   // Une seule solution : celle qui passe le plus souvent. Un seul point, sur l'onglet en deuxième position : bleu sur le
