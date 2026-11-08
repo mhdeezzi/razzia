@@ -339,10 +339,9 @@ export function PickTabs({ cats: raw, n, ctx, keepOrder }: { cats: Category[]; n
 
 const dec = (v: number, n = 2) => v.toFixed(n).replace('.', ',');
 
-/** Sous « Probabilité de victoire » : la cote du pronostic mis en avant (bookmaker, sinon cote juste). */
-/** Cote du vainqueur sous la probabilité (cote juste du moteur sans cote du marché). */
+/** Sous « Probabilité de victoire » : la cote du bookmaker, seulement si elle existe (jamais une cote calculée). */
 export function PickOdds({ o }: { o?: Outcome }) {
-  const v = o?.odds ?? o?.fair;
+  const v = o?.odds;
   if (!o || v == null) return null;
   return (
     <p className="ring-odds">
@@ -405,11 +404,6 @@ function OutcomeCard({ o, n, ctx }: { o: Outcome; n: number; ctx?: MatchCtx }) {
           <span>{o.title}</span>
         </h4>
         {(o.odds ?? o.mkt) != null && <OddsRuler fair={1 / o.p} odds={(o.odds ?? o.mkt)!} p={o.p} value={o.value} />}
-        {o.odds == null && o.mkt == null && o.fair != null && (
-          <span className="odds-pill">
-            Cote juste <b>{dec(o.fair)}</b>
-          </span>
-        )}
         {ctx && o.bet && <FollowButton o={o} ctx={ctx} />}
         {o.text && <p>{o.text}</p>}
         <div className="pick-stats">
