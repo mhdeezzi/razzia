@@ -40,6 +40,17 @@ export const MARKETS: Market[] = [
   { id: 'a-1.5', cat: 'equipe', label: (_, a) => `${a} gagne par 2 buts ou plus`, win: (i, j) => j - i >= 2 },
   { id: 'h+1.5', cat: 'equipe', label: (h) => `${h} ne perd pas, ou d'un seul but`, win: (i, j) => i - j >= -1 },
   { id: 'a+1.5', cat: 'equipe', label: (_, a) => `${a} ne perd pas, ou d'un seul but`, win: (i, j) => j - i >= -1 },
+  // Handicap +1,5 + total de buts du match : pour les matchs serrés où le favori ne marque pas toujours.
+  ...(['h', 'a'] as const).flatMap((s) => {
+    const hc = (i: number, j: number) => (s === 'h' ? i - j : j - i) >= -1;
+    const nm = (h: string, a: string) => `${s === 'h' ? h : a} ne perd pas, ou d'un seul but`;
+    return [
+      { id: `${s}+1.5+o0.5`, cat: 'combine' as const, label: (h: string, a: string) => `${nm(h, a)} + au moins un but dans le match`, win: (i: number, j: number) => hc(i, j) && i + j > 0.5 },
+      { id: `${s}+1.5+u3.5`, cat: 'combine' as const, label: (h: string, a: string) => `${nm(h, a)} + moins de 3,5 buts`, win: (i: number, j: number) => hc(i, j) && i + j < 3.5 },
+      { id: `${s}+1.5+u4.5`, cat: 'combine' as const, label: (h: string, a: string) => `${nm(h, a)} + moins de 4,5 buts`, win: (i: number, j: number) => hc(i, j) && i + j < 4.5 },
+      { id: `${s}+1.5+o0.5+u4.5`, cat: 'combine' as const, label: (h: string, a: string) => `${nm(h, a)} + entre 1 et 4 buts`, win: (i: number, j: number) => hc(i, j) && i + j > 0.5 && i + j < 4.5 },
+    ];
+  }),
   { id: 'h+1.5+h05', cat: 'combine', label: (h) => `${h} ne perd pas, ou d'un seul but + ${h} marque`, win: (i, j) => i - j >= -1 && i > 0 },
   { id: 'a+1.5+a05', cat: 'combine', label: (_, a) => `${a} ne perd pas, ou d'un seul but + ${a} marque`, win: (i, j) => j - i >= -1 && j > 0 },
 ];
