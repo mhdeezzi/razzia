@@ -146,6 +146,7 @@ export interface SimEntry {
   trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' }; // équipe en pleine montée ou en baisse
   hot?: { id: number; side: 0 | 1; name: string }; // joueur le plus chaud (side 0 : domicile)
   injured?: Array<{ side: 'home' | 'away'; name: string }>; // stars du cinq de départ absentes (avertissement)
+  hc?: { big?: [number, number]; small?: [number, number] }; // handicaps du favori à 80 % et 75 % (ligne, probabilité)
 }
 let sims: Promise<Map<string, SimEntry>> | undefined;
 let simsLast: Map<string, SimEntry> | undefined;

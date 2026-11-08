@@ -36,7 +36,15 @@ for (const d of readdirSync(dir, { withFileTypes: true })) {
   const noOdds = s.market?.bookHome == null;
   // Cotes notées à la simulation : ESPN les retire au coup d'envoi, le programme les affiche encore pendant le match.
   const ml = s.market?.mlAway != null && s.market?.mlHome != null ? [s.market.mlAway, s.market.mlHome] : undefined;
-  out.push({ dir: d.name, pHome, pAway: 1 - pHome, at, gp, ...(noOdds ? { noOdds } : {}), ...(ml ? { ml } : {}), ...(cat ? { cat } : {}), ...(trend ? { trend } : {}), ...(hot ? { hot } : {}), ...(injured.length ? { injured } : {}) });
+  // Handicaps pour la pastille du programme (lignes données au favori, comme le handicap « plus sûr » de la fiche) :
+  // big = la ligne la plus exigeante qui passe dans 80 % des simulations (pile ou face, pastille rouge), small = celle à
+  // 75 % (pastille orange), toujours plus sûres que la victoire et payées au moins 1,15.
+  const favHome = pHome >= 0.5, winP = Math.max(pHome, 1 - pHome);
+  const lad = (s.spreadLadder ?? []).map((x: any) => ({ l: favHome ? x.line : -x.line, c: favHome ? x.pHomeCover : 1 - x.pHomeCover }))
+    .filter((x: any) => x.l > 0 && x.c > winP && x.c <= 1 / 1.15);
+  const lineAt = (t: number) => { const x = lad.filter((y: any) => y.c >= t).sort((a: any, b: any) => a.c - b.c)[0]; return x ? [x.l, +x.c.toFixed(4)] : undefined; };
+  const hc = { big: lineAt(0.8), small: lineAt(0.75) };
+  out.push({ dir: d.name, pHome, pAway: 1 - pHome, at, gp, ...(hc.big || hc.small ? { hc } : {}), ...(noOdds ? { noOdds } : {}), ...(ml ? { ml } : {}), ...(cat ? { cat } : {}), ...(trend ? { trend } : {}), ...(hot ? { hot } : {}), ...(injured.length ? { injured } : {}) });
 }
 out.sort((a, b) => b.at.localeCompare(a.at));
 writeFileSync(file, JSON.stringify(out));

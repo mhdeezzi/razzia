@@ -27,7 +27,7 @@ export interface TennisResult {
   home: TennisPlayer; away: TennisPlayer; pHome: number; pAway: number;
   engine: { pHome: number; elo: number; point: number; factors: Array<{ key: string; label: string; z: number }>; marketWeight: number };
   market: { pHome?: number; pHomeOpen?: number; odds?: Odds; oddsOpen?: Odds; moves?: Array<{ at: string; ml: [number, number] }> };
-  sim: { n: number; pA: number; pB: number; win: number; firstSet: number; scores: Record<string, number>; atLeast1: [number, number]; atLeast2: [number, number]; straight: [number, number]; tiebreak: number; games: { mean: number; p10: number; p50: number; p90: number }; typical?: TypicalTennis };
+  sim: { n: number; pA: number; pB: number; win: number; firstSet: number; scores: Record<string, number>; atLeast1: [number, number]; atLeast2: [number, number]; straight: [number, number]; tiebreak: number; games: { mean: number; p10: number; p50: number; p90: number }; scoreGames?: Record<string, Record<string, number>>; typical?: TypicalTennis };
   h2h: Array<{ date: string; tourney: string; round: string; surface: string; won: boolean; score: string }>;
   h2hCount?: { home: number; away: number; since: string };
   blackCat?: { victim: 'home' | 'away'; lost: number; n: number; since: string; text: string };
@@ -36,7 +36,7 @@ export interface TennisResult {
 type Live = { state: 'pre' | 'in' | 'post'; ended?: 'final' | 'retired' | 'walkover'; detail?: string; home: Array<{ g: number; tb?: number; w?: boolean }>; away: Array<{ g: number; tb?: number; w?: boolean }>; winner?: 'home' | 'away' };
 // noOdds : match pas encore coté par Pinnacle (calendrier ESPN) : simulé avec le moteur seul.
 interface SlateMatch { id: string; day: string; league: string; start: string; home: string; away: string; odds?: Odds; oddsOpen?: Odds; live?: Live; noOdds?: boolean }
-interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string; cat?: string; trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' }; goal?: { home?: boolean; away?: boolean }; flip?: boolean }
+interface SimIndex { id: string; day: string; home: string; away: string; pHome: number; at: string; cat?: string; trend?: { home?: 'up' | 'down'; away?: 'up' | 'down' }; goal?: { home?: boolean; away?: boolean }; flip?: boolean; p1?: number }
 interface PlayerCard { atp?: string; ioc?: string; rank?: number; age?: number; wiki?: string | null }
 type State = { status: 'loading' } | { status: 'none' } | { status: 'queued' | 'running'; startedAt?: string; url?: string } | { status: 'done'; result: TennisResult } | { status: 'failed'; error?: string; url?: string };
 
@@ -546,10 +546,12 @@ function TennisSimPill({ sim, running, ended }: { sim?: SimIndex; running: boole
   if (!sim && ended) return <span className="conf-pill wait">Non simulé</span>;
   if (!sim) return <span className="conf-pill go">Simuler</span>;
   const { fav, cls } = favFlip(sim);
+  // Rouge : « Alcaraz +1 » (gagne au moins un set) ; orange et vert : le joueur et sa chance de victoire.
+  const red = cls === ' flip' && sim.p1 != null;
   return (
     <span className={`pill-group${sim.cat ? ' has-cat' : ''}`} title={sim.cat ? `Chat noir pour ${sim.cat}` : undefined}>
       <span className={`conf-pill sim${cls}`}>
-        {fav.n.split(' ').at(-1)} <b>{pct0(fav.p)}</b>
+        {fav.n.split(' ').at(-1)}{red ? ' +1' : ''} <b>{pct0(red ? sim.p1! : fav.p)}</b>
       </span>
     </span>
   );
@@ -602,7 +604,7 @@ function TennisUne({ matches, sims, players }: { matches: SlateMatch[]; sims: Ma
       </span>
       {ff && (
         <span className={`card-a-p${ff.cls}`}>
-          {lastName(ff.fav.n)} {pct0(ff.fav.p)}
+          {lastName(ff.fav.n)}{ff.cls === ' flip' && sim?.p1 != null ? ' +1' : ''} {pct0(ff.cls === ' flip' && sim?.p1 != null ? sim.p1 : ff.fav.p)}
         </span>
       )}
       <CaretRight size={15} className="hb-une-go" />
@@ -643,7 +645,7 @@ function TennisCard({ m, sim, players, running, i }: { m: SlateMatch; sim?: SimI
       <div className="card-a-f">
         {ff ? (
           <span className={`card-a-p${ff.cls}`}>
-            {lastName(ff.fav.n)} {pct0(ff.fav.p)}
+            {lastName(ff.fav.n)}{ff.cls === ' flip' && sim?.p1 != null ? ' +1' : ''} {pct0(ff.cls === ' flip' && sim?.p1 != null ? sim.p1 : ff.fav.p)}
           </span>
         ) : (
           <TennisSimPill sim={sim} running={running} ended={stateOf(m) !== 'pre'} />

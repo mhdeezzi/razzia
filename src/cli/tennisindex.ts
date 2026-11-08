@@ -31,7 +31,7 @@ for (const f of existsSync(join(dir, 'sims')) ? readdirSync(join(dir, 'sims')) :
   const goal = s.home.goal || s.away.goal ? { home: s.home.goal, away: s.away.goal } : undefined;
   // Simulée sans cote du vainqueur (pas encore cotée) : l'horloge la relance dès que la cote paraît.
   const noOdds = !s.market?.odds?.ml;
-  out.push({ id: s.id, day: s.day, start: s.start, tourney: s.tourney, round: s.round, home: s.home.name, away: s.away.name, pHome: s.pHome, at, cat, trend, goal, flip: flipOf(s), ...(noOdds ? { noOdds } : {}) });
+  out.push({ id: s.id, day: s.day, start: s.start, tourney: s.tourney, round: s.round, home: s.home.name, away: s.away.name, pHome: s.pHome, at, cat, trend, goal, flip: flipOf(s), p1: +s.sim.atLeast1[s.pHome >= 0.5 ? 0 : 1].toFixed(4), ...(noOdds ? { noOdds } : {}) });
 }
 out.sort((a, b) => b.at.localeCompare(a.at));
 writeFileSync(file, JSON.stringify(out));
