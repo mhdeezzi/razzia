@@ -31,7 +31,12 @@ const okDay = (d: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(d ?? '')) && !Nu
 // Matchs retirés du programme à la main (peu intéressants) : « joueur a|joueur b », noms en minuscules sans accents, dans
 // l'ordre alphabétique (sans le jour : le match reste retiré si ESPN le décale).
 const HIDDEN = new Set(['luca van assche|mariano navone', 'alex molcan|titouan droguet']);
-const key = (n: string) => (n ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
+// Joueur reconnu par l'initiale du prénom et le nom de famille : les sources n'écrivent pas les prénoms pareil
+// (« Aleksandr » / « Alexander » Shevchenko, « Thiago Agustin » / « Thiago » Tirante), ce qui créait des doublons.
+const key = (n: string) => {
+  const w = (n ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ').trim().split(' ').filter(Boolean);
+  return w.length > 1 ? `${w[0][0]} ${w.at(-1)}` : (w[0] ?? '');
+};
 interface Live { state: 'pre' | 'in' | 'post'; ended?: 'final' | 'retired' | 'walkover'; detail?: string; players: Array<{ key: string; winner: boolean; sets: Array<{ g: number; tb?: number; w?: boolean }> }> }
 interface Planned { id: string; event: string; round: string; start: string; home: string; away: string }
 // Tour ESPN -> code des fiches Pinnacle (« ATP Paris - R16 ») ; qualifications ignorées, comme pour les cotes.
@@ -132,6 +137,8 @@ export async function GET(request: Request): Promise<Response> {
         if (!t) continue;
         // Cote [domicile, extérieur] dans l'ordre de Pinnacle : les joueurs de la fiche ESPN prennent cet ordre.
         if (!m.last?.ml) Object.assign(m, { first: t.m.first, last: t.m.last, moves: t.m.moves });
+        // Nom du tournoi de la fiche cotée (ESPN devinait parfois le tournoi précédent d'un des joueurs).
+        if (t.m.league) m.league = t.m.league;
         if (key(m.home) !== key(t.m.home)) Object.assign(m, { home: m.away, away: m.home });
         delete t.f[t.m.id];
       }
@@ -183,7 +190,7 @@ export async function GET(request: Request): Promise<Response> {
           if (keep.noOdds && priced) {
             const flip = key(keep.home) !== key(priced.home);
             // Joueurs inversés pour suivre l'ordre de la cote : le score en direct est relu dans le même ordre.
-            Object.assign(keep, { odds: priced.odds, oddsOpen: priced.oddsOpen, noOdds: false }, flip ? { home: keep.away, away: keep.home, live: score(keep.away, keep.home) } : {});
+            Object.assign(keep, { odds: priced.odds, oddsOpen: priced.oddsOpen, noOdds: false, league: priced.league ?? keep.league }, flip ? { home: keep.away, away: keep.home, live: score(keep.away, keep.home) } : {});
           }
           for (const o of grp) if (o !== keep) drop.add(o);
         }
@@ -199,7 +206,7 @@ export async function GET(request: Request): Promise<Response> {
         const priced = l.find((m) => !m.noOdds);
         if (keep.noOdds && priced) {
           const flip = key(keep.home) !== key(priced.home);
-          Object.assign(keep, { odds: priced.odds, oddsOpen: priced.oddsOpen, noOdds: false }, flip ? { home: keep.away, away: keep.home } : {});
+          Object.assign(keep, { odds: priced.odds, oddsOpen: priced.oddsOpen, noOdds: false, league: priced.league ?? keep.league }, flip ? { home: keep.away, away: keep.home } : {});
         }
         for (const m of l) if (m !== keep) drop.add(m);
       }

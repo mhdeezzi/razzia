@@ -5,7 +5,9 @@
 export const nameKey = (n: string) => (n ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
 export const pairKey = (a: string, b: string) => [nameKey(a), nameKey(b)].sort().join('|');
 /** Même joueur malgré une orthographe plus longue d'un côté (« Daniel Merida » / « Daniel Merida Aguilar »). */
-export const samePlayer = (a: string, b: string) => { const x = nameKey(a), y = nameKey(b); return x === y || x.startsWith(`${y} `) || y.startsWith(`${x} `); };
+// Même joueur : même nom, ou même initiale et même nom de famille (« Aleksandr » / « Alexander » Shevchenko).
+const short = (n: string) => { const w = nameKey(n).split(' ').filter(Boolean); return w.length > 1 ? `${w[0][0]} ${w.at(-1)}` : (w[0] ?? ''); };
+export const samePlayer = (a: string, b: string) => { const x = nameKey(a), y = nameKey(b); return x === y || x.startsWith(`${y} `) || y.startsWith(`${x} `) || short(a) === short(b); };
 export const samePair = (m: { home: string; away: string }, n: { home: string; away: string }) =>
   (samePlayer(m.home, n.home) && samePlayer(m.away, n.away)) || (samePlayer(m.home, n.away) && samePlayer(m.away, n.home));
 
