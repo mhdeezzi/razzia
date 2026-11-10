@@ -43,10 +43,13 @@ function pickOf(s: any, favWon: boolean, favSets: number): Pick {
   return { kind: 'vainqueur', label: fav, won: favWon };
 }
 
+// Joueur reconnu par l'initiale du prénom et le nom de famille : « Aleksandr » et « Alexander » Shevchenko sont le
+// même joueur (sinon un match simulé sous les deux orthographes comptait deux fois).
+const sk = (id: string) => { const w = id.split(' ').filter(Boolean); return w.length > 1 ? `${w[0][0]} ${w.at(-1)}` : id; };
 const history = await loadHistory('data/cache/tennis/tml', new Date().getUTCFullYear() - 1);
 const byPair = new Map<string, Match[]>();
 for (const m of history) {
-  const k = [m.w.id, m.l.id].sort().join('|');
+  const k = [sk(m.w.id), sk(m.l.id)].sort().join('|');
   byPair.set(k, [...(byPair.get(k) ?? []), m]);
 }
 
@@ -73,7 +76,7 @@ for (const i of [0, 1, 2, 3]) {
           key: `espn-${c.id}`, date: String(c.date ?? '').slice(0, 10), score, wSets: sc.wSets, lSets: sc.lSets,
           retired: t === 'STATUS_RETIRED', walkover: t === 'STATUS_WALKOVER', w: { id: nameKey(W.athlete?.displayName ?? '') }, l: { id: nameKey(L.athlete?.displayName ?? '') },
         };
-        const k = [res.w.id, res.l.id].sort().join('|');
+        const k = [sk(res.w.id), sk(res.l.id)].sort().join('|');
         if (!(espn.get(k) ?? []).some((x) => x.key === res.key)) espn.set(k, [...(espn.get(k) ?? []), res]);
       }
     }
@@ -91,7 +94,7 @@ for (const f of existsSync(simsDir) ? readdirSync(simsDir) : []) {
   if (!f.endsWith('.json')) continue;
   const s = JSON.parse(readFileSync(join(simsDir, f), 'utf8'));
   if (OLD_ENGINE.has(String(s.id))) continue;
-  const kH = nameKey(s.home.name), kA = nameKey(s.away.name);
+  const kH = sk(nameKey(s.home.name)), kA = sk(nameKey(s.away.name));
   // Le match joué entre ces deux joueurs le plus près du jour prévu (de la veille à 3 jours après : pluie, report).
   const t = Date.parse(s.day);
   const near = <T extends { date: string }>(l: T[]) =>
@@ -113,7 +116,7 @@ for (const f of existsSync(simsDir) ? readdirSync(simsDir) : []) {
     if (Date.parse(prev.built) >= Date.parse(s.meta?.builtAt ?? '')) continue;
     rows.splice(rows.indexOf(prev.row), 1);
   }
-  const homeWon = m.w.id === kH;
+  const homeWon = sk(m.w.id) === kH;
   const favHome = s.pHome >= 0.5;
   const favWon = favHome === homeWon;
   const favSets = favWon ? m.wSets : m.lSets;
