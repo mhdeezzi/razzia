@@ -10,6 +10,9 @@ import { BookOdds } from './books.tsx';
 import { Empty, glow, Link, SimProgress, TeamMark } from './ui.tsx';
 import { WarpBg } from './shaders.tsx';
 import { toast } from './toast.tsx';
+import { usePrices } from './useodds.ts';
+import { nbaTarget, withNbaPrices } from './oddsdata.ts';
+import type { OddsGame } from '../../src/odds/prices.ts';
 
 type Tab = 'apercu' | 'sim';
 
@@ -19,7 +22,9 @@ export function MatchPage({ date, away, home }: { date: string; away: string; ho
   useEffect(() => {
     loadProgramme().then(setProg, (e: Error) => setError(e.message));
   }, []);
-  const g = prog?.games.find((x) => x.date === date && x.away.tri === away && x.home.tri === home);
+  const baseGame = prog?.games.find((x) => x.date === date && x.away.tri === away && x.home.tri === home);
+  const prices = usePrices('nba', baseGame ? [nbaTarget(baseGame)] : [], 5000);
+  const g = baseGame && withNbaPrices(baseGame, prices.get(baseGame.id));
 
   return (
     <div className="page">
@@ -29,7 +34,7 @@ export function MatchPage({ date, away, home }: { date: string; away: string; ho
       {error && <Empty title="Le programme n'a pas pu être chargé.">{error}</Empty>}
       {!prog && !error && <span className="sk sk-hero" aria-busy="true" />}
       {prog && !g && <Empty title="Match introuvable dans les 7 prochains jours." />}
-      {g && <Match g={g} injuries={prog!.injuries} />}
+      {g && <Match g={g} injuries={prog!.injuries} prices={prices.get(g.id)} />}
     </div>
   );
 }
@@ -59,7 +64,7 @@ function useSim(g: Game) {
     } catch (e) {
       setState({ status: 'failed', error: (e as Error).message });
     }
-  }, [g, key]);
+  }, [key]); // Les nouvelles cotes ne relisent pas la simulation existante.
 
   useEffect(() => {
     void poll();
@@ -83,7 +88,7 @@ function useSim(g: Game) {
   return { state, busy, launch, since: pending.get(key)?.at };
 }
 
-function Match({ g, injuries }: { g: Game; injuries: Record<string, Injury[]> }) {
+function Match({ g, injuries, prices }: { g: Game; injuries: Record<string, Injury[]>; prices?: OddsGame }) {
   const sim = useSim(g);
   const [tab, setTab] = useState<Tab | undefined>();
   const s = sim.state.status;
@@ -104,7 +109,7 @@ function Match({ g, injuries }: { g: Game; injuries: Record<string, Injury[]> })
       </div>
 
       <div className="tab-panel" key={current}>
-        {current === 'apercu' ? <Overview g={g} injuries={injuries} /> : <SimPanel g={g} {...sim} />}
+        {current === 'apercu' ? <Overview g={g} injuries={injuries} prices={prices} /> : <SimPanel g={g} {...sim} />}
       </div>
     </>
   );
@@ -172,7 +177,7 @@ function Hero({ g }: { g: Game }) {
   );
 }
 
-function Overview({ g, injuries }: { g: Game; injuries: Record<string, Injury[]> }) {
+function Overview({ g, injuries, prices }: { g: Game; injuries: Record<string, Injury[]>; prices?: OddsGame }) {
   return (
     <div className="results">
       <section className="box">
@@ -203,7 +208,7 @@ function Overview({ g, injuries }: { g: Game; injuries: Record<string, Injury[]>
       <div className="aside" style={{ position: 'static', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
         <OddsBox g={g} />
         <Absences g={g} injuries={injuries} />
-        {g.state === 'pre' && <BookOdds g={g} />}
+        {g.state === 'pre' && <BookOdds g={g} current={prices} />}
       </div>
     </div>
   );

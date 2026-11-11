@@ -2,8 +2,8 @@
 // Les affiches de pub (Poster 1 à 6) restent une maquette sans route.
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import {
-  ArrowRight, ArrowsLeftRight, Basketball, Bell, ChartLineUp, Check, CheckCircle, Clock, Coins, Crown, Fire, Infinity as InfinityIcon, Lightning, ListChecks,
-  Scales, ShieldCheck, SoccerBall, Stack, TennisBall, ThumbsUp, Ticket as TicketIcon,
+  ArrowRight, ArrowsLeftRight, Basketball, Bell, ChartLineUp, Check, CheckCircle, Clock, Coins, Crown, Fire, Infinity as InfinityIcon, Lightning, List as MenuIcon, ListChecks,
+  Scales, ShieldCheck, SoccerBall, Stack, TennisBall, ThumbsUp, Ticket as TicketIcon, X,
 } from '@phosphor-icons/react';
 import { glow, Link, Ring, TeamMark } from './ui.tsx';
 import { teamColor } from './data.ts';
@@ -246,6 +246,15 @@ function LpNav({ page }: { page: LpPage }) {
     ['pricing', 'Tarifs', '/accueil/tarifs'],
     ['faq', 'Questions', '/accueil/questions'],
   ];
+  // Téléphone : les liens passent dans un menu (ils étaient simplement cachés, sans accès aux autres pages).
+  const [open, setOpen] = useState(false);
+  useEffect(() => { setOpen(false); }, [page]);
+  useEffect(() => {
+    if (!open) return;
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    addEventListener('keydown', key);
+    return () => removeEventListener('keydown', key);
+  }, [open]);
   return (
     <nav className="lp-nav">
       <Link href="/accueil" aria-label="Razzia, accueil">
@@ -263,9 +272,24 @@ function LpNav({ page }: { page: LpPage }) {
           Se connecter
         </Link>
         <Link className="btn btn-primary" href={SIGNUP}>
-          Commencer gratuitement
+          <span>
+            Commencer<span className="lp-cta-long"> gratuitement</span>
+          </span>
         </Link>
+        <button type="button" className="btn glass lp-burger" aria-label={open ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={open} aria-controls="lp-menu" onClick={() => setOpen((o) => !o)}>
+          {open ? <X size={18} weight="bold" /> : <MenuIcon size={18} weight="bold" />}
+        </button>
       </div>
+      {open && (
+        <div id="lp-menu" className="lp-menu" onClick={() => setOpen(false)}>
+          {links.map(([id, label, href]) => (
+            <Link key={id} href={href} className={page === id ? 'is-on' : undefined} aria-current={page === id ? 'page' : undefined}>
+              {label}
+            </Link>
+          ))}
+          <Link href="/compte">Se connecter</Link>
+        </div>
+      )}
     </nav>
   );
 }
@@ -591,7 +615,9 @@ function PageHead({ eyebrow, title, lede }: { eyebrow: string; title: ReactNode;
 export function Landing({ path }: { path: string }) {
   const page = landingPage(path) ?? 'home';
   useReveal(page);
-  useEffect(() => window.scrollTo({ top: 0 }), [page]);
+  // Accolades obligatoires : sur les Chrome récents, scrollTo renvoie une promesse, que React prendrait pour un nettoyage
+  // (« destroy is not a function » : page noire en changeant d'onglet).
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [page]);
   return (
     <div className="lp">
       <LpNav page={page} />
@@ -631,6 +657,7 @@ export function Landing({ path }: { path: string }) {
             <div className="lp-sec-head" data-reveal>
               <Eyebrow>Questions</Eyebrow>
               <h2>Avant de te lancer.</h2>
+              <p className="lp-lede">Ce qu’on nous demande le plus souvent avant de créer un compte.</p>
             </div>
             <Faq items={QA_V2.slice(0, 5)} />
             <div className="lp-more" data-reveal>

@@ -1,5 +1,5 @@
 // Point d'entrée : en-tête, routes (programme, fiche de match, simulations), pied de page.
-import { Component, StrictMode, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Component, lazy, StrictMode, Suspense, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/geist'; // texte, menus et badges
 import '@fontsource-variable/geist-mono'; // heures, cotes, scores
@@ -7,6 +7,7 @@ import '@fontsource-variable/archivo/wdth.css'; // titres très gras et serrés 
 import '@fontsource-variable/host-grotesk'; // chiffres des cercles de probabilité
 import { CaretRight } from '@phosphor-icons/react';
 import './styles.css';
+import './reveal.ts'; // les blocs des fiches s'animent en arrivant à l'écran
 import { listSims, loadProgramme, matchPath, type Programme, type SimEntry } from './data.ts';
 import { MatchPage } from './match.tsx';
 import { SchedulePage } from './schedule.tsx';
@@ -15,11 +16,15 @@ import { SlipBar, SuiviPage, TicketWatcher } from './suivipage.tsx';
 import { Toasts } from './toast.tsx';
 import { TennisMatchPage, TennisSchedulePage } from './tennis.tsx';
 import { FootMatchPage, FootSchedulePage } from './foot.tsx';
-import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
+import { Empty, LIVE, Link, TeamMark, useLocation } from './ui.tsx';
 import { AccountPage, PricingPage } from './billing.tsx';
 import { Landing, landingPage } from './landing.tsx';
 import { LEGAL, LegalLinks, LegalPage, NotFound } from './legal.tsx';
 import { Logo } from './logo.tsx';
+
+// Simulation en direct : chargée à part, pour ne pas alourdir les programmes.
+const LivePage = lazy(() => import('./live.tsx').then((m) => ({ default: m.LivePage })));
+const LiveMatchPage = lazy(() => import('./live.tsx').then((m) => ({ default: m.LiveMatchPage })));
 
 // Dernier sport ouvert : à l'ouverture du site ou de l'appli (adresse « / »), on revient sur son programme.
 const LAST_SPORT = 'razzia-sport';
@@ -61,12 +66,17 @@ function App() {
   const m = path.match(/^\/match\/(\d{4}-\d{2}-\d{2})\/([A-Z]{3})-([A-Z]{3})\/?$/);
   const t = path.match(/^\/tennis\/match\/(\d{4}-\d{2}-\d{2})\/(\d+)\/?$/);
   const f = path.match(/^\/foot\/match\/(\d{4}-\d{2}-\d{2})\/(\d+)\/?$/);
+  const l = LIVE && path.match(/^\/live\/([a-z0-9-]+)\/?$/);
   const page = m ? (
     <MatchPage key={path} date={m[1]} away={m[2]} home={m[3]} />
   ) : t ? (
     <TennisMatchPage key={path} day={t[1]} id={t[2]} />
   ) : f ? (
     <FootMatchPage key={path} id={f[2]} />
+  ) : l ? (
+    <LiveMatchPage key={path} id={l[1]} />
+  ) : LIVE && path === '/live' ? (
+    <LivePage />
   ) : path === '/' || path === '/foot' ? (
     <FootSchedulePage day={search.get('jour')} />
   ) : path === '/tennis' ? (
@@ -91,7 +101,7 @@ function App() {
     if (sp) try { localStorage.setItem(LAST_SPORT, sp); } catch { /* stockage indisponible */ }
   }, [path]);
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/' || path.startsWith('/foot') ? 'Razzia | Football' : path === '/simulations' ? 'Simulations | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : landingPage(path) ? 'Razzia | Simule avant de parier' : LEGAL[path] ? `${LEGAL[path].title} | Razzia` : 'Razzia | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : LIVE && path.startsWith('/live') ? 'Razzia | Simulation en direct' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/' || path.startsWith('/foot') ? 'Razzia | Football' : path === '/simulations' ? 'Simulations | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : landingPage(path) ? 'Razzia | Simule avant de parier' : LEGAL[path] ? `${LEGAL[path].title} | Razzia` : 'Razzia | Simulations NBA';
   }, [path]);
   // Page d'accueil payante : cachée (aucun lien), visible seulement en tapant /accueil, en attendant de l'activer.
   if (landingPage(path))
@@ -106,7 +116,9 @@ function App() {
       <TopBar />
       <TicketWatcher />
       <main>
-        <PageGuard key={path}>{page}</PageGuard>
+        <PageGuard key={path}>
+          <Suspense fallback={<div className="page"><span className="sk sk-hero" aria-busy="true" /></div>}>{page}</Suspense>
+        </PageGuard>
       </main>
       <SlipBar path={path} />
       <Toasts />

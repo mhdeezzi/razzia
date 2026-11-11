@@ -1,0 +1,17 @@
+{
+ "outcome": {
+  "ace": 1,
+  "double_fault": 1.2,
+  "service_winner": 1,
+  "winner": 1,
+  "unforced_error": 1.2,
+  "forced_error": 1,
+  "unknown": 1
+ },
+ "recent": 0,
+ "pointW": null,
+ "formSd": 0.165,
+ "setSd": 0.24,
+ "builtAt": "2026-11-11",
+ "source": "Match Charting Project (CC BY-NC-SA 4.0) — essais personnels uniquement, à réapprendre avec les données sous licence avant mise en ligne"
+}

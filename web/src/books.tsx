@@ -1,13 +1,17 @@
-// Comparateur de cotes : bookmakers français contre la référence Pinnacle sans marge (/api/cotes).
+// Comparateur de cotes : fournisseurs existants et Flashscore, contre la référence Pinnacle sans marge (/api/cotes).
 // Valeur d'une cote = cote × probabilité de référence - 1 : positive, la cote paie plus que le risque réel estimé.
 import { useEffect, useState } from 'react';
 import { Scales } from '@phosphor-icons/react';
 import { listSims, pct, simKey, type Game } from './data.ts';
 import { TeamMark } from './ui.tsx';
+import type { OddsGame } from '../../src/odds/prices.ts';
 
 interface BookRow {
   key: string;
   title: string;
+  french?: boolean;
+  updated?: string;
+  phase?: 'prematch' | 'live';
   home?: number;
   away?: number;
   spread?: { point: number; home: number; away: number };
@@ -16,6 +20,7 @@ interface BookGame {
   home: string;
   away: string;
   start: string;
+  state?: 'pre' | 'in' | 'post';
   ref?: { home: number; away: number };
   books: BookRow[];
 }
@@ -25,14 +30,15 @@ interface Cotes {
   error?: string;
 }
 
-// Comparateur gardé 10 minutes dans l'onglet (comme le cache du serveur) ; une erreur n'est pas gardée.
+// Cache court côté navigateur. Le serveur garde le cache payant The Odds API séparé pendant dix minutes.
 let cotes: Promise<Cotes> | undefined;
 let cotesAt = 0;
+let loading = false;
 export function loadCotes(): Promise<Cotes> {
-  if (cotes && Date.now() - cotesAt > 10 * 60_000) cotes = undefined;
+  if (!loading && cotes && Date.now() - cotesAt > 5000) cotes = undefined;
   if (!cotes) {
-    cotesAt = Date.now();
-    cotes = fetch('/api/cotes')
+    loading = true;
+    cotes = fetch('/api/cotes', { cache: 'no-store' })
       .then(async (r) => {
         const j = await r.json().catch(() => ({}));
         if (!r.ok) cotes = undefined;
@@ -41,7 +47,7 @@ export function loadCotes(): Promise<Cotes> {
       .catch((e: Error) => {
         cotes = undefined;
         return { games: [], at: '', error: e.message };
-      });
+      }).finally(() => { loading = false; cotesAt = Date.now(); });
   }
   return cotes;
 }
@@ -49,15 +55,16 @@ export function loadCotes(): Promise<Cotes> {
 const dec = (v?: number) => (v == null ? '-' : v.toFixed(2).replace('.', ','));
 const ev = (odds: number | undefined, p: number | undefined) => (odds == null || p == null ? undefined : odds * p - 1);
 
-export function BookOdds({ g }: { g: Game }) {
+export function BookOdds({ g, current }: { g: Game; current?: OddsGame }) {
   const [data, setData] = useState<Cotes>();
   const [pRazzia, setPRazzia] = useState<number>();
   useEffect(() => {
     void loadCotes().then(setData);
     void listSims().then((m) => setPRazzia(m.get(simKey(g))?.pHome));
-  }, [g]);
-  const bg = data?.games?.find((x) => x.home.endsWith(g.home.name) && x.away.endsWith(g.away.name));
-  const books = (bg?.books ?? []).filter((b) => b.key !== 'pinnacle' && b.home && b.away);
+  }, [g.id]);
+  const found = current ?? data?.games?.find((x) => x.home.endsWith(g.home.name) && x.away.endsWith(g.away.name));
+  const bg = found && (!found.state || found.state === 'pre') ? found : undefined;
+  const books = (bg?.books ?? []).filter((b) => b.key !== 'pinnacle' && !/^pinnacle(?:\s|$)/i.test(b.title) && b.home && b.away);
   const best = (side: 'home' | 'away') => Math.max(...books.map((b) => b[side] ?? 0));
   const ref = bg?.ref;
   const cell = (b: BookRow, side: 'home' | 'away') => {
@@ -79,12 +86,12 @@ export function BookOdds({ g }: { g: Game }) {
         Comparateur de cotes
       </div>
       <div className="box-body">
-        {!data ? (
+        {!data && !current ? (
           <span className="sk sk-row" aria-busy="true" />
-        ) : data.error ? (
+        ) : data?.error && !current ? (
           <p className="muted small">{data.error}</p>
         ) : !books.length ? (
-          <p className="muted small">Cotes des bookmakers français pas encore publiées pour ce match.</p>
+          <p className="muted small">Cotes des bookmakers pas encore publiées pour ce match.</p>
         ) : (
           <>
             <table className="odds-t books-t">
@@ -102,7 +109,7 @@ export function BookOdds({ g }: { g: Game }) {
               <tbody>
                 {books.map((b) => (
                   <tr key={b.key}>
-                    <td>{b.title.replace(/\s*\(FR\)/, '')}</td>
+                    <td title={b.updated ? `Données de ${new Date(b.updated).toLocaleTimeString('fr-FR')}` : undefined}>{b.title.replace(/\s*\(FR\)/, '')}</td>
                     {cell(b, 'away')}
                     {cell(b, 'home')}
                   </tr>
@@ -129,10 +136,11 @@ export function BookOdds({ g }: { g: Game }) {
 export function bestFrench(c: Cotes | undefined, l: { sport: string; match: { homeName: string; awayName: string }; bet: { kind: string; side: 'home' | 'away'; line?: number } }) {
   if (!c || l.sport !== 'nba' || (l.bet.kind !== 'win' && l.bet.kind !== 'spread')) return undefined;
   const g = c.games?.find((x) => x.home.endsWith(l.match.homeName) && x.away.endsWith(l.match.awayName));
-  if (!g) return undefined;
+  if (!g || (g.state && g.state !== 'pre') || Date.parse(g.start) <= Date.now()) return undefined;
   let best: { odds: number; book: string } | undefined;
   for (const b of g.books) {
-    if (b.key === 'pinnacle') continue;
+    if (b.phase && b.phase !== 'prematch') continue;
+    if (!b.french && !['betclic_fr', 'unibet_fr', 'winamax_fr', 'parionssport_fr', 'netbet_fr', 'pmu_fr'].includes(b.key)) continue;
     let o: number | undefined;
     if (l.bet.kind === 'win') o = b[l.bet.side];
     else if (b.spread && l.bet.line != null && Math.abs((l.bet.side === 'home' ? b.spread.point : -b.spread.point) - l.bet.line) < 0.01) o = b.spread[l.bet.side];
@@ -141,11 +149,20 @@ export function bestFrench(c: Cotes | undefined, l: { sport: string; match: { ho
   return best;
 }
 
-/** Comparateur chargé une fois (cache 10 minutes côté serveur). */
+/** Actualisation visible du comparateur, sans appels simultanés. */
 export function useCotes(): Cotes | undefined {
   const [c, setC] = useState<Cotes>();
   useEffect(() => {
-    void loadCotes().then(setC);
+    let stopped = false, timer: number | undefined;
+    const load = async () => {
+      if (document.visibilityState !== 'hidden') {
+        const data = await loadCotes();
+        if (!stopped) setC(data);
+      }
+      if (!stopped) timer = window.setTimeout(load, 15_000);
+    };
+    void load();
+    return () => { stopped = true; window.clearTimeout(timer); };
   }, []);
   return c;
 }

@@ -7,6 +7,8 @@ import { Empty, Link, PageHero, ProgressLine, Segmented, TeamMark, useEntryState
 import { pillTier } from './picks.ts';
 import { nbaHype } from './hype.ts';
 import { PublicRecord } from './record.tsx';
+import { usePrices } from './useodds.ts';
+import { nbaTarget, withNbaPrices } from './oddsdata.ts';
 
 type Status = 'pre' | 'in' | 'post';
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -23,7 +25,10 @@ const storedView = (): View => {
 
 export function SchedulePage({ day }: { day: string | null }) {
   // Dernières données connues tout de suite (retour sur la page sans écran vide), relues en arrière-plan.
-  const [prog, setProg] = useState<Programme | undefined>(programmeCached);
+  const [baseProg, setProg] = useState<Programme | undefined>(programmeCached);
+  const oddsDay = day && baseProg?.dates.includes(day) ? day : baseProg?.dates.find(isToday) ?? baseProg?.dates[1] ?? baseProg?.dates[0];
+  const prices = usePrices('nba', (baseProg?.games ?? []).filter((g) => g.date === oddsDay).map(nbaTarget));
+  const prog = useMemo(() => baseProg && ({ ...baseProg, games: baseProg.games.map((g) => withNbaPrices(g, prices.get(g.id))) }), [baseProg, prices]);
   const [error, setError] = useState<string>();
   const [sims, setSims] = useState<Map<string, SimEntry>>(() => simsCached() ?? new Map());
   const [view, setView] = useState<View>(storedView);

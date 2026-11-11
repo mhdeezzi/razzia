@@ -4,6 +4,7 @@ import { simStatus, type Game, type Result } from './data.ts';
 import { buildCategories, pOverPts, type Outcome } from './picks.ts';
 import { buildTennisCategories } from './tennispicks.ts';
 import { oidOf, type Leg } from './suivi.ts';
+import { nbaTarget, readPrices, resultTarget, withNbaPrices, withTennisPrices } from './oddsdata.ts';
 
 export interface Fresh {
   odds: number;
@@ -60,6 +61,7 @@ export async function freshOdds(legs: Leg[]): Promise<FreshMap> {
     }),
   );
   const results = new Map<string, Promise<Result | null>>();
+  const prices = await readPrices('nba', [...days.values()].flat().filter((g) => g.state === 'pre' && Date.parse(g.start) > Date.now()).map(nbaTarget)).catch(() => new Map());
   const resultOf = (g: Game) => {
     const k = `${g.date}_${g.away.tri}@${g.home.tri}`;
     if (!results.has(k)) results.set(k, simStatus(g).then((s) => (s.status === 'done' ? s.result : null), () => null));
@@ -67,7 +69,8 @@ export async function freshOdds(legs: Leg[]): Promise<FreshMap> {
   };
   await Promise.all(
     nba.map(async (l) => {
-      const g = days.get(l.date)?.find((x) => x.away.tri === l.match.away && x.home.tri === l.match.home);
+      const base = days.get(l.date)?.find((x) => x.away.tri === l.match.away && x.home.tri === l.match.home);
+      const g = base && withNbaPrices(base, prices.get(base.id));
       if (!g || g.state !== 'pre' || Date.parse(g.start) <= Date.now()) return void (out[l.key] = null);
       const r = await resultOf(g);
       if (!r) return void (out[l.key] = null);
@@ -100,7 +103,11 @@ export async function freshOdds(legs: Leg[]): Promise<FreshMap> {
             const ml: [number, number] = flipped ? [m.odds.ml[1], m.odds.ml[0]] : m.odds.ml;
             r.market = { ...r.market, odds: { ...(r.market?.odds ?? {}), ml } };
           }
-          const o = pickSame(buildTennisCategories(r).flatMap((c) => c.items), l);
+          const prices = await readPrices('tennis', [resultTarget(r)]).catch(() => new Map());
+          const current = prices.get(String(r.id));
+          if (current && current.state !== 'pre') return void (out[l.key] = null);
+          const latest = withTennisPrices(r, current);
+          const o = pickSame(buildTennisCategories(latest).flatMap((c) => c.items), l);
           out[l.key] = o?.bet ? fromOutcome(o) : null;
         } catch {
           out[l.key] = null;

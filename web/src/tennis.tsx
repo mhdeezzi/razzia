@@ -12,6 +12,8 @@ import { atpHype } from './hype.ts';
 import { buildTennisCategories, favOf, flipOf, T_HEDGE_FIRST, T_RISKY, T_SURE } from './tennispicks.ts';
 import { shown, type Outcome } from './picks.ts';
 import { TennisTypical, type TypicalTennis } from './tennistypical.tsx';
+import { usePrices } from './useodds.ts';
+import { resultTarget, tennisMarket, withTennisPrices } from './oddsdata.ts';
 
 // ——— Données ———
 export interface TennisPlayer {
@@ -21,7 +23,7 @@ export interface TennisPlayer {
   surfaceSeason: { won: number; lost: number };
   form: Array<{ date: string; tourney: string; round: string; surface: string; opponent: string; won: boolean; score: string }>;
 }
-interface Odds { ml?: [number, number]; set1?: [number, number]; sets?: Array<{ line: number; home: number; away: number }>; totalGames?: Array<{ line: number; over: number; under: number }> }
+interface Odds { at?: string; provider?: string; ml?: [number, number]; set1?: [number, number]; sets?: Array<{ line: number; home: number; away: number }>; totalGames?: Array<{ line: number; over: number; under: number }> }
 export interface TennisResult {
   id: string; day: string; start: string; league: string; tourney: string; round: string; surface: string; indoor?: boolean; bestOf: 3 | 5;
   home: TennisPlayer; away: TennisPlayer; pHome: number; pAway: number;
@@ -249,7 +251,14 @@ type Slate = { matches: SlateMatch[]; sims: SimIndex[]; players?: Record<string,
 let slateLast: Slate | undefined;
 
 export function TennisSchedulePage({ day }: { day: string | null }) {
-  const [data, setData] = useState<Slate | undefined>(() => slateLast);
+  const [baseData, setData] = useState<Slate | undefined>(() => slateLast);
+  const oddsDay = day && day >= localDay(Date.now() - 86_400_000) && day <= localDay(Date.now() + 6 * 86_400_000) ? day : localDay(Date.now());
+  const prices = usePrices('tennis', (baseData?.matches ?? []).filter((m) => localDay(m.start) === oddsDay).map((m) => ({ id: m.id, home: m.home, away: m.away, start: m.start, state: m.live?.state ?? (Date.parse(m.start) > Date.now() ? 'pre' : 'in') })));
+  const data = useMemo(() => baseData && ({ ...baseData, matches: baseData.matches.map((m) => {
+    const current = prices.get(m.id), odds = tennisMarket(current, m.odds?.at);
+    if (current?.sourceId && current.state !== 'pre') return { ...m, live: { home: [], away: [], ...m.live, state: current.state } };
+    return odds ? { ...m, odds, noOdds: false } : m;
+  }) }), [baseData, prices]);
   const [error, setError] = useState<string>();
   const [view, setView] = useState<View>(storedView);
   const [status, setStatus] = useEntryState<Status>('statut', 'pre');
@@ -791,6 +800,9 @@ function TennisHero({ id, r }: { id: string; r?: TennisResult }) {
 
 export function TennisMatchPage({ day, id }: { day: string; id: string }) {
   const { state, busy, launch, since } = useTennisSim(id, day);
+  const original = state.status === 'done' ? state.result : undefined;
+  const prices = usePrices('tennis', original ? [resultTarget(original)] : [], 5000);
+  const result = original && withTennisPrices(original, prices.get(String(original.id)));
   // Match déjà commencé (programme du jour) : plus de bouton pour le simuler.
   const [started, setStarted] = useState(false);
   useEffect(() => {
@@ -801,9 +813,9 @@ export function TennisMatchPage({ day, id }: { day: string; id: string }) {
       <Link href="/tennis" back className="back">
         <ArrowLeft size={16} /> Programme ATP
       </Link>
-      {state.status !== 'loading' && <TennisHero id={id} r={state.status === 'done' ? state.result : undefined} />}
+      {state.status !== 'loading' && <TennisHero id={id} r={result} />}
       {state.status === 'loading' && <span className="sk sk-hero" aria-busy="true" />}
-      {state.status === 'done' && <TennisResults r={state.result} />}
+      {result && <TennisResults r={result} />}
       {(state.status === 'queued' || state.status === 'running') && (
         <SimProgress
           queued={state.status === 'queued'}
@@ -939,6 +951,7 @@ function TennisResults({ r }: { r: TennisResult }) {
         </Section>
       )}
       <p className="footnote">
+        {r.market.odds?.provider ? `Cotes affichées : ${r.market.odds.provider}${r.market.odds.at ? `, données de ${timeLocal(r.market.odds.at)}` : ''}. ` : ''}
         Données jusqu'au {new Date(r.meta.builtAt).toLocaleDateString('fr-FR')} : {r.meta.matchesUsed.toLocaleString('fr-FR')} matchs ATP, Challengers et qualifications (TennisMyLife),
         cotes Pinnacle. Probabilité Razzia : moitié moteur, moitié marché. Les probabilités décrivent le modèle, pas une certitude. Jouer comporte des risques.
       </p>

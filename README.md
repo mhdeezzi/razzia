@@ -16,6 +16,10 @@ npm run props-backtest -- --from 2026-01-01 --to 2026-06-30   # props : sims vs 
 
 Node ≥ 22.18 (TypeScript exécuté nativement, sans build). Aucune clé d'API n'est nécessaire.
 
+Collecte des matchs en cours (foot, tennis, NBA) : `npm run flashscore -- --once` ou
+`npm run flashscore -- --interval=5000`. Configuration, API `/api/flashscore` et limites de
+fraîcheur : [documentation Flashscore](docs/flashscore.md).
+
 ---
 
 ## 1. Ce que fait RotoBot (rétro-ingénierie)
