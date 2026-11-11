@@ -24,7 +24,7 @@ export class FlashscoreOddsProvider {
   private calendarPending = new Map<string, Promise<Board>>();
   constructor(options: { client?: Flashscore; now?: () => number } = {}) {
     this.now = options.now ?? Date.now;
-    this.client = options.client ?? new Flashscore({ ttlMs: 5000 });
+    this.client = options.client ?? new Flashscore({ ttlMs: 5000, oddsLocale: 'fr' });
   }
   async board(sport: Sport, day = 0): Promise<Board> {
     if (process.env.ODDS_FLASHSCORE === '0') throw new Error('Fournisseur Flashscore désactivé');

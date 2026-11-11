@@ -12,12 +12,14 @@ export interface MarketPrice {
 export interface BookPrice {
   key: string; title: string; source: 'flashscore' | 'the-odds-api'; french: boolean;
   phase: 'prematch' | 'live'; updated: string; markets: MarketPrice[];
+  projectId?: number; countryCode?: string;
   home?: number; away?: number; draw?: number;
   spread?: { point: number; home: number; away: number };
   total?: { point: number; over: number; under: number };
 }
 export interface OddsGame extends OddsTarget {
   sport: Sport; sourceId?: string; books: BookPrice[]; selected?: string;
+  selection?: { preferred: string; bookmaker: string; source: BookPrice['source']; reason: 'preferred' | 'fallback' };
   ref?: { home: number; away: number }; errors?: Record<string, string>;
 }
 export interface OddsResponse { games: OddsGame[]; at: string; refreshAfterMs: number; errors: Record<string, string>; creditsLeft?: number; error?: string }
@@ -27,6 +29,9 @@ export const decimal = (value: unknown): value is number => typeof value === 'nu
 /** Age HTTP ajouté au temps écoulé depuis la lecture ; relire un cache ancien ne rajeunit pas son contenu. */
 export const quoteTime = (q: Pick<OddsQuote, 'fetchedAt' | 'ageSeconds'>) => Date.parse(q.fetchedAt) - (q.ageSeconds ?? 0) * 1000;
 export const freshMarket = (m: MarketPrice, now = Date.now()) => Number.isFinite(Date.parse(m.updated)) && now - Date.parse(m.updated) >= -5000 && now - Date.parse(m.updated) <= MAX_AGE[m.phase];
+// Identifiants du marché français, distincts d'Unibet/bet365 internationaux.
+const FRENCH_BOOKS: Record<number, string> = { 141: 'betclic_fr', 264: 'winamax_fr', 160: 'unibet_fr', 1195: 'pmu_fr', 905: 'betsson_fr', 1243: 'bet365_fr', 129: 'bwin_fr', 398: 'netbet_fr' };
+export const bookmakerKey = (b: BookPrice) => b.source === 'the-odds-api' ? b.key : b.french ? FRENCH_BOOKS[Number(b.key.split(':')[1])] ?? b.key : b.key;
 
 const identity = (q: OddsQuote, sport: Sport): { kind: MarketKind; line?: number; side: string } | undefined => {
   const scope = sport === 'nba' ? 'FULL_TIME_OVER_TIME' : 'FULL_TIME';
@@ -72,7 +77,7 @@ export function flashscoreBooks(snapshot: OddsSnapshot, sport: Sport, flip = fal
     }
     if (flip && m.line != null && ['spread', 'sets', 'games'].includes(m.kind)) m.line = -m.line;
     const key = `flashscore:${g.book}:${g.phase}`;
-    const b = books.get(key) ?? { key, title: g.title, source: 'flashscore', french: /(?:\.fr\b|\(FR\))/i.test(g.title), phase: g.phase, updated, markets: [] };
+    const b = books.get(key) ?? { key, title: g.title, source: 'flashscore', french: (snapshot.countryCode === 'FR' && FRENCH_BOOKS[g.book] != null) || /(?:\.fr\b|\(FR\))/i.test(g.title), projectId: snapshot.projectId, countryCode: snapshot.countryCode, phase: g.phase, updated, markets: [] };
     b.markets.push(m); books.set(key, b);
   }
   return [...books.values()].map(flattenBook);
@@ -88,13 +93,19 @@ export function flattenBook(b: BookPrice): BookPrice {
     spread: spread && { point: spread.line!, home: spread.home!, away: spread.away! }, total: total && { point: total.line!, over: total.over!, under: total.under! } };
 }
 
-export function selectBook(books: BookPrice[], phase: 'prematch' | 'live', now = Date.now()): BookPrice | undefined {
-  return books.filter((b) => b.phase === phase && b.markets.some((m) => m.kind === 'win' && freshMarket(m, now))).sort((a, b) => Date.parse(b.updated) - Date.parse(a.updated) || Number(/pinnacle/i.test(b.title)) - Number(/pinnacle/i.test(a.title)) || a.key.localeCompare(b.key))[0];
+export function selectBook(books: BookPrice[], phase: 'prematch' | 'live', now = Date.now(), preferred = 'betclic_fr'): BookPrice | undefined {
+  return books.filter((b) => b.phase === phase && b.markets.some((m) => m.kind === 'win' && freshMarket(m, now))).sort((a, b) => {
+    const ap = bookmakerKey(a) === preferred, bp = bookmakerKey(b) === preferred;
+    // Même bookmaker de référence : le relevé Flashscore est prioritaire, sans comparer son heure de lecture
+    // à une date de mise à jour d'un autre service. Sinon le changement de fournisseur changeait aussi le bookmaker.
+    return Number(bp) - Number(ap) || (ap && bp ? Number(b.source === 'flashscore') - Number(a.source === 'flashscore') : 0) || Date.parse(b.updated) - Date.parse(a.updated) || Number(/pinnacle/i.test(b.title)) - Number(/pinnacle/i.test(a.title)) || a.key.localeCompare(b.key);
+  })[0];
 }
 
-export function withReference(game: OddsGame, now = Date.now()): OddsGame {
+export function withReference(game: OddsGame, now = Date.now(), preferred = 'betclic_fr'): OddsGame {
   const phase = game.state === 'pre' ? 'prematch' : 'live';
   const pin = game.books.find((b) => /^pinnacle(?:\s|$)/i.test(b.title) && b.phase === phase && b.markets.some((m) => m.kind === 'win' && freshMarket(m, now)));
   const sum = pin?.home && pin.away ? 1 / pin.home + 1 / pin.away + (pin.draw ? 1 / pin.draw : 0) : 0;
-  return { ...game, selected: selectBook(game.books, phase, now)?.key, ref: sum && pin ? { home: (1 / pin.home!) / sum, away: (1 / pin.away!) / sum } : undefined };
+  const selected = selectBook(game.books, phase, now, preferred);
+  return { ...game, selected: selected?.key, selection: selected && { preferred, bookmaker: bookmakerKey(selected), source: selected.source, reason: bookmakerKey(selected) === preferred ? 'preferred' : 'fallback' }, ref: sum && pin ? { home: (1 / pin.home!) / sum, away: (1 / pin.away!) / sum } : undefined };
 }

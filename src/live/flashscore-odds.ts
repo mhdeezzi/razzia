@@ -20,6 +20,7 @@ export interface OddsQuote {
 }
 export interface OddsSnapshot {
   source: 'flashscore'; label: 'Cote'; complete: boolean;
+  projectId?: number; countryCode?: string;
   quotes: OddsQuote[]; feeds: Record<string, Feed>; errors: Record<string, string>;
   liveRequested: boolean; liveMarkets: number; liveReads: number;
   retryAfterMs: number;

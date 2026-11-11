@@ -197,9 +197,46 @@ test('CLI : cotes activées par défaut et inclusion pré-match explicite', asyn
   assert.equal(options([]).odds, true);
   assert.equal(options(['--no-odds']).odds, false);
   assert.equal(options(['--prematch']).prematch, true);
+  assert.equal(options([]).oddsLocale, 'fr');
+  assert.equal(options(['--odds-locale=global']).oddsLocale, 'global');
+  assert.throws(() => options(['--odds-locale=france']));
   const client = new Flashscore({ fetch: async (url) => String(url).endsWith('/nba/') ? config() : new Response(String(url).includes('/f_') ? rawBoard() : 'A1÷version¬~') });
   assert.equal((await collect(client, ['foot'])).matches.length, 0);
   assert.equal((await collect(client, ['foot'], undefined, undefined, { prematch: true })).matches.length, 1);
+});
+
+test('Flashscore.fr : projet 16, pays FR et hôte live français, avec provenance dans la réponse', async () => {
+  const paths: string[] = [];
+  const client = new Flashscore({ oddsLocale: 'fr', fetch: async (url, init) => {
+    const u = new URL(String(url)), hash = u.searchParams.get('_hash'); paths.push(u.hostname);
+    assert.equal(new Headers(init?.headers).get('x-fsign'), null);
+    if (hash === 'ole2') {
+      assert.equal(u.hostname, '16.ds.lsapp.eu');
+      assert.equal(u.searchParams.get('bookmakerId'), '141');
+      return reply(liveData({ bookmakerId: 141, home: price('home0001'), away: price('away0001', '1.80') }));
+    }
+    assert.equal(u.searchParams.get('projectId'), '16');
+    assert.equal(u.searchParams.get('geoIpCode'), 'FR');
+    if (hash === 'oce') return reply(comparison());
+    assert.equal(u.hostname, '16.ds.lsapp.eu');
+    return reply({ data: { getLiveOddsBettingTypeMenu: { settings: { bookmakers: [{ bookmaker: { id: 141, name: 'Betclic.fr' } }] }, items: [{ bettingType: 'HOME_AWAY', bettingScope: 'FULL_TIME', bookmakerIds: [141], isActive: true, types: ['LIVE'] }] } } });
+  } });
+  const data = await client.odds(fixture('2'));
+  assert.equal(data.complete, true); assert.equal(data.projectId, 16); assert.equal(data.countryCode, 'FR');
+  assert.deepEqual(paths.sort(), ['16.ds.lsapp.eu', '16.ds.lsapp.eu', 'global.ds.lsapp.eu']);
+  assert.equal(data.quotes.find((q) => q.phase === 'live')?.bookmakerName, 'Betclic.fr');
+});
+
+test('un refus du marché français est signalé et temporisé, sans passage au projet international', async () => {
+  let calls = 0;
+  const client = new Flashscore({ oddsLocale: 'fr', fetch: async (url) => {
+    calls++; const u = new URL(String(url));
+    assert.equal(u.searchParams.get('projectId'), '16');
+    return new Response('', { status: 403, headers: { 'Retry-After': '60' } });
+  } });
+  assert.equal((await client.odds(fixture())).complete, false);
+  assert.ok(client.oddsRetryAfterMs() > 0);
+  await client.odds(fixture()); assert.equal(calls, 1);
 });
 
 test('un séparateur initial légitime de flux ne déclenche pas un faux renouvellement', async () => {

@@ -55,7 +55,7 @@ export function flashscoreSourceMatch(detail: Detail, board: Board): SourceMatch
   };
 }
 
-export function createFlashscoreSource(client = new Flashscore()): LiveSource {
+export function createFlashscoreSource(client = new Flashscore({ oddsLocale: 'fr' })): LiveSource {
   return {
     name: 'flashscore', sports: ['foot', 'nba', 'tennis'],
     ready: () => process.env.LIVE_FLASHSCORE !== '0',

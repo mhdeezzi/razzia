@@ -1575,6 +1575,7 @@ var Flashscore = class {
   now;
   ttlMs;
   concurrency;
+  oddsLocale;
   active = 0;
   waiting = [];
   cache = /* @__PURE__ */ new Map();
@@ -1593,6 +1594,8 @@ var Flashscore = class {
     this.now = options.now ?? Date.now;
     this.ttlMs = options.ttlMs ?? 1e3;
     this.concurrency = options.concurrency ?? 4;
+    this.oddsLocale = options.oddsLocale ?? "global";
+    if (!["global", "fr"].includes(this.oddsLocale)) throw new Error("March\xE9 Flashscore invalide");
     if (!Number.isInteger(this.concurrency) || this.concurrency < 1) throw new Error("Concurrence invalide");
   }
   retryAfterMs() {
@@ -1750,14 +1753,15 @@ var Flashscore = class {
   async oddsFeed(query) {
     if (!/^[a-zA-Z0-9]{8}$/.test(query.eventId) || !["oce", "lobtm", "ole2"].includes(query.hash)) throw new Error("Requ\xEAte de cotes invalide");
     const params = new URLSearchParams({ _hash: query.hash, eventId: query.eventId });
+    const project = this.oddsLocale === "fr" ? "16" : "2";
     if (query.hash === "ole2") {
       if (!Number.isSafeInteger(query.bookmakerId) || query.bookmakerId <= 0 || !/^[A-Z0-9_]{1,80}$/.test(query.market ?? "") || !/^[A-Z0-9_]{1,80}$/.test(query.scope ?? "")) throw new Error("March\xE9 live invalide");
       params.set("bookmakerId", String(query.bookmakerId));
       params.set("betType", query.market);
       params.set("betScope", query.scope);
     } else {
-      params.set("projectId", "2");
-      params.set("geoIpCode", "");
+      params.set("projectId", project);
+      params.set("geoIpCode", this.oddsLocale === "fr" ? "FR" : "");
       params.set("geoIpSubdivisionCode", "");
     }
     const key2 = "odds:" + params;
@@ -1767,7 +1771,7 @@ var Flashscore = class {
     if (existing) return existing;
     const pending2 = (async () => {
       try {
-        const origin = query.hash === "oce" ? "https://global.ds.lsapp.eu/odds/pq_graphql" : "https://2.ds.lsapp.eu/pq_graphql";
+        const origin = query.hash === "oce" ? "https://global.ds.lsapp.eu/odds/pq_graphql" : `https://${project}.ds.lsapp.eu/pq_graphql`;
         const feed = await this.request(origin + "?" + params, { Accept: "application/json" }, false, false, true);
         oddsData(feed, query.hash === "oce" ? "findOddsByEventId" : query.hash === "lobtm" ? "getLiveOddsBettingTypeMenu" : "findLiveOddsForBookmaker");
         this.oddsCache.set(key2, { at: this.now(), feed });
@@ -1787,7 +1791,7 @@ var Flashscore = class {
   }
   async odds(match, options = {}) {
     const result = await readOdds(match, (query) => this.oddsFeed(query), options);
-    return { ...result, retryAfterMs: this.oddsRetryAfterMs() };
+    return { ...result, projectId: this.oddsLocale === "fr" ? 16 : 2, countryCode: this.oddsLocale === "fr" ? "FR" : "", retryAfterMs: this.oddsRetryAfterMs() };
   }
   async detail(match, board, options = {}) {
     if (!/^[a-zA-Z0-9]{8}$/.test(match.id)) throw new Error("Identifiant Flashscore invalide");
@@ -1888,7 +1892,7 @@ function flashscoreSourceMatch(detail, board) {
     ...odds ? { odds: { home: match.home, away: match.away, data: odds } } : {}
   };
 }
-function createFlashscoreSource(client = new Flashscore()) {
+function createFlashscoreSource(client = new Flashscore({ oddsLocale: "fr" })) {
   return {
     name: "flashscore",
     sports: ["foot", "nba", "tennis"],

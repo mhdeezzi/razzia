@@ -30,6 +30,9 @@ npm run flashscore -- --no-odds --interval=5000
 choisis sont lus. Les cotes sont activées par défaut (`--no-odds` pour ne lire que les statistiques).
 `--prematch` inclut aussi les matchs à venir, à limiter avec `--ids` si l'on souhaite suivre seulement
 quelques rencontres. Une dernière lecture est faite lorsque le tableau les annonce terminés.
+Les cotes du CLI utilisent Flashscore France par défaut, comme celles fournies au site.
+`--odds-locale=global` permet de choisir explicitement le catalogue international ; les réponses
+de cotes indiquent `projectId` et `countryCode`. Les API Razzia utilisent le marché français.
 Le fichier `data/cache/flashscore/latest.json` est remplacé atomiquement après chaque passage ;
 `--output=/chemin/latest.json` permet de choisir un autre emplacement. Ce répertoire est ignoré par Git.
 Les journaux indiquent le nombre de matchs, les erreurs et si le passage a dépassé l'intervalle.
