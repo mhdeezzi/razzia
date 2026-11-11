@@ -17,7 +17,10 @@
     "props-backtest": "node src/cli/propsbacktest.ts",
     "build": "vite build",
     "snapshot": "node src/cli/snapshot.ts",
-    "dev": "vite"
+    "dev": "vite",
+    "flashscore": "node src/cli/flashscore.ts",
+    "test:flashscore": "node --test src/live/flashscore.test.ts",
+    "build:live-api": "node scripts/build-live-api.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

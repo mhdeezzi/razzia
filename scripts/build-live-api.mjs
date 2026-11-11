@@ -13,3 +13,14 @@ await build({
   banner: { js: '// Fichier généré par scripts/build-live-api.mjs à partir de src/live (ne pas modifier à la main).' },
 });
 console.log('api/live.js écrit');
+await build({
+  entryPoints: ['src/live/flashscore-api.ts'],
+  outfile: 'api/flashscore.js',
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node22',
+  legalComments: 'none',
+  banner: { js: '// Fichier généré par scripts/build-live-api.mjs à partir de src/live (ne pas modifier à la main).' },
+});
+console.log('api/flashscore.js écrit');
