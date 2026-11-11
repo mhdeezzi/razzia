@@ -16,7 +16,7 @@ import { SlipBar, SuiviPage, TicketWatcher } from './suivipage.tsx';
 import { Toasts } from './toast.tsx';
 import { TennisMatchPage, TennisSchedulePage } from './tennis.tsx';
 import { FootMatchPage, FootSchedulePage } from './foot.tsx';
-import { Empty, Link, TeamMark, useLocation } from './ui.tsx';
+import { Empty, LIVE, Link, TeamMark, useLocation } from './ui.tsx';
 import { AccountPage, PricingPage } from './billing.tsx';
 import { Landing, landingPage } from './landing.tsx';
 import { LEGAL, LegalLinks, LegalPage, NotFound } from './legal.tsx';
@@ -66,7 +66,7 @@ function App() {
   const m = path.match(/^\/match\/(\d{4}-\d{2}-\d{2})\/([A-Z]{3})-([A-Z]{3})\/?$/);
   const t = path.match(/^\/tennis\/match\/(\d{4}-\d{2}-\d{2})\/(\d+)\/?$/);
   const f = path.match(/^\/foot\/match\/(\d{4}-\d{2}-\d{2})\/(\d+)\/?$/);
-  const l = path.match(/^\/live\/([a-z0-9-]+)\/?$/);
+  const l = LIVE && path.match(/^\/live\/([a-z0-9-]+)\/?$/);
   const page = m ? (
     <MatchPage key={path} date={m[1]} away={m[2]} home={m[3]} />
   ) : t ? (
@@ -75,7 +75,7 @@ function App() {
     <FootMatchPage key={path} id={f[2]} />
   ) : l ? (
     <LiveMatchPage key={path} id={l[1]} />
-  ) : path === '/live' ? (
+  ) : LIVE && path === '/live' ? (
     <LivePage />
   ) : path === '/' || path === '/foot' ? (
     <FootSchedulePage day={search.get('jour')} />
@@ -101,7 +101,7 @@ function App() {
     if (sp) try { localStorage.setItem(LAST_SPORT, sp); } catch { /* stockage indisponible */ }
   }, [path]);
   useEffect(() => {
-    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : path.startsWith('/live') ? 'Razzia | Simulation en direct' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/' || path.startsWith('/foot') ? 'Razzia | Football' : path === '/simulations' ? 'Simulations | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : landingPage(path) ? 'Razzia | Simule avant de parier' : LEGAL[path] ? `${LEGAL[path].title} | Razzia` : 'Razzia | Simulations NBA';
+    document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : LIVE && path.startsWith('/live') ? 'Razzia | Simulation en direct' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/' || path.startsWith('/foot') ? 'Razzia | Football' : path === '/simulations' ? 'Simulations | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : landingPage(path) ? 'Razzia | Simule avant de parier' : LEGAL[path] ? `${LEGAL[path].title} | Razzia` : 'Razzia | Simulations NBA';
   }, [path]);
   // Page d'accueil payante : cachée (aucun lien), visible seulement en tapant /accueil, en attendant de l'activer.
   if (landingPage(path))

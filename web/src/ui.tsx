@@ -433,3 +433,6 @@ export function SimProgress({ queued, start, title, steps, prep, note }: { queue
     </section>
   );
 }
+
+// Onglet Live masqué tant qu'il n'est pas prêt : pas de lien, et /live renvoie « page introuvable ». Ouvert seulement avec VITE_LIVE=1 au build.
+export const LIVE = import.meta.env.VITE_LIVE === '1';

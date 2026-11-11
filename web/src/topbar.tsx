@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { Basketball, Broadcast, ListChecks, SoccerBall, TennisBall, UserCircle } from '@phosphor-icons/react';
 import { useSlip } from './suivi.ts';
 import { useUnseen } from './suivipage.tsx';
-import { Link, useNowPath, useSlider } from './ui.tsx';
+import { LIVE, Link, useNowPath, useSlider } from './ui.tsx';
 import { Logo } from './logo.tsx';
 
 export function TopBar() {
@@ -14,7 +14,7 @@ export function TopBar() {
   const tennis = path.startsWith('/tennis');
   // Football à l'accueil ; le basket a son adresse (/basket) et ses fiches (/match/...).
   const nba = path.startsWith('/basket') || path.startsWith('/match');
-  const live = path.startsWith('/live');
+  const live = LIVE && path.startsWith('/live');
   const foot = !tennis && !nba && !own && !live;
   // Simulations, Bilan, Badges et Méthode restent accessibles par leur adresse ; à droite : Suivi puis Compte.
   const links = [
@@ -44,12 +44,12 @@ export function TopBar() {
             <Basketball size={18} weight={nba ? 'bold' : 'regular'} />
             <span className="lbl">Basketball</span>
           </Link>
-          <Link href="/live" className={`sport sport-live${live ? ' is-on' : ''}`} aria-current={path === '/live' ? 'page' : undefined} title="Simulation en direct">
+          {LIVE && <Link href="/live" className={`sport sport-live${live ? ' is-on' : ''}`} aria-current={path === '/live' ? 'page' : undefined} title="Simulation en direct">
             <span className="live-ico">
               <Broadcast size={18} weight={live ? 'bold' : 'regular'} />
             </span>
             <span className="lbl">Live</span>
-          </Link>
+          </Link>}
         </nav>
         <div className="top-right">
           <Link href="/suivi" className={`top-link glass top-suivi${path === '/suivi' ? ' is-on' : ''}`} aria-current={path === '/suivi' ? 'page' : undefined} title="Suivi des paris">
