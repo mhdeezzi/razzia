@@ -8,7 +8,7 @@ import { n1, pct0, teamColor, teamLogo } from './data.ts';
 export type Sport = 'foot' | 'tennis' | 'nba';
 /** Probabilités : domicile, nul, extérieur (nul à 0 hors foot). */
 export type P3 = [number, number, number];
-export interface Side { name: string; short: string; tri: string; color: string; logo?: string; mark?: string; photo?: string }
+export interface Side { name: string; short: string; tri: string; color: string; logo?: string; mark?: string; photo?: string; /** Joueur de tennis sans photo : initiales. */ player?: boolean }
 export type EvKind = 'kick' | 'goal' | 'red' | 'yellow' | 'chance' | 'sub' | 'pause' | 'break' | 'set' | 'run' | 'three' | 'timeout' | 'signal' | 'end';
 export type Gauge = 'energy' | 'fouls' | 'rhythm' | 'luck' | 'comeback';
 export interface Ev {
@@ -68,7 +68,11 @@ export interface Demo {
   ghostScore: string;
   mom: number[];
   pre: { p: P3; pick: number };
-  pick: { label: string; odds: number };
+  pick: { label: string; odds: number; /** Cote Razzia (1 / chance d'avant-match) plutôt qu'une cote de bookmaker. */ fair?: boolean };
+  /** Match réel (livereal.ts) : instant du match et source, au lieu de l'horloge de démonstration. */
+  live?: { t: number; ended: boolean; src: string; detail: boolean; at: number };
+  /** Jauges affichées (toutes par défaut) : un match réel n'affiche que celles dont il a les données. */
+  gaugeKeys?: Gauge[];
   at(t: number): Frame;
 }
 
@@ -602,6 +606,7 @@ const emit = () => subs.forEach((f) => f());
 export const clock = {
   /** Instant du match (dans son unité : minute, point) et s'il est fini (score final affiché avant de reprendre). */
   of(m: Demo): { t: number; ended: boolean } {
+    if (m.live) return { t: m.live.t, ended: m.live.ended };
     const c = cycle(m);
     const x = (((vnow() + (shift[m.id] ?? 0) + m.phase0 * c) % c) + c) % c;
     return { t: Math.min(m.len, x * m.pace), ended: x * m.pace >= m.len };

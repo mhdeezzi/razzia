@@ -2208,6 +2208,8 @@ var key = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replac
 var r3 = (v) => Math.round(v * 1e3) / 1e3;
 var r3a = (a) => a.map(r3);
 var FOOT_DEFAULT = [1.45, 1.15];
+var KICKOFF = { minute: 0, goals: [], reds: [], shots: [] };
+var NBA_TIP = { elapsed: 0, score: [0, 0], fg3: [[0, 0], [0, 0]], ft: [[0, 0], [0, 0]] };
 var NBA_DEFAULT = { spread: 2, total: 226 };
 function invPhi(p) {
   const a = [-39.6968302866538, 220.946098424521, -275.928510446969, 138.357751867269, -30.6647980661472, 2.50662827745924];
@@ -2252,7 +2254,8 @@ async function footList() {
     const goals = [...Array(m.score[0]).fill([Math.max(1, m.minute), 0]), ...Array(m.score[1]).fill([Math.max(1, m.minute), 1])];
     const reds = [...Array(m.reds[0]).fill([Math.max(1, m.minute), 0]), ...Array(m.reds[1]).fill([Math.max(1, m.minute), 1])];
     const o = footNow(pre, { minute: m.minute, goals, reds, shots: [] });
-    return { ...m, pre: src, p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), comeback: o.comeback && { ...o.comeback, draw: r3(o.comeback.draw), win: r3(o.comeback.win) } };
+    const o0 = footNow(pre, KICKOFF);
+    return { ...m, pre: src, p0: r3a(o0.p1x2), p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), comeback: o.comeback && { ...o.comeback, draw: r3(o.comeback.draw), win: r3(o.comeback.win) } };
   }));
 }
 async function extraStats(sport, home, away, options = {}) {
@@ -2265,11 +2268,19 @@ async function footOne(id, options = {}) {
   const d = await fotmobMatch(id);
   const { pre, src } = await footPre(id);
   const o = footNow(pre, d.timeline);
+  const o0 = footNow(pre, KICKOFF);
   const more = await extraStats("foot", d.home.name, d.away.name, options);
+  const tl = d.timeline, path = [];
+  for (let m = 0; m <= tl.minute; m++) {
+    const x = m === 0 ? o0 : footNow(pre, { minute: m, goals: tl.goals.filter(([g]) => g <= m), reds: tl.reds.filter(([g]) => g <= m), shots: [] });
+    path.push([m, ...r3a(x.p1x2)]);
+  }
   return {
     ...d,
     pre: src,
     more,
+    path,
+    start: { p1x2: r3a(o0.p1x2), top: o0.grid.flatMap((r, i) => r.map((p, j) => ({ s: `${i}-${j}`, p }))).sort((a, b) => b.p - a.p)[0]?.s, goals: r3(o0.remaining[0] + o0.remaining[1]) },
     engine: {
       minute: o.minute,
       score: o.score,
@@ -2291,11 +2302,15 @@ async function nbaOne(id, options = {}, withStats = true) {
   const d = await espnNbaGame(id);
   const { pre, src } = await nbaPre(d.date, d.away, d.home, d.market);
   const o = nbaNow(pre, d.st);
+  const o0 = nbaNow(pre, NBA_TIP);
   const more = withStats ? await extraStats("nba", d.home, d.away, options) : void 0;
+  const path = withStats ? [[0, r3(o0.win[0])], ...[...d.plays].reverse().filter((p) => p.scoring).map((p) => [r3(p.t), r3(nbaNow(pre, { ...NBA_TIP, elapsed: p.t, score: p.score }).win[0])]), [r3(d.st.elapsed), r3(o.win[0])]] : void 0;
   return {
     ...d,
     pre: { ...pre, src },
     more,
+    path,
+    p0: r3a(o0.win),
     engine: {
       win: r3a(o.win),
       margin: o.margin,
@@ -2315,7 +2330,7 @@ async function nbaList() {
   return Promise.all(board.filter((g) => g.state === "in").map(async (g) => {
     try {
       const x = await nbaOne(g.id, {}, false);
-      return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, pre: x.pre.src, win: x.engine.win, comeback: x.engine.comeback, espnHomeWin: g.espnHomeWin };
+      return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, pre: x.pre.src, p0: x.p0, win: x.engine.win, comeback: x.engine.comeback, espnHomeWin: g.espnHomeWin };
     } catch {
       return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, error: true };
     }

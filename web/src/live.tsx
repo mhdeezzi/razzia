@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import './live.css';
 import { pct0 } from './data.ts';
+import { isLiveId, useLiveList, useLiveMatch } from './livereal.ts';
 import { advAt, clock, demoOf, DEMOS, type Demo, type Ev, type Frame, type Gauge, type P3, type PickState, type Side, type Sport } from './livedemo.ts';
 import { CountUp, Empty, glow, Link, Segmented, TeamMark, useEntryState } from './ui.tsx';
 import { WarpBg } from './shaders.tsx';
@@ -109,7 +110,7 @@ function Roll({ v }: { v: number }) {
 }
 
 function Mark({ s, size }: { s: Side; size: 'sm' | 'md' | 'xl' }) {
-  return s.photo ? <Avatar name={s.name} photo={s.photo} size={size === 'md' ? 'row' : size} /> : <TeamMark team={{ tri: s.mark ?? s.tri, color: s.color, logo: s.logo }} size={size} />;
+  return s.photo || s.player ? <Avatar name={s.name} photo={s.photo} size={size === 'md' ? 'row' : size} /> : <TeamMark team={{ tri: s.mark ?? s.tri, color: s.color, logo: s.logo }} size={size} />;
 }
 
 function LiveTag({ f }: { f: Frame }) {
@@ -144,12 +145,15 @@ type Filter = 'all' | Sport;
 export function LivePage() {
   useBeat(1000);
   const [sport, setSport] = useEntryState<Filter>('sport', 'all');
-  const states = DEMOS.map((m) => ({ m, ...clock.of(m) }));
+  const real = useLiveList();
+  // Vrais matchs en cours quand il y en a, sinon l'aperçu fictif (dit clairement par la note sous le bandeau).
+  const ALL = real.list.length ? real.list : DEMOS;
+  const states = ALL.map((m) => ({ m, ...clock.of(m) }));
   const live = states.filter((s) => !s.ended);
   const count = (s: Sport) => live.filter((x) => x.m.sport === s).length;
-  const list = DEMOS.filter((m) => sport === 'all' || m.sport === sport);
-  const feed = recent(9);
-  const hot = feed.find((x) => x.e.big && x.age < 60)?.m ?? [...live].sort((a, b) => b.t / b.m.len - a.t / a.m.len)[0]?.m ?? DEMOS[0];
+  const list = ALL.filter((m) => sport === 'all' || m.sport === sport);
+  const feed = recent(ALL, 9);
+  const hot = feed.find((x) => x.e.big && x.age < 60)?.m ?? [...live].sort((a, b) => b.t / b.m.len - a.t / a.m.len)[0]?.m ?? ALL[0];
   return (
     <div className="page lv-page">
       <header className="hero-banner mesh has-shader lv-top">
@@ -186,7 +190,7 @@ export function LivePage() {
         </div>
       </header>
 
-      <DemoNote />
+      {real.list.length ? <RealNote at={real.at} /> : <DemoNote loading={real.loading} error={real.error} />}
 
       <div className="lv-hub">
         <div className="lv-cards" key={sport}>
@@ -225,21 +229,34 @@ const QUIET: Ev['kind'][] = ['kick', 'pause', 'sub', 'timeout', 'yellow'];
 const ago = (s: number) => (s < 4 ? "à l'instant" : s < 60 ? `${Math.round(s)} s` : `${Math.round(s / 60)} min`);
 
 /** Dernières actions de tous les matchs, de la plus récente à la plus ancienne. */
-function recent(limit: number) {
+function recent(all: Demo[], limit: number) {
   const out: Array<{ m: Demo; e: Ev; age: number }> = [];
-  for (const m of DEMOS) {
+  for (const m of all) {
     const { t } = clock.of(m);
     for (const e of m.events) if (e.t <= t && !QUIET.includes(e.kind)) out.push({ m, e, age: (t - e.t) / m.pace });
   }
   return out.sort((a, b) => a.age - b.age).slice(0, limit);
 }
 
-function DemoNote() {
+function DemoNote({ loading, error }: { loading?: boolean; error?: string }) {
   return (
     <p className="lv-note">
       <Info size={16} weight="bold" />
       <span>
-        <b>Aperçu.</b> Ces matchs sont fictifs : ils montrent la simulation en direct avant l'arrivée du moteur live.
+        {loading ? <><b>Recherche des matchs en cours…</b> En attendant, voici l'aperçu avec des matchs fictifs.</> : error ? <><b>Le direct ne répond pas pour le moment.</b> Voici l'aperçu avec des matchs fictifs.</> : <><b>Aucun match en cours pour le moment.</b> Voici l'aperçu avec des matchs fictifs : les vrais matchs apparaissent ici dès le coup d'envoi.</>}
+      </span>
+    </p>
+  );
+}
+
+/** Vrais matchs : d'où viennent les chiffres et quand ils ont été lus. */
+function RealNote({ at }: { at?: number }) {
+  const age = at ? Math.max(0, Math.round((Date.now() - at) / 1000)) : 0;
+  return (
+    <p className="lv-note is-real">
+      <i className="lv-dot" />
+      <span>
+        <b>En direct.</b> Moteur live Razzia, au départ de nos pronostics d'avant-match ; score et actions FotMob (foot) et ESPN (NBA, tennis). Mis à jour {age < 4 ? "à l'instant" : `il y a ${age} s`}.
       </span>
     </p>
   );
@@ -373,6 +390,7 @@ function MiniFil({ m, f }: { m: Demo; f: Frame }) {
 
 // ——— Fiche d'un match en direct ———
 export function LiveMatchPage({ id }: { id: string }) {
+  if (isLiveId(id)) return <RealMatch id={id} />;
   const m = demoOf(id);
   if (!m)
     return (
@@ -387,6 +405,23 @@ export function LiveMatchPage({ id }: { id: string }) {
   return <LiveMatch m={m} />;
 }
 
+/** Match réel : la fiche complète du moteur, relue toutes les 5 secondes. */
+function RealMatch({ id }: { id: string }) {
+  const { m, loading, error } = useLiveMatch(id);
+  if (m) return <LiveMatch m={m} />;
+  if (loading) return <div className="page"><span className="sk sk-hero" aria-busy="true" /></div>;
+  return (
+    <div className="page">
+      <Empty title="Ce match n'est plus en direct.">
+        {error && <p className="dash-meta">{error}</p>}
+        <Link href="/live" className="btn btn-primary">
+          Voir les matchs en direct
+        </Link>
+      </Empty>
+    </div>
+  );
+}
+
 function LiveMatch({ m }: { m: Demo }) {
   const f = useFrame(m);
   const fx = useFx(m, f);
@@ -398,7 +433,7 @@ function LiveMatch({ m }: { m: Demo }) {
         <Link href="/live" back className="back">
           <ArrowLeft size={16} /> En direct
         </Link>
-        <DemoBar m={m} f={f} />
+        {m.live ? <LiveBar m={m} /> : <DemoBar m={m} f={f} />}
       </div>
       <p className="lv-sr" aria-live="polite">
         {f.last ? `${f.last.title}. ${m.home.short} ${f.score[0]}, ${m.away.short} ${f.score[1]}.` : ''}
@@ -417,6 +452,20 @@ function LiveMatch({ m }: { m: Demo }) {
           <Feed m={m} f={f} />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Match réel : la source et l'âge des données, à la place des commandes de l'aperçu. */
+function LiveBar({ m }: { m: Demo }) {
+  useBeat(1000);
+  const age = m.live ? Math.max(0, Math.round((Date.now() - m.live.at) / 1000)) : 0;
+  return (
+    <div className="lv-demo is-real">
+      <span className="lv-demo-k">
+        <i className="lv-dot" /> En direct · {m.live?.src} · moteur Razzia
+      </span>
+      <span className="mono lv-demo-age">{age < 4 ? "à l'instant" : `il y a ${age} s`}</span>
     </div>
   );
 }
@@ -858,7 +907,7 @@ function Gauges({ m, f }: { m: Demo; f: Frame }) {
         <span className="lv-box-n">mis à jour en continu</span>
       </div>
       <div className="lv-gauges">
-        {ORDER.map((g) => {
+        {ORDER.filter((g) => !m.gaugeKeys || m.gaugeKeys.includes(g)).map((g) => {
           const sigs = m.events.filter((e) => e.gauge === g && e.t <= f.t);
           const sig = sigs[sigs.length - 1];
           const fresh = sig && f.t - sig.t < m.len * 0.06 && !f.ended;
@@ -1052,7 +1101,7 @@ function PickBox({ m, f }: { m: Demo; f: Frame }) {
         <div>
           <p className="lv-pick-l">{m.pick.label}</p>
           <p className="lv-pick-o">
-            Pris avant le match à <b className="mono">{m.pick.odds.toFixed(2).replace('.', ',')}</b>
+            {m.pick.fair ? 'Cote Razzia d’avant-match' : 'Pris avant le match à'} <b className="mono">{m.pick.odds.toFixed(2).replace('.', ',')}</b>
           </p>
         </div>
         <p className="lv-pick-p">

@@ -372,3 +372,9 @@
   .lv-word { animation: none; }
   .lv-strand { stroke-dashoffset: 0; }
 }
+
+/* ——— Matchs réels (livereal.ts) : note et barre de source à la place des commandes de l'aperçu ——— */
+.lv-note.is-real .lv-dot, .lv-demo.is-real .lv-dot { flex: none; }
+.lv-demo.is-real { gap: 10px; padding: 7px 12px; }
+.lv-demo.is-real .lv-demo-k { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--text-2); }
+.lv-demo-age { font-size: 12px; color: var(--text-3); white-space: nowrap; }

@@ -44,6 +44,9 @@ const r3 = (v: number) => Math.round(v * 1000) / 1000;
 const r3a = (a: number[]) => a.map(r3);
 /** Ligue sans pronostic Razzia : buts attendus moyens (domicile, extérieur). */
 const FOOT_DEFAULT: [number, number] = [1.45, 1.15];
+/** Coup d'envoi : le pronostic d'avant-match vu par le moteur live (point de départ de la courbe du match). */
+const KICKOFF = { minute: 0, goals: [] as Array<[number, 0 | 1]>, reds: [] as Array<[number, 0 | 1]>, shots: [] as Array<[number, 0 | 1, number]> };
+const NBA_TIP = { elapsed: 0, score: [0, 0] as [number, number], fg3: [[0, 0], [0, 0]] as [[number, number], [number, number]], ft: [[0, 0], [0, 0]] as [[number, number], [number, number]] };
 const NBA_DEFAULT: NbaPre = { spread: 2, total: 226 };
 
 /** Quantile de la loi normale (Acklam). */
@@ -99,7 +102,8 @@ async function footList() {
     const goals: Array<[number, 0 | 1]> = [...Array(m.score[0]).fill([Math.max(1, m.minute), 0]), ...Array(m.score[1]).fill([Math.max(1, m.minute), 1])];
     const reds: Array<[number, 0 | 1]> = [...Array(m.reds[0]).fill([Math.max(1, m.minute), 0]), ...Array(m.reds[1]).fill([Math.max(1, m.minute), 1])];
     const o = footNow(pre, { minute: m.minute, goals, reds, shots: [] });
-    return { ...m, pre: src, p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), comeback: o.comeback && { ...o.comeback, draw: r3(o.comeback.draw), win: r3(o.comeback.win) } };
+    const o0 = footNow(pre, KICKOFF);
+    return { ...m, pre: src, p0: r3a(o0.p1x2), p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), comeback: o.comeback && { ...o.comeback, draw: r3(o.comeback.draw), win: r3(o.comeback.win) } };
   }));
 }
 
@@ -115,9 +119,14 @@ async function footOne(id: number, options: SourceOptions = {}) {
   const d = await fotmobMatch(id);
   const { pre, src } = await footPre(id);
   const o = footNow(pre, d.timeline);
+  const o0 = footNow(pre, KICKOFF);
   const more = await extraStats('foot', d.home.name, d.away.name, options);
+  // Courbe du match : le pronostic à chaque minute jouée, avec ce qui était connu à cette minute (score, rouges).
+  const tl = d.timeline, path: Array<[number, number, number, number]> = [];
+  for (let m = 0; m <= tl.minute; m++) { const x = m === 0 ? o0 : footNow(pre, { minute: m, goals: tl.goals.filter(([g]) => g <= m), reds: tl.reds.filter(([g]) => g <= m), shots: [] }); path.push([m, ...r3a(x.p1x2)] as [number, number, number, number]); }
   return {
-    ...d, pre: src, more,
+    ...d, pre: src, more, path,
+    start: { p1x2: r3a(o0.p1x2), top: o0.grid.flatMap((r, i) => r.map((p, j) => ({ s: `${i}-${j}`, p }))).sort((a, b) => b.p - a.p)[0]?.s, goals: r3(o0.remaining[0] + o0.remaining[1]) },
     engine: {
       minute: o.minute, score: o.score, p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), goalSoon: r3a(o.goalSoon), remaining: r3a(o.remaining),
       over: r3a(o.over), comeback: o.comeback, hold: o.hold,
@@ -132,9 +141,12 @@ async function nbaOne(id: string, options: SourceOptions = {}, withStats = true)
   const d = await espnNbaGame(id);
   const { pre, src } = await nbaPre(d.date, d.away, d.home, d.market);
   const o = nbaNow(pre, d.st);
+  const o0 = nbaNow(pre, NBA_TIP);
   const more = withStats ? await extraStats('nba', d.home, d.away, options) : undefined;
+  // Courbe du match à partir des paniers du fil (score seul) : moins fine que le moteur complet, mais au même départ.
+  const path = withStats ? [[0, r3(o0.win[0])], ...[...d.plays].reverse().filter((p) => p.scoring).map((p) => [r3(p.t), r3(nbaNow(pre, { ...NBA_TIP, elapsed: p.t, score: p.score }).win[0])]), [r3(d.st.elapsed), r3(o.win[0])]] : undefined;
   return {
-    ...d, pre: { ...pre, src }, more,
+    ...d, pre: { ...pre, src }, more, path, p0: r3a(o0.win),
     engine: {
       win: r3a(o.win), margin: o.margin, total: o.total, comeback: o.comeback, factors: o.factors,
       cover: [-10.5, -7.5, -4.5, -1.5, 1.5, 4.5, 7.5, 10.5].map((l) => ({ line: l, p: r3(o.cover(l)) })),
@@ -148,7 +160,7 @@ async function nbaList() {
   return Promise.all(board.filter((g) => g.state === 'in').map(async (g) => {
     try {
       const x = await nbaOne(g.id, {}, false); // La liste renvoie le moteur, pas les flux détaillés de Flashscore.
-      return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, pre: x.pre.src, win: x.engine.win, comeback: x.engine.comeback, espnHomeWin: g.espnHomeWin };
+      return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, pre: x.pre.src, p0: x.p0, win: x.engine.win, comeback: x.engine.comeback, espnHomeWin: g.espnHomeWin };
     } catch {
       return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, error: true };
     }
