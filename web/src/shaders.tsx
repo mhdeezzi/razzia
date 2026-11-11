@@ -93,8 +93,9 @@ export function WarpBg({ c1, c2, ring, mono }: { c1: string; c2?: string; ring?:
           {ring ? (
             <Warp key={gen} className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={120_000} colors={[toHex(c1), '#000000', mix(toHex(c1), '#ffffff', v.light), toHex(c2 ?? c1)]} proportion={v.proportion} softness={1} distortion={v.distortion} swirl={v.swirl} swirlIterations={8} shape="checks" shapeScale={v.shapeScale} rotation={v.rotation} frame={v.frame} speed={still() || !seen ? 0 : 0.7} />
           ) : mono ? (
-            // En-tête d'une fiche : une seule couleur (l'équipe à domicile) en grandes nappes fondues dans le noir.
-            <Warp key={gen} className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={320_000} colors={['#000000', toHex(c1), '#000000', '#000000']} proportion={0.42} softness={1} distortion={0.22} swirl={0.45} swirlIterations={8} shape="checks" shapeScale={0.035} speed={still() || !seen ? 0 : 0.4} />
+            // En-tête d'une fiche : traînées de flamme à la couleur de l'équipe à domicile sur beaucoup de noir. La couleur
+            // n'occupe que les crêtes du motif ; motif tiré au hasard à chaque ouverture.
+            <Warp key={gen} className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={320_000} colors={flame(toHex(c1))} proportion={0.5} softness={1} distortion={0.28} swirl={0.7} swirlIterations={8} shape="checks" shapeScale={0.14} rotation={v.rotation} frame={v.frame} speed={still() || !seen ? 0 : 0.4} />
           ) : (
             <Warp key={gen} className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={320_000} colors={['#000000', toHex(c1), '#000000', toHex(c2 ?? c1)]} proportion={0.45} softness={1} distortion={0.25} swirl={0.6} swirlIterations={8} shape="checks" shapeScale={0.08} speed={still() || !seen ? 0 : 0.4} />
           )}
@@ -102,6 +103,12 @@ export function WarpBg({ c1, c2, ring, mono }: { c1: string; c2?: string; ring?:
       )}
     </span>
   );
+}
+
+/** Dégradé d'une traînée de flamme : noir partout, la couleur (et son cœur clair) seulement aux deux bouts du motif. */
+function flame(c: string) {
+  const k = '#000000', d = mix(c, k, 0.45);
+  return [k, c, d, k, k, k, k, d, c, mix(c, '#ffffff', 0.3)];
 }
 
 /** Mélange de deux couleurs #rrggbb (t : part de la seconde). */
