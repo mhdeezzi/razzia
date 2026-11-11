@@ -330,8 +330,8 @@ function season(sport: 'nba' | 'atp' | 'foot'): string {
  * En-tête des programmes façon affiche RAZZIA : marbre lent aux couleurs du sport, petites mentions en haut, titre très gras
  * et serré, le match à la une dessous ; date, nombre de matchs et affichage en pied.
  */
-/** Couleurs du marbre du bandeau, une paire par sport : ambre et ardoise au basket, bleu nuit et violet au tennis, vert pelouse et ardoise au foot. */
-const HERO_COLORS = { nba: ['#c98a3d', '#3b4a5e'], atp: ['#2a4f9a', '#7a3a6e'], foot: ['#3a7d44', '#34495e'] } as const;
+/** Couleurs du marbre du bandeau, une paire par sport : ambre et ardoise au basket, rose et ardoise au tennis, vert pelouse et ardoise au foot. */
+const HERO_COLORS = { nba: ['#c98a3d', '#3b4a5e'], atp: ['#d9739a', '#3b4a5e'], foot: ['#3a7d44', '#34495e'] } as const;
 
 export function PageHero({ sport, title, day, count, feature, children }: { sport: 'nba' | 'atp' | 'foot'; title: string; day?: string; count?: number; feature?: ReactNode; children?: ReactNode }) {
   const [first, ...rest] = title.split(' ');
