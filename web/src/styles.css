@@ -1923,3 +1923,6 @@ html.io :is(.section, .verdict, .lv-box):not([data-seen]), html.io :is(.section,
 /* Messages : sortie en fondu vers le bas, plus courte que l'entrée. */
 .toast.is-out { animation: toast-out 0.18s var(--ease) both; }
 @keyframes toast-out { to { opacity: 0; transform: translateY(8px) scale(0.98); } }
+
+/* Rond de probabilité : bleu uni mat (sans dégradé), bouts de l'arc carrés comme le marbre. */
+.ring-val { stroke: var(--c); stroke-linecap: butt; filter: none; }

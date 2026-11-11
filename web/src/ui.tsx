@@ -226,7 +226,11 @@ export function CountUp({ value, format, duration = 1100 }: { value: number; for
  * Anneau de probabilité. Avec `marble` (couleur d'une équipe), l'arc est le marbre animé de l'en-tête de la fiche, à la
  * couleur de cette équipe, au lieu du dégradé bleu.
  */
-export function Ring({ value, tone = 'blue', label, format, marble, marble2 }: { value: number; tone?: 'blue' | 'rose'; label?: string; format: (v: number) => string; marble?: string; marble2?: string }) {
+// Essai : rond bleu mat d'avant à la place du marbre animé. Remettre à true pour retrouver le marbre.
+const RING_MARBLE = false;
+
+export function Ring({ value, tone = 'blue', label, format, marble: m1, marble2 }: { value: number; tone?: 'blue' | 'rose'; label?: string; format: (v: number) => string; marble?: string; marble2?: string }) {
+  const marble = RING_MARBLE ? m1 : undefined;
   const r = 44;
   const c = 2 * Math.PI * r;
   const [shown, setShown] = useState(reduced() ? value : 0);
