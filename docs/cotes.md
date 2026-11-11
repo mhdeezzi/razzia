@@ -14,7 +14,7 @@ Flashscore les publie. `projectId` et `countryCode` identifient ce marché dans 
 
 La référence d'affichage par défaut est **Betclic France** ; son offre Flashscore active et compatible
 est prioritaire. L'ordre alphabétique des identifiants et l'heure de lecture d'un autre service ne
-doivent pas sélectionner William Hill à sa place. Les cartes NBA indiquent le bookmaker et la source.
+doivent pas sélectionner William Hill à sa place.
 La variable serveur `ODDS_PREFERRED_BOOKMAKER` permet de choisir une autre référence, par exemple
 `winamax_fr` ou `unibet_fr` (défaut : `betclic_fr`).
 

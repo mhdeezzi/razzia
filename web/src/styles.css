@@ -286,8 +286,6 @@ a.row:active { transform: scale(0.995); }
 .vs-rec { display: block; font: 500 12px var(--mono); color: var(--text-3); }
 .vs-at { font-size: 13px; color: var(--text-3); }
 .cell-odds { text-align: center; font: 500 15px var(--mono); letter-spacing: -0.02em; color: var(--text); }
-.card-price { text-align: right; min-width: 0; }
-.price-source { display: block; margin-top: 4px; font: 400 10px/1.3 var(--sans); color: var(--text-3); letter-spacing: 0; }
 .cell-total { text-align: center; font: 500 15px var(--mono); letter-spacing: -0.02em; color: var(--text-2); }
 /* Forme : logo (ou photo) et petite pastille en diagonale ; deux équipes en mouvement : les deux en escalier. */
 .forme { position: relative; display: inline-block; width: 46px; height: 36px; vertical-align: middle; }
