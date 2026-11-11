@@ -613,7 +613,7 @@ function FootHero({ id, r }: { id: string; r?: FootResult }) {
   };
   return (
     <header className="hero mesh mesh-foot has-shader">
-      <WarpBg c1={pairColors(home.id, away.id).home} c2={pairColors(home.id, away.id).away} />
+      <WarpBg c1={colorOf(home.id)} mono />
       <div className="hero-meta">
         <span>
           <SoccerBall size={15} /> {leagueOf(r?.lg ?? m!.lg, r?.league ?? m?.league)}
