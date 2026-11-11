@@ -54,12 +54,15 @@ async function footRecord(): Promise<Record> {
   return { rows };
 }
 
+/** Bilan d'un sport (lignes dans l'ordre des matchs) : pour le bandeau des programmes et la page d'accueil. */
+export const loadRecord = (sport: 'nba' | 'atp' | 'foot'): Promise<Record> => (sport === 'nba' ? nbaRecord() : sport === 'atp' ? atpRecord() : footRecord());
+
 /** Bandeau du bilan : pronostics passés, Razzia assuré, courbe de réussite cumulée, dix derniers résultats. */
 export function PublicRecord({ sport }: { sport: 'nba' | 'atp' | 'foot' }) {
   const [rec, setRec] = useState<Record>();
   useEffect(() => {
     // Relu toutes les 5 minutes tant que la page reste ouverte (le bilan est recalculé tous les quarts d'heure).
-    const load = () => (sport === 'nba' ? nbaRecord() : sport === 'atp' ? atpRecord() : footRecord()).then(setRec, () => setRec((r) => r ?? { rows: [] }));
+    const load = () => loadRecord(sport).then(setRec, () => setRec((r) => r ?? { rows: [] }));
     void load();
     const t = setInterval(load, 5 * 60_000);
     return () => clearInterval(t);
