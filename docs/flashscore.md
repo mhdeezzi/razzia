@@ -60,9 +60,17 @@ identiques sont regroupées et quatre appels réseau au maximum partent simultan
 Les réponses API utilisent `Cache-Control: no-store` pour éviter une couche de retard CDN.
 
 Les identifiants Flashscore alphanumériques ne sont pas les identifiants ESPN/FotMob déjà présents
-dans `/api/live`. Cette API constitue la source de données Flashscore ; elle ne remplace pas la page
-live actuelle et ne rapproche pas automatiquement les matchs avec les simulations Razzia.
-Les données collectées ne relancent jamais une simulation d'avant-match.
+dans `/api/live`. L'adaptateur `src/live/sources/flashscore.ts`, enregistré dans `SOURCES`, rapproche
+désormais les matchs des fiches `/api/live` par les participants. Aucun compte ni clé à configurer ;
+`LIVE_FLASHSCORE=0` permet de le désactiver. `/api/live` continue de recevoir les identifiants ESPN/FotMob.
+Les statistiques sont dans `more` au foot/NBA et alimentent aussi le moteur tennis. Ajouter
+`&odds=1` sur une fiche `/api/live` demande les cotes, avec les noms dans l'ordre source explicitement
+indiqué. Les associations ambiguës et les données conservées pendant une panne laissent fonctionner
+la source principale. Voir [live-stats.md](live-stats.md) pour les champs et les limites du raccordement.
+
+L'enrichissement concerne les matchs déjà listés par FotMob/ESPN. Il n'ajoute pas les matchs exclusifs
+à Flashscore à leur liste et ne remplace pas la page live de démonstration actuelle. L'API ne lance
+pas le robot CLI en continu. Les données collectées ne relancent jamais une simulation d'avant-match.
 
 ## Cotes bookmaker
 

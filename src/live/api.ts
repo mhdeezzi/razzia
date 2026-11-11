@@ -4,12 +4,11 @@
 //   GET /api/live?sport=foot&id=        -> fiche FotMob complète + moteur (1N2, prochain but, but dans 10 min, remontée)
 //   GET /api/live?sport=nba&id=         -> fiche ESPN + moteur (vainqueur, écart et total, remontée, chance au tir)
 //   GET /api/live?sport=tennis&id=      -> score ESPN + moteur (vainqueur, forme du jour, set en cours, remontée)
-// Réponses mises en cache 10 s par le CDN (et servies périmées 30 s de plus pendant le rafraîchissement) : le nombre de
-// visiteurs ne change rien au nombre d'appels aux sources.
+// Les clients des fournisseurs regroupent les requêtes en mémoire. Pas de délai CDN supplémentaire sur le live.
 import { footNow, nbaNow, tennisNow, TENNIS } from './index.ts';
 import { espnNbaBoard, espnNbaGame, espnTennisLive, fotmobLive, fotmobMatch } from './feeds.ts';
 import type { NbaPre } from './nba.ts';
-import { bookOf, enrich, normalizePoints } from './source.ts';
+import { bookOf, enrich, normalizePoints, type SourceOptions } from './source.ts';
 import { tennisFromStats, NEUTRAL_WEIGHTS, type PointWeights } from './stats/tennis-engine.ts';
 import mcpWeights from './tennis-weights.json' with { type: 'json' };
 
@@ -18,7 +17,7 @@ const WEIGHTS: PointWeights = process.env.LIVE_TENNIS_WEIGHTS === 'mcp' ? { outc
 
 const REPO = process.env.GH_REPO ?? 'mhdeezzi/razzia';
 const TOKEN = (process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN ?? process.env.GH_PAT ?? '').trim();
-const LIVE = { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30' };
+const LIVE = { 'Cache-Control': 'no-store' };
 const noStore = { 'Cache-Control': 'no-store' };
 
 /** Fichier de la branche resultats (pronostics d'avant-match), gardé 10 minutes. Sans clé GitHub : rien. */
@@ -105,18 +104,18 @@ async function footList() {
 }
 
 /** Stats d'une source branchée pour un match foot ou NBA (affichées rangées ; le moteur garde FotMob / ESPN). */
-async function extraStats(sport: 'foot' | 'nba', home: string, away: string) {
-  const extra = await enrich(sport, { home, away });
+async function extraStats(sport: 'foot' | 'nba', home: string, away: string, options: SourceOptions = {}) {
+  const extra = await enrich(sport, { home, away }, options);
   if (!extra) return undefined;
   const book = bookOf(sport, extra.match.stats);
-  return { source: extra.source, stats: book.all.map((s) => ({ key: s.key, name: s.name, group: s.group, side: s.side, period: s.period, value: s.v.value, made: s.v.made, att: s.v.att, raw: s.v.raw, known: s.known })), events: extra.match.events };
+  return { source: extra.source, id: extra.match.id, home: extra.match.home, away: extra.match.away, stats: book.all.map((s) => ({ key: s.key, name: s.name, group: s.group, side: s.side, period: s.period, value: s.v.value, made: s.v.made, att: s.v.att, raw: s.v.raw, known: s.known })), events: extra.match.events, score: extra.match.score, state: extra.match.state, quality: extra.match.quality, native: extra.match.native, odds: extra.match.odds };
 }
 
-async function footOne(id: number) {
+async function footOne(id: number, options: SourceOptions = {}) {
   const d = await fotmobMatch(id);
   const { pre, src } = await footPre(id);
   const o = footNow(pre, d.timeline);
-  const more = await extraStats('foot', d.home.name, d.away.name);
+  const more = await extraStats('foot', d.home.name, d.away.name, options);
   return {
     ...d, pre: src, more,
     engine: {
@@ -129,11 +128,11 @@ async function footOne(id: number) {
   };
 }
 
-async function nbaOne(id: string) {
+async function nbaOne(id: string, options: SourceOptions = {}, withStats = true) {
   const d = await espnNbaGame(id);
   const { pre, src } = await nbaPre(d.date, d.away, d.home, d.market);
   const o = nbaNow(pre, d.st);
-  const more = await extraStats('nba', d.home, d.away);
+  const more = withStats ? await extraStats('nba', d.home, d.away, options) : undefined;
   return {
     ...d, pre: { ...pre, src }, more,
     engine: {
@@ -148,7 +147,7 @@ async function nbaList() {
   const board = await espnNbaBoard();
   return Promise.all(board.filter((g) => g.state === 'in').map(async (g) => {
     try {
-      const x = await nbaOne(g.id);
+      const x = await nbaOne(g.id, {}, false); // La liste renvoie le moteur, pas les flux détaillés de Flashscore.
       return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, pre: x.pre.src, win: x.engine.win, comeback: x.engine.comeback, espnHomeWin: g.espnHomeWin };
     } catch {
       return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, error: true };
@@ -162,21 +161,23 @@ async function tennisList() {
 }
 
 const tennisBase = new Map<string, [number, number]>();
-async function tennisOne(m: Awaited<ReturnType<typeof espnTennisLive>>[number]) {
+async function tennisOne(m: Awaited<ReturnType<typeof espnTennisLive>>[number], options: SourceOptions = {}) {
   const { p0, surface, src } = await tennisPre(m.id, m.players);
   const k = `${m.id}|${p0}|${surface}`;
   const o = tennisNow(p0, surface, m.st, tennisBase.get(k));
   tennisBase.set(k, o.base);
   if (tennisBase.size > 300) tennisBase.clear();
   // Source de stats branchée (src/live/source.ts) : points et stats du match, au niveau de détail qu'elle donne.
-  const extra = await enrich('tennis', { home: m.players[0], away: m.players[1] });
+  const extra = await enrich('tennis', { home: m.players[0], away: m.players[1] }, options);
   if (extra) {
     const t = extra.match.tennis ?? {};
+    const st = { ...m.st, bestOf: t.bestOf ?? m.st.bestOf, sets: t.sets ?? m.st.sets, games: t.sets ? t.games : t.games ?? m.st.games, points: t.points, server: t.server };
     const book = bookOf('tennis', extra.match.stats);
     const pointLog = t.pointLog?.length ? normalizePoints(t.pointLog) : undefined;
-    const x = tennisFromStats(o.base, { bestOf: t.bestOf ?? m.st.bestOf, sets: t.sets ?? m.st.sets, games: t.games ?? m.st.games, points: t.points, server: t.server, pointLog, stats: book }, TENNIS, WEIGHTS);
+    const x = tennisFromStats(o.base, { ...st, pointLog, stats: book }, TENNIS, WEIGHTS);
     return {
-      ...m, pre: { p0: r3(p0), surface, src }, source: extra.source,
+      ...m, st, state: extra.match.state, pre: { p0: r3(p0), surface, src }, source: extra.source, sourceId: extra.match.id,
+      quality: extra.match.quality, native: extra.match.native, odds: extra.match.odds,
       engine: { win: r3a(x.win), form: x.form, comeback: x.comeback, setNow: x.setNow, holdNow: x.holdNow, read: x.read },
       stats: book.all.map((s) => ({ key: s.key, name: s.name, group: s.group, side: s.side, period: s.period, value: s.v.value, made: s.v.made, att: s.v.att, raw: s.v.raw, known: s.known })),
     };
@@ -188,18 +189,19 @@ async function tennisOne(m: Awaited<ReturnType<typeof espnTennisLive>>[number]) 
 export async function GET(request: Request): Promise<Response> {
   const q = new URL(request.url).searchParams;
   const sport = q.get('sport'), id = q.get('id') ?? '';
+  const options: SourceOptions = { odds: q.get('odds') === '1' };
   try {
     if (!sport) {
       const [foot, nba, tennis] = await Promise.all([footList().catch((e) => ({ error: String(e.message) })), nbaList().catch((e) => ({ error: String(e.message) })), tennisList().catch((e) => ({ error: String(e.message) }))]);
       return Response.json({ at: new Date().toISOString(), foot, nba, tennis }, { headers: LIVE });
     }
-    if (sport === 'foot' && /^\d{4,10}$/.test(id)) return Response.json(await footOne(Number(id)), { headers: LIVE });
-    if (sport === 'nba' && /^\d{6,12}$/.test(id)) return Response.json(await nbaOne(id), { headers: LIVE });
+    if (sport === 'foot' && /^\d{4,10}$/.test(id)) return Response.json(await footOne(Number(id), options), { headers: LIVE });
+    if (sport === 'nba' && /^\d{6,12}$/.test(id)) return Response.json(await nbaOne(id, options), { headers: LIVE });
     if (sport === 'tennis' && /^\d{4,12}$/.test(id)) {
       const all = [...(await espnTennisLive('atp').catch(() => [])), ...(await espnTennisLive('wta').catch(() => []))];
       const m = all.find((x) => x.id === id);
       if (!m) return Response.json({ error: 'Match introuvable ou pas commencé' }, { status: 404, headers: noStore });
-      return Response.json(await tennisOne(m), { headers: LIVE });
+      return Response.json(await tennisOne(m, options), { headers: LIVE });
     }
     return Response.json({ error: 'Paramètres invalides' }, { status: 400, headers: noStore });
   } catch (e) {

@@ -13,6 +13,8 @@
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 import { StatBook, statsFromRow, type Sport } from './stats/catalog.ts';
 import { outcomeFromText, type Outcome, type Stroke, type TennisPoint } from './stats/tennis-points.ts';
+import { flashscore } from './sources/flashscore.ts';
+import { sameParticipant } from './sources/matching.ts';
 
 /** Un match tel que le fournisseur le liste. */
 export interface SourceRef { id: string; sport: Sport; home: string; away: string; start?: string; tourney?: string }
@@ -46,21 +48,29 @@ export interface SourceMatch {
   tennis?: { bestOf?: 3 | 5; sets?: Array<[number, number]>; games?: [number, number]; points?: [number, number]; server?: 0 | 1; pointLog?: RawPoint[] };
   stats?: RawStat[];
   events?: RawEvent[];
+  score?: [number | null, number | null];
+  quality?: { at: string; stale: boolean; complete: boolean; errors: Record<string, string> };
+  /** Données et cotes dans leur ordre NATIF explicite ; jamais implicitement réétiquetées après swap. */
+  native?: { home: string; away: string; data: unknown };
+  odds?: { home: string; away: string; data: unknown };
 }
+
+export interface SourceOptions { odds?: boolean }
 
 export interface LiveSource {
   /** Nom court (« api-tennis », « goalserve »…), utilisé dans ?source= et dans les réponses. */
   name: string;
   sports: Sport[];
-  /** Vrai si la source est configurée (clé présente) : sinon elle est ignorée sans erreur. */
+  /** Vrai si la source est activée et configurée (clé présente si nécessaire) ; sinon elle est ignorée. */
   ready(): boolean;
   live(sport: Sport): Promise<SourceRef[]>;
-  match(sport: Sport, id: string): Promise<SourceMatch>;
+  match(sport: Sport, id: string, options?: SourceOptions): Promise<SourceMatch>;
 }
 
 // ═══ BRANCHER ICI ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 // import { modele } from './sources/modele.ts';
 export const SOURCES: LiveSource[] = [
+  flashscore,
   // modele,
 ];
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -86,25 +96,27 @@ export function bookOf(sport: Sport, stats: RawStat[] = []): StatBook {
   return b;
 }
 
-/** Rapprochement d'un match d'une autre source par les noms (nom de famille, sans accents), dans un sens ou dans l'autre. */
-const last = (n: string) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').trim().split(/\s+/).filter((w) => w.length > 1).pop() ?? '';
-export function sameMatch(a: { home: string; away: string }, b: { home: string; away: string }): 'same' | 'swapped' | undefined {
-  if (last(a.home) === last(b.home) && last(a.away) === last(b.away)) return 'same';
-  if (last(a.home) === last(b.away) && last(a.away) === last(b.home)) return 'swapped';
+/** Noms complets/initiales tennis, codes NBA et noms de clubs ; une ressemblance vague ne suffit pas. */
+export function sameMatch(a: { home: string; away: string }, b: { home: string; away: string }, sport: Sport = 'tennis'): 'same' | 'swapped' | undefined {
+  const same = sameParticipant(a.home, b.home, sport) && sameParticipant(a.away, b.away, sport);
+  const swapped = sameParticipant(a.home, b.away, sport) && sameParticipant(a.away, b.home, sport);
+  if (same && !swapped) return 'same';
+  if (swapped && !same) return 'swapped';
   return undefined;
 }
 
 /** Le même match dans une source branchée, s'il y en a une : données remises dans l'ordre (A, B) demandé. */
-export async function enrich(sport: Sport, want: { home: string; away: string }): Promise<{ source: string; match: SourceMatch } | undefined> {
-  for (const src of sourcesFor(sport)) {
+export async function enrich(sport: Sport, want: { home: string; away: string }, options: SourceOptions = {}, sources = sourcesFor(sport)): Promise<{ source: string; match: SourceMatch } | undefined> {
+  for (const src of sources) {
+    if (!src.ready() || !src.sports.includes(sport)) continue;
     try {
       const list = await src.live(sport);
-      for (const ref of list) {
-        const how = sameMatch(want, ref);
-        if (!how) continue;
-        const m = await src.match(sport, ref.id);
-        return { source: src.name, match: how === 'same' ? m : swap(m) };
-      }
+      const candidates = list.filter((ref) => ref.sport === sport && ref.id).map((ref) => ({ ref, how: sameMatch(want, ref, sport) })).filter((c) => c.how);
+      if (candidates.length !== 1) continue; // ambigu : pas de données appliquées au mauvais match
+      const { ref, how } = candidates[0];
+      const m = await src.match(sport, ref.id, options);
+      if (m.id !== ref.id || m.sport !== sport || m.state === 'pre' || m.quality?.stale || sameMatch(ref, m, sport) !== 'same') continue;
+      return { source: src.name, match: how === 'same' ? m : swap(m) };
     } catch { /* source en panne : on continue sans elle */ }
   }
   return undefined;
@@ -115,7 +127,7 @@ export function swap(m: SourceMatch): SourceMatch {
   const f = (x: 0 | 1 | undefined) => (x == null ? x : ((1 - x) as 0 | 1));
   const pair = <T>(p?: [T, T]) => (p ? [p[1], p[0]] as [T, T] : p);
   return {
-    ...m, home: m.away, away: m.home,
+    ...m, home: m.away, away: m.home, score: pair(m.score),
     tennis: m.tennis && {
       ...m.tennis, sets: m.tennis.sets?.map(([a, b]) => [b, a] as [number, number]), games: pair(m.tennis.games), points: pair(m.tennis.points), server: f(m.tennis.server),
       pointLog: m.tennis.pointLog?.map((p) => ({ ...p, server: f(p.server)!, winner: f(p.winner)!, by: f(p.by) })),

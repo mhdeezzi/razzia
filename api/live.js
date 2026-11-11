@@ -406,7 +406,7 @@ function setScoreDist(pA, pB, tb) {
   }
   return out;
 }
-function series(s, last2, need, sa, sb) {
+function series(s, last, need, sa, sb) {
   const memo = /* @__PURE__ */ new Map();
   const go = (i, j) => {
     if (i === need) return 1;
@@ -414,7 +414,7 @@ function series(s, last2, need, sa, sb) {
     const k = i * 8 + j;
     const c = memo.get(k);
     if (c != null) return c;
-    const x = i === need - 1 && j === need - 1 ? last2 : s;
+    const x = i === need - 1 && j === need - 1 ? last : s;
     const v = x * go(i + 1, j) + (1 - x) * go(i, j + 1);
     memo.set(k, v);
     return v;
@@ -433,15 +433,15 @@ function winFrom(P, pA, pB, st, aServesNow) {
   const decisiveNow = sa === need - 1 && sb === need - 1;
   const superTb = st.superTb ?? st.bestOf === 5;
   const tbNow = decisiveNow && superTb ? 10 : 7;
-  let s = 0, last2 = 0;
+  let s = 0, last = 0;
   for (const [z, w] of P.setSd ? N_SET : [[0, 1]]) {
     const a = Sg(Lg(pA) + P.setSd * z), b = Sg(Lg(pB) - P.setSd * z);
     const s7 = (setFast(a, b, true, 7) + setFast(a, b, false, 7)) / 2;
     s += w * s7;
-    last2 += w * (superTb ? (setFast(a, b, true, 10) + setFast(a, b, false, 10)) / 2 : s7);
+    last += w * (superTb ? (setFast(a, b, true, 10) + setFast(a, b, false, 10)) / 2 : s7);
   }
   const g = st.games ?? [0, 0];
-  if (!st.games && !st.points) return series(s, last2, need, sa, sb);
+  if (!st.games && !st.points) return series(s, last, need, sa, sb);
   let cur = 0, tw = 0;
   const cp = st.curSetPts;
   for (const [z, w0] of P.setSd ? N_SET : [[0, 1]]) {
@@ -451,7 +451,7 @@ function winFrom(P, pA, pB, st, aServesNow) {
     tw += w;
   }
   cur = tw > 0 ? cur / tw : cur;
-  return cur * series(s, last2, need, sa + 1, sb) + (1 - cur) * series(s, last2, need, sa, sb + 1);
+  return cur * series(s, last, need, sa + 1, sb) + (1 - cur) * series(s, last, need, sa, sb + 1);
 }
 function likelihood(P, pA, pB, st) {
   if (st.servePts && st.servePts[0][1] + st.servePts[1][1] >= 8) {
@@ -757,10 +757,10 @@ async function espnNbaGame(id) {
       fouls[side]++;
     }
   }
-  const last2 = plays.at(-1);
-  if (last2?.team?.id) {
-    const by = String(last2.team.id) === homeTeamId ? 0 : 1;
-    const flips = last2.scoringPlay || /turnover|defensive rebound/i.test(last2.type?.text ?? "");
+  const last = plays.at(-1);
+  if (last?.team?.id) {
+    const by = String(last.team.id) === homeTeamId ? 0 : 1;
+    const flips = last.scoringPlay || /turnover|defensive rebound/i.test(last.type?.text ?? "");
     possession = flips ? 1 - by : by;
   }
   const pc = (d.pickcenter ?? [])[0];
@@ -1156,13 +1156,13 @@ var StatBook = class {
 };
 
 // src/live/stats/tennis-points.ts
-function outcomeFromText(text) {
-  const c = classify("tennis", text);
+function outcomeFromText(text2) {
+  const c = classify("tennis", text2);
   const k = c.key;
   const stroke = k.split(".")[1];
   if (k === "serve.aces") return { outcome: "ace", stroke: "serve" };
   if (k === "serve.df") return { outcome: "double_fault", stroke: "serve" };
-  if (/service winner|service gagnant|unreturned|non retourne/i.test(text)) return { outcome: "service_winner", stroke: "serve" };
+  if (/service winner|service gagnant|unreturned|non retourne/i.test(text2)) return { outcome: "service_winner", stroke: "serve" };
   if (k.startsWith("ue")) return { outcome: "unforced_error", stroke: stroke ?? "other" };
   if (k.startsWith("fe")) return { outcome: "forced_error", stroke: stroke ?? "other" };
   if (k.startsWith("winners")) return { outcome: "winner", stroke: stroke ?? "other" };
@@ -1301,8 +1301,696 @@ function stateFromPoints(points, bestOf, superTb = bestOf === 5) {
   return st;
 }
 
+// src/live/flashscore-odds.ts
+var obj = (v) => v != null && typeof v === "object" && !Array.isArray(v) ? v : void 0;
+var text = (v) => typeof v === "string" ? v : null;
+var array = (v, name) => {
+  if (!Array.isArray(v)) throw new Error("Format des cotes modifi\xE9 : " + name);
+  return v;
+};
+var idOf = (v) => {
+  if (typeof v !== "number" || !Number.isSafeInteger(v) || v <= 0) throw new Error("Identifiant bookmaker absent ou invalide");
+  return v;
+};
+var decimal = (v) => {
+  const s = typeof v === "number" ? String(v) : text(v);
+  return s && /^\d+(?:\.\d+)?$/.test(s) && Number.isFinite(Number(s)) && Number(s) >= 1 ? Number(s) : null;
+};
+function oddsData(feed, key2) {
+  const root = obj(JSON.parse(feed.raw));
+  const data = obj(root?.data);
+  if (!root || root.errors != null && (!Array.isArray(root.errors) || root.errors.length > 0) || !data || !Object.hasOwn(data, key2)) throw new Error("R\xE9ponse de cotes incompl\xE8te : " + key2);
+  if (data[key2] === null) return null;
+  const value = obj(data[key2]);
+  if (!value) throw new Error("Format des cotes modifi\xE9 : " + key2);
+  return value;
+}
+function bookmakerNames(settings) {
+  const entries = obj(settings)?.bookmakers;
+  const names = /* @__PURE__ */ new Map();
+  if (entries == null) return names;
+  for (const entry of array(entries, "bookmakers")) {
+    const book = obj(obj(entry)?.bookmaker);
+    if (book && typeof book.name === "string") names.set(idOf(book.id), book.name);
+  }
+  return names;
+}
+function quote(match, feed, feedKey, phase, book, names, market, scope, value, context = {}) {
+  const participantId = text(value.eventParticipantId);
+  const homeId = match.fields.find(([k]) => k === "JA")?.[1], awayId = match.fields.find(([k]) => k === "JB")?.[1];
+  let side = participantId && participantId === homeId ? "home" : participantId && participantId === awayId ? "away" : null;
+  const explicit = text(context.outcome);
+  if (!side && ["home", "away", "draw"].includes(explicit ?? "")) side = explicit;
+  if (!side && participantId == null && market === "HOME_DRAW_AWAY") side = "draw";
+  const handicap = obj(value.handicap) ?? obj(context.handicap);
+  const line = handicap && text(handicap.value);
+  const change = obj(value.change);
+  const active = typeof value.active === "boolean" ? value.active : null;
+  const historical = phase === "prematch" && match.state !== "pre";
+  const doubleChance = market === "DOUBLE_CHANCE" ? side === "home" ? "1X" : side === "away" ? "X2" : participantId == null ? "12" : null : null;
+  const outcome = text(value.selection) ?? text(value.score) ?? text(value.winner) ?? (typeof value.bothTeamsToScore === "boolean" ? value.bothTeamsToScore ? "yes" : "no" : null) ?? text(context.score) ?? explicit ?? doubleChance ?? side ?? participantId ?? "unknown";
+  return {
+    kind: "bookmaker",
+    label: "Cote",
+    phase,
+    bookmakerId: book,
+    bookmakerName: names.get(book) ?? null,
+    market,
+    scope,
+    outcome,
+    side,
+    participantId,
+    handicap: line != null ? { value: line, type: text(handicap?.type) } : null,
+    odds: decimal(value.value),
+    openingOdds: decimal(value.opening),
+    previousOdds: decimal(change?.previous),
+    rawValue: text(value.value),
+    active,
+    status: feed.stale ? "stale" : historical ? "historical" : active === false ? "suspended" : decimal(value.value) == null ? "unknown" : active === true ? "active" : "unknown",
+    fetchedAt: feed.fetchedAt,
+    ageSeconds: feed.ageSeconds,
+    feedKey
+  };
+}
+function parsePrematchOdds(feed, match) {
+  const data = oddsData(feed, "findOddsByEventId");
+  if (!data) return [];
+  if (data.eventId !== match.id) throw new Error("Les cotes re\xE7ues concernent un autre match");
+  const names = bookmakerNames(data.settings);
+  const quotes = [];
+  for (const entry of array(data.odds, "odds")) {
+    const market = obj(entry);
+    if (!market || typeof market.bettingType !== "string" || typeof market.bettingScope !== "string") throw new Error("March\xE9 de cotes invalide");
+    const book = idOf(market.bookmakerId);
+    for (const item of array(market.odds, "market.odds")) {
+      const value = obj(item);
+      if (!value) throw new Error("S\xE9lection de cote invalide");
+      quotes.push(quote(match, feed, "prematch", "prematch", book, names, market.bettingType, market.bettingScope, value));
+    }
+  }
+  return quotes;
+}
+function parseLiveOdds(feed, match, query, names = /* @__PURE__ */ new Map()) {
+  const data = oddsData(feed, "findLiveOddsForBookmaker");
+  if (!data) return [];
+  if (!Object.hasOwn(data, "eventOddsOverview")) throw new Error("March\xE9 live absent de la r\xE9ponse");
+  const root = data.eventOddsOverview;
+  if (root === null) return [];
+  if (!obj(root) && !Array.isArray(root)) throw new Error("March\xE9 live invalide");
+  const book = idOf(query.bookmakerId), market = query.market, scope = query.scope;
+  if (obj(root)?.bookmakerId != null && obj(root)?.bookmakerId !== book) throw new Error("Les cotes live re\xE7ues concernent un autre bookmaker");
+  const feedKey = "live:" + book + ":" + market + ":" + scope;
+  const quotes = [];
+  let explicitEmpty = false;
+  const outcomes = { home: "home", away: "away", draw: "draw", over: "OVER", under: "UNDER", yes: "yes", no: "no", odd: "ODD", even: "EVEN", homeOrDraw: "1X", awayOrDraw: "X2", noDraw: "12", none: "none" };
+  const walk = (node, context = {}) => {
+    if (Array.isArray(node)) {
+      if (!node.length) explicitEmpty = true;
+      for (const item of node) walk(item, context);
+      return;
+    }
+    const value = obj(node);
+    if (!value) return;
+    const inherited = { ...context, ...obj(value.handicap) ? { handicap: value.handicap } : {}, ...typeof value.score === "string" ? { score: value.score } : {} };
+    const priceFields = Object.hasOwn(value, "active") || Object.hasOwn(value, "opening") || Object.hasOwn(value, "eventParticipantId");
+    if (value.__typename === "EventOddsOverviewItem" || priceFields && (Object.hasOwn(value, "value") || context.outcome != null)) {
+      quotes.push(quote(match, feed, feedKey, "live", book, names, market, scope, value, inherited));
+      return;
+    }
+    for (const [key2, child] of Object.entries(value)) {
+      if (["handicap", "change", "subscriptionSubjects"].includes(key2)) continue;
+      if (outcomes[key2] && child === null) explicitEmpty = true;
+      walk(child, { ...inherited, ...outcomes[key2] ? { outcome: outcomes[key2] } : {} });
+    }
+  };
+  walk(root);
+  if (!quotes.length && !explicitEmpty) throw new Error("Structure du march\xE9 live non reconnue");
+  return quotes;
+}
+async function readOdds(match, request) {
+  const feeds = {}, errors = {};
+  const quotes = [];
+  let liveMarkets = 0, liveReads = 0;
+  const get2 = async (key2, query) => {
+    const feed = await request(query);
+    feeds[key2] = feed;
+    if (feed.stale) errors[key2] = feed.staleReason ?? "Derni\xE8res cotes connues, source indisponible";
+    return feed;
+  };
+  const prematch = (async () => {
+    try {
+      quotes.push(...parsePrematchOdds(await get2("prematch", { hash: "oce", eventId: match.id }), match));
+    } catch (e) {
+      errors.prematch = e instanceof Error ? e.message : "Cotes indisponibles";
+    }
+  })();
+  const live = (async () => {
+    if (match.state !== "in") return;
+    try {
+      const menu = oddsData(await get2("liveMenu", { hash: "lobtm", eventId: match.id }), "getLiveOddsBettingTypeMenu");
+      if (!menu) return;
+      const names = bookmakerNames(menu.settings);
+      const jobs = /* @__PURE__ */ new Map();
+      for (const entry of array(menu.items, "liveMenu.items")) {
+        const item = obj(entry);
+        if (!item || typeof item.bettingType !== "string" || typeof item.bettingScope !== "string") throw new Error("Menu de march\xE9s live invalide");
+        if (item.isActive === false || !array(item.types, "liveMenu.types").includes("LIVE")) continue;
+        for (const book of array(item.bookmakerIds, "liveMenu.bookmakerIds")) {
+          const id = idOf(book), key2 = "live:" + id + ":" + item.bettingType + ":" + item.bettingScope;
+          jobs.set(key2, { hash: "ole2", eventId: match.id, bookmakerId: id, market: item.bettingType, scope: item.bettingScope });
+        }
+      }
+      liveMarkets = jobs.size;
+      const entries = [...jobs];
+      let index = 0;
+      await Promise.all(Array.from({ length: Math.min(4, entries.length) }, async () => {
+        while (index < entries.length) {
+          const [key2, query] = entries[index++];
+          try {
+            quotes.push(...parseLiveOdds(await get2(key2, query), match, query, names));
+            liveReads++;
+          } catch (e) {
+            errors[key2] = e instanceof Error ? e.message : "Cote live indisponible";
+          }
+        }
+      }));
+    } catch (e) {
+      errors.liveMenu = e instanceof Error ? e.message : "Menu des cotes live indisponible";
+    }
+  })();
+  await Promise.all([prematch, live]);
+  quotes.sort((a, b) => (a.phase + a.bookmakerId + a.market + a.scope + a.outcome).localeCompare(b.phase + b.bookmakerId + b.market + b.scope + b.outcome));
+  return { source: "flashscore", label: "Cote", complete: !Object.keys(errors).length, quotes, feeds, errors, liveRequested: match.state === "in", liveMarkets, liveReads, retryAfterMs: 0 };
+}
+
+// src/live/flashscore.ts
+var SPORTS = ["foot", "tennis", "nba"];
+function records(raw) {
+  return raw.split("~").map((record) => record.split("\xAC").flatMap((field2) => {
+    const i = field2.indexOf("\xF7");
+    return i < 0 ? [] : [[field2.slice(0, i), field2.slice(i + 1)]];
+  })).filter((fields) => fields.length > 0);
+}
+var field = (fields, key2) => fields.find(([k]) => k === key2)?.[1];
+var number = (value) => value != null && value.trim() !== "" && Number.isFinite(Number(value)) ? Number(value) : null;
+function parseBoard(sport, feed) {
+  const matches = [];
+  let leagueFields = [];
+  for (const fields of records(feed.raw)) {
+    if (field(fields, "ZA") != null) leagueFields = fields;
+    const id = field(fields, "AA");
+    if (!id || !/^[a-zA-Z0-9]{8}$/.test(id)) continue;
+    const league = field(leagueFields, "ZA") ?? "";
+    if (sport === "nba" && !/^USA: NBA(?:\s+-|$)/.test(league)) continue;
+    const state = field(fields, "AB");
+    const timestamp = number(field(fields, "AD"));
+    const date = timestamp == null ? null : new Date(timestamp * 1e3);
+    matches.push({
+      id,
+      sport,
+      league,
+      leagueFields,
+      fields,
+      start: date && Number.isFinite(date.getTime()) ? date.toISOString() : null,
+      state: state === "1" ? "pre" : state === "2" ? "in" : state === "3" ? "post" : "unknown",
+      stage: field(fields, "AC") ?? "",
+      home: field(fields, "AE") ?? "",
+      away: field(fields, "AF") ?? "",
+      score: [number(field(fields, "AG")), number(field(fields, "AH"))]
+    });
+  }
+  return { sport, fetchedAt: feed.fetchedAt, ageSeconds: feed.ageSeconds, matches, stale: !!feed.stale, staleReason: feed.staleReason };
+}
+function parseStatistics(raw) {
+  let period2 = "", group = "";
+  const out = [];
+  for (const fields of records(raw)) {
+    period2 = field(fields, "SE") ?? period2;
+    group = field(fields, "SF") ?? group;
+    const label = field(fields, "SG");
+    if (label != null) out.push({ period: period2, group, id: field(fields, "SD"), label, home: field(fields, "SH") ?? null, away: field(fields, "SI") ?? null });
+  }
+  return out;
+}
+function publicSettings(html) {
+  const match = /window\.environment\s*=\s*/.exec(html);
+  if (!match) throw new Error("Configuration publique Flashscore introuvable");
+  const start = match.index + match[0].length;
+  let depth = 0, quoted = false, escaped = false;
+  for (let i = start; i < html.length; i++) {
+    const c = html[i];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (c === "\\") escaped = true;
+      else if (c === '"') quoted = false;
+    } else if (c === '"') quoted = true;
+    else if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) {
+      const settings = JSON.parse(html.slice(start, i + 1));
+      const sign = settings.config?.app?.feed_sign;
+      if (typeof sign !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(sign)) throw new Error("Format de configuration Flashscore modifi\xE9");
+      return { sign };
+    }
+  }
+  throw new Error("Configuration publique Flashscore incompl\xE8te");
+}
+var SourceError = class extends Error {
+  status;
+  retryAfterMs;
+  refreshable;
+  constructor(message, status, retryAfterMs, refreshable = false) {
+    super(message);
+    this.status = status;
+    this.retryAfterMs = retryAfterMs;
+    this.refreshable = refreshable;
+  }
+};
+var SETTINGS_TTL_MS = 5 * 6e4;
+var SETTINGS_RETRY_MS = 3e4;
+var STALE_MS = 6e4;
+var Flashscore = class {
+  fetcher;
+  now;
+  ttlMs;
+  concurrency;
+  active = 0;
+  waiting = [];
+  cache = /* @__PURE__ */ new Map();
+  pending = /* @__PURE__ */ new Map();
+  oddsCache = /* @__PURE__ */ new Map();
+  oddsPending = /* @__PURE__ */ new Map();
+  settings;
+  settingPending;
+  settingsRetryAt = 0;
+  settingsError;
+  renewal;
+  blockedUntil = 0;
+  oddsBlockedUntil = 0;
+  constructor(options = {}) {
+    this.fetcher = options.fetch ?? fetch;
+    this.now = options.now ?? Date.now;
+    this.ttlMs = options.ttlMs ?? 1e3;
+    this.concurrency = options.concurrency ?? 4;
+    if (!Number.isInteger(this.concurrency) || this.concurrency < 1) throw new Error("Concurrence invalide");
+  }
+  retryAfterMs() {
+    return Math.max(0, this.blockedUntil - this.now(), this.settings ? 0 : this.settingsRetryAt - this.now());
+  }
+  oddsRetryAfterMs() {
+    return Math.max(0, this.oddsBlockedUntil - this.now());
+  }
+  pause(error) {
+    this.blockedUntil = Math.max(this.blockedUntil, this.now() + error.retryAfterMs);
+  }
+  async request(url, headers = {}, mayRefresh = false, settingsRequest = false, oddsRequest = false) {
+    if (this.active >= this.concurrency) await new Promise((resolve) => settingsRequest ? this.waiting.unshift(resolve) : this.waiting.push(resolve));
+    else this.active++;
+    try {
+      const blockedUntil = oddsRequest ? this.oddsBlockedUntil : this.blockedUntil;
+      if (this.now() < blockedUntil) throw new SourceError("Flashscore en pause apr\xE8s un refus ou une limite de d\xE9bit", 429, blockedUntil - this.now());
+      const response = await this.fetcher(url, { headers: typeof headers === "function" ? headers() : headers, signal: AbortSignal.timeout(8e3) });
+      if (oddsRequest && response.status === 202) {
+        const ms = Number(response.headers.get("x-retry-after-ms"));
+        const retry = response.headers.get("retry-after");
+        const retryMs = retry && /^\d+$/.test(retry) ? Number(retry) * 1e3 : retry ? Date.parse(retry) - this.now() : 0;
+        const wait = Math.max(Number.isFinite(ms) && ms > 0 ? ms : 5e3, Number.isFinite(retryMs) ? retryMs : 0);
+        this.oddsBlockedUntil = Math.max(this.oddsBlockedUntil, this.now() + wait);
+        await response.body?.cancel().catch(() => void 0);
+        throw new SourceError("Cotes Flashscore en pr\xE9paration", 202, wait);
+      }
+      if (!response.ok) {
+        const retry = response.headers.get("retry-after");
+        const delay = retry && /^\d+$/.test(retry) ? Number(retry) * 1e3 : retry ? Date.parse(retry) - this.now() : 6e4;
+        const retryAfterMs = Number.isFinite(delay) ? Math.max(5e3, delay) : 6e4;
+        const refreshable = mayRefresh && [401, 403].includes(response.status) && retry == null;
+        const error = new SourceError("Flashscore : HTTP " + response.status, response.status, retryAfterMs, refreshable);
+        if (!settingsRequest && !refreshable && ([401, 403, 429].includes(response.status) || retry != null)) {
+          if (oddsRequest) this.oddsBlockedUntil = Math.max(this.oddsBlockedUntil, this.now() + retryAfterMs);
+          else this.pause(error);
+        }
+        await response.body?.cancel().catch(() => void 0);
+        throw error;
+      }
+      const raw = await response.text();
+      const age = response.headers.get("age");
+      return { raw, fetchedAt: new Date(this.now()).toISOString(), sourceDate: response.headers.get("date"), ageSeconds: age == null ? null : number(age), stale: false };
+    } finally {
+      const next = this.waiting.shift();
+      if (next) next();
+      else this.active--;
+    }
+  }
+  async refreshSettings() {
+    if (this.settingPending) return this.settingPending;
+    if (this.now() < this.settingsRetryAt) throw this.settingsError;
+    this.settingPending = (async () => {
+      const page = await this.request("https://www.flashscore.com/basketball/usa/nba/", { "Cache-Control": "no-cache", Pragma: "no-cache" }, false, true);
+      this.settings = { ...publicSettings(page.raw), at: this.now() };
+      this.settingsRetryAt = 0;
+      this.settingsError = void 0;
+      return this.settings;
+    })();
+    try {
+      return await this.settingPending;
+    } catch (error) {
+      this.settingsError = error;
+      this.settingsRetryAt = this.now() + Math.max(SETTINGS_RETRY_MS, this.retryAfterMs(), error instanceof SourceError ? error.retryAfterMs : 0);
+      throw error;
+    } finally {
+      this.settingPending = void 0;
+    }
+  }
+  async sign() {
+    const current = this.settings;
+    if (!current) return this.refreshSettings();
+    if (this.now() - current.at >= SETTINGS_TTL_MS && this.now() >= this.settingsRetryAt && !this.settingPending) {
+      void this.refreshSettings().catch(() => void 0);
+    }
+    return current;
+  }
+  async renew(rejected, error) {
+    if (this.retryAfterMs()) throw new SourceError("Flashscore en pause apr\xE8s un refus ou une limite de d\xE9bit", 429, this.retryAfterMs());
+    if (this.settings && this.settings.sign !== rejected) return this.settings;
+    if (this.renewal?.rejected === rejected) return this.renewal.promise;
+    const promise = (async () => {
+      try {
+        const next = await this.refreshSettings();
+        if (next.sign === rejected) throw error;
+        return next;
+      } catch (refreshError) {
+        this.pause(error);
+        throw refreshError;
+      }
+    })();
+    this.renewal = { rejected, promise };
+    try {
+      return await promise;
+    } finally {
+      if (this.renewal?.promise === promise) this.renewal = void 0;
+    }
+  }
+  async readFeed(name) {
+    let signature = await this.sign();
+    const read = async (mayRefresh) => {
+      const feed = await this.request("https://global.flashscore.ninja/2/x/feed/" + name, () => {
+        signature = this.settings ?? signature;
+        return { "x-fsign": signature.sign, Referer: "https://www.flashscore.com/" };
+      }, mayRefresh);
+      if (feed.raw.trim() && !/^~*[A-Z][A-Z0-9]*÷/.test(feed.raw.trim())) {
+        const error = new SourceError("R\xE9ponse Flashscore inattendue (flux remplac\xE9 par une page ou une erreur)", 502, 6e4, mayRefresh);
+        if (!mayRefresh) this.pause(error);
+        throw error;
+      }
+      return feed;
+    };
+    try {
+      return await read(true);
+    } catch (error) {
+      if (!(error instanceof SourceError) || !error.refreshable) throw error;
+      signature = await this.renew(signature.sign, error);
+      return read(false);
+    }
+  }
+  async feed(name) {
+    if (!/^[a-zA-Z0-9_]+$/.test(name)) throw new Error("Nom de flux invalide");
+    const cached = this.cache.get(name);
+    if (cached && this.now() - cached.at < this.ttlMs) return cached.feed;
+    const existing = this.pending.get(name);
+    if (existing) return existing;
+    const pending2 = (async () => {
+      try {
+        const feed = await this.readFeed(name);
+        this.cache.set(name, { at: this.now(), feed });
+        if (this.cache.size > 1e3) this.cache.delete(this.cache.keys().next().value);
+        return feed;
+      } catch (error) {
+        if (cached && this.now() - cached.at <= STALE_MS) return {
+          ...cached.feed,
+          stale: true,
+          staleReason: error instanceof Error ? error.message : "Source indisponible"
+        };
+        throw error;
+      }
+    })();
+    this.pending.set(name, pending2);
+    try {
+      return await pending2;
+    } finally {
+      this.pending.delete(name);
+    }
+  }
+  async board(sport) {
+    if (!SPORTS.includes(sport)) throw new Error("Sport invalide");
+    const id = { foot: 1, tennis: 2, nba: 3 }[sport];
+    return parseBoard(sport, await this.feed("f_" + id + "_0_3_en_1"));
+  }
+  async oddsFeed(query) {
+    if (!/^[a-zA-Z0-9]{8}$/.test(query.eventId) || !["oce", "lobtm", "ole2"].includes(query.hash)) throw new Error("Requ\xEAte de cotes invalide");
+    const params = new URLSearchParams({ _hash: query.hash, eventId: query.eventId });
+    if (query.hash === "ole2") {
+      if (!Number.isSafeInteger(query.bookmakerId) || query.bookmakerId <= 0 || !/^[A-Z0-9_]{1,80}$/.test(query.market ?? "") || !/^[A-Z0-9_]{1,80}$/.test(query.scope ?? "")) throw new Error("March\xE9 live invalide");
+      params.set("bookmakerId", String(query.bookmakerId));
+      params.set("betType", query.market);
+      params.set("betScope", query.scope);
+    } else {
+      params.set("projectId", "2");
+      params.set("geoIpCode", "");
+      params.set("geoIpSubdivisionCode", "");
+    }
+    const key2 = "odds:" + params;
+    const cached = this.oddsCache.get(key2);
+    if (cached && this.now() - cached.at < this.ttlMs) return cached.feed;
+    const existing = this.oddsPending.get(key2);
+    if (existing) return existing;
+    const pending2 = (async () => {
+      try {
+        const origin = query.hash === "oce" ? "https://global.ds.lsapp.eu/odds/pq_graphql" : "https://2.ds.lsapp.eu/pq_graphql";
+        const feed = await this.request(origin + "?" + params, { Accept: "application/json" }, false, false, true);
+        oddsData(feed, query.hash === "oce" ? "findOddsByEventId" : query.hash === "lobtm" ? "getLiveOddsBettingTypeMenu" : "findLiveOddsForBookmaker");
+        this.oddsCache.set(key2, { at: this.now(), feed });
+        if (this.oddsCache.size > 1e3) this.oddsCache.delete(this.oddsCache.keys().next().value);
+        return feed;
+      } catch (error) {
+        if (cached && this.now() - cached.at <= STALE_MS) return { ...cached.feed, stale: true, staleReason: error instanceof Error ? error.message : "Cotes indisponibles" };
+        throw error;
+      }
+    })();
+    this.oddsPending.set(key2, pending2);
+    try {
+      return await pending2;
+    } finally {
+      this.oddsPending.delete(key2);
+    }
+  }
+  async odds(match) {
+    const result = await readOdds(match, (query) => this.oddsFeed(query));
+    return { ...result, retryAfterMs: this.oddsRetryAfterMs() };
+  }
+  async detail(match, board, options = {}) {
+    if (!/^[a-zA-Z0-9]{8}$/.test(match.id)) throw new Error("Identifiant Flashscore invalide");
+    const id = match.id;
+    const names = {
+      summary: "df_sur_1_" + id,
+      common: "dc_1_" + id,
+      statistics: "df_st_1_" + id,
+      players: "df_psn_1_" + id,
+      timeline: "df_sui_1_" + id
+    };
+    if (match.sport === "tennis") {
+      names.history = "df_mh_1_" + id;
+      names.currentGame = "df_mhs_1_" + id;
+    }
+    const feeds = {}, errors = {};
+    if (board.stale) errors.board = board.staleReason ?? "Dernier tableau connu, source indisponible";
+    await Promise.all(Object.entries(names).map(async ([kind, name]) => {
+      try {
+        feeds[kind] = await this.feed(name);
+        if (feeds[kind].stale) errors[kind] = feeds[kind].staleReason ?? "Derni\xE8re lecture connue, source indisponible";
+      } catch (e) {
+        errors[kind] = e instanceof Error ? e.message : "Flux indisponible";
+      }
+    }));
+    const odds = options.odds ? await this.odds(match) : void 0;
+    if (odds && !odds.complete) errors.odds = Object.values(odds.errors).join("; ");
+    return {
+      source: "flashscore",
+      match,
+      boardFetchedAt: board.fetchedAt,
+      boardAgeSeconds: board.ageSeconds,
+      boardStale: board.stale,
+      collectedAt: new Date(this.now()).toISOString(),
+      complete: !Object.keys(errors).length,
+      statistics: parseStatistics(feeds.statistics?.raw ?? ""),
+      feeds,
+      errors,
+      ...odds ? { odds } : {}
+    };
+  }
+};
+
+// src/live/sources/flashscore.ts
+var get = (fields, key2) => fields.find(([k]) => k === key2)?.[1];
+var integer = (s) => s != null && /^\d+$/.test(s) && Number.isSafeInteger(Number(s)) ? Number(s) : void 0;
+var setWon = ([a, b]) => {
+  const hi = Math.max(a, b), lo = Math.min(a, b);
+  return hi === 6 && lo <= 4 || hi === 7 && (lo === 5 || lo === 6) || hi >= 8 && hi - lo === 2;
+};
+function flashscoreTennis(match) {
+  const sets = [];
+  let games;
+  for (const [a2, b2] of [["BA", "BB"], ["BC", "BD"], ["BE", "BF"], ["BG", "BH"], ["BI", "BJ"]]) {
+    const h = integer(get(match.fields, a2)), w = integer(get(match.fields, b2));
+    if (h == null && w == null) break;
+    if (h == null || w == null || games) throw new Error("Score des sets Flashscore incomplet");
+    const pair = [h, w];
+    if (setWon(pair)) sets.push(pair);
+    else games = pair;
+  }
+  const won = [sets.filter(([a2, b2]) => a2 > b2).length, sets.filter(([a2, b2]) => b2 > a2).length];
+  if (match.score.some((value, i) => value == null || value !== won[i])) throw new Error("Score des sets Flashscore en cours de synchronisation");
+  if (!sets.length && !games) throw new Error("Score des jeux Flashscore indisponible");
+  const point = (key2) => {
+    const value = get(match.fields, key2);
+    if (games?.[0] === 6 && games[1] === 6) return integer(value);
+    return { "0": 0, "15": 1, "30": 2, "40": 3, A: 4, AD: 4 }[value ?? ""];
+  };
+  const a = point("WA"), b = point("WB");
+  const serving = get(match.fields, "WC");
+  return { sets, games, ...games && a != null && b != null ? { points: [a, b] } : {}, ...serving === "1" || serving === "2" ? { server: serving === "1" ? 0 : 1 } : {} };
+}
+function flashscoreSourceMatch(detail, board) {
+  const match = detail.match;
+  if (board.stale || detail.feeds.statistics?.stale || !match.home || !match.away || match.state === "unknown") throw new Error("Donn\xE9es Flashscore anciennes ou incompl\xE8tes : repli sur la source principale");
+  const errors = { ...detail.errors };
+  const { odds, ...native } = detail;
+  let tennis;
+  if (match.sport === "tennis") {
+    try {
+      tennis = flashscoreTennis(match);
+    } catch (error) {
+      errors.tennisScore = error instanceof Error ? error.message : "Score tennis indisponible";
+    }
+  }
+  return {
+    id: match.id,
+    sport: match.sport,
+    home: match.home,
+    away: match.away,
+    state: match.state,
+    score: match.score,
+    stats: detail.statistics.map((s) => ({ label: s.label, home: s.home, away: s.away, period: s.period })),
+    tennis,
+    quality: { at: detail.collectedAt, stale: false, complete: !Object.keys(errors).length, errors },
+    native: { home: match.home, away: match.away, data: native },
+    ...odds ? { odds: { home: match.home, away: match.away, data: odds } } : {}
+  };
+}
+function createFlashscoreSource(client = new Flashscore()) {
+  return {
+    name: "flashscore",
+    sports: ["foot", "nba", "tennis"],
+    ready: () => process.env.LIVE_FLASHSCORE !== "0",
+    async live(sport) {
+      const board = await client.board(sport);
+      if (board.stale) throw new Error("Tableau Flashscore ancien");
+      return board.matches.filter((m) => m.state === "in" && m.home && m.away && (sport !== "tennis" || !m.home.includes("/") && !m.away.includes("/"))).map((m) => ({
+        id: m.id,
+        sport,
+        home: m.home,
+        away: m.away,
+        start: m.start ?? void 0,
+        tourney: m.league
+      }));
+    },
+    async match(sport, id, options = {}) {
+      const board = await client.board(sport);
+      const match = board.matches.find((m) => m.id === id);
+      if (!match) throw new Error("Match Flashscore absent du tableau");
+      const detail = await client.detail(match, board, options);
+      return flashscoreSourceMatch(detail, board);
+    }
+  };
+}
+var flashscore = createFlashscoreSource();
+
+// src/live/sources/matching.ts
+var words = (s) => s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(/\s+/).filter(Boolean);
+var norm2 = (s) => words(s).join(" ");
+var NBA3 = {
+  ATL: ["Atlanta Hawks"],
+  BOS: ["Boston Celtics"],
+  BKN: ["Brooklyn Nets", "BRK"],
+  CHA: ["Charlotte Hornets"],
+  CHI: ["Chicago Bulls"],
+  CLE: ["Cleveland Cavaliers"],
+  DAL: ["Dallas Mavericks"],
+  DEN: ["Denver Nuggets"],
+  DET: ["Detroit Pistons"],
+  GSW: ["Golden State Warriors", "GS"],
+  HOU: ["Houston Rockets"],
+  IND: ["Indiana Pacers"],
+  LAC: ["Los Angeles Clippers", "LA Clippers"],
+  LAL: ["Los Angeles Lakers", "LA Lakers"],
+  MEM: ["Memphis Grizzlies"],
+  MIA: ["Miami Heat"],
+  MIL: ["Milwaukee Bucks"],
+  MIN: ["Minnesota Timberwolves"],
+  NOP: ["New Orleans Pelicans", "NO"],
+  NYK: ["New York Knicks", "NY"],
+  OKC: ["Oklahoma City Thunder"],
+  ORL: ["Orlando Magic"],
+  PHI: ["Philadelphia 76ers"],
+  PHX: ["Phoenix Suns", "PHO"],
+  POR: ["Portland Trail Blazers"],
+  SAC: ["Sacramento Kings"],
+  SAS: ["San Antonio Spurs", "SA"],
+  TOR: ["Toronto Raptors"],
+  UTA: ["Utah Jazz", "UTAH"],
+  WAS: ["Washington Wizards", "WSH"]
+};
+var nbaNames = new Map(Object.entries(NBA3).flatMap(([tri, names]) => [tri, ...names].map((name) => [norm2(name), tri])));
+var footballAliases = {
+  psg: "paris saint germain",
+  "paris sg": "paris saint germain",
+  "man utd": "manchester united",
+  "manchester utd": "manchester united",
+  "man city": "manchester city",
+  inter: "inter milan",
+  internazionale: "inter milan",
+  "internazionale milano": "inter milan"
+};
+var club = (s) => {
+  const name = words(s).filter((w) => !["fc", "cf", "afc", "sc"].includes(w)).map((w) => ["w", "women", "feminin", "feminines"].includes(w) ? "women" : w).join(" ");
+  return footballAliases[name] ?? name;
+};
+function player(s) {
+  const tokens = words(s);
+  if (!tokens.length) return { surnames: [] };
+  const tail = tokens.findIndex((w) => w.length === 1);
+  if (tail > 0 && tokens.slice(tail).every((w) => w.length === 1)) return { surnames: [tokens.slice(0, tail).join(" ")], initial: tokens[tail] };
+  let first = 0;
+  while (tokens[first]?.length === 1) first++;
+  if (first) return { surnames: [tokens.slice(first).join(" ")].filter(Boolean), initial: tokens[0] };
+  if (tokens.length === 1) return { surnames: tokens };
+  return { surnames: tokens.slice(1).map((_, i) => tokens.slice(i + 1).join(" ")), initial: tokens[0][0], firstName: tokens[0] };
+}
+function sameParticipant(a, b, sport) {
+  if (!norm2(a) || !norm2(b)) return false;
+  if (norm2(a) === norm2(b)) return true;
+  if (sport === "nba") {
+    const x2 = nbaNames.get(norm2(a)), y2 = nbaNames.get(norm2(b));
+    return x2 != null && x2 === y2;
+  }
+  if (sport === "foot") return !!club(a) && club(a) === club(b);
+  if (a.includes("/") || b.includes("/")) return false;
+  const x = player(a), y = player(b);
+  if (x.firstName && y.firstName && x.firstName !== y.firstName) return false;
+  return !!x.initial && x.initial === y.initial && x.surnames.some((name) => y.surnames.includes(name));
+}
+
 // src/live/source.ts
 var SOURCES = [
+  flashscore
   // modele,
 ];
 var sourcesFor = (sport) => SOURCES.filter((s) => s.sports.includes(sport) && s.ready());
@@ -1320,22 +2008,24 @@ function bookOf(sport, stats = []) {
   for (const s of stats) b.add(statsFromRow(sport, s));
   return b;
 }
-var last = (n) => n.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z ]/g, " ").trim().split(/\s+/).filter((w) => w.length > 1).pop() ?? "";
-function sameMatch(a, b) {
-  if (last(a.home) === last(b.home) && last(a.away) === last(b.away)) return "same";
-  if (last(a.home) === last(b.away) && last(a.away) === last(b.home)) return "swapped";
+function sameMatch(a, b, sport = "tennis") {
+  const same = sameParticipant(a.home, b.home, sport) && sameParticipant(a.away, b.away, sport);
+  const swapped = sameParticipant(a.home, b.away, sport) && sameParticipant(a.away, b.home, sport);
+  if (same && !swapped) return "same";
+  if (swapped && !same) return "swapped";
   return void 0;
 }
-async function enrich(sport, want) {
-  for (const src of sourcesFor(sport)) {
+async function enrich(sport, want, options = {}, sources = sourcesFor(sport)) {
+  for (const src of sources) {
+    if (!src.ready() || !src.sports.includes(sport)) continue;
     try {
       const list = await src.live(sport);
-      for (const ref of list) {
-        const how = sameMatch(want, ref);
-        if (!how) continue;
-        const m = await src.match(sport, ref.id);
-        return { source: src.name, match: how === "same" ? m : swap(m) };
-      }
+      const candidates = list.filter((ref2) => ref2.sport === sport && ref2.id).map((ref2) => ({ ref: ref2, how: sameMatch(want, ref2, sport) })).filter((c) => c.how);
+      if (candidates.length !== 1) continue;
+      const { ref, how } = candidates[0];
+      const m = await src.match(sport, ref.id, options);
+      if (m.id !== ref.id || m.sport !== sport || m.state === "pre" || m.quality?.stale || sameMatch(ref, m, sport) !== "same") continue;
+      return { source: src.name, match: how === "same" ? m : swap(m) };
     } catch {
     }
   }
@@ -1348,6 +2038,7 @@ function swap(m) {
     ...m,
     home: m.away,
     away: m.home,
+    score: pair(m.score),
     tennis: m.tennis && {
       ...m.tennis,
       sets: m.tennis.sets?.map(([a, b]) => [b, a]),
@@ -1491,7 +2182,7 @@ var tennis_weights_default = {
 var WEIGHTS = process.env.LIVE_TENNIS_WEIGHTS === "mcp" ? { outcome: { ...NEUTRAL_WEIGHTS.outcome, ...tennis_weights_default.outcome }, recent: tennis_weights_default.recent ?? 0 } : NEUTRAL_WEIGHTS;
 var REPO = process.env.GH_REPO ?? "mhdeezzi/razzia";
 var TOKEN = (process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN ?? process.env.GH_PAT ?? "").trim();
-var LIVE = { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" };
+var LIVE = { "Cache-Control": "no-store" };
 var noStore = { "Cache-Control": "no-store" };
 var prev = /* @__PURE__ */ new Map();
 async function resultat(path) {
@@ -1561,17 +2252,17 @@ async function footList() {
     return { ...m, pre: src, p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), comeback: o.comeback && { ...o.comeback, draw: r3(o.comeback.draw), win: r3(o.comeback.win) } };
   }));
 }
-async function extraStats(sport, home, away) {
-  const extra = await enrich(sport, { home, away });
+async function extraStats(sport, home, away, options = {}) {
+  const extra = await enrich(sport, { home, away }, options);
   if (!extra) return void 0;
   const book = bookOf(sport, extra.match.stats);
-  return { source: extra.source, stats: book.all.map((s) => ({ key: s.key, name: s.name, group: s.group, side: s.side, period: s.period, value: s.v.value, made: s.v.made, att: s.v.att, raw: s.v.raw, known: s.known })), events: extra.match.events };
+  return { source: extra.source, id: extra.match.id, home: extra.match.home, away: extra.match.away, stats: book.all.map((s) => ({ key: s.key, name: s.name, group: s.group, side: s.side, period: s.period, value: s.v.value, made: s.v.made, att: s.v.att, raw: s.v.raw, known: s.known })), events: extra.match.events, score: extra.match.score, state: extra.match.state, quality: extra.match.quality, native: extra.match.native, odds: extra.match.odds };
 }
-async function footOne(id) {
+async function footOne(id, options = {}) {
   const d = await fotmobMatch(id);
   const { pre, src } = await footPre(id);
   const o = footNow(pre, d.timeline);
-  const more = await extraStats("foot", d.home.name, d.away.name);
+  const more = await extraStats("foot", d.home.name, d.away.name, options);
   return {
     ...d,
     pre: src,
@@ -1593,11 +2284,11 @@ async function footOne(id) {
     }
   };
 }
-async function nbaOne(id) {
+async function nbaOne(id, options = {}, withStats = true) {
   const d = await espnNbaGame(id);
   const { pre, src } = await nbaPre(d.date, d.away, d.home, d.market);
   const o = nbaNow(pre, d.st);
-  const more = await extraStats("nba", d.home, d.away);
+  const more = withStats ? await extraStats("nba", d.home, d.away, options) : void 0;
   return {
     ...d,
     pre: { ...pre, src },
@@ -1620,7 +2311,7 @@ async function nbaList() {
   const board = await espnNbaBoard();
   return Promise.all(board.filter((g) => g.state === "in").map(async (g) => {
     try {
-      const x = await nbaOne(g.id);
+      const x = await nbaOne(g.id, {}, false);
       return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, pre: x.pre.src, win: x.engine.win, comeback: x.engine.comeback, espnHomeWin: g.espnHomeWin };
     } catch {
       return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, error: true };
@@ -1632,22 +2323,29 @@ async function tennisList() {
   return Promise.all(all.filter((m) => m.state === "in").map((m) => tennisOne(m)));
 }
 var tennisBase = /* @__PURE__ */ new Map();
-async function tennisOne(m) {
+async function tennisOne(m, options = {}) {
   const { p0, surface, src } = await tennisPre(m.id, m.players);
   const k = `${m.id}|${p0}|${surface}`;
   const o = tennisNow(p0, surface, m.st, tennisBase.get(k));
   tennisBase.set(k, o.base);
   if (tennisBase.size > 300) tennisBase.clear();
-  const extra = await enrich("tennis", { home: m.players[0], away: m.players[1] });
+  const extra = await enrich("tennis", { home: m.players[0], away: m.players[1] }, options);
   if (extra) {
     const t = extra.match.tennis ?? {};
+    const st = { ...m.st, bestOf: t.bestOf ?? m.st.bestOf, sets: t.sets ?? m.st.sets, games: t.sets ? t.games : t.games ?? m.st.games, points: t.points, server: t.server };
     const book = bookOf("tennis", extra.match.stats);
     const pointLog = t.pointLog?.length ? normalizePoints(t.pointLog) : void 0;
-    const x = tennisFromStats(o.base, { bestOf: t.bestOf ?? m.st.bestOf, sets: t.sets ?? m.st.sets, games: t.games ?? m.st.games, points: t.points, server: t.server, pointLog, stats: book }, TENNIS, WEIGHTS);
+    const x = tennisFromStats(o.base, { ...st, pointLog, stats: book }, TENNIS, WEIGHTS);
     return {
       ...m,
+      st,
+      state: extra.match.state,
       pre: { p0: r3(p0), surface, src },
       source: extra.source,
+      sourceId: extra.match.id,
+      quality: extra.match.quality,
+      native: extra.match.native,
+      odds: extra.match.odds,
       engine: { win: r3a(x.win), form: x.form, comeback: x.comeback, setNow: x.setNow, holdNow: x.holdNow, read: x.read },
       stats: book.all.map((s) => ({ key: s.key, name: s.name, group: s.group, side: s.side, period: s.period, value: s.v.value, made: s.v.made, att: s.v.att, raw: s.v.raw, known: s.known }))
     };
@@ -1657,18 +2355,19 @@ async function tennisOne(m) {
 async function GET(request) {
   const q = new URL(request.url).searchParams;
   const sport = q.get("sport"), id = q.get("id") ?? "";
+  const options = { odds: q.get("odds") === "1" };
   try {
     if (!sport) {
       const [foot, nba, tennis] = await Promise.all([footList().catch((e) => ({ error: String(e.message) })), nbaList().catch((e) => ({ error: String(e.message) })), tennisList().catch((e) => ({ error: String(e.message) }))]);
       return Response.json({ at: (/* @__PURE__ */ new Date()).toISOString(), foot, nba, tennis }, { headers: LIVE });
     }
-    if (sport === "foot" && /^\d{4,10}$/.test(id)) return Response.json(await footOne(Number(id)), { headers: LIVE });
-    if (sport === "nba" && /^\d{6,12}$/.test(id)) return Response.json(await nbaOne(id), { headers: LIVE });
+    if (sport === "foot" && /^\d{4,10}$/.test(id)) return Response.json(await footOne(Number(id), options), { headers: LIVE });
+    if (sport === "nba" && /^\d{6,12}$/.test(id)) return Response.json(await nbaOne(id, options), { headers: LIVE });
     if (sport === "tennis" && /^\d{4,12}$/.test(id)) {
       const all = [...await espnTennisLive("atp").catch(() => []), ...await espnTennisLive("wta").catch(() => [])];
       const m = all.find((x) => x.id === id);
       if (!m) return Response.json({ error: "Match introuvable ou pas commenc\xE9" }, { status: 404, headers: noStore });
-      return Response.json(await tennisOne(m), { headers: LIVE });
+      return Response.json(await tennisOne(m, options), { headers: LIVE });
     }
     return Response.json({ error: "Param\xE8tres invalides" }, { status: 400, headers: noStore });
   } catch (e) {

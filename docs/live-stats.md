@@ -1,5 +1,44 @@
 # Stats du direct : point de branchement et moteur
 
+## Flashscore est branché
+
+`src/live/sources/flashscore.ts` est enregistré dans `SOURCES` pour le foot, la NBA et le tennis.
+L'accès public ne demande ni compte ni clé. `LIVE_FLASHSCORE=0` désactive cet enrichissement.
+
+La fiche existante reste accessible avec **l'identifiant FotMob/ESPN** :
+
+```text
+GET /api/live?sport=tennis&id=<id-ESPN>
+GET /api/live?sport=tennis&id=<id-ESPN>&odds=1
+GET /api/live?sport=foot&id=<id-FotMob>&odds=1
+GET /api/live?sport=nba&id=<id-ESPN>&odds=1
+```
+
+- **Tennis :** `source: flashscore`, `sourceId`, `quality`, `stats` et `native` complètent la réponse.
+  Le moteur lit les statistiques de service et le score Flashscore disponible (sets, jeux, points,
+  serveur). Une incohérence temporaire du score conserve celui d'ESPN et est signalée dans `quality.errors`.
+- **Foot/NBA :** `more` contient ces statistiques, le score et les métadonnées Flashscore. Les moteurs
+  continuent de calculer à partir de la chronologie FotMob/ESPN.
+- **Cotes :** `odds=1` ajoute `odds` au tennis, `more.odds` au foot/NBA. Aucune lecture de cotes implicite
+  sur la liste générale. Les cotes bookmaker restent distinctes des Cotes Razzia.
+
+Les codes NBA et les noms/initiales sont rapprochés dans les deux sens. Un rapprochement ambigu,
+une source en échec, un tableau ou des statistiques conservés pendant une panne ne remplacent pas
+les données principales. Les statistiques normalisées suivent l'ordre de la réponse ; **`native`
+et `odds` conservent leur ordre source explicite `{home, away, data}`**, même si les joueurs sont
+inversés dans ESPN. Ne pas réinterpréter leurs handicaps ou leurs champs bruts selon l'ordre ESPN.
+
+L'historique point par point, les statistiques joueurs et les autres flux lus restent dans `native.data.feeds`.
+L'adaptateur ne fabrique ni descriptions de coups ni journal de points typés depuis un simple score.
+Les fautes directes/coups gagnants ne sont exploitables que lorsque la source les publie réellement.
+
+Cet enrichissement porte sur les matchs déjà couverts par FotMob/ESPN ; il n'ajoute pas les matchs
+exclusifs à Flashscore à la liste `/api/live`. Ceux-ci restent accessibles via `/api/flashscore`.
+Il ne relance aucune simulation d'avant-match. Il ne met pas en service un worker permanent et
+ne raccorde pas à lui seul la page de démonstration du frontend.
+`/api/live` répond avec `Cache-Control: no-store` ; les caches des fournisseurs restent applicables.
+Les limites de cadence et de couverture décrites dans [flashscore.md](flashscore.md) demeurent.
+
 ## Où brancher une nouvelle source
 
 **`src/live/source.ts`**, liste `SOURCES` (bloc « BRANCHER ICI »).
@@ -8,7 +47,7 @@
    - `live(sport)` : les matchs en cours chez le fournisseur ;
    - `match(sport, id)` : les données d'un match.
 2. Ajouter la source à `SOURCES`.
-3. Mettre la clé du fournisseur dans les variables Vercel (par exemple `TENNIS_SOURCE_KEY`), jamais dans le code.
+3. Si le fournisseur demande une clé, la mettre dans les variables Vercel (par exemple `TENNIS_SOURCE_KEY`), jamais dans le code.
 4. `npm run build:live-api` (régénère `api/live.js`), puis `GET /api/live?sport=tennis&id=…`.
 
 La source rend les données **telles que le fournisseur les donne** :
@@ -80,4 +119,6 @@ Ils couvrent :
 - le score refait à partir des points, jeu décisif compris ;
 - les comptes : service, retour, fautes par coup, balles de break ;
 - le moteur, du score seul au point par point ;
-- le point de branchement, joueurs dans l'autre ordre compris.
+- le point de branchement, joueurs dans l'autre ordre compris ;
+- l'adaptateur Flashscore : codes NBA, noms composés, ambiguïtés, fraîcheur, score et cotes optionnelles ;
+- `/api/live` pour les trois sports, dont la lecture des statistiques par le moteur tennis et le repli FotMob/ESPN.
