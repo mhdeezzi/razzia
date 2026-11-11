@@ -196,7 +196,8 @@ const score = (m: SlateMatch) => pop(m.home.id) + pop(m.away.id) + (pop(m.home.i
 
 export function FootSchedulePage({ day }: { day: string | null }) {
   const [baseData, setData] = useState<Slate | undefined>(() => slateLast);
-  const prices = usePrices('foot', (baseData?.matches ?? []).map((m) => ({ id: m.id, home: m.home.name, away: m.away.name, start: m.start, state: m.state })));
+  const oddsDay = day && day >= localDay(Date.now() - 86_400_000) && day <= localDay(Date.now() + 7 * 86_400_000) ? day : localDay(Date.now());
+  const prices = usePrices('foot', (baseData?.matches ?? []).filter((m) => localDay(m.start) === oddsDay).map((m) => ({ id: m.id, home: m.home.name, away: m.away.name, start: m.start, state: m.state })));
   const data = useMemo(() => baseData && ({ ...baseData, matches: baseData.matches.map((m) => {
     const current = prices.get(m.id), odds = footMarket(current, m.odds?.at);
     const state = current?.sourceId && current.state !== 'pre' ? current.state : m.state;

@@ -5,6 +5,8 @@ import type { Game, Odds } from './data.ts';
 
 const cache = new Map<string, { at: number; data: OddsResponse }>();
 const pending = new Map<string, Promise<OddsResponse>>();
+/** Même horizon que le calendrier : aujourd'hui à J+7, nuits comprises, sans limite arbitraire de 36 heures. */
+export const withinPriceHorizon = (t: OddsTarget, now = Date.now()) => t.state !== 'post' && Date.parse(t.start) > now - 18 * 3600_000 && Date.parse(t.start) < (Math.floor(now / 86_400_000) + 8) * 86_400_000;
 export async function readPrices(sport: Sport, matches: OddsTarget[]): Promise<Map<string, OddsGame>> {
   const chunks: OddsTarget[][] = [];
   for (let i = 0; i < matches.length; i += 40) chunks.push(matches.slice(i, i + 40));

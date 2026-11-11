@@ -1741,10 +1741,11 @@ var Flashscore = class {
       this.pending.delete(name);
     }
   }
-  async board(sport) {
+  async board(sport, day = 0) {
     if (!SPORTS.includes(sport)) throw new Error("Sport invalide");
+    if (!Number.isInteger(day) || day < 0 || day > 7) throw new Error("Jour Flashscore : un entier de 0 \xE0 7");
     const id = { foot: 1, tennis: 2, nba: 3 }[sport];
-    return parseBoard(sport, await this.feed("f_" + id + "_0_3_en_1"));
+    return parseBoard(sport, await this.feed("f_" + id + "_" + day + "_3_en_1"));
   }
   async oddsFeed(query) {
     if (!/^[a-zA-Z0-9]{8}$/.test(query.eventId) || !["oce", "lobtm", "ole2"].includes(query.hash)) throw new Error("Requ\xEAte de cotes invalide");

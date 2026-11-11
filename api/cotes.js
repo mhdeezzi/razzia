@@ -440,10 +440,11 @@ var Flashscore = class {
       this.pending.delete(name);
     }
   }
-  async board(sport) {
+  async board(sport, day = 0) {
     if (!SPORTS.includes(sport)) throw new Error("Sport invalide");
+    if (!Number.isInteger(day) || day < 0 || day > 7) throw new Error("Jour Flashscore : un entier de 0 \xE0 7");
     const id = { foot: 1, tennis: 2, nba: 3 }[sport];
-    return parseBoard(sport, await this.feed("f_" + id + "_0_3_en_1"));
+    return parseBoard(sport, await this.feed("f_" + id + "_" + day + "_3_en_1"));
   }
   async oddsFeed(query) {
     if (!/^[a-zA-Z0-9]{8}$/.test(query.eventId) || !["oce", "lobtm", "ole2"].includes(query.hash)) throw new Error("Requ\xEAte de cotes invalide");
@@ -683,35 +684,81 @@ function withReference(game, now = Date.now()) {
 }
 
 // src/odds/flashscore-provider.ts
+var DAY = 864e5;
+var futureDays = (start, now) => {
+  const d = Math.floor(Date.parse(start) / DAY) - Math.floor(now / DAY);
+  return [d - 1, d, d + 1].filter((n) => n >= 0 && n <= 7);
+};
+var order = (target, m, sport) => {
+  const same = sameParticipant(target.home, m.home, sport) && sameParticipant(target.away, m.away, sport);
+  const flip = sameParticipant(target.home, m.away, sport) && sameParticipant(target.away, m.home, sport);
+  return same !== flip ? flip : void 0;
+};
+var candidatesFor = (target, matches, sport) => matches.filter((m) => m.state !== "unknown" && m.start && Math.abs(Date.parse(m.start) - Date.parse(target.start)) < 18 * 36e5 && order(target, m, sport) !== void 0);
 var FlashscoreOddsProvider = class {
   client;
   now;
   cache = /* @__PURE__ */ new Map();
   pending = /* @__PURE__ */ new Map();
+  calendars = /* @__PURE__ */ new Map();
+  calendarPending = /* @__PURE__ */ new Map();
   constructor(options = {}) {
     this.now = options.now ?? Date.now;
     this.client = options.client ?? new Flashscore({ ttlMs: 5e3 });
   }
-  async board(sport) {
+  async board(sport, day = 0) {
     if (process.env.ODDS_FLASHSCORE === "0") throw new Error("Fournisseur Flashscore d\xE9sactiv\xE9");
-    const b = await this.client.board(sport);
-    if (b.stale) throw new Error("Tableau Flashscore ancien");
-    return b;
+    if (!Number.isInteger(day) || day < 0 || day > 7) throw new Error("Jour Flashscore invalide");
+    const key = `${sport}:${Math.floor(this.now() / DAY)}:${day}`;
+    const old = this.calendars.get(key);
+    if (day > 0 && old && this.now() - old.at < 6e4) return old.value;
+    let pending = this.calendarPending.get(key);
+    if (!pending) {
+      pending = (async () => {
+        const b = await this.client.board(sport, day);
+        if (b.stale) throw new Error("Tableau Flashscore ancien");
+        if (day > 0) {
+          this.calendars.set(key, { at: this.now(), value: b });
+          if (this.calendars.size > 32) this.calendars.delete(this.calendars.keys().next().value);
+        }
+        return b;
+      })();
+      this.calendarPending.set(key, pending);
+    }
+    try {
+      return await pending;
+    } finally {
+      if (this.calendarPending.get(key) === pending) this.calendarPending.delete(key);
+    }
   }
   async read(sport, targets, board) {
     const b = board ?? await this.board(sport);
+    const missing = targets.filter((t) => t.state !== "post" && candidatesFor(t, b.matches, sport).length !== 1);
+    const days = [...new Set(missing.flatMap((t) => futureDays(t.start, this.now())))].filter((d) => d !== 0);
+    const other = await Promise.allSettled(days.map((d) => this.board(sport, d)));
+    const indexById = /* @__PURE__ */ new Map();
+    const rank = { unknown: 0, pre: 1, in: 2, post: 3 };
+    for (const calendar of [b, ...other.flatMap((r) => r.status === "fulfilled" ? [r.value] : [])]) {
+      const at = Date.parse(calendar.fetchedAt) - (calendar.ageSeconds ?? 0) * 1e3;
+      for (const match of calendar.matches) {
+        const previous = indexById.get(match.id);
+        if (!previous || rank[match.state] > rank[previous.match.state] || rank[match.state] === rank[previous.match.state] && at > previous.at) indexById.set(match.id, { match, at });
+      }
+    }
+    const all = [...indexById.values()].map((m) => m.match);
+    const failedDays = days.filter((_, i) => other[i].status === "rejected");
     let index = 0;
     const games = Array(targets.length);
     await Promise.all(Array.from({ length: Math.min(4, targets.length) }, async () => {
       while (index < targets.length) {
         const i = index++, target = targets[i];
-        const order2 = (home, away) => sameParticipant(target.home, home, sport) && sameParticipant(target.away, away, sport);
-        const candidates = b.matches.filter((m) => m.state !== "unknown" && m.start && Math.abs(Date.parse(m.start) - Date.parse(target.start)) < 18 * 36e5 && order2(m.home, m.away) !== order2(m.away, m.home));
+        const candidates = candidatesFor(target, all, sport);
         if (target.state === "post" || candidates.length !== 1) {
-          games[i] = { ...target, sport, books: [] };
+          const unavailable = target.state !== "post" && failedDays.some((d) => futureDays(target.start, this.now()).includes(d));
+          games[i] = { ...target, sport, books: [], ...unavailable ? { errors: { calendar: "Un tableau Flashscore des prochains jours est indisponible" } } : {} };
           continue;
         }
-        const match = candidates[0], flip = !order2(match.home, match.away);
+        const match = candidates[0], flip = order(target, match, sport);
         if (match.state === "post" || target.state === "in" && match.state === "pre") {
           games[i] = { ...target, sport, state: match.state === "post" ? "post" : "in", sourceId: match.id, books: [] };
           continue;
@@ -824,7 +871,7 @@ var TheOddsProvider = class {
 // src/odds/api.ts
 var headers = { "Cache-Control": "no-store" };
 var bad = (error, status = 400) => Response.json({ error }, { status, headers });
-var order = (a, b, sport) => {
+var order2 = (a, b, sport) => {
   const same = sameParticipant(a.home, b.home, sport) && sameParticipant(a.away, b.away, sport);
   const flipped = sameParticipant(a.home, b.away, sport) && sameParticipant(a.away, b.home, sport);
   return same !== flipped ? flipped : void 0;
@@ -887,9 +934,15 @@ function oddsApi(options = {}) {
     if (source.status === "rejected") errors.flashscore = "Cotes Flashscore indisponibles";
     if (!targets) {
       const matches = source.status === "fulfilled" ? source.value.matches.filter((m) => id ? m.id === id : m.state === "pre" || m.state === "in") : [];
-      if (id && source.status === "fulfilled" && !matches.length) return bad("Match Flashscore introuvable", 404);
+      if (id && source.status === "fulfilled" && !matches.length) {
+        const future = await Promise.allSettled(Array.from({ length: 7 }, (_, i) => flashscore.board(s, i + 1)));
+        for (const r of future) if (r.status === "fulfilled") {
+          for (const m of r.value.matches) if (m.id === id && !matches.some((x) => x.id === id)) matches.push(m);
+        }
+        if (!matches.length) return bad(future.some((r) => r.status === "rejected") ? "Calendrier Flashscore partiellement indisponible" : "Match Flashscore introuvable", future.some((r) => r.status === "rejected") ? 503 : 404);
+      }
       targets = matches.filter((m) => m.start).map((m) => ({ id: m.id, home: m.home, away: m.away, start: m.start, state: m.state === "in" ? "in" : m.state === "post" ? "post" : "pre" }));
-      for (const b of legacy.games) if (!targets.some((t) => order(t, b, s) !== void 0 && Math.abs(Date.parse(t.start) - Date.parse(b.start)) < 18 * 36e5)) targets.push(b);
+      for (const b of legacy.games) if (!targets.some((t) => order2(t, b, s) !== void 0 && Math.abs(Date.parse(t.start) - Date.parse(b.start)) < 18 * 36e5)) targets.push(b);
     }
     let fresh = targets.map((t) => ({ ...t, sport: s, books: [] }));
     if (source.status === "fulfilled") {
@@ -901,9 +954,9 @@ function oddsApi(options = {}) {
     }
     const games = fresh.map((game) => {
       if (game.state === "post") return { ...game, books: [], selected: void 0, ref: void 0 };
-      const candidates = legacy.games.filter((b2) => order(game, b2, s) !== void 0 && Math.abs(Date.parse(game.start) - Date.parse(b2.start)) < 18 * 36e5);
+      const candidates = legacy.games.filter((b2) => order2(game, b2, s) !== void 0 && Math.abs(Date.parse(game.start) - Date.parse(b2.start)) < 18 * 36e5);
       const b = candidates.length === 1 ? candidates[0] : void 0;
-      const books = [...b ? b.books.map((book) => align(book, order(game, b, s), now())) : [], ...game.books.map((book) => align(book, false, now()))].filter((b2) => b2.markets.length && b2.phase === (game.state === "pre" ? "prematch" : "live"));
+      const books = [...b ? b.books.map((book) => align(book, order2(game, b, s), now())) : [], ...game.books.map((book) => align(book, false, now()))].filter((b2) => b2.markets.length && b2.phase === (game.state === "pre" ? "prematch" : "live"));
       return withReference({ ...game, books }, now());
     });
     const status = !games.some((g) => g.books.length) && source.status === "rejected" && !legacy.games.length ? 503 : 200;

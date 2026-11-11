@@ -67,7 +67,11 @@ export function oddsApi(options: { flashscore?: FlashscoreOddsProvider; existing
     if (source.status === 'rejected') errors.flashscore = 'Cotes Flashscore indisponibles';
     if (!targets) {
       const matches = source.status === 'fulfilled' ? source.value.matches.filter((m) => id ? m.id === id : m.state === 'pre' || m.state === 'in') : [];
-      if (id && source.status === 'fulfilled' && !matches.length) return bad('Match Flashscore introuvable', 404);
+      if (id && source.status === 'fulfilled' && !matches.length) {
+        const future = await Promise.allSettled(Array.from({ length: 7 }, (_, i) => flashscore.board(s, i + 1)));
+        for (const r of future) if (r.status === 'fulfilled') for (const m of r.value.matches) if (m.id === id && !matches.some((x) => x.id === id)) matches.push(m);
+        if (!matches.length) return bad(future.some((r) => r.status === 'rejected') ? 'Calendrier Flashscore partiellement indisponible' : 'Match Flashscore introuvable', future.some((r) => r.status === 'rejected') ? 503 : 404);
+      }
       targets = matches.filter((m) => m.start).map((m) => ({ id: m.id, home: m.home, away: m.away, start: m.start!, state: m.state === 'in' ? 'in' : m.state === 'post' ? 'post' : 'pre' }));
       for (const b of legacy.games) if (!targets.some((t) => order(t, b, s) !== undefined && Math.abs(Date.parse(t.start) - Date.parse(b.start)) < 18 * 3600_000)) targets.push(b);
     }

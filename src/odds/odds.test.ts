@@ -6,7 +6,7 @@ import { flashscoreBooks, withReference, type OddsGame, type OddsTarget } from '
 import { FlashscoreOddsProvider } from './flashscore-provider.ts';
 import { TheOddsProvider } from './the-odds-provider.ts';
 import { oddsApi } from './api.ts';
-import { currentBook, footMarket, nbaMarket, tennisMarket, withNbaPrices, withTennisPrices, withFootPrices } from '../../web/src/oddsdata.ts';
+import { currentBook, footMarket, nbaMarket, tennisMarket, withNbaPrices, withTennisPrices, withFootPrices, withinPriceHorizon } from '../../web/src/oddsdata.ts';
 import type { Game } from '../../web/src/data.ts';
 
 const NOW = Date.now(), at = new Date(NOW).toISOString(), start = new Date(NOW + 3600_000).toISOString();
@@ -36,6 +36,29 @@ function fixture() {
 }
 const post = (matches: OddsTarget[] = [target], sport = 'nba') => new Request('https://razzia.me/api/cotes', { method: 'POST', body: JSON.stringify({ sport, matches }) });
 const baseData = (updated = at) => [{ id: 'legacy1', home_team: 'Boston Celtics', away_team: 'Miami Heat', commence_time: start, bookmakers: [{ key: 'pinnacle', title: 'Pinnacle', last_update: updated, markets: [{ key: 'h2h', last_update: updated, outcomes: [{ name: 'Boston Celtics', price: 2.2 }, { name: 'Miami Heat', price: 1.7 }] }] }] }];
+
+function futureFixture(sport: 'nba' | 'foot' | 'tennis' = 'nba', targetDay = 3, nativeDays = [targetDay]) {
+  const future = new Date((Math.floor(NOW / 86_400_000) + targetDay) * 86_400_000 + 12 * 3600_000).toISOString();
+  const state = { now: NOW, published: true, days: [] as number[], comparisons: 0, failedDays: new Set<number>() };
+  const names = sport === 'nba' ? ['Boston Celtics', 'Miami Heat'] : sport === 'tennis' ? ['Sinner J.', 'Alcaraz C.'] : ['Paris SG', 'Nantes'];
+  const client = new Flashscore({ now: () => state.now, ttlMs: 0, fetch: async (url) => {
+    const u = new URL(String(url));
+    if (u.hostname === 'www.flashscore.com') return new Response('window.environment = {"config":{"app":{"feed_sign":"test"}}};');
+    if (u.hostname.endsWith('flashscore.ninja')) {
+      const m = u.pathname.match(/\/f_\d_(\d)_3_en_1/);
+      assert.ok(m, 'Une lecture de cotes futures ne demande pas les statistiques du match');
+      const day = Number(m[1]); state.days.push(day);
+      if (state.failedDays.has(day)) return new Response('', { status: 500 });
+      return new Response(nativeDays.includes(day) ? `ZA÷${sport === 'nba' ? 'USA: NBA' : 'Test'}¬~AA÷future01¬AB÷1¬AE÷${names[0]}¬AF÷${names[1]}¬JA÷home0001¬JB÷away0001¬AD÷${Date.parse(future) / 1000}¬~` : 'A1÷version¬~');
+    }
+    assert.equal(u.searchParams.get('_hash'), 'oce'); state.comparisons++;
+    return Response.json({ data: { findOddsByEventId: { eventId: 'future01', settings: { bookmakers: [{ bookmaker: { id: 16, name: 'bet365' } }] }, odds: state.published ? [{ bookmakerId: 16, bettingType: sport === 'foot' ? 'HOME_DRAW_AWAY' : 'HOME_AWAY', bettingScope: sport === 'nba' ? 'FULL_TIME_OVER_TIME' : 'FULL_TIME', odds: [{ eventParticipantId: 'home0001', value: '2.10', active: true }, ...(sport === 'foot' ? [{ eventParticipantId: null, value: '3.50', active: true }] : []), { eventParticipantId: 'away0001', value: '1.80', active: true }] }] : [] } } });
+  } });
+  const wanted = { ...target, start: future, ...(sport === 'tennis' ? { home: 'Jannik Sinner', away: 'Carlos Alcaraz' } : sport === 'foot' ? { home: 'Paris Saint-Germain', away: 'Nantes' } : {}) };
+  const provider = new FlashscoreOddsProvider({ client, now: () => state.now });
+  const api = oddsApi({ flashscore: provider, existing: new TheOddsProvider({ key: '' }), now: () => state.now });
+  return { state, provider, wanted, api, client };
+}
 
 test('un marché exige deux côtés actifs du même bookmaker et de la même période', () => {
   assert.equal(game().books.length, 1);
@@ -116,6 +139,56 @@ test('source : inversion des équipes et rencontre d’un autre jour exclue', as
   assert.equal(a[0].books[0].home, 1.8);
   const b = await provider.read('nba', [{ ...target, start: new Date(NOW + 3 * 86400_000).toISOString() }]);
   assert.equal(b[0].books.length, 0);
+});
+for (const sport of ['nba', 'foot', 'tennis'] as const) test(`${sport} : cote à J+3 absente des anciens fournisseurs, récupérée sur le bon tableau Flashscore`, async () => {
+  const { wanted, api, state } = futureFixture(sport);
+  assert.ok(withinPriceHorizon(wanted, NOW));
+  const response = await api(post([wanted], sport));
+  const data = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(data.games[0].sourceId, 'future01');
+  assert.equal(data.games[0].books[0].home, 2.1);
+  assert.ok(data.games[0].selected);
+  assert.deepEqual([...new Set(state.days)].sort(), [0, 2, 3, 4]);
+});
+test('horizon : J+7 reste coté, le jour suivant et les matchs terminés sont exclus', async () => {
+  const { wanted, provider } = futureFixture('nba', 7);
+  assert.ok(withinPriceHorizon(wanted, NOW));
+  assert.equal((await provider.read('nba', [wanted]))[0].books[0].home, 2.1);
+  assert.equal(withinPriceHorizon({ ...wanted, start: new Date(Date.parse(wanted.start) + 86_400_000).toISOString() }, NOW), false);
+  assert.equal(withinPriceHorizon({ ...wanted, state: 'post' }, NOW), false);
+});
+test('nouvelle publication : cote future trouvée au passage suivant, sans attendre le cache du calendrier', async () => {
+  const { wanted, provider, state } = futureFixture(); state.published = false;
+  assert.equal((await provider.read('nba', [wanted]))[0].books.length, 0);
+  const calendarCalls = state.days.filter((d) => d > 0).length;
+  state.now += 5001; state.published = true;
+  assert.equal((await provider.read('nba', [wanted]))[0].books[0].home, 2.1);
+  assert.equal(state.comparisons, 2);
+  assert.equal(state.days.filter((d) => d > 0).length, calendarCalls);
+});
+test('dates voisines : même identifiant dédupliqué et tournoi publié sur le jour adjacent reconnu', async () => {
+  const { provider, wanted, state } = futureFixture('tennis', 3, [2, 4]);
+  const data = await provider.read('tennis', [wanted]);
+  assert.equal(data[0].sourceId, 'future01'); assert.equal(data[0].books.length, 1); assert.equal(state.comparisons, 1);
+});
+test('panne d’un jour futur : les autres jours restent utilisables et un calendrier manquant est signalé', async () => {
+  const { provider, wanted, state } = futureFixture(); state.failedDays.add(2);
+  assert.equal((await provider.read('nba', [wanted]))[0].books.length, 1);
+  const unavailable = futureFixture(); unavailable.state.failedDays.add(3);
+  const data = await unavailable.provider.read('nba', [unavailable.wanted]);
+  assert.equal(data[0].books.length, 0); assert.ok(data[0].errors?.calendar);
+});
+test('API : accès direct à un identifiant Flashscore futur sans le confondre avec un 404 du jour', async () => {
+  const { api } = futureFixture();
+  const response = await api(new Request('https://razzia.me/api/cotes?sport=nba&id=future01'));
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).games[0].books[0].home, 2.1);
+});
+test('jour de calendrier invalide rejeté avant toute requête', async () => {
+  const { client, state } = futureFixture();
+  for (const day of [-1, 8, 1.5, NaN]) await assert.rejects(client.board('nba', day), /Jour Flashscore/);
+  assert.equal(state.days.length, 0);
 });
 test('état du match : pas de retour du live au pré-match, ni cote après la fin', async () => {
   const { provider, state } = fixture();

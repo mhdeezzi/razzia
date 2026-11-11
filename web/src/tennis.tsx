@@ -252,7 +252,8 @@ let slateLast: Slate | undefined;
 
 export function TennisSchedulePage({ day }: { day: string | null }) {
   const [baseData, setData] = useState<Slate | undefined>(() => slateLast);
-  const prices = usePrices('tennis', (baseData?.matches ?? []).map((m) => ({ id: m.id, home: m.home, away: m.away, start: m.start, state: m.live?.state ?? (Date.parse(m.start) > Date.now() ? 'pre' : 'in') })));
+  const oddsDay = day && day >= localDay(Date.now() - 86_400_000) && day <= localDay(Date.now() + 6 * 86_400_000) ? day : localDay(Date.now());
+  const prices = usePrices('tennis', (baseData?.matches ?? []).filter((m) => localDay(m.start) === oddsDay).map((m) => ({ id: m.id, home: m.home, away: m.away, start: m.start, state: m.live?.state ?? (Date.parse(m.start) > Date.now() ? 'pre' : 'in') })));
   const data = useMemo(() => baseData && ({ ...baseData, matches: baseData.matches.map((m) => {
     const current = prices.get(m.id), odds = tennisMarket(current, m.odds?.at);
     if (current?.sourceId && current.state !== 'pre') return { ...m, live: { home: [], away: [], ...m.live, state: current.state } };

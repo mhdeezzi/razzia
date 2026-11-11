@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { Sport } from '../../src/live/flashscore.ts';
 import type { OddsGame, OddsTarget } from '../../src/odds/prices.ts';
-import { readPrices } from './oddsdata.ts';
+import { readPrices, withinPriceHorizon } from './oddsdata.ts';
 
 /** Après la fin de chaque appel, sans chevauchement ; en pause quand l'onglet est masqué. */
 export function usePrices(sport: Sport, targets: OddsTarget[], interval = 15_000): Map<string, OddsGame> {
-  const wanted = targets.filter((t) => t.state !== 'post' && Date.parse(t.start) > Date.now() - 18 * 3600_000 && Date.parse(t.start) < Date.now() + 36 * 3600_000);
+  const wanted = targets.filter((t) => withinPriceHorizon(t));
   const key = JSON.stringify(wanted);
   const [data, setData] = useState<{ key: string; games: Map<string, OddsGame> }>({ key: '', games: new Map() });
   useEffect(() => {

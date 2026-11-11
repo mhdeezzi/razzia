@@ -26,6 +26,22 @@ Le dépôt contient `supabase/horloge.sql`, une installation manuelle d'une tâc
 pour les simulations et les bilans. La présence de ce fichier ne prouve pas que la tâche est activée
 dans le projet Supabase. Cette modification ne change pas cette horloge ni les tables des comptes/tickets.
 
+## Cotes des prochains jours
+
+Le lecteur consulte les calendriers Flashscore **d'aujourd'hui jusqu'à J+7**, selon la date des matchs
+demandés. Les dates voisines sont vérifiées pour les matchs de nuit et les différences de fuseau.
+Un même identifiant présent sur plusieurs tableaux est dédupliqué. Les programmes ne demandent
+que les cotes du jour affiché ; ouvrir un jour futur déclenche sa lecture.
+
+Les calendriers futurs sont conservés une minute par instance, tandis que leurs **cotes restent
+relues à la cadence normale**, même si aucun prix n'était encore publié au passage précédent.
+Une nouvelle offre Flashscore peut ainsi remplir une fiche « Sans cote » sans attendre le prochain
+relevé Pinnacle/football-data. Les erreurs d'un calendrier futur ne suppriment pas les jours disponibles.
+
+Cela concerne les matchs déjà présents dans le programme Razzia, avec des noms reconnus et des
+offres actives compatibles. Le lecteur ne crée pas les rencontres absentes des calendriers actuels
+de Razzia. Une offre suspendue ou trop ancienne reste exclue selon les critères ci-dessous.
+
 ## Fraîcheur et choix du bookmaker
 
 Chaque marché conserve son fournisseur, son bookmaker, sa phase, sa période, sa ligne et ses dates.
@@ -85,6 +101,8 @@ Content-Type: application/json
 Chaque match conserve son identifiant demandé ; `sourceId` identifie Flashscore, `books` contient les
 offres normalisées et `selected` désigne le bookmaker retenu. Il est aussi possible de lire un match
 par son identifiant Flashscore : `GET /api/cotes?sport=tennis&id=abcdefgh`.
+Cette recherche par identifiant inclut les sept prochains jours ; un calendrier indisponible
+renvoie une erreur explicite plutôt qu'un faux « match introuvable ».
 
 `src/odds/api.ts` est la source de l'API ; `api/cotes.js` est généré. La génération évite des imports
 TypeScript entre les fonctions déployées.

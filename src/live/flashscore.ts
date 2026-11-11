@@ -303,10 +303,11 @@ export class Flashscore {
     try { return await pending; } finally { this.pending.delete(name); }
   }
 
-  async board(sport: Sport): Promise<Board> {
+  async board(sport: Sport, day = 0): Promise<Board> {
     if (!SPORTS.includes(sport)) throw new Error('Sport invalide');
+    if (!Number.isInteger(day) || day < 0 || day > 7) throw new Error('Jour Flashscore : un entier de 0 à 7');
     const id = { foot: 1, tennis: 2, nba: 3 }[sport];
-    return parseBoard(sport, await this.feed('f_' + id + '_0_3_en_1'));
+    return parseBoard(sport, await this.feed('f_' + id + '_' + day + '_3_en_1'));
   }
 
   private async oddsFeed(query: OddsQuery): Promise<Feed> {
