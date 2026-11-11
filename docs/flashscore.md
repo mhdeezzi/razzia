@@ -71,11 +71,40 @@ mesure du retard depuis le terrain). Les scores du tableau ont leur propre `boar
 `boardAgeSeconds`. Des réponses NBA mises en cache depuis plus de vingt secondes ont été observées
 pendant le test initial. Aucune latence de bout en bout de 1 à 5 secondes n'est garantie.
 
-Les données indisponibles sont signalées dans `errors`. Un tableau qui échoue n'est pas présenté
-comme un sport sans match. Un HTTP 403 ou 429 met les appels à la source en pause, au moins cinq
-secondes et par défaut une minute, en respectant `Retry-After`. Les échecs répétés ralentissent aussi
-le robot. Il ne change pas d'hôte ou de compte pour contourner un refus. `--once` rend un code de
-sortie non nul si une partie de la collecte échoue.
+### Renouvellement automatique de `x-fsign`
+
+La signature n'est pas écrite dans le code : elle est lue dans la configuration publique du site.
+Elle est relue préventivement toutes les cinq minutes, en arrière-plan, sans attendre ce délai si
+un flux refuse la signature. La relecture demande une revalidation HTTP (`Cache-Control: no-cache`).
+Si la page de configuration devient indisponible alors que la signature fonctionne encore, les
+lectures continuent avec cette signature et la relecture est temporisée séparément.
+
+Un HTTP 401/403 sans `Retry-After`, ou une réponse HTML/JSON inattendue à la place d'un flux,
+déclenche une seule relecture de la configuration. Les appels simultanés partagent cette relecture.
+La requête refusée est reprise une seule fois, uniquement si la signature a changé. Les requêtes
+en file utilisent la signature la plus récente à leur départ et un refus tardif d'une ancienne
+signature ne révoque pas la nouvelle. La lecture de configuration est prioritaire dans la file,
+sans dépasser la limite de concurrence réseau.
+
+Une signature inchangée, un nouvel échec après renouvellement ou une configuration inaccessible
+mettent les flux en pause. Un HTTP 429 ou un refus accompagné de `Retry-After` est respecté avant
+toute nouvelle lecture ou tentative de renouvellement. La temporisation du robot tient compte du
+temps déjà passé à lire les données : elle ne raccourcit pas le délai restant imposé par la source.
+Aucun changement d'hôte ou de compte n'est utilisé pour contourner un refus.
+
+### Données conservées pendant une panne
+
+Les données indisponibles sont signalées dans `errors`. Dans la même instance, la dernière lecture
+réussie d'un flux peut être conservée pendant **60 secondes au maximum**, sans renouveler sa date.
+Elle porte `stale: true` et `staleReason` ; les tableaux ont aussi ces indicateurs. Une fiche avec
+un tableau ancien expose `boardStale: true` et `errors.board`. Les réponses avec ces erreurs ont
+`complete: false`. Si la fiche cherchée n'existe pas dans un tableau ancien, l'API répond 503 plutôt
+que d'affirmer à tort qu'elle n'existe pas.
+
+Cette conservation reste en mémoire : elle ne survit pas à un redémarrage ou au démarrage d'une
+autre instance Vercel. Au-delà d'une minute, une erreur est renvoyée. Un tableau qui échoue n'est
+jamais présenté comme un sport sans match. Les échecs répétés ralentissent aussi le robot et
+`--once` rend un code de sortie non nul si une partie de la collecte est indisponible ou ancienne.
 
 ## Vérifier et reconstruire
 
@@ -89,4 +118,6 @@ npm run build
 `api/flashscore.js` est généré depuis `src/live/flashscore-api.ts` ; ne pas le modifier à la main.
 La construction utilise esbuild, déjà présent via Vite. Les tests vérifient notamment les champs
 répétés, les périodes, les données manquantes, le filtrage NBA, la fraîcheur, la concurrence, les
-résultats finaux et les pauses imposées par la source.
+résultats finaux, les pauses imposées par la source, les rotations 401/403, les renouvellements
+simultanés, les refus tardifs, les pannes de configuration, les fausses réponses HTTP 200 et
+l'expiration des données conservées.

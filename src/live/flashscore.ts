@@ -8,6 +8,9 @@ export interface Feed {
   sourceDate: string | null;
   ageSeconds: number | null;
   raw: string;
+  /** Dernière lecture réussie conservée pendant une panne ; fetchedAt reste inchangé. */
+  stale?: boolean;
+  staleReason?: string;
 }
 export interface Match {
   id: string;
@@ -22,13 +25,14 @@ export interface Match {
   fields: Fields;
   leagueFields: Fields;
 }
-export interface Board { sport: Sport; fetchedAt: string; ageSeconds: number | null; matches: Match[] }
+export interface Board { sport: Sport; fetchedAt: string; ageSeconds: number | null; matches: Match[]; stale: boolean; staleReason?: string }
 export interface Statistic { period: string; group: string; id?: string; label: string; home: string | null; away: string | null }
 export interface Detail {
   source: 'flashscore';
   match: Match;
   boardFetchedAt: string;
   boardAgeSeconds: number | null;
+  boardStale: boolean;
   collectedAt: string;
   complete: boolean;
   statistics: Statistic[];
@@ -67,7 +71,7 @@ export function parseBoard(sport: Sport, feed: Feed): Board {
       score: [number(field(fields, 'AG')), number(field(fields, 'AH'))],
     });
   }
-  return { sport, fetchedAt: feed.fetchedAt, ageSeconds: feed.ageSeconds, matches };
+  return { sport, fetchedAt: feed.fetchedAt, ageSeconds: feed.ageSeconds, matches, stale: !!feed.stale, staleReason: feed.staleReason };
 }
 
 /** Les valeurs restent textuelles : « 77% (213/277) » ne devient pas seulement 77. */
@@ -110,10 +114,16 @@ export function publicSettings(html: string): { sign: string } {
 export class SourceError extends Error {
   status: number;
   retryAfterMs: number;
-  constructor(message: string, status: number, retryAfterMs: number) {
-    super(message); this.status = status; this.retryAfterMs = retryAfterMs;
+  refreshable: boolean;
+  constructor(message: string, status: number, retryAfterMs: number, refreshable = false) {
+    super(message); this.status = status; this.retryAfterMs = retryAfterMs; this.refreshable = refreshable;
   }
 }
+
+type Signature = { sign: string; at: number };
+const SETTINGS_TTL_MS = 5 * 60_000;
+const SETTINGS_RETRY_MS = 30_000;
+const STALE_MS = 60_000;
 
 export interface ClientOptions { fetch?: typeof fetch; now?: () => number; ttlMs?: number; concurrency?: number }
 export class Flashscore {
@@ -125,8 +135,11 @@ export class Flashscore {
   private waiting: Array<() => void> = [];
   private cache = new Map<string, { at: number; feed: Feed }>();
   private pending = new Map<string, Promise<Feed>>();
-  private settings?: { sign: string; at: number };
-  private settingPending?: Promise<string>;
+  private settings?: Signature;
+  private settingPending?: Promise<Signature>;
+  private settingsRetryAt = 0;
+  private settingsError?: unknown;
+  private renewal?: { rejected: string; promise: Promise<Signature> };
   private blockedUntil = 0;
 
   constructor(options: ClientOptions = {}) {
@@ -137,24 +150,36 @@ export class Flashscore {
     if (!Number.isInteger(this.concurrency) || this.concurrency < 1) throw new Error('Concurrence invalide');
   }
 
-  retryAfterMs(): number { return Math.max(0, this.blockedUntil - this.now()); }
+  retryAfterMs(): number {
+    return Math.max(0, this.blockedUntil - this.now(), this.settings ? 0 : this.settingsRetryAt - this.now());
+  }
 
-  private async request(url: string, headers: Record<string, string> = {}): Promise<Feed> {
-    if (this.active >= this.concurrency) await new Promise<void>((resolve) => this.waiting.push(resolve));
+  private pause(error: SourceError): void {
+    this.blockedUntil = Math.max(this.blockedUntil, this.now() + error.retryAfterMs);
+  }
+
+  private async request(url: string, headers: Record<string, string> | (() => Record<string, string>) = {}, mayRefresh = false, settingsRequest = false): Promise<Feed> {
+    if (this.active >= this.concurrency) await new Promise<void>((resolve) => settingsRequest ? this.waiting.unshift(resolve) : this.waiting.push(resolve));
     else this.active++;
     try {
       if (this.now() < this.blockedUntil) throw new SourceError('Flashscore en pause après un refus ou une limite de débit', 429, this.blockedUntil - this.now());
-      const response = await this.fetcher(url, { headers, signal: AbortSignal.timeout(8000) });
+      const response = await this.fetcher(url, { headers: typeof headers === 'function' ? headers() : headers, signal: AbortSignal.timeout(8000) });
       if (!response.ok) {
         const retry = response.headers.get('retry-after');
         const delay = retry && /^\d+$/.test(retry) ? Number(retry) * 1000 : retry ? Date.parse(retry) - this.now() : 60_000;
         const retryAfterMs = Number.isFinite(delay) ? Math.max(5000, delay) : 60_000;
-        if (response.status === 403 || response.status === 429) this.blockedUntil = this.now() + retryAfterMs;
-        throw new SourceError('Flashscore : HTTP ' + response.status, response.status, retryAfterMs);
+        // Un refus de signature sans Retry-After permet UNE relecture de la configuration publique.
+        // Une limitation explicite de la source est toujours respectée avant toute autre lecture.
+        const refreshable = mayRefresh && [401, 403].includes(response.status) && retry == null;
+        const error = new SourceError('Flashscore : HTTP ' + response.status, response.status, retryAfterMs, refreshable);
+        // La page de configuration a sa propre pause : son indisponibilité ne révoque pas une clé encore valide.
+        if (!settingsRequest && !refreshable && ([401, 403, 429].includes(response.status) || retry != null)) this.pause(error);
+        await response.body?.cancel().catch(() => undefined);
+        throw error;
       }
       const raw = await response.text();
       const age = response.headers.get('age');
-      return { raw, fetchedAt: new Date(this.now()).toISOString(), sourceDate: response.headers.get('date'), ageSeconds: age == null ? null : number(age) };
+      return { raw, fetchedAt: new Date(this.now()).toISOString(), sourceDate: response.headers.get('date'), ageSeconds: age == null ? null : number(age), stale: false };
     } finally {
       const next = this.waiting.shift();
       if (next) next();
@@ -162,15 +187,76 @@ export class Flashscore {
     }
   }
 
-  private async sign(): Promise<string> {
-    if (this.settings && this.now() - this.settings.at < 3_600_000) return this.settings.sign;
+  private async refreshSettings(): Promise<Signature> {
     if (this.settingPending) return this.settingPending;
+    if (this.now() < this.settingsRetryAt) throw this.settingsError;
     this.settingPending = (async () => {
-      const page = await this.request('https://www.flashscore.com/basketball/usa/nba/');
+      const page = await this.request('https://www.flashscore.com/basketball/usa/nba/', { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }, false, true);
       this.settings = { ...publicSettings(page.raw), at: this.now() };
-      return this.settings.sign;
+      this.settingsRetryAt = 0;
+      this.settingsError = undefined;
+      return this.settings;
     })();
-    try { return await this.settingPending; } finally { this.settingPending = undefined; }
+    try { return await this.settingPending; }
+    catch (error) {
+      this.settingsError = error;
+      this.settingsRetryAt = this.now() + Math.max(SETTINGS_RETRY_MS, this.retryAfterMs(), error instanceof SourceError ? error.retryAfterMs : 0);
+      throw error;
+    } finally { this.settingPending = undefined; }
+  }
+
+  private async sign(): Promise<Signature> {
+    const current = this.settings;
+    if (!current) return this.refreshSettings();
+    // Renouvellement préventif en arrière-plan : la signature encore valide continue de servir le live.
+    if (this.now() - current.at >= SETTINGS_TTL_MS && this.now() >= this.settingsRetryAt && !this.settingPending) {
+      void this.refreshSettings().catch(() => undefined);
+    }
+    return current;
+  }
+
+  private async renew(rejected: string, error: SourceError): Promise<Signature> {
+    if (this.retryAfterMs()) throw new SourceError('Flashscore en pause après un refus ou une limite de débit', 429, this.retryAfterMs());
+    // Un refus tardif d'un appel déjà parti ne doit pas invalider la nouvelle signature.
+    if (this.settings && this.settings.sign !== rejected) return this.settings;
+    if (this.renewal?.rejected === rejected) return this.renewal.promise;
+    const promise = (async () => {
+      try {
+        const next = await this.refreshSettings();
+        if (next.sign === rejected) throw error;
+        return next;
+      } catch (refreshError) {
+        this.pause(error);
+        throw refreshError;
+      }
+    })();
+    this.renewal = { rejected, promise };
+    try { return await promise; }
+    finally { if (this.renewal?.promise === promise) this.renewal = undefined; }
+  }
+
+  private async readFeed(name: string): Promise<Feed> {
+    let signature = await this.sign();
+    const read = async (mayRefresh: boolean) => {
+      const feed = await this.request('https://global.flashscore.ninja/2/x/feed/' + name, () => {
+        // Une requête en attente du sémaphore prend la signature la plus récente au moment de partir.
+        signature = this.settings ?? signature;
+        return { 'x-fsign': signature.sign, Referer: 'https://www.flashscore.com/' };
+      }, mayRefresh);
+      // Une page HTML/une erreur JSON servie en HTTP 200 n'est pas un tableau de scores vide.
+      if (feed.raw.trim() && !/^[A-Z][A-Z0-9]*÷/.test(feed.raw.trim())) {
+        const error = new SourceError('Réponse Flashscore inattendue (flux remplacé par une page ou une erreur)', 502, 60_000, mayRefresh);
+        if (!mayRefresh) this.pause(error);
+        throw error;
+      }
+      return feed;
+    };
+    try { return await read(true); }
+    catch (error) {
+      if (!(error instanceof SourceError) || !error.refreshable) throw error;
+      signature = await this.renew(signature.sign, error);
+      return read(false); // Une seule reprise, et uniquement avec une signature différente.
+    }
   }
 
   async feed(name: string): Promise<Feed> {
@@ -180,11 +266,18 @@ export class Flashscore {
     const existing = this.pending.get(name);
     if (existing) return existing;
     const pending = (async () => {
-      const sign = await this.sign();
-      const feed = await this.request('https://global.flashscore.ninja/2/x/feed/' + name, { 'x-fsign': sign, Referer: 'https://www.flashscore.com/' });
-      this.cache.set(name, { at: this.now(), feed });
-      if (this.cache.size > 1000) this.cache.delete(this.cache.keys().next().value!);
-      return feed;
+      try {
+        const feed = await this.readFeed(name);
+        this.cache.set(name, { at: this.now(), feed });
+        if (this.cache.size > 1000) this.cache.delete(this.cache.keys().next().value!);
+        return feed;
+      } catch (error) {
+        // Conserve au plus une minute de données explicites, sans modifier leur date ni leur cache.
+        if (cached && this.now() - cached.at <= STALE_MS) return {
+          ...cached.feed, stale: true, staleReason: error instanceof Error ? error.message : 'Source indisponible',
+        };
+        throw error;
+      }
     })();
     this.pending.set(name, pending);
     try { return await pending; } finally { this.pending.delete(name); }
@@ -209,12 +302,16 @@ export class Flashscore {
       names.currentGame = 'df_mhs_1_' + id;
     }
     const feeds: Record<string, Feed> = {}, errors: Record<string, string> = {};
+    if (board.stale) errors.board = board.staleReason ?? 'Dernier tableau connu, source indisponible';
     await Promise.all(Object.entries(names).map(async ([kind, name]) => {
-      try { feeds[kind] = await this.feed(name); }
+      try {
+        feeds[kind] = await this.feed(name);
+        if (feeds[kind].stale) errors[kind] = feeds[kind].staleReason ?? 'Dernière lecture connue, source indisponible';
+      }
       catch (e) { errors[kind] = e instanceof Error ? e.message : 'Flux indisponible'; }
     }));
     return {
-      source: 'flashscore', match, boardFetchedAt: board.fetchedAt, boardAgeSeconds: board.ageSeconds,
+      source: 'flashscore', match, boardFetchedAt: board.fetchedAt, boardAgeSeconds: board.ageSeconds, boardStale: board.stale,
       collectedAt: new Date(this.now()).toISOString(), complete: !Object.keys(errors).length,
       statistics: parseStatistics(feeds.statistics?.raw ?? ''), feeds, errors,
     };
@@ -231,7 +328,11 @@ export async function collect(client: Flashscore, sports: Sport[], ids?: Set<str
   const started = Date.now();
   const boards: Partial<Record<Sport, Board>> = {}, errors: Record<string, string> = {};
   await Promise.all(sports.map(async (sport) => {
-    try { boards[sport] = await client.board(sport); }
+    try {
+      const board = await client.board(sport);
+      boards[sport] = board;
+      if (board.stale) errors[sport] = board.staleReason ?? 'Dernier tableau connu, source indisponible';
+    }
     catch (e) { errors[sport] = e instanceof Error ? e.message : 'Source indisponible'; }
   }));
   const matches: Detail[] = [];

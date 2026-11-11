@@ -13,7 +13,10 @@ export function flashscoreApi(client = new Flashscore()) {
       if (id && sport) {
         const board = await client.board(sport as Sport);
         const match = board.matches.find((m) => m.id === id);
-        if (!match) return Response.json({ error: 'Match absent du tableau Flashscore du jour.' }, { status: 404, headers });
+        if (!match) return Response.json({ error: board.stale ? 'Tableau Flashscore indisponible : présence du match non vérifiable.' : 'Match absent du tableau Flashscore du jour.' }, {
+          status: board.stale ? 503 : 404,
+          headers: { ...headers, ...(client.retryAfterMs() ? { 'Retry-After': String(Math.ceil(client.retryAfterMs() / 1000)) } : {}) },
+        });
         const detail = await client.detail(match, board);
         const retry = client.retryAfterMs();
         const status = Object.keys(detail.feeds).length ? 200 : retry ? 503 : 502;
@@ -25,6 +28,7 @@ export function flashscoreApi(client = new Flashscore()) {
         try {
           const board = await client.board(s);
           boards[s] = { ...board, matches: board.matches.filter((m) => m.state === 'in') };
+          if (board.stale) errors[s] = board.staleReason ?? 'Dernier tableau connu, source indisponible';
         } catch (e) { errors[s] = e instanceof Error ? e.message : 'Source indisponible'; }
       }));
       const retry = client.retryAfterMs();
@@ -35,7 +39,7 @@ export function flashscoreApi(client = new Flashscore()) {
     } catch (e) {
       const retry = client.retryAfterMs();
       return Response.json({ error: e instanceof Error ? e.message : 'Flashscore indisponible' }, {
-        status: e instanceof SourceError && [403, 429].includes(e.status) ? 503 : 502,
+        status: retry || (e instanceof SourceError && [401, 403, 429].includes(e.status)) ? 503 : 502,
         headers: { ...headers, ...(retry ? { 'Retry-After': String(Math.ceil(retry / 1000)) } : {}) },
       });
     }

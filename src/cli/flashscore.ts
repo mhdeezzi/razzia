@@ -27,6 +27,11 @@ export function options(args: string[]) {
   return { interval, output: resolve(output), once, sports, ids };
 }
 
+/** Retry-After court depuis sa réception, pas depuis le début du passage qui a pu durer plusieurs secondes. */
+export function pollDelay(interval: number, duration: number, retryAfter: number, failures: number): number {
+  return Math.max(0, interval - duration, retryAfter, failures ? Math.min(60_000, interval * 2 ** Math.min(failures, 6)) : 0);
+}
+
 export async function main(args = process.argv.slice(2)) {
   const config = options(args);
   const client = new Flashscore({ ttlMs: 0 });
@@ -58,8 +63,8 @@ export async function main(args = process.argv.slice(2)) {
       failures = errors ? failures + 1 : 0;
       console.log(JSON.stringify({ at: snapshot.collectedAt, matches: snapshot.matches.length, errors, durationMs: snapshot.durationMs, overrun: snapshot.durationMs > config.interval, output: config.output }));
       if (config.once) { if (errors) process.exitCode = 1; break; }
-      const pause = Math.max(config.interval, client.retryAfterMs(), errors ? Math.min(60_000, config.interval * 2 ** Math.min(failures, 6)) : 0);
-      await delay(Math.max(0, start + pause - Date.now()), undefined, { signal: stop.signal }).catch((e) => { if (!stop.signal.aborted) throw e; });
+      const pause = pollDelay(config.interval, Date.now() - start, client.retryAfterMs(), failures);
+      await delay(pause, undefined, { signal: stop.signal }).catch((e) => { if (!stop.signal.aborted) throw e; });
     } while (!stop.signal.aborted);
   } finally {
     process.removeListener('SIGINT', shutdown);
