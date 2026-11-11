@@ -103,6 +103,33 @@ test('sélection : source la plus récente, sans prétendre qu’Unibet global e
   assert.equal(g.books.find((b) => b.key === g.selected)?.french, false);
   assert.ok(g.ref);
 });
+test('régression capture Indiana : Betclic.fr 1,59/2,17 remplace William Hill 1,67/2,20', () => {
+  const quotes = [q('home', { bookmakerId: 15, bookmakerName: 'William Hill', odds: 1.67 }), q('away', { bookmakerId: 15, bookmakerName: 'William Hill', odds: 2.2 }), q('home', { bookmakerId: 141, bookmakerName: 'Betclic.fr', odds: 1.59, ageSeconds: 30 }), q('away', { bookmakerId: 141, bookmakerName: 'Betclic.fr', odds: 2.17, ageSeconds: 30 })];
+  const g = withReference({ ...target, sport: 'nba', books: flashscoreBooks({ ...snap(quotes), projectId: 16, countryCode: 'FR' }, 'nba', false, NOW) }, NOW);
+  assert.equal(g.selected, 'flashscore:141:prematch');
+  assert.deepEqual(g.selection, { preferred: 'betclic_fr', bookmaker: 'betclic_fr', source: 'flashscore', reason: 'preferred' });
+  const b = currentBook(g, at, NOW)!;
+  assert.equal(b.home, 1.59); assert.equal(b.away, 2.17); assert.equal(b.countryCode, 'FR');
+  assert.equal(b.projectId, 16); assert.ok(b.french);
+});
+test('même référence Betclic : Flashscore prioritaire sur l’autre service, même si ses dates diffèrent', () => {
+  const quotes = [q('home', { bookmakerId: 141, bookmakerName: 'Betclic.fr', odds: 1.59, ageSeconds: 20 }), q('away', { bookmakerId: 141, bookmakerName: 'Betclic.fr', odds: 2.17, ageSeconds: 20 })];
+  const b = flashscoreBooks({ ...snap(quotes), countryCode: 'FR', projectId: 16 }, 'nba', false, NOW)[0];
+  const old = { ...game().books[0], key: 'betclic_fr', title: 'Betclic (FR)', french: true, source: 'the-odds-api' as const };
+  const g = withReference({ ...target, sport: 'nba', books: [old, b] }, NOW);
+  assert.equal(g.selected, b.key); assert.equal(g.selection?.reason, 'preferred');
+  const fallback = withReference({ ...g, books: [old] }, NOW);
+  assert.equal(fallback.selected, 'betclic_fr'); assert.equal(fallback.selection?.source, 'the-odds-api');
+});
+test('référence configurable et provenance française de Winamax, sans fusion des versions internationales', () => {
+  const quotes = [q('home', { bookmakerId: 141, bookmakerName: 'Betclic.fr' }), q('away', { bookmakerId: 141, bookmakerName: 'Betclic.fr' }), q('home', { bookmakerId: 264, bookmakerName: 'Winamax' }), q('away', { bookmakerId: 264, bookmakerName: 'Winamax' })];
+  const books = flashscoreBooks({ ...snap(quotes), countryCode: 'FR', projectId: 16 }, 'nba', false, NOW);
+  const g = withReference({ ...target, sport: 'nba', books }, NOW, 'winamax_fr');
+  assert.equal(g.selected, 'flashscore:264:prematch'); assert.equal(g.selection?.bookmaker, 'winamax_fr');
+  const international = game();
+  assert.equal(international.selection?.reason, 'fallback');
+  assert.equal(international.books[0].french, false);
+});
 test('fiches : cotes live, retirées, trop anciennes ou antérieures à la cote existante rejetées', () => {
   const g = game();
   assert.ok(currentBook(g));

@@ -21,8 +21,9 @@ function validTarget(m: unknown): m is OddsTarget {
     && typeof v.start === 'string' && Number.isFinite(Date.parse(v.start)) && ['pre', 'in', 'post'].includes(String(v.state));
 }
 
-export function oddsApi(options: { flashscore?: FlashscoreOddsProvider; existing?: TheOddsProvider; now?: () => number } = {}) {
+export function oddsApi(options: { flashscore?: FlashscoreOddsProvider; existing?: TheOddsProvider; now?: () => number; preferredBookmaker?: string } = {}) {
   const flashscore = options.flashscore ?? new FlashscoreOddsProvider(), existing = options.existing ?? new TheOddsProvider(), now = options.now ?? Date.now;
+  const preferred = (options.preferredBookmaker ?? process.env.ODDS_PREFERRED_BOOKMAKER ?? 'betclic_fr').trim().toLowerCase() || 'betclic_fr';
   // Sous Vercel, une variante CDN séparée protège le quota payant même entre plusieurs instances.
   // Elle ne contient que des cotes publiques. Les lectures Flashscore conservent leur cadence propre.
   const readExisting = async (request: Request) => {
@@ -81,11 +82,11 @@ export function oddsApi(options: { flashscore?: FlashscoreOddsProvider; existing
       catch { errors.flashscore = 'Lecture des cotes Flashscore indisponible'; }
     }
     const games = fresh.map((game) => {
-      if (game.state === 'post') return { ...game, books: [], selected: undefined, ref: undefined };
+      if (game.state === 'post') return { ...game, books: [], selected: undefined, selection: undefined, ref: undefined };
       const candidates = legacy.games.filter((b) => order(game, b, s) !== undefined && Math.abs(Date.parse(game.start) - Date.parse(b.start)) < 18 * 3600_000);
       const b = candidates.length === 1 ? candidates[0] : undefined;
       const books = [...(b ? b.books.map((book) => align(book, order(game, b, s)!, now())) : []), ...game.books.map((book) => align(book, false, now()))].filter((b) => b.markets.length && b.phase === (game.state === 'pre' ? 'prematch' : 'live'));
-      return withReference({ ...game, books }, now());
+      return withReference({ ...game, books }, now(), preferred);
     });
     const status = !games.some((g) => g.books.length) && source.status === 'rejected' && !legacy.games.length ? 503 : 200;
     return Response.json({ games, at: new Date(now()).toISOString(), refreshAfterMs: 5000, errors, ...('creditsLeft' in legacy ? { creditsLeft: legacy.creditsLeft } : {}), ...(status !== 200 ? { error: 'Fournisseurs de cotes indisponibles' } : {}) }, { status, headers });

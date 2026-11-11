@@ -3,16 +3,22 @@ import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
-import { collect, Flashscore, SPORTS, type Sport } from '../live/flashscore.ts';
+import { collect, Flashscore, SPORTS, type Sport, type OddsLocale } from '../live/flashscore.ts';
 
 export function options(args: string[]) {
   let interval = 5000, output = 'data/cache/flashscore/latest.json', once = false, odds = true, prematch = false;
+  let oddsLocale: OddsLocale = 'fr';
   let sports: Sport[] = [...SPORTS], ids: Set<string> | undefined;
   for (const arg of args) {
     if (arg === '--once') once = true;
     else if (arg === '--odds') odds = true;
     else if (arg === '--no-odds') odds = false;
     else if (arg === '--prematch') prematch = true;
+    else if (arg.startsWith('--odds-locale=')) {
+      const value = arg.slice(14);
+      if (value !== 'fr' && value !== 'global') throw new Error('Marchés de cotes : fr ou global');
+      oddsLocale = value;
+    }
     else if (arg.startsWith('--interval=')) interval = Number(arg.slice(11));
     else if (arg.startsWith('--output=')) output = arg.slice(9);
     else if (arg.startsWith('--sports=')) {
@@ -27,7 +33,7 @@ export function options(args: string[]) {
   }
   if (!Number.isInteger(interval) || interval < 1000 || interval > 5000) throw new Error('Intervalle : un entier de 1000 à 5000 ms');
   if (!output) throw new Error('Chemin de sortie vide');
-  return { interval, output: resolve(output), once, sports, ids, odds, prematch };
+  return { interval, output: resolve(output), once, sports, ids, odds, prematch, oddsLocale };
 }
 
 /** Retry-After court depuis sa réception, pas depuis le début du passage qui a pu durer plusieurs secondes. */
@@ -37,7 +43,7 @@ export function pollDelay(interval: number, duration: number, retryAfter: number
 
 export async function main(args = process.argv.slice(2)) {
   const config = options(args);
-  const client = new Flashscore({ ttlMs: 0 });
+  const client = new Flashscore({ ttlMs: 0, oddsLocale: config.oddsLocale });
   const stop = new AbortController();
   const shutdown = () => stop.abort();
   process.once('SIGINT', shutdown);

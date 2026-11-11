@@ -5,6 +5,25 @@ Pinnacle pour l'ATP, football-data pour le foot et The Odds API pour le comparat
 Ces sources et les fichiers des simulations restent en place. Les nouvelles lectures mettent
 à jour les cotes affichées, sans relancer les simulations ni changer leurs probabilités.
 
+## Même marché et même bookmaker que Flashscore France
+
+Les prix de deux bookmakers peuvent différer sans retard de collecte. Le lecteur de Razzia interroge
+**Flashscore.fr** (projet public 16, pays FR), plutôt que le catalogue international (projet 2).
+Cela fournit les versions françaises de Betclic, Winamax, Unibet, PMU, Betsson, bet365 et bwin lorsque
+Flashscore les publie. `projectId` et `countryCode` identifient ce marché dans les réponses.
+
+La référence d'affichage par défaut est **Betclic France** ; son offre Flashscore active et compatible
+est prioritaire. L'ordre alphabétique des identifiants et l'heure de lecture d'un autre service ne
+doivent pas sélectionner William Hill à sa place. Les cartes NBA indiquent le bookmaker et la source.
+La variable serveur `ODDS_PREFERRED_BOOKMAKER` permet de choisir une autre référence, par exemple
+`winamax_fr` ou `unibet_fr` (défaut : `betclic_fr`).
+
+Si l'offre Flashscore de cette référence manque, son offre auprès du fournisseur existant reste
+utilisable. Si la référence entière est indisponible, une autre offre compatible peut servir de
+repli, sous son vrai nom : `selection.reason` vaut alors `fallback`. Aucune offre suspendue ou
+périmée n'est rendue prioritaire par ce choix. Les versions internationales ne sont pas assimilées
+aux versions françaises.
+
 ## Cadence sur Vercel
 
 - Fiche de match ouverte : nouvelle lecture légère des cotes **5 secondes après la fin de l'appel précédent**.
@@ -58,10 +77,10 @@ Le lecteur écarte les marchés dont le repère de fraîcheur dépasse **15 minu
 ne permet pas de mesurer le délai depuis le bookmaker. Une cadence de lecture de cinq secondes ne
 garantit pas une mise à jour des prix toutes les cinq secondes par Flashscore.
 
-Parmi les bookmakers disponibles, la cote vainqueur avec le repère le plus récent détermine le
-bookmaker sélectionné pour la fiche ; à égalité, Pinnacle est prioritaire. La fiche garde un relevé
-cohérent de ce bookmaker. Une cote existante datée plus récemment n'est pas écrasée par un relevé
-plus ancien. Les cotes initiales restent le repli lorsqu'aucun nouveau relevé compatible n'est disponible.
+La fiche garde un relevé cohérent du bookmaker de référence décrit ci-dessus. En l'absence de cette
+référence, le repli utilise une offre compatible au repère de fraîcheur récent et conserve sa provenance.
+Dans ce mode de repli, une cote initiale datée plus récemment n'est pas écrasée par un relevé plus ancien.
+Les cotes initiales restent disponibles lorsqu'aucun nouveau relevé compatible n'est disponible.
 Le retrait d'une offre du nouveau relevé retire aussi son utilisation par la fiche.
 
 Les noms et les codes NBA sont rapprochés dans les deux sens, avec contrôle de l'horaire et rejet des

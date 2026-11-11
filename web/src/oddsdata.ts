@@ -36,7 +36,7 @@ export function currentBook(game?: OddsGame, baselineAt?: string, now = Date.now
   if (!b) return undefined;
   const markets = b.markets.filter((m) => freshMarket(m, now));
   const win = mainLine(markets, 'win');
-  if (!win || (baselineAt && Date.parse(baselineAt) > Date.parse(win.updated))) return undefined;
+  if (!win || (game.selection?.reason !== 'preferred' && baselineAt && Date.parse(baselineAt) > Date.parse(win.updated))) return undefined;
   return { ...b, markets };
 }
 export const bookmakerLabel = (b: BookPrice) => b.source === 'flashscore' ? `${b.title} · Flashscore` : b.title;

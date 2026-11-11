@@ -274,6 +274,7 @@ var Flashscore = class {
   now;
   ttlMs;
   concurrency;
+  oddsLocale;
   active = 0;
   waiting = [];
   cache = /* @__PURE__ */ new Map();
@@ -292,6 +293,8 @@ var Flashscore = class {
     this.now = options.now ?? Date.now;
     this.ttlMs = options.ttlMs ?? 1e3;
     this.concurrency = options.concurrency ?? 4;
+    this.oddsLocale = options.oddsLocale ?? "global";
+    if (!["global", "fr"].includes(this.oddsLocale)) throw new Error("March\xE9 Flashscore invalide");
     if (!Number.isInteger(this.concurrency) || this.concurrency < 1) throw new Error("Concurrence invalide");
   }
   retryAfterMs() {
@@ -449,14 +452,15 @@ var Flashscore = class {
   async oddsFeed(query) {
     if (!/^[a-zA-Z0-9]{8}$/.test(query.eventId) || !["oce", "lobtm", "ole2"].includes(query.hash)) throw new Error("Requ\xEAte de cotes invalide");
     const params = new URLSearchParams({ _hash: query.hash, eventId: query.eventId });
+    const project = this.oddsLocale === "fr" ? "16" : "2";
     if (query.hash === "ole2") {
       if (!Number.isSafeInteger(query.bookmakerId) || query.bookmakerId <= 0 || !/^[A-Z0-9_]{1,80}$/.test(query.market ?? "") || !/^[A-Z0-9_]{1,80}$/.test(query.scope ?? "")) throw new Error("March\xE9 live invalide");
       params.set("bookmakerId", String(query.bookmakerId));
       params.set("betType", query.market);
       params.set("betScope", query.scope);
     } else {
-      params.set("projectId", "2");
-      params.set("geoIpCode", "");
+      params.set("projectId", project);
+      params.set("geoIpCode", this.oddsLocale === "fr" ? "FR" : "");
       params.set("geoIpSubdivisionCode", "");
     }
     const key = "odds:" + params;
@@ -466,7 +470,7 @@ var Flashscore = class {
     if (existing) return existing;
     const pending = (async () => {
       try {
-        const origin = query.hash === "oce" ? "https://global.ds.lsapp.eu/odds/pq_graphql" : "https://2.ds.lsapp.eu/pq_graphql";
+        const origin = query.hash === "oce" ? "https://global.ds.lsapp.eu/odds/pq_graphql" : `https://${project}.ds.lsapp.eu/pq_graphql`;
         const feed = await this.request(origin + "?" + params, { Accept: "application/json" }, false, false, true);
         oddsData(feed, query.hash === "oce" ? "findOddsByEventId" : query.hash === "lobtm" ? "getLiveOddsBettingTypeMenu" : "findLiveOddsForBookmaker");
         this.oddsCache.set(key, { at: this.now(), feed });
@@ -486,7 +490,7 @@ var Flashscore = class {
   }
   async odds(match, options = {}) {
     const result = await readOdds(match, (query) => this.oddsFeed(query), options);
-    return { ...result, retryAfterMs: this.oddsRetryAfterMs() };
+    return { ...result, projectId: this.oddsLocale === "fr" ? 16 : 2, countryCode: this.oddsLocale === "fr" ? "FR" : "", retryAfterMs: this.oddsRetryAfterMs() };
   }
   async detail(match, board, options = {}) {
     if (!/^[a-zA-Z0-9]{8}$/.test(match.id)) throw new Error("Identifiant Flashscore invalide");
@@ -610,6 +614,8 @@ var MAX_AGE = { prematch: 15 * 6e4, live: 3e4 };
 var decimal2 = (value) => typeof value === "number" && Number.isFinite(value) && value > 1;
 var quoteTime = (q) => Date.parse(q.fetchedAt) - (q.ageSeconds ?? 0) * 1e3;
 var freshMarket = (m, now = Date.now()) => Number.isFinite(Date.parse(m.updated)) && now - Date.parse(m.updated) >= -5e3 && now - Date.parse(m.updated) <= MAX_AGE[m.phase];
+var FRENCH_BOOKS = { 141: "betclic_fr", 264: "winamax_fr", 160: "unibet_fr", 1195: "pmu_fr", 905: "betsson_fr", 1243: "bet365_fr", 129: "bwin_fr", 398: "netbet_fr" };
+var bookmakerKey = (b) => b.source === "the-odds-api" ? b.key : b.french ? FRENCH_BOOKS[Number(b.key.split(":")[1])] ?? b.key : b.key;
 var identity = (q, sport) => {
   const scope = sport === "nba" ? "FULL_TIME_OVER_TIME" : "FULL_TIME";
   if (sport === "tennis" && q.market === "HOME_AWAY" && q.scope === "FIRST_SET" && q.side) return { kind: "set1", side: q.side };
@@ -652,7 +658,7 @@ function flashscoreBooks(snapshot, sport, flip = false, now = Date.now()) {
     }
     if (flip && m.line != null && ["spread", "sets", "games"].includes(m.kind)) m.line = -m.line;
     const key = `flashscore:${g.book}:${g.phase}`;
-    const b = books.get(key) ?? { key, title: g.title, source: "flashscore", french: /(?:\.fr\b|\(FR\))/i.test(g.title), phase: g.phase, updated, markets: [] };
+    const b = books.get(key) ?? { key, title: g.title, source: "flashscore", french: snapshot.countryCode === "FR" && FRENCH_BOOKS[g.book] != null || /(?:\.fr\b|\(FR\))/i.test(g.title), projectId: snapshot.projectId, countryCode: snapshot.countryCode, phase: g.phase, updated, markets: [] };
     b.markets.push(m);
     books.set(key, b);
   }
@@ -673,14 +679,18 @@ function flattenBook(b) {
     total: total && { point: total.line, over: total.over, under: total.under }
   };
 }
-function selectBook(books, phase, now = Date.now()) {
-  return books.filter((b) => b.phase === phase && b.markets.some((m) => m.kind === "win" && freshMarket(m, now))).sort((a, b) => Date.parse(b.updated) - Date.parse(a.updated) || Number(/pinnacle/i.test(b.title)) - Number(/pinnacle/i.test(a.title)) || a.key.localeCompare(b.key))[0];
+function selectBook(books, phase, now = Date.now(), preferred = "betclic_fr") {
+  return books.filter((b) => b.phase === phase && b.markets.some((m) => m.kind === "win" && freshMarket(m, now))).sort((a, b) => {
+    const ap = bookmakerKey(a) === preferred, bp = bookmakerKey(b) === preferred;
+    return Number(bp) - Number(ap) || (ap && bp ? Number(b.source === "flashscore") - Number(a.source === "flashscore") : 0) || Date.parse(b.updated) - Date.parse(a.updated) || Number(/pinnacle/i.test(b.title)) - Number(/pinnacle/i.test(a.title)) || a.key.localeCompare(b.key);
+  })[0];
 }
-function withReference(game, now = Date.now()) {
+function withReference(game, now = Date.now(), preferred = "betclic_fr") {
   const phase = game.state === "pre" ? "prematch" : "live";
   const pin = game.books.find((b) => /^pinnacle(?:\s|$)/i.test(b.title) && b.phase === phase && b.markets.some((m) => m.kind === "win" && freshMarket(m, now)));
   const sum = pin?.home && pin.away ? 1 / pin.home + 1 / pin.away + (pin.draw ? 1 / pin.draw : 0) : 0;
-  return { ...game, selected: selectBook(game.books, phase, now)?.key, ref: sum && pin ? { home: 1 / pin.home / sum, away: 1 / pin.away / sum } : void 0 };
+  const selected = selectBook(game.books, phase, now, preferred);
+  return { ...game, selected: selected?.key, selection: selected && { preferred, bookmaker: bookmakerKey(selected), source: selected.source, reason: bookmakerKey(selected) === preferred ? "preferred" : "fallback" }, ref: sum && pin ? { home: 1 / pin.home / sum, away: 1 / pin.away / sum } : void 0 };
 }
 
 // src/odds/flashscore-provider.ts
@@ -704,7 +714,7 @@ var FlashscoreOddsProvider = class {
   calendarPending = /* @__PURE__ */ new Map();
   constructor(options = {}) {
     this.now = options.now ?? Date.now;
-    this.client = options.client ?? new Flashscore({ ttlMs: 5e3 });
+    this.client = options.client ?? new Flashscore({ ttlMs: 5e3, oddsLocale: "fr" });
   }
   async board(sport, day = 0) {
     if (process.env.ODDS_FLASHSCORE === "0") throw new Error("Fournisseur Flashscore d\xE9sactiv\xE9");
@@ -886,6 +896,7 @@ function validTarget(m) {
 }
 function oddsApi(options = {}) {
   const flashscore = options.flashscore ?? new FlashscoreOddsProvider(), existing = options.existing ?? new TheOddsProvider(), now = options.now ?? Date.now;
+  const preferred = (options.preferredBookmaker ?? process.env.ODDS_PREFERRED_BOOKMAKER ?? "betclic_fr").trim().toLowerCase() || "betclic_fr";
   const readExisting = async (request) => {
     if (options.existing || !process.env.VERCEL || !existing.configured()) return existing.read();
     try {
@@ -953,11 +964,11 @@ function oddsApi(options = {}) {
       }
     }
     const games = fresh.map((game) => {
-      if (game.state === "post") return { ...game, books: [], selected: void 0, ref: void 0 };
+      if (game.state === "post") return { ...game, books: [], selected: void 0, selection: void 0, ref: void 0 };
       const candidates = legacy.games.filter((b2) => order2(game, b2, s) !== void 0 && Math.abs(Date.parse(game.start) - Date.parse(b2.start)) < 18 * 36e5);
       const b = candidates.length === 1 ? candidates[0] : void 0;
       const books = [...b ? b.books.map((book) => align(book, order2(game, b, s), now())) : [], ...game.books.map((book) => align(book, false, now()))].filter((b2) => b2.markets.length && b2.phase === (game.state === "pre" ? "prematch" : "live"));
-      return withReference({ ...game, books }, now());
+      return withReference({ ...game, books }, now(), preferred);
     });
     const status = !games.some((g) => g.books.length) && source.status === "rejected" && !legacy.games.length ? 503 : 200;
     return Response.json({ games, at: new Date(now()).toISOString(), refreshAfterMs: 5e3, errors, ..."creditsLeft" in legacy ? { creditsLeft: legacy.creditsLeft } : {}, ...status !== 200 ? { error: "Fournisseurs de cotes indisponibles" } : {} }, { status, headers });

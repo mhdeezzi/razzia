@@ -127,12 +127,14 @@ const SETTINGS_TTL_MS = 5 * 60_000;
 const SETTINGS_RETRY_MS = 30_000;
 const STALE_MS = 60_000;
 
-export interface ClientOptions { fetch?: typeof fetch; now?: () => number; ttlMs?: number; concurrency?: number }
+export type OddsLocale = 'global' | 'fr';
+export interface ClientOptions { fetch?: typeof fetch; now?: () => number; ttlMs?: number; concurrency?: number; oddsLocale?: OddsLocale }
 export class Flashscore {
   private fetcher: typeof fetch;
   private now: () => number;
   private ttlMs: number;
   private concurrency: number;
+  private oddsLocale: OddsLocale;
   private active = 0;
   private waiting: Array<() => void> = [];
   private cache = new Map<string, { at: number; feed: Feed }>();
@@ -152,6 +154,8 @@ export class Flashscore {
     this.now = options.now ?? Date.now;
     this.ttlMs = options.ttlMs ?? 1000;
     this.concurrency = options.concurrency ?? 4;
+    this.oddsLocale = options.oddsLocale ?? 'global';
+    if (!['global', 'fr'].includes(this.oddsLocale)) throw new Error('Marché Flashscore invalide');
     if (!Number.isInteger(this.concurrency) || this.concurrency < 1) throw new Error('Concurrence invalide');
   }
 
@@ -313,12 +317,14 @@ export class Flashscore {
   private async oddsFeed(query: OddsQuery): Promise<Feed> {
     if (!/^[a-zA-Z0-9]{8}$/.test(query.eventId) || !['oce', 'lobtm', 'ole2'].includes(query.hash)) throw new Error('Requête de cotes invalide');
     const params = new URLSearchParams({ _hash: query.hash, eventId: query.eventId });
+    // Configuration publique de Flashscore.fr : projet 16, pays FR. Le client générique conserve le projet global 2.
+    const project = this.oddsLocale === 'fr' ? '16' : '2';
     if (query.hash === 'ole2') {
       if (!Number.isSafeInteger(query.bookmakerId) || query.bookmakerId! <= 0 || !/^[A-Z0-9_]{1,80}$/.test(query.market ?? '') || !/^[A-Z0-9_]{1,80}$/.test(query.scope ?? '')) throw new Error('Marché live invalide');
       params.set('bookmakerId', String(query.bookmakerId));
       params.set('betType', query.market!); params.set('betScope', query.scope!);
     } else {
-      params.set('projectId', '2'); params.set('geoIpCode', ''); params.set('geoIpSubdivisionCode', '');
+      params.set('projectId', project); params.set('geoIpCode', this.oddsLocale === 'fr' ? 'FR' : ''); params.set('geoIpSubdivisionCode', '');
     }
     const key = 'odds:' + params;
     const cached = this.oddsCache.get(key);
@@ -327,7 +333,7 @@ export class Flashscore {
     if (existing) return existing;
     const pending = (async () => {
       try {
-        const origin = query.hash === 'oce' ? 'https://global.ds.lsapp.eu/odds/pq_graphql' : 'https://2.ds.lsapp.eu/pq_graphql';
+        const origin = query.hash === 'oce' ? 'https://global.ds.lsapp.eu/odds/pq_graphql' : `https://${project}.ds.lsapp.eu/pq_graphql`;
         const feed = await this.request(origin + '?' + params, { Accept: 'application/json' }, false, false, true);
         oddsData(feed, query.hash === 'oce' ? 'findOddsByEventId' : query.hash === 'lobtm' ? 'getLiveOddsBettingTypeMenu' : 'findLiveOddsForBookmaker');
         this.oddsCache.set(key, { at: this.now(), feed });
@@ -344,7 +350,7 @@ export class Flashscore {
 
   async odds(match: Match, options: OddsReadOptions = {}): Promise<OddsSnapshot> {
     const result = await readOdds(match, (query) => this.oddsFeed(query), options);
-    return { ...result, retryAfterMs: this.oddsRetryAfterMs() };
+    return { ...result, projectId: this.oddsLocale === 'fr' ? 16 : 2, countryCode: this.oddsLocale === 'fr' ? 'FR' : '', retryAfterMs: this.oddsRetryAfterMs() };
   }
 
   async detail(match: Match, board: Board, options: { odds?: boolean } = {}): Promise<Detail> {

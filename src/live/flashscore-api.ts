@@ -1,7 +1,7 @@
 // API de lecture Flashscore, séparée des identifiants et des moteurs FotMob/ESPN existants.
 import { Flashscore, SourceError, SPORTS, type Sport } from './flashscore.ts';
 
-export function flashscoreApi(client = new Flashscore()) {
+export function flashscoreApi(client = new Flashscore({ oddsLocale: 'fr' })) {
   return async (request: Request): Promise<Response> => {
     const params = new URL(request.url).searchParams;
     const sport = params.get('sport'), id = params.get('id'), withOdds = params.get('odds');
