@@ -47,7 +47,7 @@ function usePageShown() {
  * `ring` : version des ronds de probabilité. Un seul quart de noir, en taches plus petites et plus mobiles, pour que la
  * couleur domine dès l'ouverture (sinon tout un côté du cercle reste noir quelques secondes).
  */
-export function WarpBg({ c1, c2, ring }: { c1: string; c2: string; ring?: boolean }) {
+export function WarpBg({ c1, c2, ring, mono }: { c1: string; c2?: string; ring?: boolean; mono?: boolean }) {
   // Le marbre (WebGL, coûteux à démarrer) arrive juste après l'affichage de la page, en fondu : le clic qui change de
   // page ne fige plus l'écran le temps de préparer le shader.
   const [on, setOn] = useState(false);
@@ -91,9 +91,12 @@ export function WarpBg({ c1, c2, ring }: { c1: string; c2: string; ring?: boolea
         <Suspense fallback={null}>
           {/* Marbre très doux : calculé à faible résolution (le flou ne se voit pas), ce qui le rend bien moins coûteux. */}
           {ring ? (
-            <Warp key={gen} className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={120_000} colors={[toHex(c1), '#000000', mix(toHex(c1), '#ffffff', v.light), toHex(c2)]} proportion={v.proportion} softness={1} distortion={v.distortion} swirl={v.swirl} swirlIterations={8} shape="checks" shapeScale={v.shapeScale} rotation={v.rotation} frame={v.frame} speed={still() || !seen ? 0 : 0.7} />
+            <Warp key={gen} className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={120_000} colors={[toHex(c1), '#000000', mix(toHex(c1), '#ffffff', v.light), toHex(c2 ?? c1)]} proportion={v.proportion} softness={1} distortion={v.distortion} swirl={v.swirl} swirlIterations={8} shape="checks" shapeScale={v.shapeScale} rotation={v.rotation} frame={v.frame} speed={still() || !seen ? 0 : 0.7} />
+          ) : mono ? (
+            // En-tête d'une fiche : une seule couleur (l'équipe à domicile) en grandes nappes fondues dans le noir.
+            <Warp key={gen} className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={320_000} colors={['#000000', toHex(c1), '#000000', '#000000']} proportion={0.42} softness={1} distortion={0.22} swirl={0.45} swirlIterations={8} shape="checks" shapeScale={0.035} speed={still() || !seen ? 0 : 0.4} />
           ) : (
-            <Warp key={gen} className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={320_000} colors={['#000000', toHex(c1), '#000000', toHex(c2)]} proportion={0.45} softness={1} distortion={0.25} swirl={0.6} swirlIterations={8} shape="checks" shapeScale={0.08} speed={still() || !seen ? 0 : 0.4} />
+            <Warp key={gen} className="warp-in" style={fill} minPixelRatio={1} maxPixelCount={320_000} colors={['#000000', toHex(c1), '#000000', toHex(c2 ?? c1)]} proportion={0.45} softness={1} distortion={0.25} swirl={0.6} swirlIterations={8} shape="checks" shapeScale={0.08} speed={still() || !seen ? 0 : 0.4} />
           )}
         </Suspense>
       )}

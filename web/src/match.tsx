@@ -136,7 +136,7 @@ function Hero({ g }: { g: Game }) {
   );
   return (
     <header className="hero mesh mesh-teams has-shader" style={{ '--away': pair.away, '--home': pair.home } as CSSProperties}>
-      <WarpBg c1={glow(pair.away)} c2={glow(pair.home)} />
+      <WarpBg c1={glow(teamColor(g.home))} mono />
       <div className="hero-meta">
         <span>
           <Basketball size={15} /> NBA
