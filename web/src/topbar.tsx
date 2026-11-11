@@ -1,7 +1,7 @@
-// Barre du haut : îlot de verre fumé qui flotte en haut de page, logo razzia (vectoriel), sports dans une pilule
-// où le verre clair glisse vers le sport choisi, Suivi puis Compte tout à droite.
+// Barre du haut : îlot de verre fumé qui flotte en haut de page, logo razzia (vectoriel), sports et Live dans une
+// pilule où le verre clair glisse vers l'onglet choisi, Suivi puis Compte tout à droite.
 import { useRef } from 'react';
-import { Basketball, ListChecks, SoccerBall, TennisBall, UserCircle } from '@phosphor-icons/react';
+import { Basketball, Broadcast, ListChecks, SoccerBall, TennisBall, UserCircle } from '@phosphor-icons/react';
 import { useSlip } from './suivi.ts';
 import { useUnseen } from './suivipage.tsx';
 import { Link, useNowPath, useSlider } from './ui.tsx';
@@ -14,13 +14,14 @@ export function TopBar() {
   const tennis = path.startsWith('/tennis');
   // Football à l'accueil ; le basket a son adresse (/basket) et ses fiches (/match/...).
   const nba = path.startsWith('/basket') || path.startsWith('/match');
-  const foot = !tennis && !nba && !own;
+  const live = path.startsWith('/live');
+  const foot = !tennis && !nba && !own && !live;
   // Simulations, Bilan, Badges et Méthode restent accessibles par leur adresse ; à droite : Suivi puis Compte.
   const links = [
     { href: '/compte', label: 'Compte', icon: <UserCircle size={19} />, on: path === '/compte', cls: 'top-account' },
   ];
   const nav = useRef<HTMLElement>(null);
-  const pos = useSlider(nav, '.sport.is-on', `${tennis}${foot}${nba}`);
+  const pos = useSlider(nav, '.sport.is-on', `${tennis}${foot}${nba}${live}`);
   const legs = useSlip();
   const unseen = useUnseen();
   return (
@@ -42,6 +43,12 @@ export function TopBar() {
           <Link href="/basket" className={`sport${nba ? ' is-on' : ''}`} aria-current={path === '/basket' ? 'page' : undefined} title="Programme NBA">
             <Basketball size={18} weight={nba ? 'bold' : 'regular'} />
             <span className="lbl">Basketball</span>
+          </Link>
+          <Link href="/live" className={`sport sport-live${live ? ' is-on' : ''}`} aria-current={path === '/live' ? 'page' : undefined} title="Simulation en direct">
+            <span className="live-ico">
+              <Broadcast size={18} weight={live ? 'bold' : 'regular'} />
+            </span>
+            <span className="lbl">Live</span>
           </Link>
         </nav>
         <div className="top-right">

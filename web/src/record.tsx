@@ -1,7 +1,7 @@
 // Bilan public de Razzia, sous le bandeau des programmes : le pronostic mis en avant par chaque fiche face au résultat,
 // depuis le début de la saison. Au basket, les 6 premiers matchs simulés (ancien moteur) ne comptent pas.
-import { useEffect, useState } from 'react';
-import { Sparkline } from './ui.tsx';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { CountUp, Sparkline } from './ui.tsx';
 
 /** Matchs NBA simulés par l'ancien moteur, au tout début de la saison : écartés du bilan (liste fixe, pas « les 6 plus
  * anciens » : la liste du bilan grandit et ne doit pas déplacer l'exclusion). */
@@ -72,7 +72,7 @@ export function PublicRecord({ sport }: { sport: 'nba' | 'atp' | 'foot' }) {
   let acc = 0;
   const curve = rec.rows.map((r, i) => (acc += r.won ? 1 : 0) / (i + 1));
   const last = rec.rows.slice(-10);
-  const rate = (a: number, b: number) => pct(b ? a / b : 0);
+  const rate = (a: number, b: number) => <CountUp value={b ? a / b : 0} format={pct} duration={900} />;
   return (
     <section className="record" aria-label="Bilan de Razzia cette saison">
       <div className="record-k">
@@ -102,8 +102,8 @@ export function PublicRecord({ sport }: { sport: 'nba' | 'atp' | 'foot' }) {
       {last.length > 0 && <div className="record-last" aria-label={`10 derniers : ${last.filter((r) => r.won).length} passés`}>
         <span className="record-sub">10 derniers</span>
         <span className="record-dots">
-          {last.map((r) => (
-            <i key={r.key} className={r.won ? 'won' : 'lost'} />
+          {last.map((r, i) => (
+            <i key={r.key} className={r.won ? 'won' : 'lost'} style={{ '--i': i } as CSSProperties} />
           ))}
         </span>
       </div>}

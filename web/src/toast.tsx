@@ -4,7 +4,7 @@ import { CheckCircle, Info, XCircle, X } from '@phosphor-icons/react';
 import { Link } from './ui.tsx';
 
 type Tone = 'ok' | 'bad' | 'info';
-interface Toast { id: number; tone: Tone; title: string; text?: string; href?: string }
+interface Toast { id: number; tone: Tone; title: string; text?: string; href?: string; out?: boolean }
 const EVENT = 'razzia-toast';
 let next = 1;
 
@@ -14,11 +14,16 @@ export function toast(t: Omit<Toast, 'id'>) {
 
 export function Toasts() {
   const [list, setList] = useState<Toast[]>([]);
+  // Fermeture en deux temps : le message s'efface (180 ms), puis il est retiré.
+  const close = (id: number) => {
+    setList((l) => l.map((x) => (x.id === id ? { ...x, out: true } : x)));
+    window.setTimeout(() => setList((l) => l.filter((x) => x.id !== id)), 180);
+  };
   useEffect(() => {
     const on = (e: Event) => {
       const t = (e as CustomEvent<Toast>).detail;
       setList((l) => [...l.slice(-3), t]);
-      window.setTimeout(() => setList((l) => l.filter((x) => x.id !== t.id)), 7000);
+      window.setTimeout(() => close(t.id), 7000);
     };
     addEventListener(EVENT, on);
     return () => removeEventListener(EVENT, on);
@@ -37,7 +42,7 @@ export function Toasts() {
           </>
         );
         return (
-          <div key={t.id} className="toast">
+          <div key={t.id} className={`toast${t.out ? ' is-out' : ''}`}>
             {t.href ? (
               <Link href={t.href} className="toast-main">
                 {body}
@@ -45,7 +50,7 @@ export function Toasts() {
             ) : (
               <div className="toast-main">{body}</div>
             )}
-            <button className="toast-x" onClick={() => setList((l) => l.filter((x) => x.id !== t.id))} aria-label="Fermer">
+            <button className="toast-x" onClick={() => close(t.id)} aria-label="Fermer">
               <X size={14} />
             </button>
           </div>
