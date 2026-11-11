@@ -8,21 +8,22 @@ import { useEffect, useState } from 'react';
 import { n1, pct0, teamColor, teamLogo } from './data.ts';
 import { TEAMS } from '../../src/nba/teams.ts';
 import type { Demo, Ev, Frame, Gauge, P3, PickState, Pt, Row, Side, Sport } from './livedemo.ts';
+import type { Eng } from './liveahead.ts';
 
 // ——— Réponses de /api/live (champs lus ici seulement) ———
 type Pair = [number, number];
-interface FootItem { id: number; league: string; home: string; away: string; homeId: number; awayId: number; score: Pair; minute: number; clock: string; reds: Pair; state: 'live' | 'ht' | 'post' | 'pre'; pre: string; p0?: P3; p1x2: P3 }
+interface FootItem { id: number; league: string; home: string; away: string; homeId: number; awayId: number; score: Pair; minute: number; clock: string; reds: Pair; state: 'live' | 'ht' | 'post' | 'pre'; pre: string; lam?: Pair; p0?: P3; p1x2: P3 }
 interface FootOne {
   id: number; league: string; home: { id: number; name: string }; away: { id: number; name: string }; state: FootItem['state']; clock: string;
   timeline: { minute: number; goals: Array<[number, 0 | 1]>; reds: Array<[number, 0 | 1]> };
-  stats: Record<string, Pair>; momentum: Array<[number, number]>; xg: Pair; pre: string;
+  stats: Record<string, Pair>; momentum: Array<[number, number]>; xg: Pair; pre: string; lam?: Pair;
   path?: Array<[number, number, number, number]>; start?: { p1x2: P3; top?: string; goals: number };
   engine: { minute: number; score: Pair; p1x2: P3; remaining: Pair; pressure: Pair; luck: Pair; topScores: Array<{ s: string; p: number }> };
 }
-interface NbaItem { id: string; home: string; away: string; score: Pair; period: number; clock: string; pre: string; p0?: Pair; win?: Pair; error?: boolean }
+interface NbaItem { id: string; home: string; away: string; score: Pair; period: number; clock: string; pre: string; pre0?: { spread: number; total: number }; st?: NbaOne['st']; p0?: Pair; win?: Pair; error?: boolean }
 interface NbaOne {
   id: string; home: string; away: string; state: 'pre' | 'in' | 'post'; period: number; clock: string;
-  st: { elapsed: number; score: Pair; fg3: [Pair, Pair]; fouls?: Pair };
+  st: { elapsed: number; score: Pair; fg3: [Pair, Pair]; ft: [Pair, Pair]; diff5?: number; possession?: 0 | 1; fouls?: Pair };
   pre: { spread: number; total: number; src: string }; p0?: Pair; path?: Array<[number, number]>;
   plays: Array<{ t: number; text: string; score: Pair; scoring: boolean }>;
   engine: { win: Pair; margin: { mean: number }; total: { mean: number }; comeback?: { side: 0 | 1; win: number }; factors: { luck: number } };
@@ -91,7 +92,7 @@ interface Snap {
   id: string; sport: Sport; league: string; where: string; home: Side; away: Side; len: number; pace: number;
   t: number; ended: boolean; clock: string; phase: string; score: Pair; p: P3; p0: P3;
   events: Ev[]; series: Pt[]; marks: Demo['marks']; axis: string[]; mom: number[]; ghostScore: string;
-  rows: Row[]; gauges: Frame['gauges']; gaugeKeys: Gauge[]; tennis?: Frame['tennis']; src: string; detail: boolean;
+  rows: Row[]; gauges: Frame['gauges']; gaugeKeys: Gauge[]; tennis?: Frame['tennis']; src: string; detail: boolean; eng?: Eng;
 }
 function toDemo(s: Snap): Demo {
   const pick = pickOf(s.sport, s.p0, s.home, s.away);
@@ -103,7 +104,7 @@ function toDemo(s: Snap): Demo {
     const pp = pick.of(s.p);
     return {
       t: s.t, progress: clamp(s.t / s.len), ended: s.ended, clock: s.ended ? 'Terminé' : s.clock, phase: s.phase, score: s.score, p: s.p, adv: adv(s.p),
-      nEv, last: events[nEv - 1], tennis: s.tennis, pick: { p: pp, state: pickState(pp, pick.pre, s.ended) }, rows: s.rows, gauges: s.gauges,
+      nEv, last: events[nEv - 1], tennis: s.tennis, eng: s.eng && { ...s.eng, ended: s.ended }, pick: { p: pp, state: pickState(pp, pick.pre, s.ended) }, rows: s.rows, gauges: s.gauges,
     };
   };
   return {
@@ -166,6 +167,7 @@ function footSnap(L: FootItem | undefined, D: FootOne | undefined): Snap {
       comeback: trail != null && !ended ? { side: trail, p: trail === 0 ? p[0] + p[1] : p[2] + p[1] } : undefined,
     },
     gaugeKeys: D ? ['fouls', 'rhythm', 'luck', 'comeback'] : ['comeback'], src: 'FotMob', detail: !!D,
+    eng: (D?.lam ?? L?.lam) ? { sport: 'foot', lam: (D?.lam ?? L!.lam)!, minute: Math.min(90, minute), score, reds: D ? [D.timeline.reds.filter((r) => r[1] === 0).length, D.timeline.reds.filter((r) => r[1] === 1).length] : L!.reds } : undefined,
   };
 }
 const de = (n: string) => (/^[AEIOUYÉÈ]/i.test(n) ? `d'${n}` : `de ${n}`);
@@ -213,6 +215,7 @@ function nbaSnap(L: NbaItem | undefined, D: NbaOne | undefined): Snap {
     rows: [row(`Victoire ${home.short}`, p0[0], p[0]), row(`Victoire ${away.short}`, p0[2], p[2]), ...(D ? [row('Écart final attendu', D.pre.spread, D.engine.margin.mean, n1), row('Total de points attendu', D.pre.total, D.engine.total.mean, n1)] : [])],
     gauges: { energy: [1, 1], fouls: D?.st.fouls ?? [0, 0], rhythm: [acc(f3[0]), acc(f3[1])], luck: [clamp(luck / 8, -1, 1), clamp(-luck / 8, -1, 1)], comeback: trail != null && !ended ? { side: trail, p: trail === 0 ? p[0] : p[2] } : undefined },
     gaugeKeys: D ? ['fouls', 'rhythm', 'luck', 'comeback'] : ['comeback'], src: 'ESPN', detail: !!D,
+    eng: D ? { sport: 'nba', pre: { spread: D.pre.spread, total: D.pre.total }, st: D.st } : L?.pre0 && L.st ? { sport: 'nba', pre: L.pre0, st: L.st } : undefined,
   };
 }
 const clockOf = (t: number) => { const q = Math.min(4, Math.floor(t / 12) + 1), left = q * 12 - t; return `Q${q} ${Math.floor(left)}:${String(Math.round((left % 1) * 60)).padStart(2, '0')}`; };
@@ -248,7 +251,7 @@ function tennisSnap(T: TennisItem): Snap {
     gauges: { energy: [1, 1], fouls: [0, 0], rhythm: [0.5, 0.5], luck: [0, 0], comeback: cb && !ended ? { side: cb.side, p: cb.win } : trail != null && !ended ? { side: trail, p: trail === 0 ? p[0] : p[2] } : undefined },
     gaugeKeys: ['comeback'], src: 'ESPN',
     tennis: { sets: [...st.sets, ...(st.games && !ended ? [st.games] : [])], pts: st.points ? [PTS[Math.min(4, st.points[0])] ?? String(st.points[0]), PTS[Math.min(4, st.points[1])] ?? String(st.points[1])] : ['', ''], server: st.server ?? 0 },
-    detail: true,
+    detail: true, eng: { sport: 'tennis', p0: T.pre.p0, surface: T.pre.surface, st },
   };
 }
 

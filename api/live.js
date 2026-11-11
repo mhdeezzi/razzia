@@ -2186,6 +2186,10 @@ var tennis_weights_default = {
 };
 
 // src/live/api.ts
+var lamOf = (pre) => {
+  const l = Array.isArray(pre) ? pre : marketLambdas(pre);
+  return [Math.round(l[0] * 1e3) / 1e3, Math.round(l[1] * 1e3) / 1e3];
+};
 var WEIGHTS = process.env.LIVE_TENNIS_WEIGHTS === "mcp" ? { outcome: { ...NEUTRAL_WEIGHTS.outcome, ...tennis_weights_default.outcome }, recent: tennis_weights_default.recent ?? 0 } : NEUTRAL_WEIGHTS;
 var REPO = process.env.GH_REPO ?? "mhdeezzi/razzia";
 var TOKEN = (process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN ?? process.env.GH_PAT ?? "").trim();
@@ -2259,7 +2263,7 @@ async function footList() {
     const reds = [...Array(m.reds[0]).fill([Math.max(1, m.minute), 0]), ...Array(m.reds[1]).fill([Math.max(1, m.minute), 1])];
     const o = footNow(pre, { minute: m.minute, goals, reds, shots: [] });
     const o0 = footNow(pre, KICKOFF);
-    return { ...m, pre: src, p0: r3a(o0.p1x2), p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), comeback: o.comeback && { ...o.comeback, draw: r3(o.comeback.draw), win: r3(o.comeback.win) } };
+    return { ...m, pre: src, lam: lamOf(pre), p0: r3a(o0.p1x2), p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), comeback: o.comeback && { ...o.comeback, draw: r3(o.comeback.draw), win: r3(o.comeback.win) } };
   }));
 }
 async function extraStats(sport, home, away, options = {}) {
@@ -2282,6 +2286,7 @@ async function footOne(id, options = {}) {
   return {
     ...d,
     pre: src,
+    lam: lamOf(pre),
     more,
     path,
     start: { p1x2: r3a(o0.p1x2), top: o0.grid.flatMap((r, i) => r.map((p, j) => ({ s: `${i}-${j}`, p }))).sort((a, b) => b.p - a.p)[0]?.s, goals: r3(o0.remaining[0] + o0.remaining[1]) },
@@ -2334,7 +2339,7 @@ async function nbaList() {
   return Promise.all(board.filter((g) => g.state === "in").map(async (g) => {
     try {
       const x = await nbaOne(g.id, {}, false);
-      return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, pre: x.pre.src, p0: x.p0, win: x.engine.win, comeback: x.engine.comeback, espnHomeWin: g.espnHomeWin };
+      return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, pre: x.pre.src, pre0: { spread: x.pre.spread, total: x.pre.total }, st: x.st, p0: x.p0, win: x.engine.win, comeback: x.engine.comeback, espnHomeWin: g.espnHomeWin };
     } catch {
       return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, error: true };
     }

@@ -4,6 +4,7 @@
 // tennis) : les chiffres affichés restent cohérents avec le score. Le vrai moteur live remplacera ce fichier ; les
 // pages (live.tsx) ne lisent que ce qui est exporté ici.
 import { n1, pct0, teamColor, teamLogo } from './data.ts';
+import type { Eng } from './liveahead.ts';
 
 export type Sport = 'foot' | 'tennis' | 'nba';
 /** Probabilités : domicile, nul, extérieur (nul à 0 hors foot). */
@@ -46,6 +47,8 @@ export interface Frame {
   last?: Ev;
   tennis?: { sets: Array<[number, number]>; pts: [string, string]; server: 0 | 1 };
   quarters?: Array<[number, number]>;
+  /** État du match tel que le lit le moteur live (src/live) : c'est de là que sortent le prono et les graphiques. */
+  eng?: Eng;
   pick: { p: number; state: PickState };
   rows: Row[];
   gauges: { energy: [number, number]; fouls: [number, number]; rhythm: [number, number]; luck: [number, number]; comeback?: { side: 0 | 1; p: number } };
@@ -125,6 +128,7 @@ interface Core {
   at: string;
   tennis?: Frame['tennis'];
   quarters?: Frame['quarters'];
+  eng?: Eng;
 }
 interface Gauges { energy: number[][]; fouls: number[][]; rhythm: number[][]; luck: number[][]; dom: number[][] }
 interface Base { id: string; league: string; where: string; home: Side; away: Side; phase0: number; pick: { label: string; odds: number }; g: Gauges }
@@ -160,7 +164,7 @@ function build(sport: Sport, b: Base, len: number, pace: number, core: (t: numbe
       const pair = (k: number[][]): [number, number] => [key(k, x, 1), key(k, x, 2)];
       return {
         t: tt, progress: x, ended, clock: c.clock, phase: c.phase, score: c.score, p: c.p, adv: c.p[0] + c.p[1] / 2, nEv, last: events[nEv - 1],
-        tennis: c.tennis, quarters: c.quarters, pick: { p: pp, state },
+        tennis: c.tennis, quarters: c.quarters, eng: c.eng && { ...c.eng, ended }, pick: { p: pp, state },
         rows: keys.map((k, i) => ({ k, pre: pre.vals[i], now: c.vals[i], d: c.nums[i] - pre.nums[i] })),
         gauges: { energy: pair(b.g.energy), fouls: pair(b.g.fouls), rhythm: pair(b.g.rhythm), luck: pair(b.g.luck), comeback: c.trail != null && !ended ? { side: c.trail, p: c.back ?? 0 } : undefined },
       };
@@ -206,7 +210,9 @@ function footCore(lam: [number, number], goals: Array<{ t: number; side?: 0 | 1 
     const total = gh + ga + lh + la;
     const [clock, phase] = fClock(t);
     const trail = gh === ga ? undefined : gh < ga ? 0 : 1;
+    const minute = t >= FLEN ? 90 : t <= 45 ? Math.max(0, Math.ceil(t)) : t < 49 ? 45 : Math.min(90, Math.ceil(t - 4));
     return {
+      eng: { sport: 'foot', lam, minute, score: [gh, ga], reds: [rh, ra] },
       clock, phase, score: [gh, ga], p, pick: pick / s, at: clock, trail, back: trail === 0 ? p[0] + p[1] : trail === 1 ? p[2] + p[1] : undefined,
       vals: [pct0(p[0]), pct0(p[1]), pct0(p[2]), best, n1(total)], nums: [p[0], p[1], p[2], 0, total],
     };
@@ -266,13 +272,19 @@ interface NbaDef extends Base { spread: number; total: number; segs: number[][];
 
 function nbaCore(d: NbaDef, list: ReturnType<typeof baskets>) {
   return (t: number): Core => {
-    let h = 0, a = 0;
+    let h = 0, a = 0, d5 = 0;
     const q: Array<[number, number]> = [[0, 0], [0, 0], [0, 0], [0, 0]];
+    const m3 = [0, 0], m1 = [0, 0];
     for (const b of list) {
       if (b.t > t) break;
       q[Math.min(3, Math.floor(b.t / 12))][b.side] += b.v;
       if (b.side === 0) h += b.v; else a += b.v;
+      if (b.v === 3) m3[b.side]++; else if (b.v === 1) m1[b.side]++;
+      if (b.t <= t - 5) d5 = h - a;
     }
+    // Match fictif : tirs de loin et lancers tentés à l'adresse moyenne de la ligue (le moteur n'y voit aucune réussite anormale).
+    const shots = (s: 0 | 1): [number, number] => [m3[s], Math.round(m3[s] / 0.36)];
+    const fts = (s: 0 | 1): [number, number] => [m1[s], Math.round(m1[s] / 0.78)];
     const r = Math.max(0, (48 - t) / 48);
     const mean = h - a + d.spread * r, sd = 12.5 * Math.sqrt(r) + 0.35;
     const ph = phi(mean / sd);
@@ -282,6 +294,7 @@ function nbaCore(d: NbaDef, list: ReturnType<typeof baskets>) {
     const fh = h + (d.total / 2 + d.spread / 2) * r, fa = a + (d.total / 2 - d.spread / 2) * r;
     const trail = h === a ? undefined : h < a ? 0 : 1;
     return {
+      eng: { sport: 'nba', pre: { spread: d.spread, total: d.total }, st: { elapsed: Math.min(48, t), score: [h, a], fg3: [shots(0), shots(1)], ft: [fts(0), fts(1)], diff5: t >= 5 ? d5 : undefined } },
       clock, phase: t >= 48 ? 'Fin du match' : QUARTS[qi], score: [h, a], p: [ph, 0, 1 - ph], pick: d.pickP(mean, sd), at: clock, trail, back: trail === 0 ? ph : trail === 1 ? 1 - ph : undefined,
       quarters: q.slice(0, t >= 48 ? 4 : qi + 1),
       vals: [pct0(ph), pct0(1 - ph), `${Math.round(fh)}-${Math.round(fa)}`, String(Math.round(fh + fa))], nums: [ph, 1 - ph, 0, fh + fa],
@@ -412,6 +425,7 @@ function tennisCore(d: TennisDef, states: TState[]) {
     const trail = lead === 0 ? undefined : lead < 0 ? 0 : 1;
     const at = over ? 'Terminé' : `${ORD[setNo - 1]} set`;
     return {
+      eng: { sport: 'tennis', p0: pre.m, surface: 'Hard', st: { bestOf: 3, sets: over ? s.sets : s.sets.slice(0, -1), games: over ? undefined : cur, points: over ? undefined : s.pts, server: s.server } },
       clock: at, phase: over ? 'Fin du match' : `${Math.floor(mins / 60)} h ${pad(mins % 60)} de jeu`, score: s.won, p: [r.m, 0, 1 - r.m], pick: r.m, at: over ? at : `${at} · ${cur[0]}-${cur[1]}`, trail,
       back: trail === 0 ? r.m : trail === 1 ? 1 - r.m : undefined,
       tennis: { sets: s.sets, pts: ptLabel(s.pts[0], s.pts[1]), server: s.server },

@@ -25,6 +25,7 @@ import { Logo } from './logo.tsx';
 // Simulation en direct : chargée à part, pour ne pas alourdir les programmes.
 const LivePage = lazy(() => import('./live.tsx').then((m) => ({ default: m.LivePage })));
 const LiveMatchPage = lazy(() => import('./live.tsx').then((m) => ({ default: m.LiveMatchPage })));
+const LiveWidgetPage = lazy(() => import('./live.tsx').then((m) => ({ default: m.LiveWidgetPage })));
 
 // Dernier sport ouvert : à l'ouverture du site ou de l'appli (adresse « / »), on revient sur son programme.
 const LAST_SPORT = 'razzia-sport';
@@ -103,6 +104,16 @@ function App() {
   useEffect(() => {
     document.title = m ? `${m[2]} @ ${m[3]} | Razzia` : LIVE && path.startsWith('/live') ? 'Razzia | Simulation en direct' : path.startsWith('/tennis') ? 'Razzia | Tennis ATP' : path === '/' || path.startsWith('/foot') ? 'Razzia | Football' : path === '/simulations' ? 'Simulations | Razzia' : BILLING && path === '/abonnement' ? 'Abonnement | Razzia' : path === '/compte' ? 'Compte | Razzia' : path === '/suivi' ? 'Suivi | Razzia' : landingPage(path) ? 'Razzia | Simule avant de parier' : LEGAL[path] ? `${LEGAL[path].title} | Razzia` : 'Razzia | Simulations NBA';
   }, [path]);
+  // Widget du direct, seul sur la page (source « navigateur » d'un direct vidéo) : ni barre ni pied de page.
+  const wid = LIVE && path.match(/^\/live\/([a-z0-9-]+)\/widget\/?$/);
+  if (wid) {
+    const fmt = search.get('f');
+    return (
+      <Suspense fallback={null}>
+        <LiveWidgetPage id={wid[1]} format={fmt === 'bande' || fmt === 'story' ? fmt : 'coin'} fond={search.get('fond') ?? undefined} />
+      </Suspense>
+    );
+  }
   // Page d'accueil payante : cachée (aucun lien), visible seulement en tapant /accueil, en attendant de l'activer.
   if (landingPage(path))
     return (

@@ -8,6 +8,9 @@
 import { footNow, nbaNow, tennisNow, TENNIS } from './index.ts';
 import { espnNbaBoard, espnNbaGame, espnTennisLive, fotmobLive, fotmobMatch } from './feeds.ts';
 import type { NbaPre } from './nba.ts';
+import { marketLambdas } from './foot.ts';
+/** Buts attendus d'avant-match (domicile, extérieur) : la page s'en sert pour rejouer le moteur (scénarios, fins possibles). */
+const lamOf = (pre: { h: number; d: number; a: number } | [number, number]): [number, number] => { const l = Array.isArray(pre) ? pre : marketLambdas(pre); return [Math.round(l[0] * 1000) / 1000, Math.round(l[1] * 1000) / 1000]; };
 import { bookOf, enrich, normalizePoints, type SourceOptions } from './source.ts';
 import { tennisFromStats, NEUTRAL_WEIGHTS, type PointWeights } from './stats/tennis-engine.ts';
 import mcpWeights from './tennis-weights.json' with { type: 'json' };
@@ -103,7 +106,7 @@ async function footList() {
     const reds: Array<[number, 0 | 1]> = [...Array(m.reds[0]).fill([Math.max(1, m.minute), 0]), ...Array(m.reds[1]).fill([Math.max(1, m.minute), 1])];
     const o = footNow(pre, { minute: m.minute, goals, reds, shots: [] });
     const o0 = footNow(pre, KICKOFF);
-    return { ...m, pre: src, p0: r3a(o0.p1x2), p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), comeback: o.comeback && { ...o.comeback, draw: r3(o.comeback.draw), win: r3(o.comeback.win) } };
+    return { ...m, pre: src, lam: lamOf(pre), p0: r3a(o0.p1x2), p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), comeback: o.comeback && { ...o.comeback, draw: r3(o.comeback.draw), win: r3(o.comeback.win) } };
   }));
 }
 
@@ -125,7 +128,7 @@ async function footOne(id: number, options: SourceOptions = {}) {
   const tl = d.timeline, path: Array<[number, number, number, number]> = [];
   for (let m = 0; m <= tl.minute; m++) { const x = m === 0 ? o0 : footNow(pre, { minute: m, goals: tl.goals.filter(([g]) => g <= m), reds: tl.reds.filter(([g]) => g <= m), shots: [] }); path.push([m, ...r3a(x.p1x2)] as [number, number, number, number]); }
   return {
-    ...d, pre: src, more, path,
+    ...d, pre: src, lam: lamOf(pre), more, path,
     start: { p1x2: r3a(o0.p1x2), top: o0.grid.flatMap((r, i) => r.map((p, j) => ({ s: `${i}-${j}`, p }))).sort((a, b) => b.p - a.p)[0]?.s, goals: r3(o0.remaining[0] + o0.remaining[1]) },
     engine: {
       minute: o.minute, score: o.score, p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), goalSoon: r3a(o.goalSoon), remaining: r3a(o.remaining),
@@ -160,7 +163,7 @@ async function nbaList() {
   return Promise.all(board.filter((g) => g.state === 'in').map(async (g) => {
     try {
       const x = await nbaOne(g.id, {}, false); // La liste renvoie le moteur, pas les flux détaillés de Flashscore.
-      return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, pre: x.pre.src, p0: x.p0, win: x.engine.win, comeback: x.engine.comeback, espnHomeWin: g.espnHomeWin };
+      return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, pre: x.pre.src, pre0: { spread: x.pre.spread, total: x.pre.total }, st: x.st, p0: x.p0, win: x.engine.win, comeback: x.engine.comeback, espnHomeWin: g.espnHomeWin };
     } catch {
       return { id: g.id, home: g.home, away: g.away, score: g.score, period: g.period, clock: g.clock, error: true };
     }
