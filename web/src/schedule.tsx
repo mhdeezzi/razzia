@@ -9,7 +9,6 @@ import { nbaHype } from './hype.ts';
 import { PublicRecord } from './record.tsx';
 import { usePrices } from './useodds.ts';
 import { nbaTarget, withNbaPrices } from './oddsdata.ts';
-import { PriceSource } from './pricesource.tsx';
 
 type Status = 'pre' | 'in' | 'post';
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -325,7 +324,7 @@ function Row({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i: 
           </span>
         </div>
       </div>
-      <span className="cell-odds">{mlOf(g, sim) ? `${odds(mlOf(g, sim)![0])} / ${odds(mlOf(g, sim)![1])}` : '-'}<PriceSource provider={g.odds?.mlAway != null && g.odds.mlHome != null ? g.odds.provider : undefined} updated={g.odds?.updated} /></span>
+      <span className="cell-odds">{mlOf(g, sim) ? `${odds(mlOf(g, sim)![0])} / ${odds(mlOf(g, sim)![1])}` : '-'}</span>
       <span className="cell-total">
         <FormMark g={g} sim={sim} />
       </span>
@@ -382,7 +381,7 @@ function Card({ g, sim, run, i }: { g: Game; sim?: SimEntry; run?: ItemState; i:
         ) : (
           <SimPill g={g} sim={sim} run={run} />
         )}
-        <span className="card-price mono muted">{mlOf(g, sim) ? `${odds(mlOf(g, sim)![0])} / ${odds(mlOf(g, sim)![1])}` : g.state === 'pre' ? 'Cotes à venir' : ''}<PriceSource provider={g.odds?.mlAway != null && g.odds.mlHome != null ? g.odds.provider : undefined} updated={g.odds?.updated} /></span>
+        <span className="mono muted">{mlOf(g, sim) ? `${odds(mlOf(g, sim)![0])} / ${odds(mlOf(g, sim)![1])}` : g.state === 'pre' ? 'Cotes à venir' : ''}</span>
       </div>
     </Link>
   );
