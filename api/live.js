@@ -223,11 +223,11 @@ function nbaLive(P, pre, st) {
   const muR = theta * r - P.kappa * D * (r / 48) + P.run * run * (r / 48) + (r > 0 ? posV : 0);
   const sdR = Math.sqrt(P.s ** 2 * r + varTheta * r * r + 0.25);
   const mean = D + muR;
-  const T = st.score[0] + st.score[1];
+  const T2 = st.score[0] + st.score[1];
   const t0 = pre.total / 48;
   const precT = 1 / P.tauT ** 2 + e / P.sT ** 2;
-  const rate = (t0 / P.tauT ** 2 + T / P.sT ** 2) / precT;
-  const meanT = T + rate * r;
+  const rate = (t0 / P.tauT ** 2 + T2 / P.sT ** 2) / precT;
+  const meanT = T2 + rate * r;
   const sdT = Math.sqrt(P.sT ** 2 * r + 1 / precT * r * r + 0.25);
   const pH = r === 0 ? D > 0 ? 1 : D < 0 ? 0 : 0.5 : Phi(mean / sdR);
   const out = {
@@ -247,6 +247,7 @@ function nbaLive(P, pre, st) {
 }
 
 // src/live/tennis.ts
+var DEFAULT_TENNIS = { formSd: 0.165, setSd: 0.1, base: { Hard: 0.645, Clay: 0.625, Grass: 0.665, Carpet: 0.65 } };
 var Sg = (z) => 1 / (1 + Math.exp(-z));
 var Lg = (p) => Math.log(p / (1 - p));
 var nodes = (n, span) => {
@@ -405,7 +406,7 @@ function setScoreDist(pA, pB, tb) {
   }
   return out;
 }
-function series(s, last, need, sa, sb) {
+function series(s, last2, need, sa, sb) {
   const memo = /* @__PURE__ */ new Map();
   const go = (i, j) => {
     if (i === need) return 1;
@@ -413,7 +414,7 @@ function series(s, last, need, sa, sb) {
     const k = i * 8 + j;
     const c = memo.get(k);
     if (c != null) return c;
-    const x = i === need - 1 && j === need - 1 ? last : s;
+    const x = i === need - 1 && j === need - 1 ? last2 : s;
     const v = x * go(i + 1, j) + (1 - x) * go(i, j + 1);
     memo.set(k, v);
     return v;
@@ -432,23 +433,32 @@ function winFrom(P, pA, pB, st, aServesNow) {
   const decisiveNow = sa === need - 1 && sb === need - 1;
   const superTb = st.superTb ?? st.bestOf === 5;
   const tbNow = decisiveNow && superTb ? 10 : 7;
-  let s = 0, last = 0;
+  let s = 0, last2 = 0;
   for (const [z, w] of P.setSd ? N_SET : [[0, 1]]) {
     const a = Sg(Lg(pA) + P.setSd * z), b = Sg(Lg(pB) - P.setSd * z);
     const s7 = (setFast(a, b, true, 7) + setFast(a, b, false, 7)) / 2;
     s += w * s7;
-    last += w * (superTb ? (setFast(a, b, true, 10) + setFast(a, b, false, 10)) / 2 : s7);
+    last2 += w * (superTb ? (setFast(a, b, true, 10) + setFast(a, b, false, 10)) / 2 : s7);
   }
   const g = st.games ?? [0, 0];
-  if (!st.games && !st.points) return series(s, last, need, sa, sb);
-  let cur = 0;
-  for (const [z, w] of P.setSd ? N_SET : [[0, 1]]) {
+  if (!st.games && !st.points) return series(s, last2, need, sa, sb);
+  let cur = 0, tw = 0;
+  const cp = st.curSetPts;
+  for (const [z, w0] of P.setSd ? N_SET : [[0, 1]]) {
     const a = Sg(Lg(pA) + P.setSd * z), b = Sg(Lg(pB) - P.setSd * z);
+    const w = cp ? w0 * Math.exp(cp[0][0] * Math.log(a) + (cp[0][1] - cp[0][0]) * Math.log(1 - a) + cp[1][0] * Math.log(b) + (cp[1][1] - cp[1][0]) * Math.log(1 - b)) : w0;
     cur += w * setFrom(a, b, g[0], g[1], aServesNow, tbNow, st.points);
+    tw += w;
   }
-  return cur * series(s, last, need, sa + 1, sb) + (1 - cur) * series(s, last, need, sa, sb + 1);
+  cur = tw > 0 ? cur / tw : cur;
+  return cur * series(s, last2, need, sa + 1, sb) + (1 - cur) * series(s, last2, need, sa, sb + 1);
 }
 function likelihood(P, pA, pB, st) {
+  if (st.servePts && st.servePts[0][1] + st.servePts[1][1] >= 8) {
+    const k = P.pointW ?? P.formSd ** 2 / (P.formSd ** 2 + P.setSd ** 2);
+    const [[wa, na], [wb, nb]] = st.servePts;
+    return Math.exp(k * (wa * Math.log(pA) + (na - wa) * Math.log(1 - pA) + wb * Math.log(pB) + (nb - wb) * Math.log(1 - pB)));
+  }
   let total = 0;
   for (const aFirst of [true, false]) {
     let lik = 1, aSrv = aFirst;
@@ -747,10 +757,10 @@ async function espnNbaGame(id) {
       fouls[side]++;
     }
   }
-  const last = plays.at(-1);
-  if (last?.team?.id) {
-    const by = String(last.team.id) === homeTeamId ? 0 : 1;
-    const flips = last.scoringPlay || /turnover|defensive rebound/i.test(last.type?.text ?? "");
+  const last2 = plays.at(-1);
+  if (last2?.team?.id) {
+    const by = String(last2.team.id) === homeTeamId ? 0 : 1;
+    const flips = last2.scoringPlay || /turnover|defensive rebound/i.test(last2.type?.text ?? "");
     possession = flips ? 1 - by : by;
   }
   const pc = (d.pickcenter ?? [])[0];
@@ -809,7 +819,676 @@ async function espnTennisLive(tour = "atp") {
   return out;
 }
 
+// src/live/stats/catalog.ts
+var toNum = (s) => Number(s.replace(/\s/g, "").replace(",", "."));
+function parseValue(input) {
+  const raw = input == null ? "" : String(input).trim();
+  if (typeof input === "number") return { value: Number.isFinite(input) ? input : null, raw, unit: "count" };
+  if (!raw || raw === "-" || raw === "\u2013") return { value: null, raw };
+  let m = raw.match(/^(-?[\d.,]+)\s*%\s*\(\s*(\d+)\s*\/\s*(\d+)\s*\)$/);
+  if (m) return { value: toNum(m[1]) / 100, pct: toNum(m[1]) / 100, made: Number(m[2]), att: Number(m[3]), unit: "pct", raw };
+  m = raw.match(/^(\d+)\s*\/\s*(\d+)\s*(?:\(\s*(-?[\d.,]+)\s*%\s*\))?$/);
+  if (m) {
+    const made = Number(m[1]), att = Number(m[2]);
+    return { value: att ? made / att : null, made, att, pct: att ? made / att : void 0, unit: "pct", raw };
+  }
+  m = raw.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (m) {
+    const made = Number(m[1]), att = Number(m[2]);
+    return { value: att ? made / att : null, made, att, pct: att ? made / att : void 0, unit: "pct", raw };
+  }
+  m = raw.match(/^(\d+)\s+of\s+(\d+)$/i);
+  if (m) {
+    const made = Number(m[1]), att = Number(m[2]);
+    return { value: att ? made / att : null, made, att, pct: att ? made / att : void 0, unit: "pct", raw };
+  }
+  m = raw.match(/^(-?[\d.,]+)\s*%$/);
+  if (m) return { value: toNum(m[1]) / 100, pct: toNum(m[1]) / 100, unit: "pct", raw };
+  m = raw.match(/^(?:(\d+):)?(\d+):(\d{2})$/);
+  if (m) return { value: Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]), unit: "sec", raw };
+  m = raw.match(/^([\d.,]+)\s*(km\/h|kmh)$/i);
+  if (m) return { value: toNum(m[1]), unit: "kmh", raw };
+  m = raw.match(/^([\d.,]+)\s*mph$/i);
+  if (m) return { value: toNum(m[1]) * 1.609344, unit: "kmh", raw };
+  m = raw.match(/^([\d.,]+)\s*(m|km)$/i);
+  if (m) return { value: toNum(m[1]) * (m[2].toLowerCase() === "km" ? 1e3 : 1), unit: "m", raw };
+  const n = toNum(raw);
+  return Number.isFinite(n) ? { value: n, unit: "count", raw } : { value: null, raw };
+}
+var norm = (s) => s.replace(/([a-z])([A-Z])/g, "$1 $2").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[_\-./:()%]+/g, " ").replace(/\s+/g, " ").trim();
+var T = {
+  unforced: /\b(unforced|ue|fautes? directes?|errores? no forzados?|no forzados?|gratuit[io]|errori gratuiti|unerzwungene?|eigenfehler)\b/,
+  forced: /\b(forced|fe|fautes? provoquees?|errores? forzados?|forzati|erzwungene?)\b/,
+  error: /\b(errors?|fautes?|errores?|errori|fehler)\b/,
+  winner: /\b(winners?|coups? gagnants?|gagnants?|golpes ganadores|ganadores|vincenti|winner schlage)\b/,
+  forehand: /\b(forehand|fh|coup droit|derecha|drive|dritto|vorhand)\b/,
+  backhand: /\b(backhand|bh|revers|reves|rovescio|ruckhand)\b/,
+  volley: /\b(volleys?|volees?|voleas?|volee)\b/,
+  smash: /\b(smash|overhead|smashes)\b/,
+  drop: /\b(drop shots?|drops?|amorties?|dejadas?|smorzate?|stopp)\b/,
+  lob: /\b(lobs?|globos?|pallonetti)\b/,
+  groundstroke: /\b(groundstrokes?|fond de court)\b/,
+  passing: /\b(passing shots?|passings?)\b/,
+  return: /\b(returns?|retours?|restos?|risposta|ruckschlag)\b/,
+  serve: /\b(serves?|services?|servicio|servizio|aufschlag|serving)\b/,
+  ace: /\b(aces?)\b/,
+  doubleFault: /\b(double faults?|doubles? fautes?|dobles? faltas?|doppi falli|doppelfehler|df)\b/,
+  first: /\b(1st|first|1er|premiere?s?|primer|prima|erste)\b/,
+  second: /\b(2nd|second|2e|2eme|deuxiemes?|seconde?s?|segundo|seconda|zweite)\b/,
+  won: /\b(won|win|gagnes?|ganados?|vinti|gewonnen|pts won|points won)\b/,
+  inPct: /\b(in|%|percentage|pourcentage|reussite|percent)\b/,
+  points: /\b(points?|pts|puntos?|punti|punkte)\b/,
+  games: /\b(games?|jeux|juegos?|giochi|spiele)\b/,
+  breakPt: /\b(break points?|balles? de break|bp|puntos de quiebre|palle break|breakballe)\b/,
+  saved: /\b(saved|sauvees?|salvad[oa]s|salvate|abgewehrt)\b/,
+  converted: /\b(converted|convertis|converties|convertid[oa]s|convertite|genutzt)\b/,
+  net: /\b(net|filet|red|rete|netz)\b/,
+  rally: /\b(rally|rallies|echanges?|peloteo|scambi)\b/,
+  inRow: /\b(in a row|consecutifs?|consecutivos|di fila|in folge|streak|serie)\b/,
+  total: /\b(total|totaux?)\b/,
+  speed: /\b(speed|vitesse|velocidad|velocita|geschwindigkeit)\b/,
+  distance: /\b(distance|distancia|km run|run)\b/,
+  duration: /\b(duration|duree|tiempo|durata|dauer|time)\b/,
+  max: /\b(max|maximum|fastest|plus rapide|top)\b/,
+  avg: /\b(avg|average|moyenne?|promedio|media)\b/
+};
+var has = (s, r) => r.test(s);
+var strokeOf = (s) => {
+  if (has(s, T.forehand)) return "forehand";
+  if (has(s, T.backhand)) return "backhand";
+  if (has(s, T.volley)) return "volley";
+  if (has(s, T.smash)) return "smash";
+  if (has(s, T.drop)) return "drop";
+  if (has(s, T.lob)) return "lob";
+  if (has(s, T.passing)) return "passing";
+  if (has(s, T.groundstroke)) return "groundstroke";
+  if (has(s, T.return)) return "return";
+  return void 0;
+};
+var NAMES = {
+  "serve.aces": "Aces",
+  "serve.df": "Doubles fautes",
+  "serve.first.in": "1re balle pass\xE9e",
+  "serve.first.won": "Points gagn\xE9s sur 1re balle",
+  "serve.second.won": "Points gagn\xE9s sur 2e balle",
+  "serve.won": "Points gagn\xE9s au service",
+  "serve.games.won": "Jeux de service gagn\xE9s",
+  "serve.bp.saved": "Balles de break sauv\xE9es",
+  "serve.speed.max": "Service le plus rapide",
+  "serve.speed.avg": "Vitesse moyenne de service",
+  "serve.speed.first": "Vitesse moyenne 1re balle",
+  "serve.speed.second": "Vitesse moyenne 2e balle",
+  "return.won": "Points gagn\xE9s en retour",
+  "return.first.won": "Retours gagn\xE9s sur 1re balle",
+  "return.second.won": "Retours gagn\xE9s sur 2e balle",
+  "return.bp.converted": "Balles de break converties",
+  "return.games.won": "Jeux de retour gagn\xE9s",
+  "points.won": "Points gagn\xE9s",
+  "points.inrow": "Points d'affil\xE9e (max)",
+  "games.inrow": "Jeux d'affil\xE9e (max)",
+  "winners": "Coups gagnants",
+  "ue": "Fautes directes",
+  "fe": "Fautes provoqu\xE9es",
+  "net.won": "Points gagn\xE9s au filet",
+  "rally.avg": "Longueur moyenne des \xE9changes",
+  "distance": "Distance parcourue",
+  "duration": "Dur\xE9e",
+  // foot
+  "poss": "Possession",
+  "shots": "Tirs",
+  "sot": "Tirs cadr\xE9s",
+  "shots.off": "Tirs non cadr\xE9s",
+  "shots.blocked": "Tirs contr\xE9s",
+  "shots.box": "Tirs dans la surface",
+  "shots.outbox": "Tirs hors de la surface",
+  "xg": "Buts attendus (xG)",
+  "xgot": "xG cadr\xE9s",
+  "xa": "Passes d\xE9cisives attendues (xA)",
+  "bigc": "Grosses occasions",
+  "bigc.missed": "Grosses occasions manqu\xE9es",
+  "corners": "Corners",
+  "fouls": "Fautes",
+  "yellow": "Cartons jaunes",
+  "red": "Cartons rouges",
+  "offsides": "Hors-jeu",
+  "saves": "Arr\xEAts",
+  "passes": "Passes",
+  "passes.acc": "Passes r\xE9ussies",
+  "crosses": "Centres",
+  "long": "Longs ballons",
+  "tackles": "Tacles",
+  "inter": "Interceptions",
+  "clear": "D\xE9gagements",
+  "duels": "Duels gagn\xE9s",
+  "aerial": "Duels a\xE9riens gagn\xE9s",
+  "dribbles": "Dribbles r\xE9ussis",
+  "tbox": "Ballons touch\xE9s dans la surface",
+  "wood": "Poteaux",
+  "freekicks": "Coups francs",
+  "throwins": "Touches",
+  "goalkicks": "Sorties de but",
+  "dangerous": "Attaques dangereuses",
+  "attacks": "Attaques",
+  // NBA
+  "fg": "Tirs",
+  "fg2": "Tirs \xE0 2 pts",
+  "fg3": "Tirs \xE0 3 pts",
+  "ft": "Lancers francs",
+  "reb": "Rebonds",
+  "reb.off": "Rebonds offensifs",
+  "reb.def": "Rebonds d\xE9fensifs",
+  "ast": "Passes d\xE9cisives",
+  "tov": "Pertes de balle",
+  "stl": "Interceptions",
+  "blk": "Contres",
+  "pf": "Fautes",
+  "tech": "Fautes techniques",
+  "paint": "Points dans la raquette",
+  "fastbreak": "Points en contre-attaque",
+  "second": "Points de seconde chance",
+  "tovpts": "Points sur pertes de balle",
+  "bench": "Points du banc",
+  "lead.max": "Plus grosse avance",
+  "leadchanges": "Changements de leader",
+  "timeouts": "Temps morts restants",
+  "run.max": "Plus grosse s\xE9rie"
+};
+function tennisKey(s) {
+  const st = strokeOf(s);
+  const stroke = st && st !== "return" ? `.${st}` : st === "return" ? ".return" : "";
+  if (has(s, T.doubleFault)) return ["serve.df", "serve"];
+  if (has(s, T.ace) && !has(s, T.points)) return ["serve.aces", "serve"];
+  if (has(s, T.unforced)) return [`ue${stroke}`, "errors"];
+  if (has(s, T.forced) && has(s, T.error)) return [`fe${stroke}`, "errors"];
+  if (has(s, T.forced) && !has(s, T.winner)) return [`fe${stroke}`, "errors"];
+  if (has(s, T.winner) && !has(s, T.points)) return [`winners${stroke}`, "winners"];
+  if (has(s, T.breakPt)) {
+    if (has(s, T.saved)) return ["serve.bp.saved", "pressure"];
+    if (has(s, T.converted) || has(s, T.won)) return ["return.bp.converted", "pressure"];
+    if (has(s, T.serve)) return ["serve.bp.saved", "pressure"];
+    return ["return.bp.converted", "pressure"];
+  }
+  if (/\b(fastest|plus rapide|mas rapido|piu veloce)\b/.test(s)) return ["serve.speed.max", "speed"];
+  if (has(s, T.speed)) return [has(s, T.first) ? "serve.speed.first" : has(s, T.second) ? "serve.speed.second" : has(s, T.avg) ? "serve.speed.avg" : "serve.speed.max", "speed"];
+  if (has(s, T.inRow)) return [has(s, T.games) ? "games.inrow" : "points.inrow", "points"];
+  if (has(s, T.net)) return ["net.won", "net"];
+  if (has(s, T.rally)) return ["rally.avg", "rally"];
+  if (has(s, T.distance)) return ["distance", "physical"];
+  if (has(s, T.duration)) return ["duration", "physical"];
+  if (has(s, T.return) || /\breceiv/.test(s) || /\bretour\b/.test(s)) {
+    if (has(s, T.games)) return ["return.games.won", "return"];
+    if (has(s, T.first)) return ["return.first.won", "return"];
+    if (has(s, T.second)) return ["return.second.won", "return"];
+    return ["return.won", "return"];
+  }
+  if (has(s, T.serve) || has(s, T.first) || has(s, T.second)) {
+    if (has(s, T.games)) return ["serve.games.won", "serve"];
+    if (has(s, T.first)) return [has(s, T.won) || has(s, T.points) ? "serve.first.won" : "serve.first.in", "serve"];
+    if (has(s, T.second)) return ["serve.second.won", "serve"];
+    return ["serve.won", "serve"];
+  }
+  if (has(s, T.points) && (has(s, T.total) || has(s, T.won))) return ["points.won", "points"];
+  return void 0;
+}
+var FOOT2 = [
+  [/\b(xgot|expected goals on target|xg on target)\b/, "xgot", "chances"],
+  [/\b(xa|expected assists?)\b/, "xa", "chances"],
+  [/\b(xg|expected goals?|buts attendus|goles esperados)\b/, "xg", "chances"],
+  [/\b(big chances? missed|grosses occasions manquees)\b/, "bigc.missed", "chances"],
+  [/\b(big chances?|grosses occasions|ocasiones claras)\b/, "bigc", "chances"],
+  [/\b(shots? on (target|goal)|tirs cadres|tiros a puerta|on target)\b/, "sot", "attack"],
+  [/\b(shots? off (target|goal)|tirs non cadres|off target)\b/, "shots.off", "attack"],
+  [/\b(blocked shots?|tirs contres)\b/, "shots.blocked", "attack"],
+  [/\b(shots? inside( the)? box|tirs dans la surface)\b/, "shots.box", "attack"],
+  [/\b(shots? outside( the)? box|tirs hors de la surface)\b/, "shots.outbox", "attack"],
+  [/\b(total shots?|shots?|tirs|tiros)\b/, "shots", "attack"],
+  [/\b(possession|ball possession|posesion)\b/, "poss", "possession"],
+  [/\b(touches in (opposition|opp) box|touches? (dans la )?surface)\b/, "tbox", "attack"],
+  [/\b(dangerous attacks?|attaques dangereuses)\b/, "dangerous", "attack"],
+  [/\b(attacks?|attaques)\b/, "attacks", "attack"],
+  [/\b(corners?|corner kicks?)\b/, "corners", "setpiece"],
+  [/\b(free kicks?|coups francs)\b/, "freekicks", "setpiece"],
+  [/\b(throw ins?|touches)\b/, "throwins", "setpiece"],
+  [/\b(goal kicks?|sorties de but)\b/, "goalkicks", "setpiece"],
+  [/\b(yellow cards?|cartons jaunes|amarillas)\b/, "yellow", "discipline"],
+  [/\b(red cards?|cartons rouges|rojas)\b/, "red", "discipline"],
+  [/\b(fouls?( committed)?|fautes|faltas)\b/, "fouls", "discipline"],
+  [/\b(offsides?|hors jeu|fueras de juego)\b/, "offsides", "discipline"],
+  [/\b(keeper saves?|goalkeeper saves?|saves|arrets|paradas)\b/, "saves", "goalkeeping"],
+  [/\b(accurate passes|passes reussies|pass(es)? accuracy|passing accuracy)\b/, "passes.acc", "passing"],
+  [/\b(crosses|centres)\b/, "crosses", "passing"],
+  [/\b(long balls|longs ballons)\b/, "long", "passing"],
+  [/\b(passes|pases)\b/, "passes", "passing"],
+  [/\b(tackles?|tacles)\b/, "tackles", "defence"],
+  [/\b(interceptions?)\b/, "inter", "defence"],
+  [/\b(clearances?|degagements)\b/, "clear", "defence"],
+  [/\b(aerial duels?|duels aeriens)\b/, "aerial", "defence"],
+  [/\b(duels? won|duels? gagnes|duels?)\b/, "duels", "defence"],
+  [/\b(dribbles?|successful dribbles|dribbles reussis)\b/, "dribbles", "attack"],
+  [/\b(woodwork|poteaux|hit woodwork)\b/, "wood", "chances"]
+];
+var NBA2 = [
+  [/\b(3 ?(pt|pts|point|points)|three point|fg3|3fg|tirs a 3)\b/, "fg3", "shooting"],
+  [/\b(2 ?(pt|pts|point|points)|two point|fg2|tirs a 2)\b/, "fg2", "shooting"],
+  [/\b(free throws?|ft|lancers? francs?)\b/, "ft", "shooting"],
+  [/\b(field goals?|fg|tirs)\b/, "fg", "shooting"],
+  [/\b(offensive rebounds?|rebonds offensifs|oreb)\b/, "reb.off", "rebounds"],
+  [/\b(defensive rebounds?|rebonds defensifs|dreb)\b/, "reb.def", "rebounds"],
+  [/\b(rebounds?|rebonds|reb)\b/, "reb", "rebounds"],
+  [/\b(assists?|passes decisives|ast)\b/, "ast", "playmaking"],
+  [/\b(points? (off|from|on) turnovers?|turnover points|points sur pertes)\b/, "tovpts", "scoring"],
+  [/\b(turnovers?|pertes de balle|tov|to)\b/, "tov", "playmaking"],
+  [/\b(steals?|interceptions|stl)\b/, "stl", "defence"],
+  [/\b(blocks?|contres|blk)\b/, "blk", "defence"],
+  [/\b(technical fouls?|fautes techniques)\b/, "tech", "fouls"],
+  [/\b(personal fouls?|fouls?|fautes|pf)\b/, "pf", "fouls"],
+  [/\b(points in (the )?paint|points dans la raquette|paint)\b/, "paint", "scoring"],
+  [/\b(fast ?break|contre attaque)\b/, "fastbreak", "scoring"],
+  [/\b(second chance|seconde chance)\b/, "second", "scoring"],
+  [/\b(bench points|points du banc)\b/, "bench", "scoring"],
+  [/\b(largest lead|biggest lead|plus grosse avance)\b/, "lead.max", "flow"],
+  [/\b(lead changes|changements de leader)\b/, "leadchanges", "flow"],
+  [/\b(timeouts?( remaining)?|temps morts)\b/, "timeouts", "flow"],
+  [/\b(biggest (scoring )?run|plus grosse serie)\b/, "run.max", "flow"]
+];
+function classify(sport, label) {
+  const s = norm(label);
+  let hit;
+  if (sport === "tennis") hit = tennisKey(s);
+  else for (const [rx, key3, group2] of sport === "foot" ? FOOT2 : NBA2) if (rx.test(s)) {
+    hit = [key3, group2];
+    break;
+  }
+  if (!hit) return { key: `other.${s.replace(/ /g, "_")}`, group: "other", label, name: label, known: false };
+  const [key2, group] = hit;
+  const base = key2.split(".").slice(0, 1)[0];
+  const name = NAMES[key2] ?? (NAMES[base] ? `${NAMES[base]} (${STROKE_FR[key2.split(".")[1]] ?? key2.split(".")[1]})` : key2);
+  return { key: key2, group, label, name, known: true };
+}
+var STROKE_FR = { forehand: "coup droit", backhand: "revers", volley: "vol\xE9e", smash: "smash", drop: "amortie", lob: "lob", passing: "passing", groundstroke: "fond de court", return: "retour" };
+function periodOf(label) {
+  const s = norm(label ?? "");
+  if (!s || /\b(all|match|total|game|full)\b/.test(s)) return "all";
+  let m = s.match(/\b(\d)(st|nd|rd|th|e|er)? set\b|\bset (\d)\b/);
+  if (m) return `set${m[1] ?? m[3]}`;
+  m = s.match(/\bq ?(\d)\b|\b(\d)(st|nd|rd|th)? quarter\b|\b(\d)e? quart/);
+  if (m) return `q${m[1] ?? m[2] ?? m[4]}`;
+  if (/\b(1st|first|1re|premiere) half\b|\b1 ?h\b|\b1re mi temps\b/.test(s)) return "1h";
+  if (/\b(2nd|second|2e|seconde) half\b|\b2 ?h\b|\b2e mi temps\b/.test(s)) return "2h";
+  if (/\b(ot|overtime|prolongation)/.test(s)) return "ot";
+  return s.replace(/ /g, "_");
+}
+function statsFromRow(sport, row) {
+  const c = classify(sport, row.label);
+  const period2 = periodOf(row.period);
+  return [
+    { ...c, side: 0, period: period2, v: parseValue(row.home) },
+    { ...c, side: 1, period: period2, v: parseValue(row.away) }
+  ];
+}
+var StatBook = class {
+  all = [];
+  by = /* @__PURE__ */ new Map();
+  add(stats) {
+    for (const s of stats) {
+      this.all.push(s);
+      this.by.set(`${s.period}|${s.key}|${s.side}`, s);
+    }
+    return this;
+  }
+  get(key2, side, period2 = "all") {
+    return this.by.get(`${period2}|${key2}|${side}`)?.v;
+  }
+  /** Somme d'une famille (« ue » : toutes les fautes directes, par coup compris si seul le détail est fourni). */
+  family(prefix, side, period2 = "all") {
+    const whole = this.get(prefix, side, period2)?.value;
+    if (whole != null) return whole;
+    let t = 0, any = false;
+    for (const s of this.all) if (s.side === side && s.period === period2 && s.key.startsWith(`${prefix}.`) && s.v.value != null) {
+      t += s.v.value;
+      any = true;
+    }
+    return any ? t : null;
+  }
+  unknown() {
+    return this.all.filter((s) => !s.known);
+  }
+};
+
+// src/live/stats/tennis-points.ts
+function outcomeFromText(text) {
+  const c = classify("tennis", text);
+  const k = c.key;
+  const stroke = k.split(".")[1];
+  if (k === "serve.aces") return { outcome: "ace", stroke: "serve" };
+  if (k === "serve.df") return { outcome: "double_fault", stroke: "serve" };
+  if (/service winner|service gagnant|unreturned|non retourne/i.test(text)) return { outcome: "service_winner", stroke: "serve" };
+  if (k.startsWith("ue")) return { outcome: "unforced_error", stroke: stroke ?? "other" };
+  if (k.startsWith("fe")) return { outcome: "forced_error", stroke: stroke ?? "other" };
+  if (k.startsWith("winners")) return { outcome: "winner", stroke: stroke ?? "other" };
+  return { outcome: "unknown" };
+}
+var emptyAgg = () => ({
+  servePlayed: 0,
+  serveWon: 0,
+  firstPlayed: 0,
+  firstWon: 0,
+  secondPlayed: 0,
+  secondWon: 0,
+  returnPlayed: 0,
+  returnWon: 0,
+  aces: 0,
+  df: 0,
+  serviceWinners: 0,
+  winners: 0,
+  ue: 0,
+  fe: 0,
+  winnersBy: {},
+  ueBy: {},
+  feBy: {},
+  bpFaced: 0,
+  bpSaved: 0,
+  bpChances: 0,
+  bpWon: 0,
+  recentWon: 0,
+  recentPlayed: 0,
+  streak: 0,
+  bestStreak: 0,
+  rallyLong: 0,
+  rallyLongWon: 0
+});
+function aggregate(points, recent = 20) {
+  const A = [emptyAgg(), emptyAgg()];
+  points.forEach((p, i) => {
+    const s = A[p.server], r = A[1 - p.server];
+    const srvWon = p.winner === p.server;
+    s.servePlayed++;
+    r.returnPlayed++;
+    if (srvWon) s.serveWon++;
+    else r.returnWon++;
+    if (p.serve === 2) {
+      s.secondPlayed++;
+      if (srvWon) s.secondWon++;
+    } else if (p.serve === 1) {
+      s.firstPlayed++;
+      if (srvWon) s.firstWon++;
+    }
+    if (p.breakPoint) {
+      s.bpFaced++;
+      r.bpChances++;
+      if (srvWon) s.bpSaved++;
+      else r.bpWon++;
+    }
+    const by = p.by ?? (p.outcome === "unforced_error" || p.outcome === "forced_error" || p.outcome === "double_fault" ? 1 - p.winner : p.winner);
+    const st = p.stroke ?? "other";
+    switch (p.outcome) {
+      case "ace":
+        A[p.server].aces++;
+        break;
+      case "double_fault":
+        A[p.server].df++;
+        break;
+      case "service_winner":
+        A[p.server].serviceWinners++;
+        break;
+      case "winner":
+        A[by].winners++;
+        A[by].winnersBy[st] = (A[by].winnersBy[st] ?? 0) + 1;
+        break;
+      case "unforced_error":
+        A[by].ue++;
+        A[by].ueBy[st] = (A[by].ueBy[st] ?? 0) + 1;
+        break;
+      case "forced_error":
+        A[by].fe++;
+        A[by].feBy[st] = (A[by].feBy[st] ?? 0) + 1;
+        break;
+    }
+    if ((p.rally ?? 0) >= 9) {
+      A[0].rallyLong++;
+      A[1].rallyLong++;
+      A[p.winner].rallyLongWon++;
+    }
+    for (const k of [0, 1]) {
+      const w = p.winner === k;
+      const a = A[k];
+      a.streak = w ? Math.max(1, a.streak + 1) : Math.min(-1, a.streak - 1);
+      a.bestStreak = Math.max(a.bestStreak, a.streak);
+      if (i >= points.length - recent) {
+        a.recentPlayed++;
+        if (w) a.recentWon++;
+      }
+    }
+  });
+  return A;
+}
+function stateFromPoints(points, bestOf, superTb = bestOf === 5) {
+  const need = bestOf === 5 ? 3 : 2;
+  const sets = [];
+  let g = [0, 0], pt = [0, 0];
+  let server = points[0]?.server ?? 0;
+  let setServer = server;
+  const won = () => sets.reduce((acc, [a, b]) => a > b ? [acc[0] + 1, acc[1]] : [acc[0], acc[1] + 1], [0, 0]);
+  for (const p of points) {
+    const [sa, sb] = won();
+    if (sa >= need || sb >= need) break;
+    const decisive = sa === need - 1 && sb === need - 1;
+    const tb = g[0] === 6 && g[1] === 6;
+    const to = tb && decisive && superTb ? 10 : 7;
+    pt[p.winner]++;
+    const [x, y] = pt;
+    const gameOver = tb ? Math.max(x, y) >= to && Math.abs(x - y) >= 2 : Math.max(x, y) >= 4 && Math.abs(x - y) >= 2;
+    if (tb) {
+      const n = x + y;
+      if (!gameOver && n % 2 === 1) server = 1 - server;
+    }
+    if (gameOver) {
+      g[x > y ? 0 : 1]++;
+      pt = [0, 0];
+      const setOver = Math.max(...g) >= 6 && Math.abs(g[0] - g[1]) >= 2 || Math.max(...g) === 7;
+      if (setOver) {
+        sets.push([g[0], g[1]]);
+        setServer = (g[0] + g[1]) % 2 === 1 ? 1 - setServer : setServer;
+        server = setServer;
+        g = [0, 0];
+      } else if (!tb) server = 1 - server;
+    }
+  }
+  const st = { bestOf, sets, games: g, points: pt, server, superTb };
+  if (g[0] === 0 && g[1] === 0 && pt[0] === 0 && pt[1] === 0) {
+    delete st.points;
+  }
+  return st;
+}
+
+// src/live/source.ts
+var SOURCES = [
+  // modele,
+];
+var sourcesFor = (sport) => SOURCES.filter((s) => s.sports.includes(sport) && s.ready());
+var STROKES = /* @__PURE__ */ new Set(["serve", "return", "forehand", "backhand", "volley", "smash", "drop", "lob", "passing", "halfvolley", "other"]);
+function normalizePoints(raw) {
+  return raw.map((r) => {
+    const read = r.result ? outcomeFromText(r.result) : void 0;
+    const outcome = r.outcome ?? read?.outcome ?? "unknown";
+    const stroke = r.stroke && STROKES.has(String(r.stroke)) ? r.stroke : r.stroke ? outcomeFromText(`${r.stroke} winner`).stroke : read?.stroke;
+    return { server: r.server, winner: r.winner, set: r.set, game: r.game, serve: r.serve, outcome, stroke, by: r.by, rally: r.rally, breakPoint: r.breakPoint, tiebreak: r.tiebreak, t: r.t };
+  });
+}
+function bookOf(sport, stats = []) {
+  const b = new StatBook();
+  for (const s of stats) b.add(statsFromRow(sport, s));
+  return b;
+}
+var last = (n) => n.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z ]/g, " ").trim().split(/\s+/).filter((w) => w.length > 1).pop() ?? "";
+function sameMatch(a, b) {
+  if (last(a.home) === last(b.home) && last(a.away) === last(b.away)) return "same";
+  if (last(a.home) === last(b.away) && last(a.away) === last(b.home)) return "swapped";
+  return void 0;
+}
+async function enrich(sport, want) {
+  for (const src of sourcesFor(sport)) {
+    try {
+      const list = await src.live(sport);
+      for (const ref of list) {
+        const how = sameMatch(want, ref);
+        if (!how) continue;
+        const m = await src.match(sport, ref.id);
+        return { source: src.name, match: how === "same" ? m : swap(m) };
+      }
+    } catch {
+    }
+  }
+  return void 0;
+}
+function swap(m) {
+  const f = (x) => x == null ? x : 1 - x;
+  const pair = (p) => p ? [p[1], p[0]] : p;
+  return {
+    ...m,
+    home: m.away,
+    away: m.home,
+    tennis: m.tennis && {
+      ...m.tennis,
+      sets: m.tennis.sets?.map(([a, b]) => [b, a]),
+      games: pair(m.tennis.games),
+      points: pair(m.tennis.points),
+      server: f(m.tennis.server),
+      pointLog: m.tennis.pointLog?.map((p) => ({ ...p, server: f(p.server), winner: f(p.winner), by: f(p.by) }))
+    },
+    stats: m.stats?.map((s) => ({ ...s, home: s.away, away: s.home })),
+    events: m.events?.map((e) => ({ ...e, side: f(e.side) }))
+  };
+}
+
+// src/live/stats/tennis-engine.ts
+var NEUTRAL_WEIGHTS = {
+  outcome: { ace: 1, double_fault: 1, service_winner: 1, winner: 1, unforced_error: 1, forced_error: 1, unknown: 1 },
+  recent: 0
+};
+var val = (b, k, side) => b?.get(k, side)?.value ?? null;
+function weighted(points, W) {
+  const out = [[0, 0], [0, 0]];
+  const n = points.length;
+  points.forEach((p, i) => {
+    let w = W.outcome[p.outcome ?? "unknown"] ?? 1;
+    if (i >= n - 20) w *= 1 + W.recent;
+    out[p.server][1] += w;
+    if (p.winner === p.server) out[p.server][0] += w;
+  });
+  return out;
+}
+function fromStats(b, W) {
+  const sp = [0, 1].map((k) => {
+    const side = k;
+    const all = b.get("serve.won", side);
+    if (all?.made != null && all.att) return [all.made, all.att];
+    const f = b.get("serve.first.won", side), s = b.get("serve.second.won", side);
+    if (f?.made != null && f.att != null && s?.made != null && s.att != null) return [f.made + s.made, f.att + s.att];
+    const r = b.get("return.won", 1 - side);
+    if (r?.made != null && r.att) return [r.att - r.made, r.att];
+    return void 0;
+  });
+  if (!sp[0] || !sp[1]) return void 0;
+  const out = [[...sp[0]], [...sp[1]]];
+  const wUe = W.outcome.unforced_error;
+  if (wUe !== 1) {
+    const tot = out[0][1] + out[1][1];
+    for (const side of [0, 1]) {
+      const own = b.family("ue", side), opp = b.family("ue", 1 - side);
+      const share = out[side][1] / tot;
+      const lostOwn = (own ?? 0) * share, wonOpp = (opp ?? 0) * share;
+      out[side][0] -= (1 - wUe) * wonOpp;
+      out[side][1] -= (1 - wUe) * (lostOwn + wonOpp);
+    }
+  }
+  return out;
+}
+function countToSetEnd(points, bestOf, superTb) {
+  let lo = 0;
+  const done = stateFromPoints(points, bestOf, superTb).sets.length;
+  if (!done) return 0;
+  let hi = points.length;
+  while (lo < hi) {
+    const mid = lo + hi >> 1;
+    if (stateFromPoints(points.slice(0, mid), bestOf, superTb).sets.length >= done) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
+var family = (ag, k) => Object.fromEntries(Object.entries(ag[k]).map(([s, n]) => [s, n ?? 0]));
+function tennisFromStats(base, input, P = DEFAULT_TENNIS, W = NEUTRAL_WEIGHTS) {
+  const read = { level: "score", serveExpected: base };
+  let st;
+  if (input.pointLog?.length) {
+    st = stateFromPoints(input.pointLog, input.bestOf, input.superTb);
+    if (input.server != null) st.server = input.server;
+    st.servePts = weighted(input.pointLog, W);
+    const inSet = input.pointLog.length - countToSetEnd(input.pointLog, input.bestOf, input.superTb);
+    if (inSet > 0) st.curSetPts = weighted(input.pointLog.slice(-inSet), { ...W, recent: 0 });
+    const [a, b] = aggregate(input.pointLog);
+    read.level = "points";
+    read.serveRate = [a.servePlayed ? a.serveWon / a.servePlayed : null, b.servePlayed ? b.serveWon / b.servePlayed : null];
+    read.ue = [a.ue, b.ue];
+    read.winners = [a.winners, b.winners];
+    read.netShots = [a.winners - a.ue, b.winners - b.ue];
+    read.ueBy = [family(a, "ueBy"), family(b, "ueBy")];
+    read.winnersBy = [family(a, "winnersBy"), family(b, "winnersBy")];
+    read.aces = [a.aces, b.aces];
+    read.df = [a.df, b.df];
+    read.recent = [a.recentWon, b.recentWon];
+    read.streak = [a.streak, b.streak];
+    read.breakPoints = { saved: [a.bpSaved, b.bpSaved], faced: [a.bpFaced, b.bpFaced] };
+  } else {
+    st = { bestOf: input.bestOf, superTb: input.superTb, sets: input.sets ?? [], games: input.games, points: input.points, server: input.server };
+    const sp = input.stats ? fromStats(input.stats, W) : void 0;
+    if (sp) {
+      st.servePts = sp;
+      read.level = "stats";
+    }
+  }
+  if (input.stats) {
+    const b = input.stats;
+    const pick = (k) => [val(b, k, 0), val(b, k, 1)];
+    read.ue ??= [b.family("ue", 0), b.family("ue", 1)];
+    read.winners ??= [b.family("winners", 0), b.family("winners", 1)];
+    read.netShots ??= [read.winners[0] != null && read.ue[0] != null ? read.winners[0] - read.ue[0] : null, read.winners[1] != null && read.ue[1] != null ? read.winners[1] - read.ue[1] : null];
+    read.aces ??= pick("serve.aces");
+    read.df ??= pick("serve.df");
+    if (!read.ueBy) {
+      const by = (side, pre) => Object.fromEntries(b.all.filter((s) => s.side === side && s.period === "all" && s.key.startsWith(`${pre}.`) && s.v.value != null).map((s) => [s.key.split(".")[1], s.v.value]));
+      read.ueBy = [by(0, "ue"), by(1, "ue")];
+      read.winnersBy = [by(0, "winners"), by(1, "winners")];
+    }
+  }
+  if (st.servePts) {
+    read.servePts = st.servePts;
+    read.serveRate ??= [st.servePts[0][1] ? st.servePts[0][0] / st.servePts[0][1] : null, st.servePts[1][1] ? st.servePts[1][0] / st.servePts[1][1] : null];
+  }
+  return { ...tennisLive(P, base, st), read };
+}
+
+// src/live/tennis-weights.json
+var tennis_weights_default = {
+  outcome: {
+    ace: 1,
+    double_fault: 1.2,
+    service_winner: 1,
+    winner: 1,
+    unforced_error: 1.2,
+    forced_error: 1,
+    unknown: 1
+  },
+  recent: 0,
+  pointW: null,
+  formSd: 0.165,
+  setSd: 0.24,
+  builtAt: "2026-11-11",
+  source: "Match Charting Project (CC BY-NC-SA 4.0) \u2014 essais personnels uniquement, \xE0 r\xE9apprendre avec les donn\xE9es sous licence avant mise en ligne"
+};
+
 // src/live/api.ts
+var WEIGHTS = process.env.LIVE_TENNIS_WEIGHTS === "mcp" ? { outcome: { ...NEUTRAL_WEIGHTS.outcome, ...tennis_weights_default.outcome }, recent: tennis_weights_default.recent ?? 0 } : NEUTRAL_WEIGHTS;
 var REPO = process.env.GH_REPO ?? "mhdeezzi/razzia";
 var TOKEN = (process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN ?? process.env.GH_PAT ?? "").trim();
 var LIVE = { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" };
@@ -882,13 +1561,21 @@ async function footList() {
     return { ...m, pre: src, p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), comeback: o.comeback && { ...o.comeback, draw: r3(o.comeback.draw), win: r3(o.comeback.win) } };
   }));
 }
+async function extraStats(sport, home, away) {
+  const extra = await enrich(sport, { home, away });
+  if (!extra) return void 0;
+  const book = bookOf(sport, extra.match.stats);
+  return { source: extra.source, stats: book.all.map((s) => ({ key: s.key, name: s.name, group: s.group, side: s.side, period: s.period, value: s.v.value, made: s.v.made, att: s.v.att, raw: s.v.raw, known: s.known })), events: extra.match.events };
+}
 async function footOne(id) {
   const d = await fotmobMatch(id);
   const { pre, src } = await footPre(id);
   const o = footNow(pre, d.timeline);
+  const more = await extraStats("foot", d.home.name, d.away.name);
   return {
     ...d,
     pre: src,
+    more,
     engine: {
       minute: o.minute,
       score: o.score,
@@ -910,9 +1597,11 @@ async function nbaOne(id) {
   const d = await espnNbaGame(id);
   const { pre, src } = await nbaPre(d.date, d.away, d.home, d.market);
   const o = nbaNow(pre, d.st);
+  const more = await extraStats("nba", d.home, d.away);
   return {
     ...d,
     pre: { ...pre, src },
+    more,
     engine: {
       win: r3a(o.win),
       margin: o.margin,
@@ -949,6 +1638,20 @@ async function tennisOne(m) {
   const o = tennisNow(p0, surface, m.st, tennisBase.get(k));
   tennisBase.set(k, o.base);
   if (tennisBase.size > 300) tennisBase.clear();
+  const extra = await enrich("tennis", { home: m.players[0], away: m.players[1] });
+  if (extra) {
+    const t = extra.match.tennis ?? {};
+    const book = bookOf("tennis", extra.match.stats);
+    const pointLog = t.pointLog?.length ? normalizePoints(t.pointLog) : void 0;
+    const x = tennisFromStats(o.base, { bestOf: t.bestOf ?? m.st.bestOf, sets: t.sets ?? m.st.sets, games: t.games ?? m.st.games, points: t.points, server: t.server, pointLog, stats: book }, TENNIS, WEIGHTS);
+    return {
+      ...m,
+      pre: { p0: r3(p0), surface, src },
+      source: extra.source,
+      engine: { win: r3a(x.win), form: x.form, comeback: x.comeback, setNow: x.setNow, holdNow: x.holdNow, read: x.read },
+      stats: book.all.map((s) => ({ key: s.key, name: s.name, group: s.group, side: s.side, period: s.period, value: s.v.value, made: s.v.made, att: s.v.att, raw: s.v.raw, known: s.known }))
+    };
+  }
   return { ...m, pre: { p0: r3(p0), surface, src }, engine: { win: r3a(o.win), form: o.form, comeback: o.comeback, setNow: o.setNow } };
 }
 async function GET(request) {

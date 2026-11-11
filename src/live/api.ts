@@ -6,9 +6,15 @@
 //   GET /api/live?sport=tennis&id=      -> score ESPN + moteur (vainqueur, forme du jour, set en cours, remontée)
 // Réponses mises en cache 10 s par le CDN (et servies périmées 30 s de plus pendant le rafraîchissement) : le nombre de
 // visiteurs ne change rien au nombre d'appels aux sources.
-import { footNow, nbaNow, tennisNow } from './index.ts';
+import { footNow, nbaNow, tennisNow, TENNIS } from './index.ts';
 import { espnNbaBoard, espnNbaGame, espnTennisLive, fotmobLive, fotmobMatch } from './feeds.ts';
 import type { NbaPre } from './nba.ts';
+import { bookOf, enrich, normalizePoints } from './source.ts';
+import { tennisFromStats, NEUTRAL_WEIGHTS, type PointWeights } from './stats/tennis-engine.ts';
+import mcpWeights from './tennis-weights.json' with { type: 'json' };
+
+// Poids appris sur le Match Charting Project (licence non commerciale) : seulement si LIVE_TENNIS_WEIGHTS=mcp (essais).
+const WEIGHTS: PointWeights = process.env.LIVE_TENNIS_WEIGHTS === 'mcp' ? { outcome: { ...NEUTRAL_WEIGHTS.outcome, ...mcpWeights.outcome }, recent: mcpWeights.recent ?? 0 } : NEUTRAL_WEIGHTS;
 
 const REPO = process.env.GH_REPO ?? 'mhdeezzi/razzia';
 const TOKEN = (process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN ?? process.env.GH_PAT ?? '').trim();
@@ -98,12 +104,21 @@ async function footList() {
   }));
 }
 
+/** Stats d'une source branchée pour un match foot ou NBA (affichées rangées ; le moteur garde FotMob / ESPN). */
+async function extraStats(sport: 'foot' | 'nba', home: string, away: string) {
+  const extra = await enrich(sport, { home, away });
+  if (!extra) return undefined;
+  const book = bookOf(sport, extra.match.stats);
+  return { source: extra.source, stats: book.all.map((s) => ({ key: s.key, name: s.name, group: s.group, side: s.side, period: s.period, value: s.v.value, made: s.v.made, att: s.v.att, raw: s.v.raw, known: s.known })), events: extra.match.events };
+}
+
 async function footOne(id: number) {
   const d = await fotmobMatch(id);
   const { pre, src } = await footPre(id);
   const o = footNow(pre, d.timeline);
+  const more = await extraStats('foot', d.home.name, d.away.name);
   return {
-    ...d, pre: src,
+    ...d, pre: src, more,
     engine: {
       minute: o.minute, score: o.score, p1x2: r3a(o.p1x2), nextGoal: r3a(o.nextGoal), goalSoon: r3a(o.goalSoon), remaining: r3a(o.remaining),
       over: r3a(o.over), comeback: o.comeback, hold: o.hold,
@@ -118,8 +133,9 @@ async function nbaOne(id: string) {
   const d = await espnNbaGame(id);
   const { pre, src } = await nbaPre(d.date, d.away, d.home, d.market);
   const o = nbaNow(pre, d.st);
+  const more = await extraStats('nba', d.home, d.away);
   return {
-    ...d, pre: { ...pre, src },
+    ...d, pre: { ...pre, src }, more,
     engine: {
       win: r3a(o.win), margin: o.margin, total: o.total, comeback: o.comeback, factors: o.factors,
       cover: [-10.5, -7.5, -4.5, -1.5, 1.5, 4.5, 7.5, 10.5].map((l) => ({ line: l, p: r3(o.cover(l)) })),
@@ -152,6 +168,19 @@ async function tennisOne(m: Awaited<ReturnType<typeof espnTennisLive>>[number]) 
   const o = tennisNow(p0, surface, m.st, tennisBase.get(k));
   tennisBase.set(k, o.base);
   if (tennisBase.size > 300) tennisBase.clear();
+  // Source de stats branchée (src/live/source.ts) : points et stats du match, au niveau de détail qu'elle donne.
+  const extra = await enrich('tennis', { home: m.players[0], away: m.players[1] });
+  if (extra) {
+    const t = extra.match.tennis ?? {};
+    const book = bookOf('tennis', extra.match.stats);
+    const pointLog = t.pointLog?.length ? normalizePoints(t.pointLog) : undefined;
+    const x = tennisFromStats(o.base, { bestOf: t.bestOf ?? m.st.bestOf, sets: t.sets ?? m.st.sets, games: t.games ?? m.st.games, points: t.points, server: t.server, pointLog, stats: book }, TENNIS, WEIGHTS);
+    return {
+      ...m, pre: { p0: r3(p0), surface, src }, source: extra.source,
+      engine: { win: r3a(x.win), form: x.form, comeback: x.comeback, setNow: x.setNow, holdNow: x.holdNow, read: x.read },
+      stats: book.all.map((s) => ({ key: s.key, name: s.name, group: s.group, side: s.side, period: s.period, value: s.v.value, made: s.v.made, att: s.v.att, raw: s.v.raw, known: s.known })),
+    };
+  }
   return { ...m, pre: { p0: r3(p0), surface, src }, engine: { win: r3a(o.win), form: o.form, comeback: o.comeback, setNow: o.setNow } };
 }
 

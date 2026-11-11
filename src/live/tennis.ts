@@ -15,6 +15,8 @@ export interface TennisLiveParams {
   setSd: number;
   /** Points de service gagnés en moyenne sur le circuit, par surface. */
   base: Record<string, number>;
+  /** Poids d'un point observé dans la révision de la forme (par défaut : part durable de la forme). */
+  pointW?: number;
   builtAt?: string;
 }
 export const DEFAULT_TENNIS: TennisLiveParams = { formSd: 0.165, setSd: 0.1, base: { Hard: 0.645, Clay: 0.625, Grass: 0.665, Carpet: 0.65 } };
@@ -31,6 +33,9 @@ export interface TennisState {
   server?: 0 | 1;
   /** Points gagnés au service depuis le début du match, si connus : [gagnés, joués] pour A puis pour B. */
   servePts?: [[number, number], [number, number]];
+  /** Points au service joués dans le set en cours seulement : ils révisent la variation propre à ce set (passage à vide en
+   * cours, réveil), qui ne durera pas au set suivant. */
+  curSetPts?: [[number, number], [number, number]];
   /** Set décisif joué avec un super jeu décisif à 10 points (Grand Chelem depuis 2022) : true par défaut en 5 sets. */
   superTb?: boolean;
 }
@@ -225,17 +230,29 @@ function winFrom(P: TennisLiveParams, pA: number, pB: number, st: TennisState, a
   }
   const g = st.games ?? [0, 0];
   if (!st.games && !st.points) return series(s, last, need, sa, sb);
-  // Set en cours : sa propre variation (déjà commencée), moyennée elle aussi.
-  let cur = 0;
-  for (const [z, w] of P.setSd ? N_SET : [[0, 1] as [number, number]]) {
+  // Set en cours : sa propre variation, révisée par les points déjà joués dans ce set quand on les a.
+  let cur = 0, tw = 0;
+  const cp = st.curSetPts;
+  for (const [z, w0] of P.setSd ? N_SET : [[0, 1] as [number, number]]) {
     const a = Sg(Lg(pA) + P.setSd * z), b = Sg(Lg(pB) - P.setSd * z);
+    const w = cp ? w0 * Math.exp(cp[0][0] * Math.log(a) + (cp[0][1] - cp[0][0]) * Math.log(1 - a) + cp[1][0] * Math.log(b) + (cp[1][1] - cp[1][0]) * Math.log(1 - b)) : w0;
     cur += w * setFrom(a, b, g[0], g[1], aServesNow, tbNow, st.points);
+    tw += w;
   }
+  cur = tw > 0 ? cur / tw : cur;
   return cur * series(s, last, need, sa + 1, sb) + (1 - cur) * series(s, last, need, sa, sb + 1);
 }
 
 /** Vraisemblance de ce qu'on a vu, à forme fixée : scores des sets joués (serveur du 1er jeu du match inconnu). */
 function likelihood(P: TennisLiveParams, pA: number, pB: number, st: TennisState): number {
+  // Points au service connus : ils contiennent tout ce que disent les scores des sets (inutile de compter deux fois). Une
+  // partie de l'écart observé est propre au set (passage à vide) et ne dure pas : les points comptent pour la part durable
+  // de la forme, formSd² / (formSd² + setSd²), sauf réglage appris (pointW).
+  if (st.servePts && st.servePts[0][1] + st.servePts[1][1] >= 8) {
+    const k = P.pointW ?? P.formSd ** 2 / (P.formSd ** 2 + P.setSd ** 2);
+    const [[wa, na], [wb, nb]] = st.servePts;
+    return Math.exp(k * (wa * Math.log(pA) + (na - wa) * Math.log(1 - pA) + wb * Math.log(pB) + (nb - wb) * Math.log(1 - pB)));
+  }
   let total = 0;
   for (const aFirst of [true, false]) {
     let lik = 1, aSrv = aFirst;

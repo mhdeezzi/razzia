@@ -20,7 +20,9 @@
     "dev": "vite",
     "flashscore": "node src/cli/flashscore.ts",
     "test:flashscore": "node --test src/live/flashscore.test.ts",
-    "build:live-api": "node scripts/build-live-api.mjs"
+    "build:live-api": "node scripts/build-live-api.mjs",
+    "test:live-stats": "node --test src/live/stats/stats.test.ts",
+    "live:tennis-stats": "node src/cli/livetennisstats.ts"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
