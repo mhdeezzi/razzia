@@ -11,10 +11,12 @@ import { WarpBg } from './shaders.tsx';
 import { PublicRecord } from './record.tsx';
 import { DayTracker, ended, publishing, Section, useDayRun, type DayCfg } from './tennis.tsx';
 import type { Category, Outcome } from './picks.ts';
+import { usePrices } from './useodds.ts';
+import { footMarket, resultTarget, withFootPrices } from './oddsdata.ts';
 
 // ——— Données ———
 interface Team { id: number; name: string; logo?: string; form?: number; att?: number }
-interface Odds { h: number; d: number; a: number; over25?: number; under25?: number; src?: string }
+interface Odds { at?: string; h: number; d: number; a: number; over25?: number; under25?: number; src?: string }
 type Tier = 'sure' | 'normal' | 'risky' | 'flip';
 export interface FootResult {
   sport: 'foot'; id: string; lg: number; league: string; round?: string; start: string; day: string;
@@ -193,7 +195,13 @@ const LG_BONUS: Record<number, number> = { 42: 3, 53: 1.5, 47: 0.35, 87: 0.3, 55
 const score = (m: SlateMatch) => pop(m.home.id) + pop(m.away.id) + (pop(m.home.id) >= 2 && pop(m.away.id) >= 2 ? 1 : 0) + (LG_BONUS[m.lg] ?? 0);
 
 export function FootSchedulePage({ day }: { day: string | null }) {
-  const [data, setData] = useState<Slate | undefined>(() => slateLast);
+  const [baseData, setData] = useState<Slate | undefined>(() => slateLast);
+  const prices = usePrices('foot', (baseData?.matches ?? []).map((m) => ({ id: m.id, home: m.home.name, away: m.away.name, start: m.start, state: m.state })));
+  const data = useMemo(() => baseData && ({ ...baseData, matches: baseData.matches.map((m) => {
+    const current = prices.get(m.id), odds = footMarket(current, m.odds?.at);
+    const state = current?.sourceId && current.state !== 'pre' ? current.state : m.state;
+    return odds || state !== m.state ? { ...m, state, odds: odds ?? m.odds } : m;
+  }) }), [baseData, prices]);
   const [error, setError] = useState<string>();
   const [view, setView] = useState<View>(storedView);
   const [status, setStatus] = useEntryState<Status>('statut', 'pre');
@@ -646,6 +654,9 @@ function FootHero({ id, r }: { id: string; r?: FootResult }) {
 
 export function FootMatchPage({ id }: { id: string }) {
   const { state, busy, launch, since } = useFootSim(id);
+  const original = state.status === 'done' ? state.result : undefined;
+  const prices = usePrices('foot', original ? [resultTarget(original)] : [], 5000);
+  const result = original && withFootPrices(original, prices.get(String(original.id)));
   // Match déjà commencé (programme du jour) : plus de bouton pour le simuler.
   const [started, setStarted] = useState(false);
   useEffect(() => {
@@ -656,9 +667,9 @@ export function FootMatchPage({ id }: { id: string }) {
       <Link href="/" back className="back">
         <ArrowLeft size={16} /> Programme Football
       </Link>
-      {state.status !== 'loading' && <FootHero id={id} r={state.status === 'done' ? state.result : undefined} />}
+      {state.status !== 'loading' && <FootHero id={id} r={result} />}
       {state.status === 'loading' && <span className="sk sk-hero" aria-busy="true" />}
-      {state.status === 'done' && <FootResults r={state.result} />}
+      {result && <FootResults r={result} />}
       {(state.status === 'queued' || state.status === 'running') && (
         <SimProgress
           queued={state.status === 'queued'}
@@ -911,6 +922,7 @@ function FootResults({ r }: { r: FootResult }) {
         </Section>
         {r.h2h && r.h2h.length > 0 && <H2H r={r} />}
         <p className="footnote">
+          {r.market?.odds.at ? `Cotes affichées : ${r.market.odds.src}, données de ${new Date(r.market.odds.at).toLocaleTimeString('fr-FR')}. ` : ''}
           Données jusqu'au {new Date(r.meta.builtAt).toLocaleDateString('fr-FR')} : {r.meta.gamesUsed.toLocaleString('fr-FR')} matchs (FotMob : buts, xG, tirs, compositions)
           {r.market ? `, cotes ${r.market.src === 'pinnacle' ? 'Pinnacle' : 'moyennes'} (football-data)` : ''}. Probabilité Razzia : 80 % marché, 20 % moteur en championnat quand une cote
           existe, moteur seul sinon. Les probabilités décrivent le modèle, pas une certitude. Jouer comporte des risques.

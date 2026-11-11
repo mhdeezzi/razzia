@@ -15,6 +15,8 @@ export interface Team {
 
 export interface Odds {
   provider?: string;
+  updated?: string;
+  source?: string;
   spreadHome?: number;
   total?: number;
   mlHome?: number;

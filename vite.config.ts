@@ -13,7 +13,8 @@ function localApi(): Plugin {
         const m = req.url?.match(/^\/api\/([a-z]+)/);
         if (!m) return next();
         try {
-          const entry = m[1] === 'flashscore' ? resolve(root, 'src/live/flashscore-api.ts') : resolve(root, 'api', `${m[1]}.ts`);
+          const source: Record<string, string> = { flashscore: 'src/live/flashscore-api.ts', live: 'src/live/api.ts', cotes: 'src/odds/api.ts' };
+          const entry = source[m[1]] ? resolve(root, source[m[1]]) : resolve(root, 'api', `${m[1]}.ts`);
           const mod = await server.ssrLoadModule(entry);
           const handler = mod[req.method ?? 'GET'];
           if (!handler) return next();

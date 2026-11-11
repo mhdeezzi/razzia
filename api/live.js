@@ -1427,7 +1427,7 @@ function parseLiveOdds(feed, match, query, names = /* @__PURE__ */ new Map()) {
   if (!quotes.length && !explicitEmpty) throw new Error("Structure du march\xE9 live non reconnue");
   return quotes;
 }
-async function readOdds(match, request) {
+async function readOdds(match, request, options = {}) {
   const feeds = {}, errors = {};
   const quotes = [];
   let liveMarkets = 0, liveReads = 0;
@@ -1455,6 +1455,8 @@ async function readOdds(match, request) {
         const item = obj(entry);
         if (!item || typeof item.bettingType !== "string" || typeof item.bettingScope !== "string") throw new Error("Menu de march\xE9s live invalide");
         if (item.isActive === false || !array(item.types, "liveMenu.types").includes("LIVE")) continue;
+        if (options.liveMarkets && !options.liveMarkets.includes(item.bettingType)) continue;
+        if (options.liveScopes && !options.liveScopes.includes(item.bettingScope)) continue;
         for (const book of array(item.bookmakerIds, "liveMenu.bookmakerIds")) {
           const id = idOf(book), key2 = "live:" + id + ":" + item.bettingType + ":" + item.bettingScope;
           jobs.set(key2, { hash: "ole2", eventId: match.id, bookmakerId: id, market: item.bettingType, scope: item.bettingScope });
@@ -1782,8 +1784,8 @@ var Flashscore = class {
       this.oddsPending.delete(key2);
     }
   }
-  async odds(match) {
-    const result = await readOdds(match, (query) => this.oddsFeed(query));
+  async odds(match, options = {}) {
+    const result = await readOdds(match, (query) => this.oddsFeed(query), options);
     return { ...result, retryAfterMs: this.oddsRetryAfterMs() };
   }
   async detail(match, board, options = {}) {

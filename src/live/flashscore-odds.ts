@@ -5,6 +5,8 @@ export interface OddsQuery {
   hash: 'oce' | 'lobtm' | 'ole2'; eventId: string;
   bookmakerId?: number; market?: string; scope?: string;
 }
+/** Le comparateur rapide peut limiter les lectures live ; le collecteur complet garde tous les marchés par défaut. */
+export interface OddsReadOptions { liveMarkets?: readonly string[]; liveScopes?: readonly string[] }
 export interface OddsQuote {
   kind: 'bookmaker'; label: 'Cote'; phase: 'prematch' | 'live';
   bookmakerId: number; bookmakerName: string | null;
@@ -135,7 +137,7 @@ export function parseLiveOdds(feed: Feed, match: Match, query: OddsQuery, names 
   return quotes;
 }
 
-export async function readOdds(match: Match, request: (query: OddsQuery) => Promise<Feed>): Promise<OddsSnapshot> {
+export async function readOdds(match: Match, request: (query: OddsQuery) => Promise<Feed>, options: OddsReadOptions = {}): Promise<OddsSnapshot> {
   const feeds: Record<string, Feed> = {}, errors: Record<string, string> = {};
   const quotes: OddsQuote[] = [];
   let liveMarkets = 0, liveReads = 0;
@@ -160,6 +162,8 @@ export async function readOdds(match: Match, request: (query: OddsQuery) => Prom
         const item = obj(entry);
         if (!item || typeof item.bettingType !== 'string' || typeof item.bettingScope !== 'string') throw new Error('Menu de marchés live invalide');
         if (item.isActive === false || !array(item.types, 'liveMenu.types').includes('LIVE')) continue;
+        if (options.liveMarkets && !options.liveMarkets.includes(item.bettingType)) continue;
+        if (options.liveScopes && !options.liveScopes.includes(item.bettingScope)) continue;
         for (const book of array(item.bookmakerIds, 'liveMenu.bookmakerIds')) {
           const id = idOf(book), key = 'live:' + id + ':' + item.bettingType + ':' + item.bettingScope;
           jobs.set(key, { hash: 'ole2', eventId: match.id, bookmakerId: id, market: item.bettingType, scope: item.bettingScope });

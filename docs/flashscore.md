@@ -74,6 +74,10 @@ pas le robot CLI en continu. Les données collectées ne relancent jamais une si
 
 ## Cotes bookmaker
 
+Le lecteur rapide est aussi raccordé aux fournisseurs de cotes de l'application (programmes,
+fiches et vérification du ticket), avec une API dédiée `/api/cotes`. Cadences, cache payant,
+critères de fraîcheur et limites d'hébergement : [cotes.md](cotes.md).
+
 Le robot utilise l'interface publique JSON de comparaison des cotes et, en direct, le menu des
 marchés publié par Flashscore. Il lit les marchés live actifs et leurs bookmakers annoncés, sans
 tronquer la liste. La disponibilité dépend du match, de la couverture et du contexte géographique

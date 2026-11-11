@@ -1,6 +1,6 @@
 // Lecture des flux publics Flashscore. Les identifiants sont propres à Flashscore : ne jamais les
 // confondre avec ceux de FotMob/ESPN ou relancer une simulation d'avant-match depuis ces données.
-import { oddsData, readOdds, type OddsQuery, type OddsSnapshot } from './flashscore-odds.ts';
+import { oddsData, readOdds, type OddsQuery, type OddsSnapshot, type OddsReadOptions } from './flashscore-odds.ts';
 export const SPORTS = ['foot', 'tennis', 'nba'] as const;
 export type Sport = typeof SPORTS[number];
 export type Fields = Array<[string, string]>;
@@ -341,8 +341,8 @@ export class Flashscore {
     try { return await pending; } finally { this.oddsPending.delete(key); }
   }
 
-  async odds(match: Match): Promise<OddsSnapshot> {
-    const result = await readOdds(match, (query) => this.oddsFeed(query));
+  async odds(match: Match, options: OddsReadOptions = {}): Promise<OddsSnapshot> {
+    const result = await readOdds(match, (query) => this.oddsFeed(query), options);
     return { ...result, retryAfterMs: this.oddsRetryAfterMs() };
   }
 

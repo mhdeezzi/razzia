@@ -22,6 +22,7 @@
     "test:flashscore": "node --test src/live/flashscore.test.ts src/live/flashscore-odds.test.ts",
     "build:live-api": "node scripts/build-live-api.mjs",
     "test:live-stats": "node --test src/live/stats/stats.test.ts src/live/sources/flashscore.test.ts",
+    "test:odds": "node --test src/odds/odds.test.ts",
     "live:tennis-stats": "node src/cli/livetennisstats.ts"
   },
   "devDependencies": {
