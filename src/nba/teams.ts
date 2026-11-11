@@ -12,7 +12,7 @@ export const TEAMS: TeamInfo[] = [
   { id: 1610612737, tri: 'ATL', city: 'Atlanta', name: 'Hawks', color: '#E03A3E', color2: '#C1D32F' },
   { id: 1610612738, tri: 'BOS', city: 'Boston', name: 'Celtics', color: '#007A33', color2: '#BA9653' },
   { id: 1610612751, tri: 'BKN', city: 'Brooklyn', name: 'Nets', color: '#3A3A3A', color2: '#FFFFFF' },
-  { id: 1610612766, tri: 'CHA', city: 'Charlotte', name: 'Hornets', color: '#1D1160', color2: '#00788C' },
+  { id: 1610612766, tri: 'CHA', city: 'Charlotte', name: 'Hornets', color: '#00788C', color2: '#1D1160' },
   { id: 1610612741, tri: 'CHI', city: 'Chicago', name: 'Bulls', color: '#CE1141', color2: '#000000' },
   { id: 1610612739, tri: 'CLE', city: 'Cleveland', name: 'Cavaliers', color: '#860038', color2: '#FDBB30' },
   { id: 1610612742, tri: 'DAL', city: 'Dallas', name: 'Mavericks', color: '#00538C', color2: '#B8C4CA' },
@@ -37,7 +37,7 @@ export const TEAMS: TeamInfo[] = [
   { id: 1610612758, tri: 'SAC', city: 'Sacramento', name: 'Kings', color: '#5A2D81', color2: '#63727A' },
   { id: 1610612759, tri: 'SAS', city: 'San Antonio', name: 'Spurs', color: '#8A8D8F', color2: '#000000' },
   { id: 1610612761, tri: 'TOR', city: 'Toronto', name: 'Raptors', color: '#CE1141', color2: '#000000' },
-  { id: 1610612762, tri: 'UTA', city: 'Utah', name: 'Jazz', color: '#002B5C', color2: '#F9A01B' },
+  { id: 1610612762, tri: 'UTA', city: 'Utah', name: 'Jazz', color: '#4E2A84', color2: '#FFFFFF' },
   { id: 1610612764, tri: 'WAS', city: 'Washington', name: 'Wizards', color: '#002B5C', color2: '#E31837' },
 ];
 

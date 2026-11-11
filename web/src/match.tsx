@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, ArrowSquareOut, Basketball, Check, Clock, FirstAidKit, MapPin, WarningCircle } from '@phosphor-icons/react';
 import {
-  dayLong, line, listSims, loadProgramme, odds, pending, simKey, simStatus, startSim, teamColor, timeLocal,
+  dayLong, line, listSims, loadProgramme, odds, pending, simKey, simStatus, startSim, nbaPair, teamColor, timeLocal,
   type Game, type Injury, type Programme, type SimState,
 } from './data.ts';
 import { Results } from './results.tsx';
@@ -116,6 +116,7 @@ function Match({ g, injuries, prices }: { g: Game; injuries: Record<string, Inju
 }
 
 function Hero({ g }: { g: Game }) {
+  const pair = nbaPair(g.away, g.home);
   const team = (side: 'away' | 'home') => (
     <div className={`hero-team ${side}`}>
       <TeamMark team={g[side]} size="xl" />
@@ -134,8 +135,8 @@ function Hero({ g }: { g: Game }) {
     </div>
   );
   return (
-    <header className="hero mesh mesh-teams has-shader" style={{ '--away': teamColor(g.away), '--home': teamColor(g.home) } as CSSProperties}>
-      <WarpBg c1={glow(teamColor(g.away))} c2={glow(teamColor(g.home))} />
+    <header className="hero mesh mesh-teams has-shader" style={{ '--away': pair.away, '--home': pair.home } as CSSProperties}>
+      <WarpBg c1={glow(pair.away)} c2={glow(pair.home)} />
       <div className="hero-meta">
         <span>
           <Basketball size={15} /> NBA

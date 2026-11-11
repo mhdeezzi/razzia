@@ -7,7 +7,7 @@ import { starsOut } from './stars.ts';
 import type { Leg } from './suivi.ts';
 import { FollowBtn } from './follow.tsx';
 import { MoneyFlow } from './money.tsx';
-import { line, matchPath, n1, noVig, pct, pct0, teamColor, type Game, type Result } from './data.ts';
+import { line, matchPath, n1, noVig, pct, pct0, nbaPair, teamColor, type Game, type Result } from './data.ts';
 import { buildCategories, calOT, EARLY_GAMES, gamesPlayed, isFlip, ladder, MIN_ODDS, orderCats, SAFE_COVER, SURE, type Category, type Outcome } from './picks.ts';
 import { TypicalGame } from './typical.tsx';
 import { ShotProfile } from './court.tsx';
@@ -26,7 +26,7 @@ export const marbleVars = (c: { home: string; away: string }, homeFav: boolean) 
 export function Results({ r, g, onRelaunch, busy }: { r: Result; g: Game; onRelaunch: () => void; busy: boolean }) {
   // Couleurs des équipes, comme le marbre de l'en-tête : barres de stats et ronds animés aux couleurs des camps.
   const pH = r.market?.blendedHome ?? r.pHome;
-  const sides = useMemo(() => ({ home: glow(teamColor(g.home)), away: glow(teamColor(g.away)) }), [g]);
+  const sides = useMemo(() => { const c = nbaPair(g.away, g.home); return { home: glow(c.home), away: glow(c.away) }; }, [g]);
   return (
     <SideColors.Provider value={sides}>
     <div className="results team-marble" style={marbleVars(sides, pH >= 0.5)}>

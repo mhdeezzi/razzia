@@ -220,6 +220,33 @@ export const teamLogo = (tri: string) => `https://a.espncdn.com/i/teamlogos/nba/
 
 export const teamColor = (t: { tri: string; color?: string }) => TEAMS.find((x) => x.tri === t.tri)?.color ?? t.color ?? '#3a3d44';
 
+/** Teinte (0-360) et saturation d'une couleur #rrggbb : deux couleurs d'équipe sont « pareilles » si, une fois éclaircies
+ * pour le marbre, elles ont la même teinte (deux bleus, deux rouges) ou sont toutes deux grises. */
+function hueSat(c: string): [number, number] {
+  const n = parseInt(c.replace('#', ''), 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min, l = (max + min) / 2;
+  const s = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  const h = !d ? 0 : max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s];
+}
+const grey = (c: string) => hueSat(c)[1] <= 0.08 || ['#000000', '#ffffff'].includes(c.toLowerCase());
+export const sameHue = (a: string, b: string) => {
+  if (grey(a) || grey(b)) return grey(a) && grey(b);
+  const d = Math.abs(hueSat(a)[0] - hueSat(b)[0]);
+  return Math.min(d, 360 - d) < 24;
+};
+/** Couleurs des deux équipes d'un match NBA : jamais deux fois la même teinte. Le domicile prend sa seconde couleur,
+ * sinon l'extérieur la sienne, sinon un or (ou un bleu). */
+export function nbaPair(away: { tri: string; color?: string }, home: { tri: string; color?: string }): { away: string; home: string } {
+  const a = teamColor(away), h = teamColor(home);
+  if (!sameHue(a, h)) return { away: a, home: h };
+  const h2 = TEAMS.find((x) => x.tri === home.tri)?.color2, a2 = TEAMS.find((x) => x.tri === away.tri)?.color2;
+  if (h2 && !grey(h2) && !sameHue(h2, a)) return { away: a, home: h2 };
+  if (a2 && !grey(a2) && !sameHue(a2, h)) return { away: a2, home: h };
+  return { away: a, home: sameHue(a, '#d4a017') ? '#3b6fd6' : '#d4a017' };
+}
+
 // Formats (fr-FR).
 const pctFmt = new Intl.NumberFormat('fr-FR', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const pct0Fmt = new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 0 });
