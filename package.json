@@ -19,7 +19,7 @@
     "snapshot": "node src/cli/snapshot.ts",
     "dev": "vite",
     "flashscore": "node src/cli/flashscore.ts",
-    "test:flashscore": "node --test src/live/flashscore.test.ts",
+    "test:flashscore": "node --test src/live/flashscore.test.ts src/live/flashscore-odds.test.ts",
     "build:live-api": "node scripts/build-live-api.mjs",
     "test:live-stats": "node --test src/live/stats/stats.test.ts",
     "live:tennis-stats": "node src/cli/livetennisstats.ts"

@@ -1,5 +1,6 @@
 // Lecture des flux publics Flashscore. Les identifiants sont propres à Flashscore : ne jamais les
 // confondre avec ceux de FotMob/ESPN ou relancer une simulation d'avant-match depuis ces données.
+import { oddsData, readOdds, type OddsQuery, type OddsSnapshot } from './flashscore-odds.ts';
 export const SPORTS = ['foot', 'tennis', 'nba'] as const;
 export type Sport = typeof SPORTS[number];
 export type Fields = Array<[string, string]>;
@@ -38,6 +39,7 @@ export interface Detail {
   statistics: Statistic[];
   feeds: Record<string, Feed>;
   errors: Record<string, string>;
+  odds?: OddsSnapshot;
 }
 
 /** Les champs répétés et les codes inconnus restent disponibles, dans leur ordre d'origine. */
@@ -135,12 +137,15 @@ export class Flashscore {
   private waiting: Array<() => void> = [];
   private cache = new Map<string, { at: number; feed: Feed }>();
   private pending = new Map<string, Promise<Feed>>();
+  private oddsCache = new Map<string, { at: number; feed: Feed }>();
+  private oddsPending = new Map<string, Promise<Feed>>();
   private settings?: Signature;
   private settingPending?: Promise<Signature>;
   private settingsRetryAt = 0;
   private settingsError?: unknown;
   private renewal?: { rejected: string; promise: Promise<Signature> };
   private blockedUntil = 0;
+  private oddsBlockedUntil = 0;
 
   constructor(options: ClientOptions = {}) {
     this.fetcher = options.fetch ?? fetch;
@@ -154,16 +159,28 @@ export class Flashscore {
     return Math.max(0, this.blockedUntil - this.now(), this.settings ? 0 : this.settingsRetryAt - this.now());
   }
 
+  oddsRetryAfterMs(): number { return Math.max(0, this.oddsBlockedUntil - this.now()); }
+
   private pause(error: SourceError): void {
     this.blockedUntil = Math.max(this.blockedUntil, this.now() + error.retryAfterMs);
   }
 
-  private async request(url: string, headers: Record<string, string> | (() => Record<string, string>) = {}, mayRefresh = false, settingsRequest = false): Promise<Feed> {
+  private async request(url: string, headers: Record<string, string> | (() => Record<string, string>) = {}, mayRefresh = false, settingsRequest = false, oddsRequest = false): Promise<Feed> {
     if (this.active >= this.concurrency) await new Promise<void>((resolve) => settingsRequest ? this.waiting.unshift(resolve) : this.waiting.push(resolve));
     else this.active++;
     try {
-      if (this.now() < this.blockedUntil) throw new SourceError('Flashscore en pause après un refus ou une limite de débit', 429, this.blockedUntil - this.now());
+      const blockedUntil = oddsRequest ? this.oddsBlockedUntil : this.blockedUntil;
+      if (this.now() < blockedUntil) throw new SourceError('Flashscore en pause après un refus ou une limite de débit', 429, blockedUntil - this.now());
       const response = await this.fetcher(url, { headers: typeof headers === 'function' ? headers() : headers, signal: AbortSignal.timeout(8000) });
+      if (oddsRequest && response.status === 202) {
+        const ms = Number(response.headers.get('x-retry-after-ms'));
+        const retry = response.headers.get('retry-after');
+        const retryMs = retry && /^\d+$/.test(retry) ? Number(retry) * 1000 : retry ? Date.parse(retry) - this.now() : 0;
+        const wait = Math.max(Number.isFinite(ms) && ms > 0 ? ms : 5000, Number.isFinite(retryMs) ? retryMs : 0);
+        this.oddsBlockedUntil = Math.max(this.oddsBlockedUntil, this.now() + wait);
+        await response.body?.cancel().catch(() => undefined);
+        throw new SourceError('Cotes Flashscore en préparation', 202, wait);
+      }
       if (!response.ok) {
         const retry = response.headers.get('retry-after');
         const delay = retry && /^\d+$/.test(retry) ? Number(retry) * 1000 : retry ? Date.parse(retry) - this.now() : 60_000;
@@ -173,7 +190,10 @@ export class Flashscore {
         const refreshable = mayRefresh && [401, 403].includes(response.status) && retry == null;
         const error = new SourceError('Flashscore : HTTP ' + response.status, response.status, retryAfterMs, refreshable);
         // La page de configuration a sa propre pause : son indisponibilité ne révoque pas une clé encore valide.
-        if (!settingsRequest && !refreshable && ([401, 403, 429].includes(response.status) || retry != null)) this.pause(error);
+        if (!settingsRequest && !refreshable && ([401, 403, 429].includes(response.status) || retry != null)) {
+          if (oddsRequest) this.oddsBlockedUntil = Math.max(this.oddsBlockedUntil, this.now() + retryAfterMs);
+          else this.pause(error);
+        }
         await response.body?.cancel().catch(() => undefined);
         throw error;
       }
@@ -244,7 +264,7 @@ export class Flashscore {
         return { 'x-fsign': signature.sign, Referer: 'https://www.flashscore.com/' };
       }, mayRefresh);
       // Une page HTML/une erreur JSON servie en HTTP 200 n'est pas un tableau de scores vide.
-      if (feed.raw.trim() && !/^[A-Z][A-Z0-9]*÷/.test(feed.raw.trim())) {
+      if (feed.raw.trim() && !/^~*[A-Z][A-Z0-9]*÷/.test(feed.raw.trim())) {
         const error = new SourceError('Réponse Flashscore inattendue (flux remplacé par une page ou une erreur)', 502, 60_000, mayRefresh);
         if (!mayRefresh) this.pause(error);
         throw error;
@@ -289,7 +309,44 @@ export class Flashscore {
     return parseBoard(sport, await this.feed('f_' + id + '_0_3_en_1'));
   }
 
-  async detail(match: Match, board: Board): Promise<Detail> {
+  private async oddsFeed(query: OddsQuery): Promise<Feed> {
+    if (!/^[a-zA-Z0-9]{8}$/.test(query.eventId) || !['oce', 'lobtm', 'ole2'].includes(query.hash)) throw new Error('Requête de cotes invalide');
+    const params = new URLSearchParams({ _hash: query.hash, eventId: query.eventId });
+    if (query.hash === 'ole2') {
+      if (!Number.isSafeInteger(query.bookmakerId) || query.bookmakerId! <= 0 || !/^[A-Z0-9_]{1,80}$/.test(query.market ?? '') || !/^[A-Z0-9_]{1,80}$/.test(query.scope ?? '')) throw new Error('Marché live invalide');
+      params.set('bookmakerId', String(query.bookmakerId));
+      params.set('betType', query.market!); params.set('betScope', query.scope!);
+    } else {
+      params.set('projectId', '2'); params.set('geoIpCode', ''); params.set('geoIpSubdivisionCode', '');
+    }
+    const key = 'odds:' + params;
+    const cached = this.oddsCache.get(key);
+    if (cached && this.now() - cached.at < this.ttlMs) return cached.feed;
+    const existing = this.oddsPending.get(key);
+    if (existing) return existing;
+    const pending = (async () => {
+      try {
+        const origin = query.hash === 'oce' ? 'https://global.ds.lsapp.eu/odds/pq_graphql' : 'https://2.ds.lsapp.eu/pq_graphql';
+        const feed = await this.request(origin + '?' + params, { Accept: 'application/json' }, false, false, true);
+        oddsData(feed, query.hash === 'oce' ? 'findOddsByEventId' : query.hash === 'lobtm' ? 'getLiveOddsBettingTypeMenu' : 'findLiveOddsForBookmaker');
+        this.oddsCache.set(key, { at: this.now(), feed });
+        if (this.oddsCache.size > 1000) this.oddsCache.delete(this.oddsCache.keys().next().value!);
+        return feed;
+      } catch (error) {
+        if (cached && this.now() - cached.at <= STALE_MS) return { ...cached.feed, stale: true, staleReason: error instanceof Error ? error.message : 'Cotes indisponibles' };
+        throw error;
+      }
+    })();
+    this.oddsPending.set(key, pending);
+    try { return await pending; } finally { this.oddsPending.delete(key); }
+  }
+
+  async odds(match: Match): Promise<OddsSnapshot> {
+    const result = await readOdds(match, (query) => this.oddsFeed(query));
+    return { ...result, retryAfterMs: this.oddsRetryAfterMs() };
+  }
+
+  async detail(match: Match, board: Board, options: { odds?: boolean } = {}): Promise<Detail> {
     if (!/^[a-zA-Z0-9]{8}$/.test(match.id)) throw new Error('Identifiant Flashscore invalide');
     const id = match.id;
     const names: Record<string, string> = {
@@ -310,10 +367,12 @@ export class Flashscore {
       }
       catch (e) { errors[kind] = e instanceof Error ? e.message : 'Flux indisponible'; }
     }));
+    const odds = options.odds ? await this.odds(match) : undefined;
+    if (odds && !odds.complete) errors.odds = Object.values(odds.errors).join('; ');
     return {
       source: 'flashscore', match, boardFetchedAt: board.fetchedAt, boardAgeSeconds: board.ageSeconds, boardStale: board.stale,
       collectedAt: new Date(this.now()).toISOString(), complete: !Object.keys(errors).length,
-      statistics: parseStatistics(feeds.statistics?.raw ?? ''), feeds, errors,
+      statistics: parseStatistics(feeds.statistics?.raw ?? ''), feeds, errors, ...(odds ? { odds } : {}),
     };
   }
 }
@@ -324,7 +383,7 @@ export interface Snapshot {
 }
 
 /** Inclut une dernière lecture des matchs qui viennent de finir ; aucun recalcul d'avant-match. */
-export async function collect(client: Flashscore, sports: Sport[], ids?: Set<string>, previous = new Set<string>()): Promise<Snapshot> {
+export async function collect(client: Flashscore, sports: Sport[], ids?: Set<string>, previous = new Set<string>(), options: { odds?: boolean; prematch?: boolean } = {}): Promise<Snapshot> {
   const started = Date.now();
   const boards: Partial<Record<Sport, Board>> = {}, errors: Record<string, string> = {};
   await Promise.all(sports.map(async (sport) => {
@@ -338,13 +397,13 @@ export async function collect(client: Flashscore, sports: Sport[], ids?: Set<str
   const matches: Detail[] = [];
   // Traite quatre matchs à la fois : pas de milliers de promesses/requêtes en file un soir chargé.
   const jobs = Object.values(boards).flatMap((board) => board.matches.filter((m) =>
-    (!ids || ids.has(m.id)) && (m.state === 'in' || (m.state === 'post' && previous.has(m.sport + ':' + m.id))),
+    (!ids || ids.has(m.id)) && (m.state === 'in' || (m.state === 'pre' && options.prematch) || (m.state === 'post' && previous.has(m.sport + ':' + m.id))),
   ).map((match) => ({ match, board })));
   let index = 0;
   await Promise.all(Array.from({ length: Math.min(4, jobs.length) }, async () => {
     while (index < jobs.length) {
       const { match, board } = jobs[index++];
-      matches.push(await client.detail(match, board));
+      matches.push(await client.detail(match, board, options));
     }
   }));
   matches.sort((a, b) => (a.match.sport + a.match.id).localeCompare(b.match.sport + b.match.id));

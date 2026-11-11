@@ -4,10 +4,10 @@ import { Flashscore, SourceError, SPORTS, type Sport } from './flashscore.ts';
 export function flashscoreApi(client = new Flashscore()) {
   return async (request: Request): Promise<Response> => {
     const params = new URL(request.url).searchParams;
-    const sport = params.get('sport'), id = params.get('id');
+    const sport = params.get('sport'), id = params.get('id'), withOdds = params.get('odds');
     const headers = { 'Cache-Control': 'no-store' };
-    if ((sport != null && !SPORTS.includes(sport as Sport)) || (id != null && (!sport || !/^[a-zA-Z0-9]{8}$/.test(id)))) {
-      return Response.json({ error: 'Utiliser sport=foot|tennis|nba et un identifiant Flashscore de 8 caractères.' }, { status: 400, headers });
+    if ((sport != null && !SPORTS.includes(sport as Sport)) || (id != null && (!sport || !/^[a-zA-Z0-9]{8}$/.test(id))) || (withOdds != null && !['0', '1'].includes(withOdds)) || (withOdds === '1' && !id)) {
+      return Response.json({ error: 'Utiliser sport=foot|tennis|nba et un identifiant Flashscore de 8 caractères ; odds=1 ajoute les cotes à une fiche.' }, { status: 400, headers });
     }
     try {
       if (id && sport) {
@@ -17,7 +17,7 @@ export function flashscoreApi(client = new Flashscore()) {
           status: board.stale ? 503 : 404,
           headers: { ...headers, ...(client.retryAfterMs() ? { 'Retry-After': String(Math.ceil(client.retryAfterMs() / 1000)) } : {}) },
         });
-        const detail = await client.detail(match, board);
+        const detail = await client.detail(match, board, { odds: withOdds === '1' });
         const retry = client.retryAfterMs();
         const status = Object.keys(detail.feeds).length ? 200 : retry ? 503 : 502;
         return Response.json(detail, { status, headers: { ...headers, ...(retry ? { 'Retry-After': String(Math.ceil(retry / 1000)) } : {}) } });

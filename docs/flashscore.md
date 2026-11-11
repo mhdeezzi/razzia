@@ -22,10 +22,14 @@ npm run flashscore -- --once
 npm run flashscore -- --interval=5000
 npm run flashscore -- --sports=foot,tennis,nba --interval=1000
 npm run flashscore -- --sports=tennis --ids=Oh3fgg23 --once
+npm run flashscore -- --prematch --ids=nXaLgXBD --once
+npm run flashscore -- --no-odds --interval=5000
 ```
 
 `--ids` limite aux identifiants Flashscore choisis. Sans filtre, tous les matchs en cours des sports
-choisis sont lus. Une dernière lecture est faite lorsque le tableau les annonce terminés.
+choisis sont lus. Les cotes sont activées par défaut (`--no-odds` pour ne lire que les statistiques).
+`--prematch` inclut aussi les matchs à venir, à limiter avec `--ids` si l'on souhaite suivre seulement
+quelques rencontres. Une dernière lecture est faite lorsque le tableau les annonce terminés.
 Le fichier `data/cache/flashscore/latest.json` est remplacé atomiquement après chaque passage ;
 `--output=/chemin/latest.json` permet de choisir un autre emplacement. Ce répertoire est ignoré par Git.
 Les journaux indiquent le nombre de matchs, les erreurs et si le passage a dépassé l'intervalle.
@@ -45,6 +49,7 @@ Après déploiement Vercel :
 GET /api/flashscore                         tableaux des matchs en cours des trois sports
 GET /api/flashscore?sport=nba               tableau NBA en cours
 GET /api/flashscore?sport=tennis&id=Oh3fgg23  données complètes d'un match du tableau du jour
+GET /api/flashscore?sport=tennis&id=Oh3fgg23&odds=1  même fiche, avec cotes bookmaker
 ```
 
 L'API lit Flashscore à la demande. Elle est aussi servie par `npm run dev` en local.
@@ -58,6 +63,47 @@ Les identifiants Flashscore alphanumériques ne sont pas les identifiants ESPN/F
 dans `/api/live`. Cette API constitue la source de données Flashscore ; elle ne remplace pas la page
 live actuelle et ne rapproche pas automatiquement les matchs avec les simulations Razzia.
 Les données collectées ne relancent jamais une simulation d'avant-match.
+
+## Cotes bookmaker
+
+Le robot utilise l'interface publique JSON de comparaison des cotes et, en direct, le menu des
+marchés publié par Flashscore. Il lit les marchés live actifs et leurs bookmakers annoncés, sans
+tronquer la liste. La disponibilité dépend du match, de la couverture et du contexte géographique
+appliqué par Flashscore au serveur. Les flux JSON ne demandent pas de signature `x-fsign`.
+
+Sur une fiche API, `odds=1` demande ces lectures supplémentaires. La liste générale reste légère :
+elle ne lance pas les lectures de cotes de tous les matchs pour chaque visiteur. Le CLI lit les
+cotes par défaut. `detail.odds` contient :
+
+- `quotes` : bookmaker (identifiant et nom si fourni), phase `prematch`/`live`, marché, période,
+  issue, participant, handicap/seuil, `odds`, `openingOdds` et `previousOdds` lorsqu'ils existent ;
+- `status` sur chaque cote : `active`, `suspended`, `unknown`, `historical` ou `stale`. Une cote
+  d'avant-match reste `prematch` et devient `historical` après le coup d'envoi, même si le bookmaker
+  propose aussi du live. Une cote absente reste `null` ; elle n'est jamais inventée ou remplacée par 0 ;
+- `fetchedAt` et `ageSeconds` sur chaque cote : moment de lecture et âge du cache HTTP. Ce n'est pas
+  la date de mise à jour chez le bookmaker, que la source ne fournit pas toujours ;
+- `feeds` : réponses JSON intégrales avec leurs métadonnées, pour conserver aussi les champs non
+  interprétés ; `errors` et `complete` signalent les lectures en échec ou conservées pendant une panne ;
+- `liveMarkets` et `liveReads` : nombre de requêtes live annoncées et exploitées. Un marché peut
+  répondre sans offre ou avec uniquement des sélections suspendues. Une lecture complète ne
+  signifie donc pas qu'un pari actif est disponible ;
+- `retryAfterMs` : délai restant avant la prochaine tentative de lecture des cotes en cas de limite.
+
+Les cotes décimales publiées portent `kind: bookmaker` et le libellé **Cote**. Elles restent
+distinctes des **Cotes Razzia**, calculées par le moteur. Les identifiants JA/JB du match permettent
+d'identifier les deux participants ; l'ordre des sélections n'est pas utilisé pour deviner un côté.
+Les seuils et les périodes (match, mi-temps, set, quart-temps, prolongations…) sont conservés.
+
+Une panne des cotes ne met pas les statistiques en pause : les deux services ont des temporisations
+séparées et partagent la limite de quatre requêtes simultanées. Les réponses JSON/GraphQL erronées
+ne sont pas présentées comme une absence d'offres. HTTP 202 et `x-retry-after-ms`, ainsi que HTTP
+429 et `Retry-After`, reportent les appels au service de cotes. Le CLI signale les erreurs de cotes
+séparément, sans appliquer leur ralentissement aux prochains passages de statistiques.
+
+Les lectures de cotes augmentent le nombre de requêtes par match et peuvent faire dépasser
+l'intervalle configuré. Les limites de cadence et de couverture constatées par l'audit restent
+applicables. Cette fonctionnalité ne constitue pas une extraction de toute la page Flashscore et
+ne corrige pas les autres défauts de suivi/persistance recensés lors de l'audit.
 
 ## Fraîcheur et erreurs
 
